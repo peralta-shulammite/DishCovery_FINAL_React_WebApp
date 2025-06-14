@@ -1,0 +1,168 @@
+
+
+10_pineapple
+10_tangerine
+Apple
+Bagel
+Banana
+Bitter melon
+Cucumber
+Garlic
+Green Chili
+Lady finger
+Mushroom
+Onion
+Orange
+Potato
+Sponge Gourd
+Tomato
+ampalaya
+apple
+asparagus
+avocado
+bacon
+banana
+beef
+bell pepper
+bell_pepper
+bento
+bitter gourd
+blueberries
+bok choy
+bottle
+bread
+broccoli
+butter
+cabbage
+can
+canned_tuna
+carrot
+cashew
+cauliflower
+cheese
+cherry
+chicken
+chicken breast
+chicken thigh
+chicken wing
+chicken_breast
+chilli
+chocolate
+corn
+crab
+cream-cheese
+cucumber
+dates
+egg
+egg_
+eggplant
+eggs
+fish
+fish_cake
+flour
+french_fries
+garlic
+ginger
+goat_cheese
+grapefruit
+grapes
+greated_cheese
+green chilli
+green-chillies
+green_beans
+green_onion
+ground_beef
+guacamole
+ham
+hash_brown
+heavy_cream
+humus
+juice
+ketchup
+kimchi
+kiwi
+leek
+lemon
+lettuce
+lime
+lobster tails
+mango
+marmalade
+mayonaise
+mayonnaise
+milk
+mint
+mozzarella cheese
+mushrooms
+mustard
+nacho_chips
+nuts
+olives
+onion
+orange
+oysters
+pak_choi
+parmasan_cheese
+parsley
+pasta
+pawpaw
+peach
+peanuts
+pear
+peas
+pepper
+pickles
+pimento
+pineapple
+plantains
+plasticsaveholder
+pomegranate
+pork
+pork belly
+pot
+potato
+potatoes
+pudding
+pumpkin
+radish
+red chili
+red_cabbage
+red_grapes
+red_onion
+rice
+rice_ball
+rice_cake
+salad
+salami
+salmon
+sandwich
+sausage
+sayote
+sea scallops
+seaweed
+seseme
+shrimp
+smoothie
+spinach
+spring_onion
+strawberries
+strawberry
+sugar
+sweet potato
+sweet_potato
+tangerine
+tempeh
+tofu
+tomato
+tomato_sauce
+tortillas
+tuna
+turkey
+watermelon
+white rice
+yogurt
+zucchini
+고등어 
+떡볶이떡
+소고기
+
