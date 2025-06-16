@@ -1,0 +1,567 @@
+/* Scanner Container */
+.scanner-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background-color: #e5e7eb;
+  overflow: hidden;
+}
+
+/* Camera Feed */
+.camera-feed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* No Camera Overlay */
+.no-camera-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #d1d5db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.no-camera-content {
+  text-align: center;
+  color: #6b7280;
+}
+
+.camera-emoji {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.camera-subtitle {
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+/* Header */
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: rgba(192, 192, 192, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.header-spacer {
+  flex: 1;
+}
+
+.title {
+  color: #2A5D00;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  margin: 0;
+}
+
+.header-right {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.help-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background-color: rgba(107, 114, 128, 0.7);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.help-button:hover {
+  background-color: rgba(107, 114, 128, 0.9);
+}
+
+.help-button .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Scanning Overlay */
+.scanning-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scanning-content {
+  text-align: center;
+  color: white;
+}
+
+.spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 2px solid transparent;
+  border-bottom: 2px solid white;
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.scanning-text {
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+/* Bottom Controls */
+.bottom-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
+}
+
+.controls-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+/* Scan Button */
+.scan-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #2A5D00;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.scan-button:hover {
+  background-color: #15803d;
+}
+
+.scan-button.disabled {
+  background-color: #4ade80;
+  cursor: not-allowed;
+}
+
+.scan-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Camera Button */
+.camera-button {
+  width: 3.5rem;
+  height: 3.5rem;
+  background-color: #2A5D00;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.camera-button:hover {
+  background-color: #15803d;
+}
+
+.camera-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.camera-button.disabled {
+  background-color: #4ade80;
+  cursor: not-allowed;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.modal-container {
+  background-color: white;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 48rem;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Modal Header */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.modal-title-section h2.modal-title {
+  color: #16a34a;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.modal-title-section p.modal-subtitle {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.modal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.selected-count {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.modal-close-button {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.modal-close-button:hover {
+  background-color: #e5e7eb;
+}
+
+.close-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Modal Content */
+.modal-content {
+  display: flex;
+}
+
+.modal-left {
+  width: 50%;
+  padding: 1.5rem;
+}
+
+.camera-preview {
+  background-color: #e5e7eb;
+  border-radius: 0.75rem;
+  aspect-ratio: 4/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-preview-icon {
+  width: 3rem;
+  height: 3rem;
+  color: #9ca3af;
+}
+
+.modal-right {
+  width: 50%;
+  padding: 1.5rem;
+  border-left: 1px solid #f3f4f6;
+}
+
+/* Add Ingredient Section */
+.add-ingredient-section {
+  margin-bottom: 1rem;
+}
+
+.add-ingredient-container {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.add-ingredient-input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.add-ingredient-input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.add-ingredient-button {
+  padding: 0.5rem 0.75rem;
+  background-color: #16a34a;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-ingredient-button:hover {
+  background-color: #15803d;
+}
+
+.add-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Ingredients List */
+.ingredients-list {
+  max-height: 16rem;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+}
+
+.ingredient-item {
+  padding: 0.75rem;
+  border: 2px solid;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.ingredient-item.pending {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.ingredient-item.approved {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.ingredient-item.rejected {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+}
+
+.ingredient-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ingredient-name {
+  font-weight: 500;
+  color: #111827;
+  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ingredient-description {
+  color: #6b7280;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.ingredient-reason {
+  color: #dc2626;
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0 0;
+}
+
+.ingredient-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.ingredient-status-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-approved {
+  color: #16a34a;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.status-rejected {
+  color: #dc2626;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.status-pending {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #d1d5db;
+  border-radius: 50%;
+}
+
+.remove-ingredient-button {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: color 0.2s;
+}
+
+.remove-ingredient-button:hover {
+  color: #ef4444;
+}
+
+.remove-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Generate Recipe Button */
+.generate-recipe-button {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #16a34a;
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.generate-recipe-button:hover {
+  background-color: #15803d;
+}
+
+.generate-recipe-button.disabled {
+  background-color: #d1d5db;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .header {
+    padding: 0.75rem;
+  }
+  
+  .title {
+    font-size: 1.125rem;
+  }
+  
+  .bottom-controls {
+    padding: 1rem;
+  }
+  
+  .controls-container {
+    gap: 1rem;
+  }
+  
+  .scan-button {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+  }
+  
+  .camera-button {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .modal-overlay {
+    padding: 0.5rem;
+  }
+
+  .modal-container {
+    max-width: 100%;
+  }
+
+  .modal-content {
+    flex-direction: column;
+  }
+
+  .modal-left,
+  .modal-right {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  .modal-right {
+    border-left: none;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .modal-header {
+    padding: 1rem;
+  }
+
+  .modal-header-right {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+  }
+}
