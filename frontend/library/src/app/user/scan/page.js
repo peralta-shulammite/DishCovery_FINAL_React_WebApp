@@ -2,7 +2,16 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faQuestion, faCamera, faExpand, faTimes, faPlus, faCheck, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faCamera, 
+  faQuestionCircle, 
+  faUpload, 
+  faExpand, 
+  faTimes, 
+  faPlus, 
+  faCheck, 
+  faTrash 
+} from '@fortawesome/free-solid-svg-icons';
 import './style.css';
 
 const IngredientScanner = () => {
@@ -10,16 +19,11 @@ const IngredientScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [cameraState, setCameraState] = useState('loading');
   const [showModal, setShowModal] = useState(false);
-  const [scannedIngredients, setScannedIngredients] = useState([
-    { id: 1, name: 'Tomatoes', description: 'Fresh red tomatoes', status: 'pending' },
-    { id: 2, name: 'Onions', description: 'Yellow onions, organic', status: 'rejected' },
-    { id: 3, name: 'Garlic', description: 'Fresh garlic cloves', status: 'pending' },
-    { id: 4, name: 'Olive Oil', description: 'Extra virgin olive oil', status: 'approved' },
-    { id: 5, name: 'Salt', description: 'Sea salt, fine grain', status: 'approved' },
-    { id: 6, name: 'Black Pepper', description: 'Ground black pepper', status: 'approved' }
-  ]);
+  const [scannedImage, setScannedImage] = useState(null);
+  const [scannedIngredients, setScannedIngredients] = useState([]);
   const [newIngredient, setNewIngredient] = useState('');
   const videoRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     startCamera();
@@ -47,28 +51,85 @@ const IngredientScanner = () => {
     }
   };
 
+  const captureImage = () => {
+    if (videoRef.current && cameraState === 'available') {
+      const canvas = document.createElement('canvas');
+      const video = videoRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      return canvas.toDataURL('image/jpeg');
+    }
+    return null;
+  };
+
+  const simulateIngredientDetection = () => {
+    // Simulate AI detection of ingredients - replace this with actual AI/ML integration
+    const mockDetectedIngredients = [
+      { name: 'Detected Ingredient 1', description: 'Identified from camera scan' },
+      { name: 'Detected Ingredient 2', description: 'Found in scanned image' },
+      { name: 'Detected Ingredient 3', description: 'Recognized ingredient' }
+    ];
+    
+    // Randomly select 1-3 ingredients to simulate realistic detection
+    const numIngredients = Math.floor(Math.random() * 3) + 1;
+    const selectedIngredients = mockDetectedIngredients
+      .sort(() => 0.5 - Math.random())
+      .slice(0, numIngredients);
+    
+    return selectedIngredients.map((ingredient, index) => ({
+      id: Date.now() + index,
+      name: ingredient.name,
+      description: ingredient.description,
+      status: 'unchecked'
+    }));
+  };
+
   const handleScan = () => {
     setIsScanning(true);
+    const capturedImage = captureImage();
     // Simulate scanning process
     setTimeout(() => {
       setIsScanning(false);
+      setScannedImage(capturedImage);
+      
+      // Add detected ingredients to the list
+      const detectedIngredients = simulateIngredientDetection();
+      setScannedIngredients(prev => [...prev, ...detectedIngredients]);
+      
       setShowModal(true);
     }, 2000);
   };
 
-  const handleCameraCapture = () => {
-    if (videoRef.current) {
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      context.drawImage(videoRef.current, 0, 0);
-      alert('Photo captured!');
+  const handleImageUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setScannedImage(e.target.result);
+        // Simulate processing the uploaded image
+        setIsScanning(true);
+        setTimeout(() => {
+          setIsScanning(false);
+          
+          // Add detected ingredients from uploaded image
+          const detectedIngredients = simulateIngredientDetection();
+          setScannedIngredients(prev => [...prev, ...detectedIngredients]);
+          
+          setShowModal(true);
+        }, 2000);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const handleHelp = () => {
-    alert('Point your camera at ingredient labels to scan and identify them.');
+    alert('Point your camera at ingredient labels to scan and identify them, or upload an image to analyze.');
   };
 
   const toggleIngredientStatus = (id) => {
@@ -76,10 +137,8 @@ const IngredientScanner = () => {
       prev.map(ingredient => {
         if (ingredient.id === id) {
           const currentStatus = ingredient.status;
-          let newStatus;
-          if (currentStatus === 'pending') newStatus = 'approved';
-          else if (currentStatus === 'approved') newStatus = 'rejected';
-          else newStatus = 'pending';
+          // Toggle between unchecked and checked only
+          const newStatus = currentStatus === 'unchecked' ? 'checked' : 'unchecked';
           return { ...ingredient, status: newStatus };
         }
         return ingredient;
@@ -93,20 +152,22 @@ const IngredientScanner = () => {
 
   const addIngredient = () => {
     if (newIngredient.trim()) {
-      const newId = Math.max(...scannedIngredients.map(i => i.id)) + 1;
+      const newId = scannedIngredients.length > 0 
+        ? Math.max(...scannedIngredients.map(i => i.id)) + 1 
+        : 1;
       setScannedIngredients(prev => [...prev, {
         id: newId,
         name: newIngredient.trim(),
         description: `Added manually`,
-        status: 'pending'
+        status: 'unchecked'
       }]);
       setNewIngredient('');
     }
   };
 
   const generateRecipe = () => {
-    const approvedIngredients = scannedIngredients.filter(i => i.status === 'approved');
-    alert(`Generating recipe with ${approvedIngredients.length} ingredients: ${approvedIngredients.map(i => i.name).join(', ')}`);
+    const checkedIngredients = scannedIngredients.filter(i => i.status === 'checked');
+    alert(`Generating recipe with ${checkedIngredients.length} ingredients: ${checkedIngredients.map(i => i.name).join(', ')}`);
     setShowModal(false);
   };
 
@@ -118,6 +179,15 @@ const IngredientScanner = () => {
 
   return (
     <div className="scanner-container">
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        style={{ display: 'none' }}
+      />
+
       {/* Camera Feed */}
       <video
         ref={videoRef}
@@ -142,7 +212,7 @@ const IngredientScanner = () => {
           <div className="no-camera-content">
             <div className="camera-emoji">📷</div>
             <p>Camera not available</p>
-            <p className="camera-subtitle">Please allow camera access</p>
+            <p className="camera-subtitle">Please allow camera access or upload an image</p>
           </div>
         </div>
       )}
@@ -153,7 +223,7 @@ const IngredientScanner = () => {
         <h1 className="title">Ingredient Scanner</h1>
         <div className="header-right">
           <button onClick={handleHelp} className="help-button">
-            <FontAwesomeIcon icon={faQuestion} className="icon" />
+            <FontAwesomeIcon icon={faQuestionCircle} className="icon" />
           </button>
         </div>
       </div>
@@ -163,7 +233,7 @@ const IngredientScanner = () => {
         <div className="scanning-overlay">
           <div className="scanning-content">
             <div className="spinner"></div>
-            <p className="scanning-text">Scanning ingredient...</p>
+            <p className="scanning-text">Analyzing ingredients...</p>
           </div>
         </div>
       )}
@@ -181,13 +251,13 @@ const IngredientScanner = () => {
             <span>Scan Ingredient</span>
           </button>
 
-          {/* Camera Button */}
+          {/* Upload Image Button */}
           <button 
-            onClick={handleCameraCapture} 
-            disabled={cameraState !== 'available'}
-            className={`camera-button ${cameraState !== 'available' ? 'disabled' : ''}`}
+            onClick={handleImageUpload}
+            disabled={isScanning}
+            className={`upload-button ${isScanning ? 'disabled' : ''}`}
           >
-            <FontAwesomeIcon icon={faCamera} className="camera-icon" />
+            <FontAwesomeIcon icon={faUpload} className="upload-icon" />
           </button>
         </div>
       </div>
@@ -200,10 +270,12 @@ const IngredientScanner = () => {
             <div className="modal-header">
               <div className="modal-title-section">
                 <h2 className="modal-title">Scanned Ingredients</h2>
-                <p className="modal-subtitle">Select ingredients</p>
+                <p className="modal-subtitle">Select Ingredients</p>
               </div>
               <div className="modal-header-right">
-                <span className="selected-count">{scannedIngredients.filter(i => i.status === 'approved').length} selected ingredients</span>
+                <div className="selected-count-badge">
+                  {scannedIngredients.filter(i => i.status === 'checked').length} selected ingredients
+                </div>
                 <button 
                   onClick={() => setShowModal(false)}
                   className="modal-close-button"
@@ -215,78 +287,101 @@ const IngredientScanner = () => {
 
             {/* Modal Content */}
             <div className="modal-content">
-              {/* Left side - Camera preview placeholder */}
+              {/* Left side - Ingredients list */}
               <div className="modal-left">
-                <div className="camera-preview">
-                  <FontAwesomeIcon icon={faCamera} className="camera-preview-icon" />
-                </div>
-              </div>
-
-              {/* Right side - Ingredients list */}
-              <div className="modal-right">
-                {/* Add ingredient input */}
+                {/* Add ingredient section */}
                 <div className="add-ingredient-section">
-                  <div className="add-ingredient-container">
-                    <input
-                      type="text"
-                      value={newIngredient}
-                      onChange={(e) => setNewIngredient(e.target.value)}
-                      placeholder="Add ingredient"
-                      className="add-ingredient-input"
-                      onKeyPress={handleKeyPress}
-                    />
-                    <button
-                      onClick={addIngredient}
-                      className="add-ingredient-button"
-                    >
-                      <FontAwesomeIcon icon={faPlus} className="add-icon" />
-                    </button>
-                  </div>
+                  <input
+                    type="text"
+                    value={newIngredient}
+                    onChange={(e) => setNewIngredient(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Add ingredient..."
+                    className="add-ingredient-input"
+                  />
+                  <button
+                    onClick={addIngredient}
+                    className="add-ingredient-button"
+                  >
+                    <FontAwesomeIcon icon={faPlus} className="add-icon" />
+                    Add Ingredient
+                  </button>
                 </div>
 
                 {/* Ingredients list */}
                 <div className="ingredients-list">
-                  {scannedIngredients.map((ingredient) => (
-                    <div 
-                      key={ingredient.id} 
-                      className={`ingredient-item ${ingredient.status}`}
-                      onClick={() => toggleIngredientStatus(ingredient.id)}
-                    >
-                      <div className="ingredient-content">
-                        <h4 className="ingredient-name">{ingredient.name}</h4>
-                        <p className="ingredient-description">{ingredient.description}</p>
-                        {ingredient.status === 'rejected' && (
-                          <p className="ingredient-reason">Reason</p>
-                        )}
-                      </div>
-                      <div className="ingredient-actions">
-                        <div className="ingredient-status-icon">
-                          {ingredient.status === 'approved' && <FontAwesomeIcon icon={faCheck} className="status-approved" />}
-                          {ingredient.status === 'rejected' && <FontAwesomeIcon icon={faTimes} className="status-rejected" />}
-                          {ingredient.status === 'pending' && <div className="status-pending"></div>}
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeIngredient(ingredient.id);
-                          }}
-                          className="remove-ingredient-button"
-                        >
-                          <FontAwesomeIcon icon={faTrash} className="remove-icon" />
-                        </button>
-                      </div>
+                  {scannedIngredients.length === 0 ? (
+                    <div className="empty-ingredients">
+                      <p>No ingredients detected yet. Try scanning an image or adding ingredients manually.</p>
                     </div>
-                  ))}
+                  ) : (
+                    scannedIngredients.map((ingredient) => (
+                      <div 
+                        key={ingredient.id} 
+                        className="ingredient-item"
+                      >
+                        {/* Gray rectangle placeholder */}
+                        <div className="ingredient-image-placeholder"></div>
+
+                        {/* Ingredient content */}
+                        <div className="ingredient-content">
+                          <h4 className="ingredient-name">{ingredient.name}</h4>
+                          <p className="ingredient-description">{ingredient.description}</p>
+                          <button
+                            onClick={() => removeIngredient(ingredient.id)}
+                            className="ingredient-delete-button"
+                          >
+                            Delete
+                          </button>
+                        </div>
+
+                        {/* Status icon */}
+                        <div className="ingredient-actions">
+                          <div 
+                            className="ingredient-status-icon"
+                            onClick={() => toggleIngredientStatus(ingredient.id)}
+                          >
+                            {ingredient.status === 'checked' && (
+                              <div className="status-checked-circle">
+                                <FontAwesomeIcon icon={faCheck} className="status-check" />
+                              </div>
+                            )}
+                            {ingredient.status === 'unchecked' && (
+                              <div className="status-unchecked-circle"></div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 {/* Generate Recipe Button */}
                 <button
                   onClick={generateRecipe}
-                  disabled={scannedIngredients.filter(i => i.status === 'approved').length === 0}
-                  className={`generate-recipe-button ${scannedIngredients.filter(i => i.status === 'approved').length === 0 ? 'disabled' : ''}`}
+                  disabled={scannedIngredients.filter(i => i.status === 'checked').length === 0}
+                  className={`generate-recipe-button ${scannedIngredients.filter(i => i.status === 'checked').length === 0 ? 'disabled' : ''}`}
                 >
                   Generate Recipe
                 </button>
+              </div>
+
+              {/* Right side - Image preview */}
+              <div className="modal-right">
+                <div className="image-preview">
+                  {scannedImage ? (
+                    <img 
+                      src={scannedImage} 
+                      alt="Scanned ingredient" 
+                      className="scanned-image"
+                    />
+                  ) : (
+                    <div className="image-preview-placeholder">
+                      <div className="image-preview-icon">📷</div>
+                      <p>No image captured</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
