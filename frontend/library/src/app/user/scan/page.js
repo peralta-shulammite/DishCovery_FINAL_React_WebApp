@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCamera, 
@@ -24,6 +24,7 @@ const IngredientScanner = () => {
   const [newIngredient, setNewIngredient] = useState('');
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
+  const lastIngredientRef = useRef(null);
 
   useEffect(() => {
     startCamera();
@@ -65,19 +66,15 @@ const IngredientScanner = () => {
   };
 
   const simulateIngredientDetection = () => {
-    // Simulate AI detection of ingredients - replace this with actual AI/ML integration
     const mockDetectedIngredients = [
       { name: 'Detected Ingredient 1', description: 'Identified from camera scan' },
       { name: 'Detected Ingredient 2', description: 'Found in scanned image' },
       { name: 'Detected Ingredient 3', description: 'Recognized ingredient' }
     ];
-    
-    // Randomly select 1-3 ingredients to simulate realistic detection
     const numIngredients = Math.floor(Math.random() * 3) + 1;
     const selectedIngredients = mockDetectedIngredients
       .sort(() => 0.5 - Math.random())
       .slice(0, numIngredients);
-    
     return selectedIngredients.map((ingredient, index) => ({
       id: Date.now() + index,
       name: ingredient.name,
@@ -89,15 +86,11 @@ const IngredientScanner = () => {
   const handleScan = () => {
     setIsScanning(true);
     const capturedImage = captureImage();
-    // Simulate scanning process
     setTimeout(() => {
       setIsScanning(false);
       setScannedImage(capturedImage);
-      
-      // Add detected ingredients to the list
       const detectedIngredients = simulateIngredientDetection();
       setScannedIngredients(prev => [...prev, ...detectedIngredients]);
-      
       setShowModal(true);
     }, 2000);
   };
@@ -112,15 +105,11 @@ const IngredientScanner = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         setScannedImage(e.target.result);
-        // Simulate processing the uploaded image
         setIsScanning(true);
         setTimeout(() => {
           setIsScanning(false);
-          
-          // Add detected ingredients from uploaded image
           const detectedIngredients = simulateIngredientDetection();
           setScannedIngredients(prev => [...prev, ...detectedIngredients]);
-          
           setShowModal(true);
         }, 2000);
       };
@@ -137,7 +126,6 @@ const IngredientScanner = () => {
       prev.map(ingredient => {
         if (ingredient.id === id) {
           const currentStatus = ingredient.status;
-          // Toggle between unchecked and checked only
           const newStatus = currentStatus === 'unchecked' ? 'checked' : 'unchecked';
           return { ...ingredient, status: newStatus };
         }
@@ -150,17 +138,21 @@ const IngredientScanner = () => {
     setScannedIngredients(prev => prev.filter(ingredient => ingredient.id !== id));
   };
 
-  const addIngredient = () => {
+  // This is the function for the modal's input/button
+  const handleAddIngredient = () => {
     if (newIngredient.trim()) {
       const newId = scannedIngredients.length > 0 
         ? Math.max(...scannedIngredients.map(i => i.id)) + 1 
         : 1;
-      setScannedIngredients(prev => [...prev, {
-        id: newId,
-        name: newIngredient.trim(),
-        description: `Added manually`,
-        status: 'unchecked'
-      }]);
+      setScannedIngredients(prev => [
+        ...prev,
+        {
+          id: newId,
+          name: newIngredient.trim(),
+          description: 'Added manually',
+          status: 'unchecked'
+        }
+      ]);
       setNewIngredient('');
     }
   };
@@ -171,11 +163,11 @@ const IngredientScanner = () => {
     setShowModal(false);
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      addIngredient();
+  useEffect(() => {
+    if (lastIngredientRef.current) {
+      lastIngredientRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  };
+  }, [scannedIngredients.length]);
 
   return (
     <div className="scanner-container">
@@ -270,7 +262,6 @@ const IngredientScanner = () => {
             <div className="modal-header">
               <div className="modal-title-section">
                 <h2 className="modal-title">Scanned Ingredients</h2>
-                <p className="modal-subtitle">Select Ingredients</p>
               </div>
               <div className="modal-header-right">
                 <div className="selected-count-badge">
@@ -290,21 +281,21 @@ const IngredientScanner = () => {
               {/* Left side - Ingredients list */}
               <div className="modal-left">
                 {/* Add ingredient section */}
-                <div className="add-ingredient-section">
+                <div className="ingredient-input-group">
                   <input
-                    type="text"
+                    className="ingredient-input"
+                    placeholder="Add ingredient..."
                     value={newIngredient}
                     onChange={(e) => setNewIngredient(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Add ingredient..."
-                    className="add-ingredient-input"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddIngredient();
+                    }}
                   />
                   <button
-                    onClick={addIngredient}
-                    className="add-ingredient-button"
+                    className="ingredient-add-btn"
+                    onClick={handleAddIngredient}
                   >
-                    <FontAwesomeIcon icon={faPlus} className="add-icon" />
-                    Add Ingredient
+                    + Add Ingredient
                   </button>
                 </div>
 
@@ -312,18 +303,16 @@ const IngredientScanner = () => {
                 <div className="ingredients-list">
                   {scannedIngredients.length === 0 ? (
                     <div className="empty-ingredients">
-                      <p>No ingredients detected yet. Try scanning an image or adding ingredients manually.</p>
+                      <p>No ingredients added yet.</p>
                     </div>
                   ) : (
-                    scannedIngredients.map((ingredient) => (
-                      <div 
-                        key={ingredient.id} 
+                    scannedIngredients.map((ingredient, idx) => (
+                      <div
+                        key={ingredient.id}
                         className="ingredient-item"
+                        ref={idx === scannedIngredients.length - 1 ? lastIngredientRef : null}
                       >
-                        {/* Gray rectangle placeholder */}
                         <div className="ingredient-image-placeholder"></div>
-
-                        {/* Ingredient content */}
                         <div className="ingredient-content">
                           <h4 className="ingredient-name">{ingredient.name}</h4>
                           <p className="ingredient-description">{ingredient.description}</p>
@@ -334,8 +323,6 @@ const IngredientScanner = () => {
                             Delete
                           </button>
                         </div>
-
-                        {/* Status icon */}
                         <div className="ingredient-actions">
                           <div 
                             className="ingredient-status-icon"
