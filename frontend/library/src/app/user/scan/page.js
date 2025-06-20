@@ -264,9 +264,6 @@ const IngredientScanner = () => {
                 <h2 className="modal-title">Scanned Ingredients</h2>
               </div>
               <div className="modal-header-right">
-                <div className="selected-count-badge">
-                  {scannedIngredients.filter(i => i.status === 'checked').length} selected ingredients
-                </div>
                 <button 
                   onClick={() => setShowModal(false)}
                   className="modal-close-button"
@@ -297,6 +294,11 @@ const IngredientScanner = () => {
                   >
                     + Add Ingredient
                   </button>
+                </div>
+
+                {/* Move the badge here */}
+                <div className="selected-count-badge">
+                  {scannedIngredients.filter(i => i.status === 'checked').length} selected ingredients
                 </div>
 
                 {/* Ingredients list */}
