@@ -1076,3 +1076,29 @@ img,
     display: none;
   }
 }
+
+/* Add this to your CSS */
+input {
+  color: #222; /* or #000 for black */
+}
+
+/* Default width */
+.input-ingredient {
+  width: 220px;
+}
+
+/* Small screens */
+@media (max-width: 991.98px) {
+  .input-ingredient {
+    width: 180px;
+    font-size: 12px !important;
+  }
+}
+
+/* Medium screens */
+@media (max-width: 1199.98px) {
+  .input-ingredient {
+    width: 200px;
+    font-size: 13px !important;
+  }
+}
