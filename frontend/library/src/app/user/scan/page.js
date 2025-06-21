@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCamera, 
@@ -13,6 +13,12 @@ import {
   faTrash 
 } from '@fortawesome/free-solid-svg-icons';
 import './style.css';
+import * as ort from "onnxruntime-web";
+
+const INPUT_SIZE = 800;
+const MODEL_URL = "/assets/model.onnx";
+const LABELS_URL = "/assets/labels.txt";
+const CONFIDENCE_THRESHOLD = 0.50;
 
 const IngredientScanner = () => {
   const [stream, setStream] = useState(null);
@@ -22,9 +28,29 @@ const IngredientScanner = () => {
   const [scannedImage, setScannedImage] = useState(null);
   const [scannedIngredients, setScannedIngredients] = useState([]);
   const [newIngredient, setNewIngredient] = useState('');
+  const [session, setSession] = useState(null);
+  const [labels, setLabels] = useState([]);
+  const [detections, setDetections] = useState([]);
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
+  const canvasRef = useRef(null);
   const lastIngredientRef = useRef(null);
+
+  // Load ONNX model
+  useEffect(() => {
+    ort.env.wasm.wasmPaths = '/assets/';
+    ort.InferenceSession.create(MODEL_URL)
+      .then(setSession)
+      .catch(e => console.error("Model load error:", e));
+  }, []);
+
+  // Load labels.txt
+  useEffect(() => {
+    fetch(LABELS_URL)
+      .then(res => res.text())
+      .then(text => setLabels(text.split('\n').map(l => l.trim()).filter(Boolean)))
+      .catch(e => console.error("Labels load error:", e));
+  }, []);
 
   useEffect(() => {
     startCamera();
@@ -39,7 +65,7 @@ const IngredientScanner = () => {
     setCameraState('loading');
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: { facingMode: 'environment', width: INPUT_SIZE, height: INPUT_SIZE }
       });
       setStream(mediaStream);
       setCameraState('available');
@@ -65,53 +91,101 @@ const IngredientScanner = () => {
     return null;
   };
 
-  const simulateIngredientDetection = () => {
-    const mockDetectedIngredients = [
-      { name: 'Detected Ingredient 1', description: 'Identified from camera scan' },
-      { name: 'Detected Ingredient 2', description: 'Found in scanned image' },
-      { name: 'Detected Ingredient 3', description: 'Recognized ingredient' }
-    ];
-    const numIngredients = Math.floor(Math.random() * 3) + 1;
-    const selectedIngredients = mockDetectedIngredients
-      .sort(() => 0.5 - Math.random())
-      .slice(0, numIngredients);
-    return selectedIngredients.map((ingredient, index) => ({
-      id: Date.now() + index,
-      name: ingredient.name,
-      description: ingredient.description,
-      status: 'unchecked'
-    }));
-  };
+  // Real ONNX detection function
+  const performDetection = useCallback(async (imageSource) => {
+    if (!session || !canvasRef.current) return [];
 
-  const handleScan = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    
+    // Create image element from source
+    const img = new Image();
+    return new Promise((resolve) => {
+      img.onload = async () => {
+        // Draw and resize image to INPUT_SIZE
+        ctx.drawImage(img, 0, 0, INPUT_SIZE, INPUT_SIZE);
+        const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+
+        // Preprocess to Float32Array (NCHW format)
+        const input = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
+        for (let y = 0; y < INPUT_SIZE; y++) {
+          for (let x = 0; x < INPUT_SIZE; x++) {
+            const idx = (y * INPUT_SIZE + x) * 4;
+            const outIdx = y * INPUT_SIZE + x;
+            input[outIdx] = imageData.data[idx] / 255.0; // R
+            input[INPUT_SIZE * INPUT_SIZE + outIdx] = imageData.data[idx + 1] / 255.0; // G
+            input[2 * INPUT_SIZE * INPUT_SIZE + outIdx] = imageData.data[idx + 2] / 255.0; // B
+          }
+        }
+
+        try {
+          const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+          const feeds = {};
+          feeds[session.inputNames[0]] = tensor;
+          const results = await session.run(feeds);
+
+          // Parse detections (assuming output is [num, 6]: [x_min, y_min, x_max, y_max, conf, class])
+          const outputArr = Array.from(results[session.outputNames[0]].data);
+          const numDetections = outputArr.length / 6;
+          const detectedIngredients = [];
+
+          for (let i = 0; i < numDetections; i++) {
+            const offset = i * 6;
+            const [x_min, y_min, x_max, y_max, confidence, class_id] = outputArr.slice(offset, offset + 6);
+            
+            if (confidence > 0.5) { // Confidence threshold
+              const labelName = labels[Math.floor(class_id)] || `Class ${Math.floor(class_id)}`;
+              detectedIngredients.push({
+                id: Date.now() + i,
+                name: labelName,
+                description: `Detected with ${(confidence * 100).toFixed(1)}% confidence`,
+                status: 'unchecked',
+                confidence: confidence,
+                bbox: { x_min, y_min, x_max, y_max }
+              });
+            }
+          }
+          resolve(detectedIngredients);
+        } catch (error) {
+          console.error('Detection error:', error);
+          resolve([]);
+        }
+      };
+      img.src = imageSource;
+    });
+  }, [session, labels]);
+
+  const handleScan = async () => {
     setIsScanning(true);
     const capturedImage = captureImage();
-    setTimeout(() => {
-      setIsScanning(false);
-      setScannedImage(capturedImage);
-      const detectedIngredients = simulateIngredientDetection();
+    setScannedImage(capturedImage);
+    
+    if (capturedImage) {
+      const detectedIngredients = await performDetection(capturedImage);
       setScannedIngredients(prev => [...prev, ...detectedIngredients]);
-      setShowModal(true);
-    }, 2000);
+    }
+    
+    setIsScanning(false);
+    setShowModal(true);
   };
 
   const handleImageUpload = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event) => {
+  const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         setScannedImage(e.target.result);
         setIsScanning(true);
-        setTimeout(() => {
-          setIsScanning(false);
-          const detectedIngredients = simulateIngredientDetection();
-          setScannedIngredients(prev => [...prev, ...detectedIngredients]);
-          setShowModal(true);
-        }, 2000);
+        
+        const detectedIngredients = await performDetection(e.target.result);
+        setScannedIngredients(prev => [...prev, ...detectedIngredients]);
+        
+        setIsScanning(false);
+        setShowModal(true);
       };
       reader.readAsDataURL(file);
     }
@@ -138,7 +212,6 @@ const IngredientScanner = () => {
     setScannedIngredients(prev => prev.filter(ingredient => ingredient.id !== id));
   };
 
-  // This is the function for the modal's input/button
   const handleAddIngredient = () => {
     if (newIngredient.trim()) {
       const newId = scannedIngredients.length > 0 
@@ -171,6 +244,9 @@ const IngredientScanner = () => {
 
   return (
     <div className="scanner-container">
+      {/* Hidden canvas for image processing */}
+      <canvas ref={canvasRef} width={INPUT_SIZE} height={INPUT_SIZE} style={{ display: "none" }} />
+      
       {/* Hidden file input */}
       <input
         type="file"
@@ -236,8 +312,8 @@ const IngredientScanner = () => {
           {/* Scan Ingredient Button */}
           <button
             onClick={handleScan}
-            disabled={isScanning || cameraState !== 'available'}
-            className={`scan-button ${(isScanning || cameraState !== 'available') ? 'disabled' : ''}`}
+            disabled={isScanning || cameraState !== 'available' || !session}
+            className={`scan-button ${(isScanning || cameraState !== 'available' || !session) ? 'disabled' : ''}`}
           >
             <FontAwesomeIcon icon={faExpand} className="scan-icon" />
             <span>Scan Ingredient</span>
@@ -246,8 +322,8 @@ const IngredientScanner = () => {
           {/* Upload Image Button */}
           <button 
             onClick={handleImageUpload}
-            disabled={isScanning}
-            className={`upload-button ${isScanning ? 'disabled' : ''}`}
+            disabled={isScanning || !session}
+            className={`upload-button ${(isScanning || !session) ? 'disabled' : ''}`}
           >
             <FontAwesomeIcon icon={faUpload} className="upload-icon" />
           </button>
@@ -296,16 +372,34 @@ const IngredientScanner = () => {
                   </button>
                 </div>
 
-                {/* Move the badge here */}
-                <div className="selected-count-badge">
-                  {scannedIngredients.filter(i => i.status === 'checked').length} selected ingredients
+                {/* Selected ingredients badge */}
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  background: '#d4fbe5',
+                  borderRadius: '20px',
+                  padding: '4px 12px',
+                  fontWeight: 'bold',
+                  color: '#19C37D',
+                  fontSize: '1rem',
+                  marginLeft: 0,
+                  width: 'fit-content'
+                }}>
+                  <span style={{
+                    fontWeight: 'bold',
+                    marginRight: '4px'
+                  }}>
+                    {scannedIngredients.filter(i => i.status === 'checked').length}
+                  </span>
+                  selected ingredients
                 </div>
 
                 {/* Ingredients list */}
                 <div className="ingredients-list">
                   {scannedIngredients.length === 0 ? (
                     <div className="empty-ingredients">
-                      <p>No ingredients added yet.</p>
+                      <p>No ingredients detected yet.</p>
+                      <p>Try scanning an ingredient or upload an image.</p>
                     </div>
                   ) : (
                     scannedIngredients.map((ingredient, idx) => (
