@@ -797,5 +797,3 @@ const IngredientScanner = () => {
 };
 
 export default IngredientScanner;
-
-
