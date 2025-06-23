@@ -10,72 +10,119 @@ import {
   faTimes, 
   faPlus, 
   faCheck, 
-  faTrash 
+  faTrash,
+  faExclamationTriangle 
 } from '@fortawesome/free-solid-svg-icons';
 import './style.css';
-import * as ort from "onnxruntime-web";
+let ort;
 
 const INPUT_SIZE = 800;
 const MODEL_URL = "/assets/model.onnx";
 const LABELS_URL = "/assets/labels.txt";
-const CONFIDENCE_THRESHOLD = 0.50;
+const CONFIDENCE_THRESHOLD = 0.5;
 
 const IngredientScanner = () => {
+  // Camera and UI states
   const [stream, setStream] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [cameraState, setCameraState] = useState('not-started'); // Changed initial state
+  const [cameraState, setCameraState] = useState('not-started');
   const [showModal, setShowModal] = useState(false);
   const [scannedImage, setScannedImage] = useState(null);
   const [scannedIngredients, setScannedIngredients] = useState([]);
   const [newIngredient, setNewIngredient] = useState('');
+  
+  // ONNX Model states
   const [session, setSession] = useState(null);
   const [labels, setLabels] = useState([]);
+  const [modelError, setModelError] = useState(null);
+  const [isModelLoading, setIsModelLoading] = useState(true);
+  
+  // Real-time detection states
   const [detections, setDetections] = useState([]);
+  const [isRealTimeDetecting, setIsRealTimeDetecting] = useState(false);
+  
+  // Refs
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
   const canvasRef = useRef(null);
   const lastIngredientRef = useRef(null);
+  const detectionIntervalRef = useRef(null);
 
-  // Load ONNX model
+  // Load ONNX model with proper error handling
   useEffect(() => {
     const loadModel = async () => {
       try {
-        // Check if model file exists first
+        setIsModelLoading(true);
+        setModelError(null);
+        
+        // Check if model file exists
         const response = await fetch(MODEL_URL, { method: 'HEAD' });
         if (!response.ok) {
-          console.log("Model file not found - running in demo mode");
-          return;
+          throw new Error("Model file not found");
         }
         
+        // Configure ONNX runtime wasm paths before importing
+        // Dynamically import onnxruntime-web after setting wasmPaths
+        const ortModule = await import('onnxruntime-web');
+        ort = ortModule;
         ort.env.wasm.wasmPaths = '/assets/';
-        const session = await ort.InferenceSession.create(MODEL_URL);
+        ort.env.wasm.numThreads = 1; // Limit threads for stability
+
+        // Fetch the model file as a blob and convert to ArrayBuffer
+        const modelResponse = await fetch(MODEL_URL);
+        if (!modelResponse.ok) {
+          throw new Error(`Failed to fetch model file: ${modelResponse.statusText}`);
+        }
+        const modelArrayBuffer = await modelResponse.arrayBuffer();
+
+        // Create session from ArrayBuffer instead of URL string
+        const session = await ort.InferenceSession.create(modelArrayBuffer, {
+          executionProviders: ['wasm'],
+          graphOptimizationLevel: 'all'
+        });
+
         setSession(session);
-        console.log("Model loaded successfully");
+        console.log("ONNX Model loaded successfully");
+        console.log("Input names:", session.inputNames);
+        console.log("Output names:", session.outputNames);
+        
       } catch (e) {
-        console.log("Model load error - running in demo mode:", e.message);
+        console.error("Model load error:", e);
+        setModelError("Model not available - running in demo mode");
+        // Possible causes:
+        // - model.onnx file is corrupted or invalid
+        // - model.onnx file not served correctly by the server (check MIME type and accessibility)
+        // - wasmPaths or onnxruntime-web version incompatibility
+        // Please verify the model file integrity and server setup.
+      } finally {
+        setIsModelLoading(false);
       }
     };
     
     loadModel();
   }, []);
 
-  // Load labels.txt
+  // Load labels with fallback
   useEffect(() => {
     const loadLabels = async () => {
       try {
         const response = await fetch(LABELS_URL);
         if (!response.ok) {
-          console.log("Labels file not found - using demo labels");
-          setLabels(['tomato', 'onion', 'garlic', 'carrot', 'potato', 'bell pepper']);
-          return;
+          throw new Error("Labels file not found");
         }
         
         const text = await response.text();
-        setLabels(text.split('\n').map(l => l.trim()).filter(Boolean));
-        console.log("Labels loaded successfully");
+        const labelList = text.split('\n').map(l => l.trim()).filter(Boolean);
+        setLabels(labelList);
+        console.log("Labels loaded successfully:", labelList.length, "labels");
+        
       } catch (e) {
         console.log("Labels load error - using demo labels:", e.message);
-        setLabels(['tomato', 'onion', 'garlic', 'carrot', 'potato', 'bell pepper']);
+        const demoLabels = [
+          'tomato', 'onion', 'garlic', 'carrot', 'potato', 'bell pepper',
+          'cucumber', 'lettuce', 'broccoli', 'spinach', 'celery', 'mushroom'
+        ];
+        setLabels(demoLabels);
       }
     };
     
@@ -91,13 +138,23 @@ const IngredientScanner = () => {
     setCameraState('loading');
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: INPUT_SIZE, height: INPUT_SIZE }
+        video: { 
+          facingMode: 'environment', 
+          width: { ideal: INPUT_SIZE }, 
+          height: { ideal: INPUT_SIZE }
+        }
       });
       setStream(mediaStream);
       setCameraState('available');
+      
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.play();
+        await videoRef.current.play();
+        
+        // Start real-time detection if model is loaded
+        if (session && !detectionIntervalRef.current) {
+          startRealTimeDetection();
+        }
       }
     } catch (error) {
       console.log('Camera access denied or not available:', error);
@@ -105,30 +162,174 @@ const IngredientScanner = () => {
     }
   };
 
-  // Ensure video plays when stream is available
-  useEffect(() => {
-    if (stream && videoRef.current && cameraState === 'available') {
-      videoRef.current.srcObject = stream;
-      // Use a small delay to avoid interruption errors
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.play().catch(e => {
-            // Ignore play interruption errors - they're harmless
-            if (!e.message.includes('interrupted')) {
-              console.log('Video play error:', e);
-            }
-          });
-        }
-      }, 100);
+  // Unified ONNX detection function - aligned with both approaches
+  const performONNXDetection = useCallback(async (imageSource) => {
+    if (!session || !canvasRef.current) {
+      console.log('Session or canvas not ready');
+      return [];
     }
-  }, [stream, cameraState]);
+
+    return new Promise((resolve) => {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      
+      const processImage = async (imgElement) => {
+        try {
+          // Ensure canvas is properly sized
+          canvas.width = INPUT_SIZE;
+          canvas.height = INPUT_SIZE;
+          
+          // Draw image to canvas with proper scaling
+          ctx.drawImage(imgElement, 0, 0, INPUT_SIZE, INPUT_SIZE);
+          const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+
+          // Preprocess image data to Float32Array in NCHW format
+          // This matches both code approaches
+          const input = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
+          for (let y = 0; y < INPUT_SIZE; y++) {
+            for (let x = 0; x < INPUT_SIZE; x++) {
+              const pixelIndex = (y * INPUT_SIZE + x) * 4;
+              const outputIndex = y * INPUT_SIZE + x;
+              
+              // Normalize pixel values to [0, 1] and arrange in CHW format
+              input[outputIndex] = imageData.data[pixelIndex] / 255.0;     // R channel
+              input[INPUT_SIZE * INPUT_SIZE + outputIndex] = imageData.data[pixelIndex + 1] / 255.0; // G channel  
+              input[2 * INPUT_SIZE * INPUT_SIZE + outputIndex] = imageData.data[pixelIndex + 2] / 255.0; // B channel
+            }
+          }
+
+          // Create tensor with proper shape
+          const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+          
+          // Prepare feeds - use first input name dynamically
+          const feeds = {};
+          feeds[session.inputNames[0]] = tensor;
+          
+          // Run inference
+          console.log("Running ONNX inference...");
+          const results = await session.run(feeds);
+          
+          // Get output tensor - use first output name
+          const outputTensor = results[session.outputNames[0]];
+          const outputData = Array.from(outputTensor.data);
+          
+          console.log("Raw output shape:", outputTensor.dims);
+          console.log("Raw output length:", outputData.length);
+          
+          // Parse detections - assuming format: [batch, detections, 6] where 6 = [x1, y1, x2, y2, conf, class]
+          const detectedIngredients = [];
+          const numDetections = outputData.length / 6;
+          
+          console.log("Number of detections:", numDetections);
+          
+          for (let i = 0; i < numDetections; i++) {
+            const offset = i * 6;
+            const [x_min, y_min, x_max, y_max, confidence, class_id] = outputData.slice(offset, offset + 6);
+            
+            if (confidence > CONFIDENCE_THRESHOLD) {
+              const classIndex = Math.floor(class_id);
+              const labelName = labels[classIndex] || `Unknown Class ${classIndex}`;
+              
+              console.log(`Detection ${i}: ${labelName} (${(confidence * 100).toFixed(1)}%)`);
+              
+              detectedIngredients.push({
+                id: Date.now() + Math.random(), // Unique ID
+                name: labelName,
+                description: `Detected with ${(confidence * 100).toFixed(1)}% confidence`,
+                status: 'unchecked',
+                confidence: confidence,
+                bbox: { 
+                  x_min: Math.max(0, Math.min(1, x_min)), 
+                  y_min: Math.max(0, Math.min(1, y_min)), 
+                  x_max: Math.max(0, Math.min(1, x_max)), 
+                  y_max: Math.max(0, Math.min(1, y_max))
+                }
+              });
+            }
+          }
+          
+          console.log(`Found ${detectedIngredients.length} valid detections`);
+          resolve(detectedIngredients);
+          
+        } catch (error) {
+          console.error('ONNX Detection error:', error);
+          resolve([]);
+        }
+      };
+
+      // Handle different image sources
+      if (typeof imageSource === 'string') {
+        // Data URL or file path
+        const img = new Image();
+        img.onload = () => processImage(img);
+        img.onerror = () => {
+          console.error('Image load error');
+          resolve([]);
+        };
+        img.src = imageSource;
+      } else if (imageSource instanceof HTMLVideoElement) {
+        // Direct video element
+        processImage(imageSource);
+      } else {
+        console.error('Invalid image source');
+        resolve([]);
+      }
+    });
+  }, [session, labels]);
+
+  // Real-time detection for camera feed
+  const startRealTimeDetection = useCallback(() => {
+    if (!session || !videoRef.current || cameraState !== 'available') {
+      return;
+    }
+    
+    setIsRealTimeDetecting(true);
+    
+    const runDetection = async () => {
+      if (videoRef.current && videoRef.current.readyState >= 2) {
+        try {
+          const detectedIngredients = await performONNXDetection(videoRef.current);
+          setDetections(detectedIngredients);
+        } catch (error) {
+          console.error('Real-time detection error:', error);
+        }
+      }
+    };
+    
+    // Run detection every 1.5 seconds (aligned with first code)
+    detectionIntervalRef.current = setInterval(runDetection, 1500);
+    
+    // Run initial detection
+    setTimeout(runDetection, 500);
+    
+  }, [session, cameraState, performONNXDetection]);
+
+  // Stop real-time detection
+  const stopRealTimeDetection = useCallback(() => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
+    setIsRealTimeDetecting(false);
+    setDetections([]);
+  }, []);
+
+  // Start real-time detection when model and camera are ready
+  useEffect(() => {
+    if (session && cameraState === 'available' && !detectionIntervalRef.current) {
+      startRealTimeDetection();
+    }
+    
+    return () => {
+      stopRealTimeDetection();
+    };
+  }, [session, cameraState, startRealTimeDetection, stopRealTimeDetection]);
 
   const captureImage = () => {
     if (videoRef.current && cameraState === 'available') {
       const canvas = document.createElement('canvas');
       const video = videoRef.current;
       
-      // Wait for video to be ready
       if (video.readyState < 2) {
         console.log('Video not ready for capture');
         return null;
@@ -143,83 +344,8 @@ const IngredientScanner = () => {
     return null;
   };
 
-  // Real ONNX detection function
-  const performDetection = useCallback(async (imageSource) => {
-    if (!session || !canvasRef.current) {
-      console.log('Session or canvas not ready');
-      return [];
-    }
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    
-    // Create image element from source
-    const img = new Image();
-    return new Promise((resolve) => {
-      img.onload = async () => {
-        // Draw and resize image to INPUT_SIZE
-        canvas.width = INPUT_SIZE;
-        canvas.height = INPUT_SIZE;
-        ctx.drawImage(img, 0, 0, INPUT_SIZE, INPUT_SIZE);
-        const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
-
-        // Preprocess to Float32Array (NCHW format)
-        const input = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
-        for (let y = 0; y < INPUT_SIZE; y++) {
-          for (let x = 0; x < INPUT_SIZE; x++) {
-            const idx = (y * INPUT_SIZE + x) * 4;
-            const outIdx = y * INPUT_SIZE + x;
-            input[outIdx] = imageData.data[idx] / 255.0; // R
-            input[INPUT_SIZE * INPUT_SIZE + outIdx] = imageData.data[idx + 1] / 255.0; // G
-            input[2 * INPUT_SIZE * INPUT_SIZE + outIdx] = imageData.data[idx + 2] / 255.0; // B
-          }
-        }
-
-        try {
-          const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-          const feeds = {};
-          feeds[session.inputNames[0]] = tensor;
-          const results = await session.run(feeds);
-
-          // Parse detections (assuming output is [num, 6]: [x_min, y_min, x_max, y_max, conf, class])
-          const outputArr = Array.from(results[session.outputNames[0]].data);
-          const numDetections = outputArr.length / 6;
-          const detectedIngredients = [];
-
-          for (let i = 0; i < numDetections; i++) {
-            const offset = i * 6;
-            const [x_min, y_min, x_max, y_max, confidence, class_id] = outputArr.slice(offset, offset + 6);
-            
-            if (confidence > CONFIDENCE_THRESHOLD) {
-              const labelName = labels[Math.floor(class_id)] || `Class ${Math.floor(class_id)}`;
-              detectedIngredients.push({
-                id: Date.now() + i,
-                name: labelName,
-                description: `Detected with ${(confidence * 100).toFixed(1)}% confidence`,
-                status: 'unchecked',
-                confidence: confidence,
-                bbox: { x_min, y_min, x_max, y_max }
-              });
-            }
-          }
-          resolve(detectedIngredients);
-        } catch (error) {
-          console.error('Detection error:', error);
-          resolve([]);
-        }
-      };
-      img.onerror = () => {
-        console.error('Image load error');
-        resolve([]);
-      };
-      img.src = imageSource;
-    });
-  }, [session, labels]);
-
   const handleScan = async () => {
     console.log('Scan button clicked');
-    console.log('Camera state:', cameraState);
-    console.log('Session ready:', !!session);
     
     if (cameraState !== 'available') {
       console.log('Camera not available, trying to start...');
@@ -231,7 +357,6 @@ const IngredientScanner = () => {
     
     try {
       const capturedImage = captureImage();
-      console.log('Captured image:', !!capturedImage);
       
       if (!capturedImage) {
         console.log('Failed to capture image');
@@ -242,13 +367,24 @@ const IngredientScanner = () => {
       setScannedImage(capturedImage);
       
       if (session) {
-        const detectedIngredients = await performDetection(capturedImage);
+        console.log('Running ONNX detection on captured image...');
+        const detectedIngredients = await performONNXDetection(capturedImage);
         console.log('Detected ingredients:', detectedIngredients);
-        setScannedIngredients(prev => [...prev, ...detectedIngredients]);
+        
+        if (detectedIngredients.length > 0) {
+          setScannedIngredients(prev => [...prev, ...detectedIngredients]);
+        } else {
+          // If no detections, add a demo ingredient
+          setScannedIngredients(prev => [...prev, {
+            id: Date.now(),
+            name: 'Unknown Ingredient',
+            description: 'No clear detection - please add manually',
+            status: 'unchecked'
+          }]);
+        }
       } else {
-        console.log('No session available, adding demo ingredient');
-        // Add a demo ingredient if no model is loaded
-        const demoIngredients = ['Tomato', 'Onion', 'Garlic', 'Carrot', 'Bell Pepper', 'Potato'];
+        // Demo mode fallback
+        const demoIngredients = ['Tomato', 'Onion', 'Garlic', 'Carrot', 'Bell Pepper'];
         const randomIngredient = demoIngredients[Math.floor(Math.random() * demoIngredients.length)];
         
         setScannedIngredients(prev => [...prev, {
@@ -281,10 +417,10 @@ const IngredientScanner = () => {
         
         try {
           if (session) {
-            const detectedIngredients = await performDetection(e.target.result);
+            const detectedIngredients = await performONNXDetection(e.target.result);
             setScannedIngredients(prev => [...prev, ...detectedIngredients]);
           } else {
-            // Add demo ingredient if no model
+            // Demo mode for uploaded images
             const demoIngredients = ['Uploaded Tomato', 'Uploaded Onion', 'Uploaded Garlic'];
             const randomIngredient = demoIngredients[Math.floor(Math.random() * demoIngredients.length)];
             
@@ -307,15 +443,17 @@ const IngredientScanner = () => {
   };
 
   const handleHelp = () => {
-    alert('Point your camera at ingredient labels to scan and identify them, or upload an image to analyze.');
+    const helpMessage = session 
+      ? 'Point your camera at ingredient labels to scan and identify them automatically, or upload an image to analyze. The AI model will detect ingredients in real-time.'
+      : 'Camera scanning is available, but AI detection is in demo mode. You can still capture images and add ingredients manually.';
+    alert(helpMessage);
   };
 
   const toggleIngredientStatus = (id) => {
     setScannedIngredients(prev => 
       prev.map(ingredient => {
         if (ingredient.id === id) {
-          const currentStatus = ingredient.status;
-          const newStatus = currentStatus === 'unchecked' ? 'checked' : 'unchecked';
+          const newStatus = ingredient.status === 'unchecked' ? 'checked' : 'unchecked';
           return { ...ingredient, status: newStatus };
         }
         return ingredient;
@@ -329,9 +467,7 @@ const IngredientScanner = () => {
 
   const handleAddIngredient = () => {
     if (newIngredient.trim()) {
-      const newId = scannedIngredients.length > 0 
-        ? Math.max(...scannedIngredients.map(i => i.id)) + 1 
-        : 1;
+      const newId = Date.now() + Math.random();
       setScannedIngredients(prev => [
         ...prev,
         {
@@ -351,20 +487,15 @@ const IngredientScanner = () => {
     setShowModal(false);
   };
 
-  useEffect(() => {
-    if (lastIngredientRef.current) {
-      lastIngredientRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }, [scannedIngredients.length]);
-
-  // Cleanup function
+  // Cleanup
   useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
+      stopRealTimeDetection();
     };
-  }, [stream]);
+  }, [stream, stopRealTimeDetection]);
 
   return (
     <div className="scanner-container">
@@ -390,12 +521,41 @@ const IngredientScanner = () => {
         style={{ display: cameraState === 'available' ? 'block' : 'none' }}
       />
       
+      {/* Real-time Detection Overlay */}
+      {cameraState === 'available' && detections.length > 0 && (
+        <div className="detection-overlay">
+          {detections.map((detection, idx) => (
+            <div
+              key={idx}
+              className="detection-box"
+              style={{
+                position: "absolute",
+                left: `${detection.bbox.x_min * 100}%`,
+                top: `${detection.bbox.y_min * 100}%`,
+                width: `${(detection.bbox.x_max - detection.bbox.x_min) * 100}%`,
+                height: `${(detection.bbox.y_max - detection.bbox.y_min) * 100}%`,
+                border: "2px solid #ff9800",
+                borderRadius: "8px",
+                boxSizing: "border-box",
+                pointerEvents: "none",
+                zIndex: 10,
+              }}
+            >
+              <span className="detection-label">
+                {detection.name} ({(detection.confidence * 100).toFixed(1)}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      
       {/* Overlay for camera states */}
       {cameraState === 'loading' && (
         <div className="no-camera-overlay">
           <div className="no-camera-content">
             <div className="spinner"></div>
             <p>Loading camera...</p>
+            {isModelLoading && <p className="model-status">Loading AI model...</p>}
           </div>
         </div>
       )}
@@ -406,6 +566,12 @@ const IngredientScanner = () => {
             <div className="camera-emoji">📷</div>
             <p>Camera not available</p>
             <p className="camera-subtitle">Please allow camera access or upload an image</p>
+            {modelError && (
+              <div className="model-error">
+                <FontAwesomeIcon icon={faExclamationTriangle} />
+                <span>{modelError}</span>
+              </div>
+            )}
             <button onClick={startCamera} className="retry-camera-btn">
               Try Again
             </button>
@@ -418,6 +584,12 @@ const IngredientScanner = () => {
           <div className="no-camera-content">
             <div className="camera-emoji">📷</div>
             <p>Camera starting...</p>
+            {isModelLoading && (
+              <div className="model-loading">
+                <div className="spinner"></div>
+                <p>Loading AI model...</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -430,6 +602,12 @@ const IngredientScanner = () => {
           <button onClick={handleHelp} className="help-button">
             <FontAwesomeIcon icon={faQuestionCircle} className="icon" />
           </button>
+          {session && (
+            <div className="model-status-indicator">
+              <div className="status-dot active"></div>
+              <span>AI Ready</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -438,7 +616,9 @@ const IngredientScanner = () => {
         <div className="scanning-overlay">
           <div className="scanning-content">
             <div className="spinner"></div>
-            <p className="scanning-text">Analyzing ingredients...</p>
+            <p className="scanning-text">
+              {session ? 'Analyzing ingredients with AI...' : 'Processing image...'}
+            </p>
           </div>
         </div>
       )}
@@ -446,7 +626,6 @@ const IngredientScanner = () => {
       {/* Bottom Controls */}
       <div className="bottom-controls">
         <div className="controls-container">
-          {/* Scan Ingredient Button */}
           <button
             onClick={handleScan}
             disabled={isScanning}
@@ -460,7 +639,6 @@ const IngredientScanner = () => {
             </span>
           </button>
 
-          {/* Upload Image Button */}
           <button 
             onClick={handleImageUpload}
             disabled={isScanning}
@@ -469,13 +647,26 @@ const IngredientScanner = () => {
             <FontAwesomeIcon icon={faUpload} className="upload-icon" />
           </button>
         </div>
+        
+        {/* Real-time detection status */}
+        {cameraState === 'available' && (
+          <div className="realtime-status">
+            {isRealTimeDetecting ? (
+              <span className="realtime-active">
+                <div className="pulse-dot"></div>
+                Live Detection Active
+              </span>
+            ) : (
+              <span className="realtime-inactive">Real-time Detection Off</span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Modal */}
+      {/* Modal - keeping the same modal structure from the second file */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-container">
-            {/* Modal Header */}
             <div className="modal-header">
               <div className="modal-title-section">
                 <h2 className="modal-title">Scanned Ingredients</h2>
@@ -490,11 +681,8 @@ const IngredientScanner = () => {
               </div>
             </div>
 
-            {/* Modal Content */}
             <div className="modal-content">
-              {/* Left side - Ingredients list */}
               <div className="modal-left">
-                {/* Add ingredient section */}
                 <div className="ingredient-input-group">
                   <input
                     className="ingredient-input"
@@ -513,7 +701,6 @@ const IngredientScanner = () => {
                   </button>
                 </div>
 
-                {/* Selected ingredients badge */}
                 <div style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -526,16 +713,12 @@ const IngredientScanner = () => {
                   marginLeft: 0,
                   width: 'fit-content'
                 }}>
-                  <span style={{
-                    fontWeight: 'bold',
-                    marginRight: '4px'
-                  }}>
+                  <span style={{ fontWeight: 'bold', marginRight: '4px' }}>
                     {scannedIngredients.filter(i => i.status === 'checked').length}
                   </span>
                   selected ingredients
                 </div>
 
-                {/* Ingredients list */}
                 <div className="ingredients-list">
                   {scannedIngredients.length === 0 ? (
                     <div className="empty-ingredients">
@@ -580,7 +763,6 @@ const IngredientScanner = () => {
                   )}
                 </div>
 
-                {/* Generate Recipe Button */}
                 <button
                   onClick={generateRecipe}
                   disabled={scannedIngredients.filter(i => i.status === 'checked').length === 0}
@@ -590,7 +772,6 @@ const IngredientScanner = () => {
                 </button>
               </div>
 
-              {/* Right side - Image preview */}
               <div className="modal-right">
                 <div className="image-preview">
                   {scannedImage ? (
@@ -616,3 +797,5 @@ const IngredientScanner = () => {
 };
 
 export default IngredientScanner;
+
+
