@@ -23,7 +23,7 @@ const CONFIDENCE_THRESHOLD = 0.50;
 const IngredientScanner = () => {
   const [stream, setStream] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [cameraState, setCameraState] = useState('loading');
+  const [cameraState, setCameraState] = useState('not-started'); // Changed initial state
   const [showModal, setShowModal] = useState(false);
   const [scannedImage, setScannedImage] = useState(null);
   const [scannedIngredients, setScannedIngredients] = useState([]);
@@ -38,27 +38,53 @@ const IngredientScanner = () => {
 
   // Load ONNX model
   useEffect(() => {
-    ort.env.wasm.wasmPaths = '/assets/';
-    ort.InferenceSession.create(MODEL_URL)
-      .then(setSession)
-      .catch(e => console.error("Model load error:", e));
+    const loadModel = async () => {
+      try {
+        // Check if model file exists first
+        const response = await fetch(MODEL_URL, { method: 'HEAD' });
+        if (!response.ok) {
+          console.log("Model file not found - running in demo mode");
+          return;
+        }
+        
+        ort.env.wasm.wasmPaths = '/assets/';
+        const session = await ort.InferenceSession.create(MODEL_URL);
+        setSession(session);
+        console.log("Model loaded successfully");
+      } catch (e) {
+        console.log("Model load error - running in demo mode:", e.message);
+      }
+    };
+    
+    loadModel();
   }, []);
 
   // Load labels.txt
   useEffect(() => {
-    fetch(LABELS_URL)
-      .then(res => res.text())
-      .then(text => setLabels(text.split('\n').map(l => l.trim()).filter(Boolean)))
-      .catch(e => console.error("Labels load error:", e));
-  }, []);
-
-  useEffect(() => {
-    startCamera();
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+    const loadLabels = async () => {
+      try {
+        const response = await fetch(LABELS_URL);
+        if (!response.ok) {
+          console.log("Labels file not found - using demo labels");
+          setLabels(['tomato', 'onion', 'garlic', 'carrot', 'potato', 'bell pepper']);
+          return;
+        }
+        
+        const text = await response.text();
+        setLabels(text.split('\n').map(l => l.trim()).filter(Boolean));
+        console.log("Labels loaded successfully");
+      } catch (e) {
+        console.log("Labels load error - using demo labels:", e.message);
+        setLabels(['tomato', 'onion', 'garlic', 'carrot', 'potato', 'bell pepper']);
       }
     };
+    
+    loadLabels();
+  }, []);
+
+  // Auto-start camera on component mount
+  useEffect(() => {
+    startCamera();
   }, []);
 
   const startCamera = async () => {
@@ -71,21 +97,47 @@ const IngredientScanner = () => {
       setCameraState('available');
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        videoRef.current.play();
       }
     } catch (error) {
-      console.log('Camera access denied or not available');
+      console.log('Camera access denied or not available:', error);
       setCameraState('denied');
     }
   };
+
+  // Ensure video plays when stream is available
+  useEffect(() => {
+    if (stream && videoRef.current && cameraState === 'available') {
+      videoRef.current.srcObject = stream;
+      // Use a small delay to avoid interruption errors
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.play().catch(e => {
+            // Ignore play interruption errors - they're harmless
+            if (!e.message.includes('interrupted')) {
+              console.log('Video play error:', e);
+            }
+          });
+        }
+      }, 100);
+    }
+  }, [stream, cameraState]);
 
   const captureImage = () => {
     if (videoRef.current && cameraState === 'available') {
       const canvas = document.createElement('canvas');
       const video = videoRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      
+      // Wait for video to be ready
+      if (video.readyState < 2) {
+        console.log('Video not ready for capture');
+        return null;
+      }
+      
+      canvas.width = video.videoWidth || INPUT_SIZE;
+      canvas.height = video.videoHeight || INPUT_SIZE;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL('image/jpeg');
     }
     return null;
@@ -93,7 +145,10 @@ const IngredientScanner = () => {
 
   // Real ONNX detection function
   const performDetection = useCallback(async (imageSource) => {
-    if (!session || !canvasRef.current) return [];
+    if (!session || !canvasRef.current) {
+      console.log('Session or canvas not ready');
+      return [];
+    }
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -103,6 +158,8 @@ const IngredientScanner = () => {
     return new Promise((resolve) => {
       img.onload = async () => {
         // Draw and resize image to INPUT_SIZE
+        canvas.width = INPUT_SIZE;
+        canvas.height = INPUT_SIZE;
         ctx.drawImage(img, 0, 0, INPUT_SIZE, INPUT_SIZE);
         const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
 
@@ -133,7 +190,7 @@ const IngredientScanner = () => {
             const offset = i * 6;
             const [x_min, y_min, x_max, y_max, confidence, class_id] = outputArr.slice(offset, offset + 6);
             
-            if (confidence > 0.5) { // Confidence threshold
+            if (confidence > CONFIDENCE_THRESHOLD) {
               const labelName = labels[Math.floor(class_id)] || `Class ${Math.floor(class_id)}`;
               detectedIngredients.push({
                 id: Date.now() + i,
@@ -151,22 +208,63 @@ const IngredientScanner = () => {
           resolve([]);
         }
       };
+      img.onerror = () => {
+        console.error('Image load error');
+        resolve([]);
+      };
       img.src = imageSource;
     });
   }, [session, labels]);
 
   const handleScan = async () => {
-    setIsScanning(true);
-    const capturedImage = captureImage();
-    setScannedImage(capturedImage);
+    console.log('Scan button clicked');
+    console.log('Camera state:', cameraState);
+    console.log('Session ready:', !!session);
     
-    if (capturedImage) {
-      const detectedIngredients = await performDetection(capturedImage);
-      setScannedIngredients(prev => [...prev, ...detectedIngredients]);
+    if (cameraState !== 'available') {
+      console.log('Camera not available, trying to start...');
+      await startCamera();
+      return;
     }
+
+    setIsScanning(true);
     
-    setIsScanning(false);
-    setShowModal(true);
+    try {
+      const capturedImage = captureImage();
+      console.log('Captured image:', !!capturedImage);
+      
+      if (!capturedImage) {
+        console.log('Failed to capture image');
+        setIsScanning(false);
+        return;
+      }
+      
+      setScannedImage(capturedImage);
+      
+      if (session) {
+        const detectedIngredients = await performDetection(capturedImage);
+        console.log('Detected ingredients:', detectedIngredients);
+        setScannedIngredients(prev => [...prev, ...detectedIngredients]);
+      } else {
+        console.log('No session available, adding demo ingredient');
+        // Add a demo ingredient if no model is loaded
+        const demoIngredients = ['Tomato', 'Onion', 'Garlic', 'Carrot', 'Bell Pepper', 'Potato'];
+        const randomIngredient = demoIngredients[Math.floor(Math.random() * demoIngredients.length)];
+        
+        setScannedIngredients(prev => [...prev, {
+          id: Date.now(),
+          name: randomIngredient,
+          description: 'Demo mode - randomly detected ingredient',
+          status: 'unchecked'
+        }]);
+      }
+      
+      setShowModal(true);
+    } catch (error) {
+      console.error('Scan error:', error);
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleImageUpload = () => {
@@ -181,11 +279,28 @@ const IngredientScanner = () => {
         setScannedImage(e.target.result);
         setIsScanning(true);
         
-        const detectedIngredients = await performDetection(e.target.result);
-        setScannedIngredients(prev => [...prev, ...detectedIngredients]);
-        
-        setIsScanning(false);
-        setShowModal(true);
+        try {
+          if (session) {
+            const detectedIngredients = await performDetection(e.target.result);
+            setScannedIngredients(prev => [...prev, ...detectedIngredients]);
+          } else {
+            // Add demo ingredient if no model
+            const demoIngredients = ['Uploaded Tomato', 'Uploaded Onion', 'Uploaded Garlic'];
+            const randomIngredient = demoIngredients[Math.floor(Math.random() * demoIngredients.length)];
+            
+            setScannedIngredients(prev => [...prev, {
+              id: Date.now(),
+              name: randomIngredient,
+              description: 'Demo mode - uploaded image analysis',
+              status: 'unchecked'
+            }]);
+          }
+        } catch (error) {
+          console.error('Upload detection error:', error);
+        } finally {
+          setIsScanning(false);
+          setShowModal(true);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -242,6 +357,15 @@ const IngredientScanner = () => {
     }
   }, [scannedIngredients.length]);
 
+  // Cleanup function
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
+
   return (
     <div className="scanner-container">
       {/* Hidden canvas for image processing */}
@@ -263,6 +387,7 @@ const IngredientScanner = () => {
         playsInline
         muted
         className="camera-feed"
+        style={{ display: cameraState === 'available' ? 'block' : 'none' }}
       />
       
       {/* Overlay for camera states */}
@@ -281,6 +406,18 @@ const IngredientScanner = () => {
             <div className="camera-emoji">📷</div>
             <p>Camera not available</p>
             <p className="camera-subtitle">Please allow camera access or upload an image</p>
+            <button onClick={startCamera} className="retry-camera-btn">
+              Try Again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cameraState === 'not-started' && (
+        <div className="no-camera-overlay">
+          <div className="no-camera-content">
+            <div className="camera-emoji">📷</div>
+            <p>Camera starting...</p>
           </div>
         </div>
       )}
@@ -312,18 +449,22 @@ const IngredientScanner = () => {
           {/* Scan Ingredient Button */}
           <button
             onClick={handleScan}
-            disabled={isScanning || cameraState !== 'available' || !session}
-            className={`scan-button ${(isScanning || cameraState !== 'available' || !session) ? 'disabled' : ''}`}
+            disabled={isScanning}
+            className={`scan-button ${isScanning ? 'disabled' : ''}`}
           >
             <FontAwesomeIcon icon={faExpand} className="scan-icon" />
-            <span>Scan Ingredient</span>
+            <span>
+              {cameraState === 'available' ? 'Scan Ingredient' : 
+               cameraState === 'loading' ? 'Camera Loading...' :
+               cameraState === 'denied' ? 'Enable Camera' : 'Start Camera'}
+            </span>
           </button>
 
           {/* Upload Image Button */}
           <button 
             onClick={handleImageUpload}
-            disabled={isScanning || !session}
-            className={`upload-button ${(isScanning || !session) ? 'disabled' : ''}`}
+            disabled={isScanning}
+            className={`upload-button ${isScanning ? 'disabled' : ''}`}
           >
             <FontAwesomeIcon icon={faUpload} className="upload-icon" />
           </button>
