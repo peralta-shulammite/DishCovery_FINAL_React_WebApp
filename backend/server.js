@@ -13,17 +13,7 @@ app.use(cors())
 app.use(express.json())
 
 // Database connection
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "db_dishcovery",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-}
 
-const pool = mysql.createPool(dbConfig)
 
 // Test database connection
 async function testConnection() {
@@ -56,5 +46,3 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
   testConnection()
 })
-
-module.exports = { pool }

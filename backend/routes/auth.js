@@ -1,188 +1,201 @@
-const express = require("express")
-const bcrypt = require("bcryptjs")
-const jwt = require("jsonwebtoken")
-const { pool } = require("../server")
-const { validateEmail, validatePassword } = require("../utils/validation")
+const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { pool } = require('../db');
+const { validateEmail, validatePassword } = require('../utils/validation');
 
-const router = express.Router()
-
-// JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
-
-// Sign Up Route
-router.post("/signup", async (req, res) => {
+// Register new user
+router.post('/register', async (req, res) => {
   try {
-    const { firstName, lastName, email, password, confirmPassword } = req.body
-
-    // Validation
-    if (!firstName || !lastName || !email || !password || !confirmPassword) {
-      return res.status(400).json({ message: "All fields are required" })
+    const { firstName, lastName, email, password } = req.body;
+    
+    // Validate input
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
     }
-
+    
     if (!validateEmail(email)) {
-      return res.status(400).json({ message: "Please enter a valid email address" })
+      return res.status(400).json({ message: 'Invalid email format' });
     }
-
+    
     if (!validatePassword(password)) {
-      return res.status(400).json({
-        message:
-          "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number",
-      })
+      return res.status(400).json({ 
+        message: 'Password must be at least 8 characters with uppercase, lowercase, and number'
+      });
     }
-
-    if (password !== confirmPassword) {
-      return res.status(400).json({ message: "Passwords do not match" })
-    }
-
-    // Check if user already exists
-    const [existingUsers] = await pool.execute("SELECT user_id FROM users WHERE email = ?", [email])
-
+    
+    // Check if user exists
+    const [existingUsers] = await pool.query(
+      'SELECT * FROM users WHERE email = ?', 
+      [email]
+    );
+    
     if (existingUsers.length > 0) {
-      return res.status(400).json({ message: "User with this email already exists" })
+      return res.status(409).json({ message: 'Email already in use' });
     }
-
+    
     // Hash password
-    const saltRounds = 12
-    const hashedPassword = await bcrypt.hash(password, saltRounds)
-
-    // Insert new user
-    const [result] = await pool.execute(
-      `INSERT INTO users (email, password_hash, first_name, last_name, is_new_user, email_verified, is_active, created_at, updated_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [email, hashedPassword, firstName, lastName, 1, 0, 1],
-    )
-
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        userId: result.insertId,
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" },
-    )
-
-    res.status(201).json({
-      message: "User created successfully",
-      token: token,
-      user: {
-        id: result.insertId,
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-        isNewUser: true,
-      },
-    })
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create user
+    const [result] = await pool.query(
+      'INSERT INTO users (first_name, last_name, email, password_hash, is_active) VALUES (?, ?, ?, ?, ?)',
+      [firstName, lastName, email, hashedPassword, true]
+    );
+    
+    // Generate verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store verification code
+    await pool.query(
+      'INSERT INTO pending_requests (user_id, request_type, request_data, status) VALUES (?, ?, ?, ?)',
+      [result.insertId, 'email_verification', verificationCode, 'pending']
+    );
+    
+    // In production, you would send this code to the user's email
+    console.log(`Verification code for ${email}: ${verificationCode}`);
+    
+    res.status(201).json({ 
+      message: 'User registered. Verification code sent to email.',
+      userId: result.insertId
+    });
+    
   } catch (error) {
-    console.error("Signup error:", error)
-    res.status(500).json({ message: "Internal server error" })
+    console.error(error);
+    res.status(500).json({ message: 'Server error during registration' });
   }
-})
+});
 
-// Sign In Route
-router.post("/signin", async (req, res) => {
+// Login user
+router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body
-
-    // Validation
+    const { email, password } = req.body;
+    
+    // Validate input
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" })
+      return res.status(400).json({ message: 'Email and password are required' });
     }
-
-    if (!validateEmail(email)) {
-      return res.status(400).json({ message: "Please enter a valid email address" })
-    }
-
+    
     // Find user
-    const [users] = await pool.execute(
-      "SELECT user_id, email, password_hash, first_name, last_name, is_active FROM users WHERE email = ?",
-      [email],
-    )
-
+    const [users] = await pool.query(
+      'SELECT * FROM users WHERE email = ?', 
+      [email]
+    );
+    
     if (users.length === 0) {
-      return res.status(401).json({ message: "Invalid email or password" })
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-
-    const user = users[0]
-
-    // Check if user is active
-    if (!user.is_active) {
-      return res.status(401).json({ message: "Account is deactivated. Please contact support." })
+    
+    const user = users[0];
+    
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash)
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: "Invalid email or password" })
+    
+    // Check if email is verified
+    const [pendingRequests] = await pool.query(
+      'SELECT * FROM pending_requests WHERE user_id = ? AND request_type = "email_verification" AND status = "pending"',
+      [user.user_id]
+    );
+    
+    if (pendingRequests.length > 0) {
+      return res.status(403).json({ 
+        message: 'Account not verified. Please check your email for verification code.' 
+      });
     }
-
-    // Update last login
-    await pool.execute("UPDATE users SET last_login = NOW() WHERE user_id = ?", [user.user_id])
-
-    // Generate JWT token
+    
+    // Create JWT token
     const token = jwt.sign(
-      {
+      { userId: user.user_id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
+    // Update last login
+    await pool.query(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP() WHERE user_id = ?',
+      [user.user_id]
+    );
+    
+    res.json({ 
+      token,
+      user: {
         userId: user.user_id,
-        email: user.email,
         firstName: user.first_name,
         lastName: user.last_name,
-      },
-      JWT_SECRET,
-      { expiresIn: "7d" },
-    )
-
-    res.json({
-      message: "Login successful",
-      token: token,
-      user: {
-        id: user.user_id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-      },
-    })
+        email: user.email
+      }
+    });
+    
   } catch (error) {
-    console.error("Signin error:", error)
-    res.status(500).json({ message: "Internal server error" })
+    console.error(error);
+    res.status(500).json({ message: 'Server error during login' });
   }
-})
+});
 
-// Verify Token Route
-router.get("/verify", async (req, res) => {
+// Verify email with code
+router.post('/verify', async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1]
-
-    if (!token) {
-      return res.status(401).json({ message: "No token provided" })
+    const { email, code } = req.body;
+    
+    // Find user
+    const [users] = await pool.query(
+      'SELECT * FROM users WHERE email = ?', 
+      [email]
+    );
+    
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
     }
-
-    const decoded = jwt.verify(token, JWT_SECRET)
-
-    // Check if user still exists and is active
-    const [users] = await pool.execute(
-      "SELECT user_id, email, first_name, last_name, is_active FROM users WHERE user_id = ?",
-      [decoded.userId],
-    )
-
-    if (users.length === 0 || !users[0].is_active) {
-      return res.status(401).json({ message: "Invalid token" })
+    
+    const user = users[0];
+    
+    // Check verification code
+    const [requests] = await pool.query(
+      'SELECT * FROM pending_requests WHERE user_id = ? AND request_type = "email_verification" AND request_data = ? AND status = "pending"',
+      [user.user_id, code]
+    );
+    
+    if (requests.length === 0) {
+      return res.status(400).json({ message: 'Invalid verification code' });
     }
-
-    res.json({
-      valid: true,
+    
+    // Mark request as completed
+    await pool.query(
+      'UPDATE pending_requests SET status = "completed", processed_at = CURRENT_TIMESTAMP() WHERE request_id = ?',
+      [requests[0].request_id]
+    );
+    
+    // Update user as verified
+    await pool.query(
+      'UPDATE users SET email_verified = 1 WHERE user_id = ?',
+      [user.user_id]
+    );
+    
+    // Create JWT token
+    const token = jwt.sign(
+      { userId: user.user_id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
+    res.json({ 
+      token,
       user: {
-        id: users[0].user_id,
-        email: users[0].email,
-        firstName: users[0].first_name,
-        lastName: users[0].last_name,
-      },
-    })
+        userId: user.user_id,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email
+      }
+    });
+    
   } catch (error) {
-    console.error("Token verification error:", error)
-    res.status(401).json({ message: "Invalid token" })
+    console.error(error);
+    res.status(500).json({ message: 'Server error during verification' });
   }
-})
+});
 
-module.exports = router
+module.exports = router;
