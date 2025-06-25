@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import api from './api'; // Import the API client
 import './styles.css';
 
 export default function DishCoveryLanding() {
@@ -14,6 +15,14 @@ export default function DishCoveryLanding() {
   const [isOneMoreStepChecked, setIsOneMoreStepChecked] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [user, setUser] = useState(null);
+  const [error, setError] = useState('');
   const avatarRef = useRef(null);
 
   const animatedWords = ['discover', 'explore', 'uncover'];
@@ -53,20 +62,40 @@ export default function DishCoveryLanding() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    // Check for existing token on mount
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsLoggedIn(true);
+      // Fetch user profile
+      api.getProfile()
+        .then((userData) => {
+          setUser(userData);
+        })
+        .catch(() => {
+          setIsLoggedIn(false);
+          setUser(null);
+        });
+    }
+  }, []);
+
   const handleSignInClick = () => {
     setShowSignInModal(true);
     setShowMobileMenu(false);
+    setError('');
   };
 
   const handleSignUpClick = () => {
     setShowSignInModal(false);
     setShowSignUpModal(true);
+    setError('');
   };
 
   const handleSocialLogin = () => {
     setShowSignInModal(false);
     setShowSignUpModal(false);
     setShowOneMoreStepModal(true);
+    setError('');
   };
 
   const closeModal = () => {
@@ -74,6 +103,13 @@ export default function DishCoveryLanding() {
     setShowSignUpModal(false);
     setShowOneMoreStepModal(false);
     setShowVideoModal(false);
+    setError('');
+    setEmail('');
+    setPassword('');
+    setFirstName('');
+    setLastName('');
+    setConfirmPassword('');
+    setVerificationCode('');
   };
 
   const handleRecipeClick = () => {
@@ -106,10 +142,52 @@ export default function DishCoveryLanding() {
   };
 
   const handleLogout = () => {
+    api.logout();
     setIsLoggedIn(false);
+    setUser(null);
     setShowAvatarDropdown(false);
     setShowMobileMenu(false);
     console.log("User logged out");
+  };
+
+  const handleSignInSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const data = await api.signIn(email, password);
+      setUser(data.user);
+      setIsLoggedIn(true);
+      closeModal();
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
+  const handleSignUpSubmit = async (e) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    try {
+      await api.signUp(firstName, lastName, email, password);
+      setShowSignUpModal(false);
+      setShowOneMoreStepModal(true);
+      setError('');
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
+  const handleVerifySubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const data = await api.verify(email, verificationCode);
+      setUser(data.user);
+      setIsLoggedIn(true);
+      closeModal();
+    } catch (error) {
+      setError(error.message);
+    }
   };
 
   const navLinks = [
@@ -201,7 +279,7 @@ export default function DishCoveryLanding() {
                 onMouseEnter={() => handleHover('avatar', true)}
                 onMouseLeave={() => handleHover('avatar', false)}
               >
-                JD {/* Placeholder initials */}
+                {user ? user.firstName.charAt(0) + user.lastName?.charAt(0) : 'JD'}
               </button>
               {showAvatarDropdown && (
                 <div className="avatar-dropdown">
@@ -542,10 +620,23 @@ export default function DishCoveryLanding() {
             <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">Welcome to DishCovery!</h2>
             <p className="modal-subtitle">Sign in to continue</p>
-            <input type="text" className="modal-input" placeholder="Enter your email address" />
-            <input type="password" className="modal-input" placeholder="Password" />
+            {error && <p className="modal-error">{error}</p>}
+            <input
+              type="text"
+              className="modal-input"
+              placeholder="Enter your email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <input
+              type="password"
+              className="modal-input"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
             <a href="#" className="forgot-password">Forgot Password?</a>
-            <button className="modal-signin-btn" onClick={handleSignInClick}>Sign In</button>
+            <button className="modal-signin-btn" onClick={handleSignInSubmit}>Sign In</button>
             <div className="modal-or">or</div>
             <div className="social-buttons">
               <button className="social-btn fb" onClick={handleSocialLogin}>
@@ -574,11 +665,42 @@ export default function DishCoveryLanding() {
             <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">New to DishCovery?</h2>
             <p className="modal-subtitle">Create account to continue</p>
-            <input type="text" className="modal-input" placeholder="First Name" />
-            <input type="text" className="modal-input" placeholder="Last Name" />
-            <input type="text" className="modal-input" placeholder="Email" />
-            <input type="password" className="modal-input" placeholder="Password" />
-            <input type="password" className="modal-input" placeholder="Confirm Password" />
+            {error && <p className="modal-error">{error}</p>}
+            <input
+              type="text"
+              className="modal-input"
+              placeholder="First Name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+            />
+            <input
+              type="text"
+              className="modal-input"
+              placeholder="Last Name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+            />
+            <input
+              type="text"
+              className="modal-input"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <input
+              type="password"
+              className="modal-input"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <input
+              type="password"
+              className="modal-input"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
             <div className="modal-terms">
               <input
                 type="checkbox"
@@ -593,7 +715,7 @@ export default function DishCoveryLanding() {
                 <a href="https://example.com/privacy" target="_blank" className="modal-link">Privacy Policy</a>.
               </span>
             </div>
-            <button className="modal-signup-btn" disabled={!isChecked}>Sign up</button>
+            <button className="modal-signup-btn" disabled={!isChecked} onClick={handleSignUpSubmit}>Sign up</button>
             <div className="modal-or">or</div>
             <div className="social-buttons">
               <button className="social-btn fb" onClick={handleSocialLogin}>
@@ -621,7 +743,14 @@ export default function DishCoveryLanding() {
             <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">One More Step</h2>
             <p className="modal-subtitle">Verify your account to get started</p>
-            <input type="text" className="modal-input" placeholder="Verification Code" />
+            {error && <p className="modal-error">{error}</p>}
+            <input
+              type="text"
+              className="modal-input"
+              placeholder="Verification Code"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+            />
             <div className="modal-terms">
               <input
                 type="checkbox"
@@ -633,7 +762,7 @@ export default function DishCoveryLanding() {
                 I confirm that I have received and entered the correct verification code sent to my email.
               </span>
             </div>
-            <button className="modal-signin-btn" disabled={!isOneMoreStepChecked}>Verify</button>
+            <button className="modal-signin-btn" disabled={!isOneMoreStepChecked} onClick={handleVerifySubmit}>Verify</button>
             <p className="modal-signup-text">Didn't receive a code? <a href="#" onClick={() => console.log("Resend code")}>Resend</a></p>
           </div>
         </div>
