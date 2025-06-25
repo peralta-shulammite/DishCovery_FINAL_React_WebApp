@@ -19,30 +19,6 @@ const INPUT_SIZE = 640;
 const MODEL_URL = "/assets/yolov8s-model.onnx";
 const LABELS_URL = "/assets/labels.txt";
 
-// Improved NMS function
-function nms(detections, iouThreshold = 0.5) {
-  if (detections.length === 0) return [];
-  
-  // Sort by confidence score in descending order
-  const sorted = detections.sort((a, b) => b.confidence - a.confidence);
-  const picked = [];
-  
-  while (sorted.length > 0) {
-    const current = sorted.shift();
-    picked.push(current);
-    
-    // Remove overlapping boxes
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const iou = calculateIoU(current.bbox, sorted[i].bbox);
-      if (iou > iouThreshold) {
-        sorted.splice(i, 1);
-      }
-    }
-  }
-  
-  return picked;
-}
-
 // Calculate Intersection over Union
 function calculateIoU(boxA, boxB) {
   const x1 = Math.max(boxA.x_min, boxB.x_min);
@@ -58,22 +34,26 @@ function calculateIoU(boxA, boxB) {
   return interArea / (boxAArea + boxBArea - interArea);
 }
 
-// Filter detections to only include food items
-function filterFoodItems(detections, labels) {
-  const foodKeywords = [
-    'apple', 'banana', 'orange', 'lemon', 'lime', 'grape', 'strawberry', 'cherry',
-    'tomato', 'potato', 'carrot', 'onion', 'garlic', 'pepper', 'cucumber', 'lettuce',
-    'cabbage', 'broccoli', 'spinach', 'mushroom', 'corn', 'peas', 'bean', 'avocado',
-    'egg', 'milk', 'cheese', 'bread', 'meat', 'chicken', 'fish', 'rice', 'pasta',
-    'flour', 'sugar', 'salt', 'oil', 'butter', 'yogurt', 'cereal', 'nuts', 'seeds'
-  ];
+// Non-Maximum Suppression
+function nms(detections, iouThreshold = 0.5) {
+  if (detections.length === 0) return [];
   
-  return detections.filter(detection => {
-    const name = detection.name.toLowerCase();
-    return foodKeywords.some(keyword => 
-      name.includes(keyword) || keyword.includes(name)
-    );
-  });
+  const sorted = detections.sort((a, b) => b.confidence - a.confidence);
+  const picked = [];
+  
+  while (sorted.length > 0) {
+    const current = sorted.shift();
+    picked.push(current);
+    
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const iou = calculateIoU(current.bbox, sorted[i].bbox);
+      if (iou > iouThreshold) {
+        sorted.splice(i, 1);
+      }
+    }
+  }
+  
+  return picked;
 }
 
 const IngredientScanner = () => {
@@ -233,24 +213,185 @@ const IngredientScanner = () => {
 
   // Load ONNX model
   useEffect(() => {
-    setIsModelLoading(true);
-    setModelError(null);
-    ort.env.wasm.wasmPaths = '/assets/';
-    ort.InferenceSession.create(MODEL_URL)
-      .then(setSession)
-      .catch(e => setModelError("Model load error: " + e.message))
-      .finally(() => setIsModelLoading(false));
+    const loadModel = async () => {
+      setIsModelLoading(true);
+      setModelError(null);
+      
+      try {
+        // Set WASM paths for ONNX runtime
+        ort.env.wasm.wasmPaths = '/assets/';
+        
+        // Create inference session
+        const inferenceSession = await ort.InferenceSession.create(MODEL_URL);
+        setSession(inferenceSession);
+        console.log('Model loaded successfully');
+      } catch (error) {
+        console.error('Error loading model:', error);
+        setModelError(`Model load error: ${error.message}`);
+      } finally {
+        setIsModelLoading(false);
+      }
+    };
+
+    loadModel();
   }, []);
 
-  // Load labels.txt
+  // Load labels from labels.txt
   useEffect(() => {
-    fetch(LABELS_URL)
-      .then(res => res.text())
-      .then(text => setLabels(text.split('\n').map(l => l.replace(/^\d+\s+/, '').trim()).filter(Boolean)))
-      .catch(e => console.error("Error loading labels:", e));
+    const loadLabels = async () => {
+      try {
+        const response = await fetch(LABELS_URL);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch labels: ${response.statusText}`);
+        }
+        const text = await response.text();
+        const labelLines = text.split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+        
+        setLabels(labelLines);
+        console.log('Labels loaded:', labelLines.length, 'classes');
+      } catch (error) {
+        console.error('Error loading labels:', error);
+        setModelError(`Labels load error: ${error.message}`);
+      }
+    };
+
+    loadLabels();
   }, []);
 
-  // FIXED: Single real-time detection with better logic
+  // Preprocess image for YOLOv8
+  function preprocessImage(imageData) {
+    const { data, width, height } = imageData;
+    const input = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
+    
+    for (let y = 0; y < INPUT_SIZE; y++) {
+      for (let x = 0; x < INPUT_SIZE; x++) {
+        const idx = (y * INPUT_SIZE + x) * 4;
+        const outIdx = y * INPUT_SIZE + x;
+        
+        // Normalize to [0, 1] and arrange in CHW format (YOLOv8 expects CHW)
+        input[outIdx] = data[idx] / 255.0; // R channel
+        input[INPUT_SIZE * INPUT_SIZE + outIdx] = data[idx + 1] / 255.0; // G channel
+        input[2 * INPUT_SIZE * INPUT_SIZE + outIdx] = data[idx + 2] / 255.0; // B channel
+      }
+    }
+    return input;
+  }
+
+  // Parse YOLOv8 detection output
+  function parseDetections(results, labels) {
+    if (!results || !session || !session.outputNames || session.outputNames.length === 0) {
+      console.error('Invalid results or session');
+      return [];
+    }
+
+    const outputName = session.outputNames[0];
+    const output = results[outputName];
+    
+    if (!output || !output.data) {
+      console.error('No output data found');
+      return [];
+    }
+
+    const outputData = Array.from(output.data);
+    const detections = [];
+    
+    // YOLOv8 output format: [batch, 84, 8400] where 84 = 4 (bbox) + 80 (classes)
+    // We need to transpose this to [8400, 84]
+    const numDetections = 8400;
+    const numClasses = labels.length;
+    const outputSize = 4 + numClasses; // 4 for bbox + num_classes for class scores
+
+    for (let i = 0; i < numDetections; i++) {
+      // Extract bbox coordinates (center_x, center_y, width, height)
+      const centerX = outputData[i];
+      const centerY = outputData[numDetections + i];
+      const width = outputData[2 * numDetections + i];
+      const height = outputData[3 * numDetections + i];
+
+      // Extract class scores
+      const classScores = [];
+      for (let j = 0; j < numClasses; j++) {
+        classScores.push(outputData[(4 + j) * numDetections + i]);
+      }
+
+      // Find the class with highest score
+      const maxScore = Math.max(...classScores);
+      const classIndex = classScores.indexOf(maxScore);
+      
+      // Apply confidence threshold
+      if (maxScore > 0.5 && classIndex < labels.length) {
+        // Convert center coordinates to corner coordinates
+        const x_min = Math.max(0, (centerX - width / 2) / INPUT_SIZE);
+        const y_min = Math.max(0, (centerY - height / 2) / INPUT_SIZE);
+        const x_max = Math.min(1, (centerX + width / 2) / INPUT_SIZE);
+        const y_max = Math.min(1, (centerY + height / 2) / INPUT_SIZE);
+
+        // Validate bbox
+        if (x_max > x_min && y_max > y_min) {
+          detections.push({
+            name: labels[classIndex],
+            confidence: maxScore,
+            bbox: { x_min, y_min, x_max, y_max }
+          });
+        }
+      }
+    }
+
+    return detections;
+  }
+
+  // Run detection on image
+  async function runDetection(imageDataUrl) {
+    if (!session || !labels.length) {
+      console.log('Model or labels not ready');
+      return [];
+    }
+
+    try {
+      // Create image element
+      const img = new window.Image();
+      img.src = imageDataUrl;
+      await new Promise(resolve => { img.onload = resolve; });
+
+      // Create canvas and resize image
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = INPUT_SIZE;
+      tempCanvas.height = INPUT_SIZE;
+      const ctx = tempCanvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, INPUT_SIZE, INPUT_SIZE);
+
+      // Get image data and preprocess
+      const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+      const input = preprocessImage(imageData);
+      
+      // Create tensor
+      const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+      
+      // Run inference
+      const feeds = {};
+      feeds[session.inputNames[0]] = tensor;
+      const results = await session.run(feeds);
+
+      // Parse results
+      const rawDetections = parseDetections(results, labels);
+      
+      // Apply NMS to remove duplicate detections
+      const finalDetections = nms(rawDetections, 0.4);
+      
+      // Return top detections sorted by confidence
+      return finalDetections
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, 10); // Limit to top 10 detections
+
+    } catch (error) {
+      console.error("Detection error:", error);
+      return [];
+    }
+  }
+
+  // Real-time detection for camera feed
   useEffect(() => {
     let interval;
     
@@ -277,30 +418,29 @@ const IngredientScanner = () => {
           const results = await session.run(feeds);
           
           const rawDetections = parseDetections(results, labels);
-          const filteredDetections = filterFoodItems(rawDetections, labels);
-          const finalDetections = nms(filteredDetections, 0.6); // Higher NMS threshold
+          const finalDetections = nms(rawDetections, 0.5);
           
-          // Only keep top 3 most confident detections and filter by higher confidence
+          // Filter for high-confidence detections for real-time display
           const topDetections = finalDetections
-            .filter(det => det.confidence > 0.9) // Higher confidence threshold
+            .filter(det => det.confidence > 0.7)
             .sort((a, b) => b.confidence - a.confidence)
-            .slice(0, 3); // Limit to max 3 detections
+            .slice(0, 5);
           
           setDetections(topDetections);
           
-          // Clear detections after 3 seconds if no new high-confidence detections
+          // Clear detections after timeout
           if (detectionTimeoutRef.current) {
             clearTimeout(detectionTimeoutRef.current);
           }
           
           detectionTimeoutRef.current = setTimeout(() => {
             setDetections([]);
-          }, 3000);
+          }, 2000);
           
         } catch (error) {
           console.error("Real-time detection error:", error);
         }
-      }, 2500); // Slower detection rate
+      }, 1000); // Run detection every second
     }
     
     return () => {
@@ -310,106 +450,6 @@ const IngredientScanner = () => {
       }
     };
   }, [session, labels, cameraState, showModal]);
-
-  // Improved image preprocessing
-  function preprocessImage(imageData) {
-    const { data } = imageData;
-    const input = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
-    
-    for (let y = 0; y < INPUT_SIZE; y++) {
-      for (let x = 0; x < INPUT_SIZE; x++) {
-        const idx = (y * INPUT_SIZE + x) * 4;
-        const outIdx = y * INPUT_SIZE + x;
-        // Normalize to [0, 1] range
-        input[outIdx] = data[idx] / 255.0; // R
-        input[INPUT_SIZE * INPUT_SIZE + outIdx] = data[idx + 1] / 255.0; // G
-        input[2 * INPUT_SIZE * INPUT_SIZE + outIdx] = data[idx + 2] / 255.0; // B
-      }
-    }
-    return input;
-  }
-
-  // Improved detection parsing with stricter filtering
-  function parseDetections(results, labels) {
-    const outputArr = Array.from(results[session.outputNames[0]].data);
-    const numClasses = labels.length;
-    const numDetections = outputArr.length / (5 + numClasses);
-    const detections = [];
-    
-    for (let i = 0; i < numDetections; i++) {
-      const offset = i * (5 + numClasses);
-      const [x, y, w, h, objConf, ...classScores] = outputArr.slice(offset, offset + 5 + numClasses);
-
-      const maxScore = Math.max(...classScores);
-      const classIdx = classScores.indexOf(maxScore);
-      const confidence = objConf * maxScore;
-
-      // Stricter filtering criteria
-      const relW = w / INPUT_SIZE;
-      const relH = h / INPUT_SIZE;
-      const aspect = relW / relH;
-      const area = relW * relH;
-      
-      if (
-        confidence > 0.92 && // Much higher confidence threshold
-        relW > 0.1 && relH > 0.1 && // Larger minimum size
-        relW < 0.7 && relH < 0.7 &&   // Smaller maximum size
-        aspect > 0.4 && aspect < 2.5 && // More reasonable aspect ratios
-        area > 0.02 && area < 0.4 && // Area constraints
-        classIdx < labels.length
-      ) {
-        detections.push({
-          name: labels[classIdx],
-          confidence,
-          bbox: {
-            x_min: Math.max(0, (x - w / 2) / INPUT_SIZE),
-            y_min: Math.max(0, (y - h / 2) / INPUT_SIZE),
-            x_max: Math.min(1, (x + w / 2) / INPUT_SIZE),
-            y_max: Math.min(1, (y + h / 2) / INPUT_SIZE),
-          }
-        });
-      }
-    }
-    
-    return detections;
-  }
-
-  async function runDetection(imageDataUrl) {
-    if (!session || !labels.length) return [];
-
-    try {
-      const img = new window.Image();
-      img.src = imageDataUrl;
-      await new Promise(res => { img.onload = res; });
-
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = INPUT_SIZE;
-      tempCanvas.height = INPUT_SIZE;
-      const ctx = tempCanvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, INPUT_SIZE, INPUT_SIZE);
-
-      const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
-      const input = preprocessImage(imageData);
-      
-      const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-      const feeds = {};
-      feeds[session.inputNames[0]] = tensor;
-      const results = await session.run(feeds);
-
-      const rawDetections = parseDetections(results, labels);
-      const filteredDetections = filterFoodItems(rawDetections, labels);
-      const finalDetections = nms(filteredDetections, 0.4);
-      
-      // Return top 8 most confident detections for manual scanning
-      return finalDetections
-        .filter(det => det.confidence > 0.85) // Lower threshold for manual scan
-        .sort((a, b) => b.confidence - a.confidence)
-        .slice(0, 8);
-    } catch (error) {
-      console.error("Detection error:", error);
-      return [];
-    }
-  }
 
   // Start camera on mount
   useEffect(() => {
@@ -498,7 +538,7 @@ const IngredientScanner = () => {
           </div>
         )}
 
-        {/* Fixed real-time detection overlay */}
+        {/* Real-time detection overlay */}
         {cameraState === 'available' && detections.length > 0 && !showModal && (
           <div 
             className="detection-overlay" 
@@ -565,20 +605,21 @@ const IngredientScanner = () => {
         <div className="controls-container">
           <button 
             onClick={handleScan}
-            disabled={isScanning || cameraState !== 'available'}
-            className={`scan-button ${isScanning || cameraState !== 'available' ? 'disabled' : ''}`}
+            disabled={isScanning || cameraState !== 'available' || isModelLoading}
+            className={`scan-button ${isScanning || cameraState !== 'available' || isModelLoading ? 'disabled' : ''}`}
           >
             <FontAwesomeIcon icon={faSearch} className="scan-icon" />
             <span>
-              {cameraState === 'available' ? 'Scan Ingredient' : 
+              {isModelLoading ? 'Loading Model...' :
+               cameraState === 'available' ? 'Scan Ingredient' : 
                cameraState === 'loading' ? 'Camera Loading...' :
                cameraState === 'denied' ? 'Enable Camera' : 'Start Camera'}
             </span>
           </button>
           <button 
             onClick={handleImageUpload}
-            disabled={isScanning}
-            className={`upload-button ${isScanning ? 'disabled' : ''}`}
+            disabled={isScanning || isModelLoading}
+            className={`upload-button ${isScanning || isModelLoading ? 'disabled' : ''}`}
           >
             <FontAwesomeIcon icon={faUpload} className="upload-icon" />
           </button>
@@ -726,12 +767,34 @@ const IngredientScanner = () => {
       )}
 
       {isModelLoading && (
-        <div style={{ color: '#666', textAlign: 'center', margin: '1rem', fontSize: '0.9rem' }}>
+        <div style={{ 
+          position: 'fixed', 
+          bottom: '20px', 
+          left: '50%', 
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.8)', 
+          color: '#fff', 
+          padding: '10px 20px', 
+          borderRadius: '20px',
+          fontSize: '0.9rem',
+          zIndex: 1000
+        }}>
           Loading AI model for ingredient detection...
         </div>
       )}
       {modelError && (
-        <div style={{ color: '#e53e3e', textAlign: 'center', margin: '1rem', fontSize: '0.9rem' }}>
+        <div style={{ 
+          position: 'fixed', 
+          bottom: '20px', 
+          left: '50%', 
+          transform: 'translateX(-50%)',
+          background: 'rgba(231, 76, 60, 0.9)', 
+          color: '#fff', 
+          padding: '10px 20px', 
+          borderRadius: '20px',
+          fontSize: '0.9rem',
+          zIndex: 1000
+        }}>
           Model Error: {modelError}
         </div>
       )}
