@@ -119,18 +119,40 @@ const IngredientScanner = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setCapturedImage(e.target.result);
-        setShowModal(true);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
+  const handleFileChange = async (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const imageDataUrl = e.target.result;
+      setCapturedImage(imageDataUrl);
+      
+      // Run detection on uploaded image
+      setIsScanning(true);
+      try {
+        const detections = await runDetection(imageDataUrl);
+        
+        // Convert detections to ingredients format
+        const ingredients = detections.map((det, idx) => ({
+          id: idx + 1,
+          name: capitalizeWords(det.name),
+          selected: true,
+          confidence: det.confidence
+        }));
+        
+        setScannedIngredients(ingredients);
+      } catch (error) {
+        console.error('Error processing uploaded image:', error);
+        setScannedIngredients([]);
+      } finally {
+        setIsScanning(false);
+      }
+      
+      setShowModal(true);
+    };
+    reader.readAsDataURL(file);
+  }
+};
   const handleScan = async () => {
     setIsScanning(true);
     captureImage();
@@ -422,7 +444,7 @@ const IngredientScanner = () => {
           
           // Filter for high-confidence detections for real-time display
           const topDetections = finalDetections
-            .filter(det => det.confidence > 0.7)
+            .filter(det => det.confidence > 0.87)
             .sort((a, b) => b.confidence - a.confidence)
             .slice(0, 5);
           
