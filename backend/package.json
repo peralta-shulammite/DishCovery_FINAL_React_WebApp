@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "dishcovery-backend",
   "version": "1.0.0",
   "description": "Backend API for DishCovery application",
