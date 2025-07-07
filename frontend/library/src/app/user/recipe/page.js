@@ -5,7 +5,9 @@ import {
   faBars, 
   faSearch, 
   faStar,
-  faStarHalfStroke
+  faStarHalfStroke,
+  faChevronDown,
+  faFilter
 } from '@fortawesome/free-solid-svg-icons';
 import { 
   faHeart, 
@@ -23,6 +25,31 @@ import './style.css';
 
 const RecipePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    mealType: {
+      breakfast: true,
+      dinner: false,
+      lightMeal: false,
+      lunch: false,
+      snack: false,
+      dessert: false
+    },
+    dishType: {
+      bread: true,
+      grilled: false,
+      pasta: false,
+      salad: false,
+      sandwich: false,
+      soup: false,
+      stewStir: false,
+      smoothie: false,
+      drinks: false,
+      noodles: false,
+      rice: false
+    }
+  });
 
   const recipes = Array(15).fill(null).map((_, index) => ({
     id: index + 1,
@@ -37,6 +64,39 @@ const RecipePage = () => {
       'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=300&h=200&fit=crop',
     rating: 4.5
   }));
+
+  // Handle filter changes
+  const handleFilterChange = (category, filterKey) => {
+    setFilters(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [filterKey]: !prev[category][filterKey]
+      }
+    }));
+  };
+
+  // Count active filters
+  const getActiveFilterCount = () => {
+    const mealTypeCount = Object.values(filters.mealType).filter(Boolean).length;
+    const dishTypeCount = Object.values(filters.dishType).filter(Boolean).length;
+    return mealTypeCount + dishTypeCount;
+  };
+
+  // Toggle mobile filter dropdown
+  const toggleFilterDropdown = () => {
+    setIsFilterDropdownOpen(!isFilterDropdownOpen);
+  };
+
+  // Toggle mobile navigation menu
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // Close mobile menu when clicking on a nav link
+  const handleNavLinkClick = () => {
+    setIsMobileMenuOpen(false);
+  };
 
   const renderStars = (rating) => {
     const stars = [];
@@ -77,13 +137,50 @@ const RecipePage = () => {
     return stars;
   };
 
+  // Filter options configuration
+  const filterOptions = {
+    mealType: {
+      title: 'Meal Type',
+      options: [
+        { key: 'breakfast', label: 'Breakfast' },
+        { key: 'dinner', label: 'Dinner' },
+        { key: 'lightMeal', label: 'Light Meal' },
+        { key: 'lunch', label: 'Lunch' },
+        { key: 'snack', label: 'Snack' },
+        { key: 'dessert', label: 'Dessert' }
+      ]
+    },
+    dishType: {
+      title: 'Dish Type',
+      options: [
+        { key: 'bread', label: 'Bread' },
+        { key: 'grilled', label: 'Grilled' },
+        { key: 'pasta', label: 'Pasta' },
+        { key: 'salad', label: 'Salad' },
+        { key: 'sandwich', label: 'Sandwich' },
+        { key: 'soup', label: 'Soup' },
+        { key: 'stewStir', label: 'Stew/Stir' },
+        { key: 'smoothie', label: 'Smoothie' },
+        { key: 'drinks', label: 'Drinks' },
+        { key: 'noodles', label: 'Noodles' },
+        { key: 'rice', label: 'Rice' }
+      ]
+    }
+  };
+
   return (
     <div className="recipe-page">
       {/* Header */}
       <header className="header">
         <div className="header-container">
           <div className="header-left">
-            <button className="menu-btn">
+            <button 
+              className="menu-btn"
+              onClick={toggleMobileMenu}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-nav-menu"
+              aria-label="Toggle navigation menu"
+            >
               <FontAwesomeIcon icon={faBars} />
             </button>
             <div className="logo">
@@ -119,89 +216,117 @@ const RecipePage = () => {
             </div>
           </div>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        <div 
+          id="mobile-nav-menu"
+          className={`mobile-nav-menu ${isMobileMenuOpen ? 'open' : ''}`}
+        >
+          <nav className="mobile-nav-links">
+            <a 
+              href="#home" 
+              className="mobile-nav-link"
+              onClick={handleNavLinkClick}
+            >
+              Home
+            </a>
+            <a 
+              href="#recipes" 
+              className="mobile-nav-link active"
+              onClick={handleNavLinkClick}
+            >
+              Recipes
+            </a>
+            <a 
+              href="#scan" 
+              className="mobile-nav-link"
+              onClick={handleNavLinkClick}
+            >
+              Scan
+            </a>
+          </nav>
+        </div>
       </header>
 
       {/* Main Content */}
       <div className="main-container">
         {/* Sidebar */}
         <aside className="sidebar">
+          {/* Mobile Filter Dropdown */}
+          <div className="mobile-filter-dropdown">
+            <button 
+              className={`filter-dropdown-button ${isFilterDropdownOpen ? 'open' : ''}`}
+              onClick={toggleFilterDropdown}
+              aria-expanded={isFilterDropdownOpen}
+              aria-controls="filter-dropdown-content"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FontAwesomeIcon icon={faFilter} />
+                <span>Filters</span>
+                {getActiveFilterCount() > 0 && (
+                  <span className={`filter-count-badge ${getActiveFilterCount() > 0 ? 'show' : ''}`}>
+                    {getActiveFilterCount()}
+                  </span>
+                )}
+              </div>
+              <FontAwesomeIcon 
+                icon={faChevronDown} 
+                className="filter-dropdown-icon"
+              />
+            </button>
+            
+            <div 
+              id="filter-dropdown-content"
+              className={`filter-dropdown-content ${isFilterDropdownOpen ? 'open' : ''}`}
+            >
+              {Object.entries(filterOptions).map(([categoryKey, category]) => (
+                <div key={categoryKey} className="mobile-filter-group">
+                  <div className="mobile-filter-category">{category.title}</div>
+                  {category.options.map((option) => (
+                    <label key={option.key} className="mobile-filter-item">
+                      <input 
+                        type="checkbox" 
+                        checked={filters[categoryKey][option.key]}
+                        onChange={() => handleFilterChange(categoryKey, option.key)}
+                      />
+                      <span className="mobile-filter-text">{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop Filters Section */}
           <div className="filters-section">
             <h3 className="filters-title">Filters</h3>
             
             <div className="filter-group">
               <h4 className="filter-category">Meal Type</h4>
-              <label className="filter-item">
-                <input type="checkbox" defaultChecked />
-                <span className="filter-text">Breakfast</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Dinner</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Light Meal</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Lunch</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Snack</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Dessert</span>
-              </label>
+              {filterOptions.mealType.options.map((option) => (
+                <label key={option.key} className="filter-item">
+                  <input 
+                    type="checkbox" 
+                    checked={filters.mealType[option.key]}
+                    onChange={() => handleFilterChange('mealType', option.key)}
+                  />
+                  <span className="filter-text">{option.label}</span>
+                </label>
+              ))}
             </div>
 
             <div className="filter-group">
               <h4 className="filter-category">Dish Type</h4>
-              <label className="filter-item">
-                <input type="checkbox" defaultChecked />
-                <span className="filter-text">Bread</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Grilled</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Pasta</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Salad</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Sandwich</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Soup</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Stew/Stir</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Smoothie</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Drinks</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Noodles</span>
-              </label>
-              <label className="filter-item">
-                <input type="checkbox" />
-                <span className="filter-text">Rice</span>
-              </label>
+              {filterOptions.dishType.options.map((option) => (
+                <label key={option.key} className="filter-item">
+                  <input 
+                    type="checkbox" 
+                    checked={filters.dishType[option.key]}
+                    onChange={() => handleFilterChange('dishType', option.key)}
+                  />
+                  <span className="filter-text">{option.label}</span>
+                </label>
+              ))}
             </div>
           </div>
         </aside>
