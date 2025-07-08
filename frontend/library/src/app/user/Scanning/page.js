@@ -226,9 +226,15 @@ const IngredientScanner = () => {
 
   const generateRecipe = () => {
     const selectedIngredients = scannedIngredients.filter(i => i.selected);
-    console.log('Generating recipe with:', selectedIngredients);
+    
+    // Create URL parameters with selected ingredients
+    const ingredientNames = selectedIngredients.map(ingredient => ingredient.name);
+    const params = new URLSearchParams();
+    params.set('ingredients', ingredientNames.join(','));
+    
+    // Navigate to recipe page with ingredients
+    window.location.href = `/user/recipe?${params.toString()}`;
   };
-
   const getSelectedCount = () => {
     return scannedIngredients.filter(i => i.selected).length;
   };

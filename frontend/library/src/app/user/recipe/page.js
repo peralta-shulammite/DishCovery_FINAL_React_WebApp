@@ -1,5 +1,6 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Add useEffect import
+import { useSearchParams } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faBars, 
@@ -24,6 +25,15 @@ import { faLeaf } from '@fortawesome/free-solid-svg-icons';
 import './style.css';
 
 const RecipePage = () => {
+  // Move useSearchParams and related logic here
+  const searchParams = useSearchParams();
+  const ingredientsFromScanner = searchParams.get('ingredients');
+
+  // Parse ingredients if they exist
+  const scannedIngredients = ingredientsFromScanner 
+    ? ingredientsFromScanner.split(',').map(name => name.trim())
+    : [];
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -50,6 +60,13 @@ const RecipePage = () => {
       rice: false
     }
   });
+
+ // Debug: Show received ingredients
+ useEffect(() => {
+  if (scannedIngredients.length > 0) {
+    console.log('Received ingredients from scanner:', scannedIngredients);
+  }
+}, [scannedIngredients]);
 
   const recipes = Array(15).fill(null).map((_, index) => ({
     id: index + 1,
