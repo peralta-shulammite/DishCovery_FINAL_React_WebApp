@@ -7,7 +7,14 @@ import {
   faStar,
   faStarHalfStroke,
   faChevronDown,
-  faFilter
+  faFilter,
+  faHome,
+  faInfoCircle,
+  faUtensils,
+  faBook,
+  faQuestion,
+  faHeadset,
+  faHandshakeAngle,
 } from '@fortawesome/free-solid-svg-icons';
 import { 
   faHeart, 
@@ -20,7 +27,6 @@ import {
   faTwitter,
   faLinkedin
 } from '@fortawesome/free-brands-svg-icons';
-import { faLeaf } from '@fortawesome/free-solid-svg-icons';
 import './style.css';
 
 const RecipePage = () => {
@@ -65,7 +71,6 @@ const RecipePage = () => {
     rating: 4.5
   }));
 
-  // Handle filter changes
   const handleFilterChange = (category, filterKey) => {
     setFilters(prev => ({
       ...prev,
@@ -76,24 +81,20 @@ const RecipePage = () => {
     }));
   };
 
-  // Count active filters
   const getActiveFilterCount = () => {
     const mealTypeCount = Object.values(filters.mealType).filter(Boolean).length;
     const dishTypeCount = Object.values(filters.dishType).filter(Boolean).length;
     return mealTypeCount + dishTypeCount;
   };
 
-  // Toggle mobile filter dropdown
   const toggleFilterDropdown = () => {
     setIsFilterDropdownOpen(!isFilterDropdownOpen);
   };
 
-  // Toggle mobile navigation menu
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  // Close mobile menu when clicking on a nav link
   const handleNavLinkClick = () => {
     setIsMobileMenuOpen(false);
   };
@@ -137,7 +138,6 @@ const RecipePage = () => {
     return stars;
   };
 
-  // Filter options configuration
   const filterOptions = {
     mealType: {
       title: 'Meal Type',
@@ -168,9 +168,21 @@ const RecipePage = () => {
     }
   };
 
+  const quickLinkIcons = {
+    home: faHome,
+    about: faInfoCircle,
+    create: faUtensils,
+    myrecipes: faBook
+  };
+
+  const supportLinkIcons = {
+    help: faHandshakeAngle,
+    faqs: faQuestion,
+    contact: faHeadset
+  };
+
   return (
     <div className="recipe-page">
-      {/* Header */}
       <header className="header">
         <div className="header-container">
           <div className="header-left">
@@ -217,7 +229,6 @@ const RecipePage = () => {
           </div>
         </div>
 
-        {/* Mobile Navigation Menu */}
         <div 
           id="mobile-nav-menu"
           className={`mobile-nav-menu ${isMobileMenuOpen ? 'open' : ''}`}
@@ -248,11 +259,8 @@ const RecipePage = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="main-container">
-        {/* Sidebar */}
         <aside className="sidebar">
-          {/* Mobile Filter Dropdown */}
           <div className="mobile-filter-dropdown">
             <button 
               className={`filter-dropdown-button ${isFilterDropdownOpen ? 'open' : ''}`}
@@ -297,7 +305,6 @@ const RecipePage = () => {
             </div>
           </div>
 
-          {/* Desktop Filters Section */}
           <div className="filters-section">
             <h3 className="filters-title">Filters</h3>
             
@@ -331,7 +338,6 @@ const RecipePage = () => {
           </div>
         </aside>
 
-        {/* Main Content Area */}
         <main className="main-content">
           <div className="content-header">
             <h2 className="page-title">Recommended Recipes</h2>
@@ -376,7 +382,6 @@ const RecipePage = () => {
         </main>
       </div>
 
-      {/* Footer */}
       <footer className="footer">
         <div className="footer-left">
           <div className="footer-logo">
@@ -390,18 +395,53 @@ const RecipePage = () => {
           <div className="quick-links">
             <h3 className="footer-title">Quick Links</h3>
             <ul className="footer-links">
-              <li><a href="#home">Home</a></li>
-              <li><a href="#about">About Us</a></li>
-              <li><a href="#create">Create Recipe</a></li>
-              <li><a href="#myrecipes">My Recipes</a></li>
+              <li>
+                <a href="#home">
+                  <FontAwesomeIcon icon={quickLinkIcons.home} className="footer-link-icon" />
+                  Home
+                </a>
+              </li>
+              <li>
+                <a href="#about">
+                  <FontAwesomeIcon icon={quickLinkIcons.about} className="footer-link-icon" />
+                  About Us
+                </a>
+              </li>
+              <li>
+                <a href="#create">
+                  <FontAwesomeIcon icon={quickLinkIcons.create} className="footer-link-icon" />
+                  Create Recipe
+                </a>
+              </li>
+              <li>
+                <a href="#myrecipes">
+                  <FontAwesomeIcon icon={quickLinkIcons.myrecipes} className="footer-link-icon" />
+                  My Recipes
+                </a>
+              </li>
             </ul>
           </div>
           <div className="support-links">
             <h3 className="footer-title">Support</h3>
             <ul className="footer-links">
-              <li><a href="#help">Help Center</a></li>
-              <li><a href="#faqs">FAQs</a></li>
-              <li><a href="#contact">Contact Us</a></li>
+              <li>
+                <a href="#help">
+                  <FontAwesomeIcon icon={supportLinkIcons.help} className="footer-link-icon" />
+                  Help Center
+                </a>
+              </li>
+              <li>
+                <a href="#faqs">
+                  <FontAwesomeIcon icon={supportLinkIcons.faqs} className="footer-link-icon" />
+                  FAQs
+                </a>
+              </li>
+              <li>
+                <a href="#contact">
+                  <FontAwesomeIcon icon={supportLinkIcons.contact} className="footer-link-icon" />
+                  Contact Us
+                </a>
+              </li>
             </ul>
           </div>
         </div>
