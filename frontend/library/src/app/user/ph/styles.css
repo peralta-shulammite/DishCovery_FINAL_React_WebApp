@@ -170,7 +170,7 @@ body.modal-open {
 
 .nav-actions {
   display: flex;
-  gap: 2px; /* Further reduced gap to bring buttons closer to hamburger */
+  gap: 2px;
   align-items: center;
 }
 
@@ -179,8 +179,8 @@ body.modal-open {
   color: #2E7D32;
   border: 1px solid #2E7D32;
   border-radius: 20px;
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 6px 12px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -201,8 +201,8 @@ body.modal-open {
   color: white;
   border: none;
   border-radius: 20px;
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 6px 12px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -311,6 +311,7 @@ body.modal-open {
   display: flex;
   flex-direction: column;
   padding: 20px;
+  display: none; /* Hidden as we are replacing with bottom nav */
 }
 
 .close-mobile-menu {
@@ -943,9 +944,10 @@ body.modal-open {
 }
 
 /* Enhanced DishCovery Footer Styles */
+/* Enhanced DishCovery Footer Styles */
 .footer {
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
-  color: white;
+  background: linear-gradient(135deg, #F5F5F0, #E8E8E0); /* Off-white gradient */
+  color: #2E7D32;
   padding: 80px 20px 40px;
   position: relative;
   overflow: hidden;
@@ -967,9 +969,9 @@ body.modal-open {
 }
 
 .footer-logo {
-  font-size: 40px;
+  font-size: 28px; /* Reduced from 40px to 28px */
   font-weight: 800;
-  color: white;
+  color: #2E7D32;
   font-family: 'Poppins', sans-serif;
   background: none;
   border: none;
@@ -983,8 +985,8 @@ body.modal-open {
 }
 
 .footer-logo .logo-text {
-  color: white;
-  font-size: 40px;
+  color: #2E7D32;
+  font-size: 28px; /* Reduced from 40px to 28px */
   font-weight: 800;
   letter-spacing: -0.5px;
   font-family: 'Poppins', sans-serif;
@@ -1004,6 +1006,7 @@ body.modal-open {
   opacity: 0.9;
   max-width: 250px;
   margin: 0;
+  color: #424242; /* Adjusted for contrast */
 }
 
 .footer-social {
@@ -1014,7 +1017,7 @@ body.modal-open {
 .footer-social svg {
   width: 28px;
   height: 28px;
-  fill: white;
+  fill: #2E7D32;
   transition: all 0.3s ease;
   transform-origin: center;
 }
@@ -1032,6 +1035,7 @@ body.modal-open {
   border-bottom: 2px solid #4CAF50;
   padding-bottom: 5px;
   width: fit-content;
+  color: #2E7D32; /* Adjusted for contrast */
 }
 
 .footer-links {
@@ -1045,7 +1049,7 @@ body.modal-open {
 }
 
 .footer-links a {
-  color: white;
+  color: #424242; /* Adjusted for contrast */
   text-decoration: none;
   font-size: 14px;
   opacity: 0.9;
@@ -1055,7 +1059,7 @@ body.modal-open {
 
 .footer-links a:hover {
   opacity: 1;
-  color: #4CAF50;
+  color: #2E7D32;
   padding-left: 10px;
 }
 
@@ -1063,9 +1067,10 @@ body.modal-open {
   text-align: center;
   margin-top: 50px;
   padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: 1px solid rgba(46, 125, 50, 0.2);
   font-size: 14px;
   opacity: 0.7;
+  color: #424242; /* Adjusted for contrast */
 }
 
 .footer-bottom p {
@@ -1073,13 +1078,13 @@ body.modal-open {
 }
 
 .contact-info a {
-  color: white;
+  color: #424242; /* Adjusted for contrast */
   text-decoration: none;
   transition: color 0.3s ease;
 }
 
 .contact-info a:hover {
-  color: #4CAF50;
+  color: #2E7D32;
 }
 
 .modal-overlay {
@@ -1095,6 +1100,7 @@ body.modal-open {
   z-index: 1000;
   animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 
 .modal-content {
   background: #FFFFFF;
@@ -1329,51 +1335,67 @@ body.modal-open {
   border: none;
 }
 
-/* Mobile Bottom Navbar */
 .mobile-bottom-nav {
-  display: none; /* Hidden by default, shown in mobile media query */
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, #1B5E20, #2E7D32);
-  padding: 10px 20px;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 10;
-  display: flex;
+  background: white;
+  display: none; /* Hidden by default for larger screens */
   justify-content: space-around;
   align-items: center;
+  padding: 8px 0;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  border-top: 1px solid rgba(0, 0, 0, 0.03);
 }
 
-.mobile-nav-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
+.bottom-nav-link {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px;
-  border-radius: 12px;
-  transition: background 0.3s, transform 0.3s;
+  text-decoration: none;
+  color: #616161;
+  font-size: 10px;
+  font-weight: 500;
+  transition: color 0.3s;
+  font-family: 'Poppins', sans-serif;
 }
 
-.mobile-nav-btn:hover, .mobile-nav-btn.mobile-nav-btn-hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
+.bottom-nav-link:hover {
+  color: #2E7D32;
 }
 
-.mobile-nav-btn .nav-icon {
+.bottom-nav-link .nav-icon {
   width: 20px;
   height: 20px;
-  fill: white;
+  fill: currentColor;
+  margin-bottom: 2px;
 }
 
-.mobile-nav-btn span {
-  font-family: 'Poppins', sans-serif;
+.bottom-nav-scan {
+  background: #2E7D32;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
+  transition: transform 0.3s, box-shadow 0.3s;
+  cursor: pointer;
+}
+
+.bottom-nav-scan:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 15px rgba(46, 125, 50, 0.3);
+}
+
+.bottom-nav-scan .scan-icon {
+  width: 24px;
+  height: 24px;
+  fill: white;
 }
 
 /* Media Queries */
@@ -1403,7 +1425,8 @@ body.modal-open {
 }
 
 @media (max-width: 768px) {
-  .nav-links {
+  .nav-links,
+  .nav-actions {
     display: none;
   }
 
@@ -1411,31 +1434,9 @@ body.modal-open {
     display: block;
   }
 
-  .nav-actions {
-    display: flex;
-    gap: 2px; /* Further reduced gap to bring buttons closer to hamburger */
-    align-items: center;
-  }
-
-  .scan-nav-btn {
-    padding: 4px 8px;
-    font-size: 12px;
-    gap: 4px;
-  }
-
-  .scan-nav-btn .scan-icon {
-    width: 14px;
-    height: 14px;
-  }
-
-  .sign-in-btn {
-    padding: 4px 8px;
-    font-size: 12px;
-  }
-
   .header {
     justify-content: space-between;
-    padding: 10px 12px; /* Reduced padding to tighten layout */
+    padding: 10px 12px;
     flex-wrap: nowrap;
   }
 
@@ -1451,11 +1452,6 @@ body.modal-open {
     display: flex;
   }
 
-  .mobile-nav-btn.home-btn span { content: "Home"; }
-  .mobile-nav-btn.features-btn span { content: "Features"; }
-  .mobile-nav-btn.recipes-btn span { content: "Recipes"; }
-  .mobile-nav-btn.how-it-works-btn span { content: "How It Works"; }
-
   .title {
     font-size: 2.2rem;
   }
@@ -1469,7 +1465,7 @@ body.modal-open {
   }
 
   .main-content {
-    padding: 120px 16px 80px;
+    padding: 80px 16px 80px;
   }
 
   .right-section {
@@ -1619,5 +1615,11 @@ body.modal-open {
 
   .recipe-card {
     width: 160px;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-bottom-nav {
+    display: none;
   }
 }
