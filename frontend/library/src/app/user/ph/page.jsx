@@ -1,37 +1,37 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import api from './api'; // Import the API client
+import api from './api'; 
 import './styles.css';
 
 export default function DishCoveryLanding() {
-  const topRef = useRef(null);
-  const [animatedTextIndex, setAnimatedTextIndex] = useState(0);
-  const [showSignInModal, setShowSignInModal] = useState(false);
-  const [showSignUpModal, setShowSignUpModal] = useState(false);
-  const [showOneMoreStepModal, setShowOneMoreStepModal] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showVideoModal, setShowVideoModal] = useState(false);
-  const [isChecked, setIsChecked] = useState(false);
-  const [isOneMoreStepChecked, setIsOneMoreStepChecked] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [user, setUser] = useState(null);
-  const [error, setError] = useState('');
-  const avatarRef = useRef(null);
+  const dishCoveryTopRef = useRef(null);
+  const [dishCoveryAnimatedTextIndex, setDishCoveryAnimatedTextIndex] = useState(0);
+  const [dishCoveryShowSignInModal, setDishCoveryShowSignInModal] = useState(false);
+  const [dishCoveryShowSignUpModal, setDishCoveryShowSignUpModal] = useState(false);
+  const [dishCoveryShowOneMoreStepModal, setDishCoveryShowOneMoreStepModal] = useState(false);
+  const [dishCoveryIsLoggedIn, setDishCoveryIsLoggedIn] = useState(false);
+  const [dishCoveryShowVideoModal, setDishCoveryShowVideoModal] = useState(false);
+  const [dishCoveryIsChecked, setDishCoveryIsChecked] = useState(false);
+  const [dishCoveryIsOneMoreStepChecked, setDishCoveryIsOneMoreStepChecked] = useState(false);
+  const [dishCoveryShowMobileMenu, setDishCoveryShowMobileMenu] = useState(false);
+  const [dishCoveryShowAvatarDropdown, setDishCoveryShowAvatarDropdown] = useState(false);
+  const [dishCoveryEmail, setDishCoveryEmail] = useState('');
+  const [dishCoveryPassword, setDishCoveryPassword] = useState('');
+  const [dishCoveryFirstName, setDishCoveryFirstName] = useState('');
+  const [dishCoveryLastName, setDishCoveryLastName] = useState('');
+  const [dishCoveryConfirmPassword, setDishCoveryConfirmPassword] = useState('');
+  const [dishCoveryVerificationCode, setDishCoveryVerificationCode] = useState('');
+  const [dishCoveryUser, setDishCoveryUser] = useState(null);
+  const [dishCoveryError, setDishCoveryError] = useState('');
+  const dishCoveryAvatarRef = useRef(null);
 
-  const animatedWords = ['discover', 'explore', 'uncover'];
+  const dishCoveryAnimatedWords = ['discover', 'explore', 'uncover'];
 
-  const scrollToTop = useCallback(() => {
-    topRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const dishCoveryScrollToTop = useCallback(() => {
+    dishCoveryTopRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  const [hoverStates, setHoverStates] = useState({
+  const [dishCoveryHoverStates, setDishCoveryHoverStates] = useState({
     logo: false,
     signIn: false,
     scan: false,
@@ -41,163 +41,161 @@ export default function DishCoveryLanding() {
     avatar: false,
   });
 
-  const handleHover = (element, isHover) => {
-    setHoverStates((prev) => ({ ...prev, [element]: isHover }));
+  const dishCoveryHandleHover = (element, isHover) => {
+    setDishCoveryHoverStates((prev) => ({ ...prev, [element]: isHover }));
   };
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setAnimatedTextIndex((prev) => (prev + 1) % animatedWords.length);
+      setDishCoveryAnimatedTextIndex((prev) => (prev + 1) % dishCoveryAnimatedWords.length);
     }, 2000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (avatarRef.current && !avatarRef.current.contains(event.target)) {
-        setShowAvatarDropdown(false);
+    const dishCoveryHandleClickOutside = (event) => {
+      if (dishCoveryAvatarRef.current && !dishCoveryAvatarRef.current.contains(event.target)) {
+        setDishCoveryShowAvatarDropdown(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', dishCoveryHandleClickOutside);
+    return () => document.removeEventListener('mousedown', dishCoveryHandleClickOutside);
   }, []);
 
   useEffect(() => {
-    // Check for existing token on mount
     const token = localStorage.getItem('token');
     if (token) {
-      setIsLoggedIn(true);
-      // Fetch user profile
+      setDishCoveryIsLoggedIn(true);
       api.getProfile()
         .then((userData) => {
-          setUser(userData);
+          setDishCoveryUser(userData);
         })
         .catch(() => {
-          setIsLoggedIn(false);
-          setUser(null);
+          setDishCoveryIsLoggedIn(false);
+          setDishCoveryUser(null);
         });
     }
   }, []);
 
-  const handleSignInClick = () => {
-    setShowSignInModal(true);
-    setShowMobileMenu(false);
-    setError('');
+  const dishCoveryHandleSignInClick = () => {
+    setDishCoveryShowSignInModal(true);
+    setDishCoveryShowMobileMenu(false);
+    setDishCoveryError('');
   };
 
-  const handleSignUpClick = () => {
-    setShowSignInModal(false);
-    setShowSignUpModal(true);
-    setError('');
+  const dishCoveryHandleSignUpClick = () => {
+    setDishCoveryShowSignInModal(false);
+    setDishCoveryShowSignUpModal(true);
+    setDishCoveryError('');
   };
 
-  const handleSocialLogin = () => {
-    setShowSignInModal(false);
-    setShowSignUpModal(false);
-    setShowOneMoreStepModal(true);
-    setError('');
+  const dishCoveryHandleSocialLogin = () => {
+    setDishCoveryShowSignInModal(false);
+    setDishCoveryShowSignUpModal(false);
+    setDishCoveryShowOneMoreStepModal(true);
+    setDishCoveryError('');
   };
 
-  const closeModal = () => {
-    setShowSignInModal(false);
-    setShowSignUpModal(false);
-    setShowOneMoreStepModal(false);
-    setShowVideoModal(false);
-    setError('');
-    setEmail('');
-    setPassword('');
-    setFirstName('');
-    setLastName('');
-    setConfirmPassword('');
-    setVerificationCode('');
+  const dishCoveryCloseModal = () => {
+    setDishCoveryShowSignInModal(false);
+    setDishCoveryShowSignUpModal(false);
+    setDishCoveryShowOneMoreStepModal(false);
+    setDishCoveryShowVideoModal(false);
+    setDishCoveryError('');
+    setDishCoveryEmail('');
+    setDishCoveryPassword('');
+    setDishCoveryFirstName('');
+    setDishCoveryLastName('');
+    setDishCoveryConfirmPassword('');
+    setDishCoveryVerificationCode('');
   };
 
-  const handleRecipeClick = () => {
-    if (!isLoggedIn) {
-      setShowSignInModal(true);
+  const dishCoveryHandleRecipeClick = () => {
+    if (!dishCoveryIsLoggedIn) {
+      setDishCoveryShowSignInModal(true);
     } else {
       console.log("Navigate to recipe detail page");
     }
   };
 
-  const handleVideoClick = () => {
-    setShowVideoModal(true);
+  const dishCoveryHandleVideoClick = () => {
+    setDishCoveryShowVideoModal(true);
   };
 
-  const handleScanClick = () => {
-    if (!isLoggedIn) {
-      setShowSignInModal(true);
+  const dishCoveryHandleScanClick = () => {
+    if (!dishCoveryIsLoggedIn) {
+      setDishCoveryShowSignInModal(true);
     } else {
       console.log("Initiate ingredient scan");
     }
-    setShowMobileMenu(false);
+    setDishCoveryShowMobileMenu(false);
   };
 
-  const handleStartJourneyClick = () => {
-    setShowSignInModal(true);
+  const dishCoveryHandleStartJourneyClick = () => {
+    setDishCoveryShowSignInModal(true);
   };
 
-  const toggleMobileMenu = () => {
-    setShowMobileMenu((prev) => !prev);
+  const dishCoveryToggleMobileMenu = () => {
+    setDishCoveryShowMobileMenu((prev) => !prev);
   };
 
-  const handleLogout = () => {
+  const dishCoveryHandleLogout = () => {
     api.logout();
-    setIsLoggedIn(false);
-    setUser(null);
-    setShowAvatarDropdown(false);
-    setShowMobileMenu(false);
+    setDishCoveryIsLoggedIn(false);
+    setDishCoveryUser(null);
+    setDishCoveryShowAvatarDropdown(false);
+    setDishCoveryShowMobileMenu(false);
     console.log("User logged out");
   };
 
-  const handleSignInSubmit = async (e) => {
+  const dishCoveryHandleSignInSubmit = async (e) => {
     e.preventDefault();
     try {
-      const data = await api.signIn(email, password);
-      setUser(data.user);
-      setIsLoggedIn(true);
-      closeModal();
+      const data = await api.signIn(dishCoveryEmail, dishCoveryPassword);
+      setDishCoveryUser(data.user);
+      setDishCoveryIsLoggedIn(true);
+      dishCoveryCloseModal();
     } catch (error) {
-      setError(error.message);
+      setDishCoveryError(error.message);
     }
   };
 
-  const handleSignUpSubmit = async (e) => {
+  const dishCoveryHandleSignUpSubmit = async (e) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    if (dishCoveryPassword !== dishCoveryConfirmPassword) {
+      setDishCoveryError('Passwords Robinets do not match');
       return;
     }
     try {
-      await api.signUp(firstName, lastName, email, password);
-      setShowSignUpModal(false);
-      setShowOneMoreStepModal(true);
-      setError('');
+      await api.signUp(dishCoveryFirstName, dishCoveryLastName, dishCoveryEmail, dishCoveryPassword);
+      setDishCoveryShowSignUpModal(false);
+      setDishCoveryShowOneMoreStepModal(true);
+      setDishCoveryError('');
     } catch (error) {
-      setError(error.message);
+      setDishCoveryError(error.message);
     }
   };
 
-  const handleVerifySubmit = async (e) => {
+  const dishCoveryHandleVerifySubmit = async (e) => {
     e.preventDefault();
     try {
-      const data = await api.verify(email, verificationCode);
-      setUser(data.user);
-      setIsLoggedIn(true);
-      closeModal();
+      const data = await api.verify(dishCoveryEmail, dishCoveryVerificationCode);
+      setDishCoveryUser(data.user);
+      setDishCoveryIsLoggedIn(true);
+      dishCoveryCloseModal();
     } catch (error) {
-      setError(error.message);
+      setDishCoveryError(error.message);
     }
   };
 
-  const navLinks = [
-    { name: "Home", href: "#home", onClick: scrollToTop },
-    { name: "Features", href: "#features" },
-    { name: "Recipes", href: "#recipes" },
-    { name: "How It Works", href: "#how-to-use" },
+  const dishCoveryNavLinks = [
+    { name: "Home", href: "user/ph", onClick: dishCoveryScrollToTop },
+    { name: "My Pantry", href: "/pantry" },
+    { name: "Favorites", href: "/favorites" },
+    { name: "User", href: "/user-profile" },
   ];
 
-  const topRecipes = [
+  const dishCoveryTopRecipes = [
     { name: "Mediterranean Salad", time: "20 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
     { name: "Classic Burger", time: "35 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
     { name: "Japanese Ramen", time: "50 min", difficulty: "Medium", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
@@ -206,9 +204,9 @@ export default function DishCoveryLanding() {
     { name: "Classic Burger", time: "35 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
   ];
 
-  const bottomRecipes = [
+  const dishCoveryBottomRecipes = [
     { name: "American BBQ Ribs", time: "90 min", difficulty: "Medium", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Greek Moussaka", time: "60 min", difficulty: "Hard", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
+    { name: "Greek Moussaka", time: "60 min", difficulty: "Hard", img: "https://s.yimg.com/ny/api/highlander;w=960;h=960--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
     { name: "Spicy Thai Curry", time: "45 min", difficulty: "Medium", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
     { name: "Mexican Tacos", time: "25 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
     { name: "American BBQ Ribs", time: "90 min", difficulty: "Medium", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
@@ -216,23 +214,23 @@ export default function DishCoveryLanding() {
   ];
 
   return (
-    <div ref={topRef} className="container">
+    <div ref={dishCoveryTopRef} className="container">
       <div className="decorative-circle circle1"></div>
       <div className="decorative-circle circle2"></div>
       <div className="decorative-circle circle3"></div>
 
       <header className="header">
         <button
-          className={`logo ${hoverStates.logo ? 'logo-hover' : ''}`}
-          onClick={scrollToTop}
-          onMouseEnter={() => handleHover('logo', true)}
-          onMouseLeave={() => handleHover('logo', false)}
+          className={`logo ${dishCoveryHoverStates.logo ? 'logo-hover' : ''}`}
+          onClick={dishCoveryScrollToTop}
+          onMouseEnter={() => dishCoveryHandleHover('logo', true)}
+          onMouseLeave={() => dishCoveryHandleHover('logo', false)}
         >
           <span className="logo-text">DishCovery</span>
         </button>
 
         <nav className="nav-links">
-          {navLinks.map((link) => (
+          {dishCoveryNavLinks.map((link) => (
             <a
               key={link.name}
               href={link.href}
@@ -249,13 +247,13 @@ export default function DishCoveryLanding() {
         </nav>
 
         <div className="nav-actions">
-          {!isLoggedIn ? (
+          {!dishCoveryIsLoggedIn ? (
             <>
               <button
-                className={`scan-nav-btn ${hoverStates.scanNav ? 'scan-nav-btn-hover' : ''}`}
-                onClick={handleScanClick}
-                onMouseEnter={() => handleHover('scanNav', true)}
-                onMouseLeave={() => handleHover('scanNav', false)}
+                className={`scan-nav-btn ${dishCoveryHoverStates.scanNav ? 'scan-nav-btn-hover' : ''}`}
+                onClick={dishCoveryHandleScanClick}
+                onMouseEnter={() => dishCoveryHandleHover('scanNav', true)}
+                onMouseLeave={() => dishCoveryHandleHover('scanNav', false)}
               >
                 <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
@@ -263,34 +261,34 @@ export default function DishCoveryLanding() {
                 Scan Now
               </button>
               <button
-                className={`sign-in-btn ${hoverStates.signIn ? 'sign-in-btn-hover' : ''}`}
-                onClick={handleSignInClick}
-                onMouseEnter={() => handleHover('signIn', true)}
-                onMouseLeave={() => handleHover('signIn', false)}
+                className={`sign-in-btn ${dishCoveryHoverStates.signIn ? 'sign-in-btn-hover' : ''}`}
+                onClick={dishCoveryHandleSignInClick}
+                onMouseEnter={() => dishCoveryHandleHover('signIn', true)}
+                onMouseLeave={() => dishCoveryHandleHover('signIn', false)}
               >
                 Sign In
               </button>
             </>
           ) : (
-            <div className="avatar-container" ref={avatarRef}>
+            <div className="avatar-container" ref={dishCoveryAvatarRef}>
               <button
-                className={`avatar-btn ${hoverStates.avatar ? 'avatar-btn-hover' : ''}`}
-                onClick={() => setShowAvatarDropdown((prev) => !prev)}
-                onMouseEnter={() => handleHover('avatar', true)}
-                onMouseLeave={() => handleHover('avatar', false)}
+                className={`avatar-btn ${dishCoveryHoverStates.avatar ? 'avatar-btn-hover' : ''}`}
+                onClick={() => setDishCoveryShowAvatarDropdown((prev) => !prev)}
+                onMouseEnter={() => dishCoveryHandleHover('avatar', true)}
+                onMouseLeave={() => dishCoveryHandleHover('avatar', false)}
               >
-                {user ? user.firstName.charAt(0) + user.lastName?.charAt(0) : 'JD'}
+                {dishCoveryUser ? dishCoveryUser.firstName.charAt(0) + dishCoveryUser.lastName?.charAt(0) : 'JD'}
               </button>
-              {showAvatarDropdown && (
+              {dishCoveryShowAvatarDropdown && (
                 <div className="avatar-dropdown">
-                  <a href="#my-recipes" className="dropdown-item">My Recipes</a>
-                  <a href="#profile" className="dropdown-item">Profile</a>
-                  <button className="dropdown-item logout-btn" onClick={handleLogout}>Logout</button>
+                  <a href="/favorites" className="dropdown-item">Favorites</a>
+                  <a href="/user-profile" className="dropdown-item">Profile</a>
+                  <button className="dropdown-item logout-btn" onClick={dishCoveryHandleLogout}>Logout</button>
                 </div>
               )}
             </div>
           )}
-          <button className="hamburger-btn" onClick={toggleMobileMenu}>
+          <button className="hamburger-btn" onClick={dishCoveryToggleMobileMenu}>
             <svg className="hamburger-icon" viewBox="0 0 24 24" fill="currentColor">
               <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
             </svg>
@@ -298,25 +296,25 @@ export default function DishCoveryLanding() {
         </div>
       </header>
 
-      {showMobileMenu && (
+      {dishCoveryShowMobileMenu && (
         <div className="mobile-menu">
           <div className="mobile-menu-header">
             <span className="mobile-menu-logo">DishCovery</span>
-            <button className="close-mobile-menu" onClick={toggleMobileMenu}>
+            <button className="close-mobile-menu" onClick={dishCoveryToggleMobileMenu}>
               <svg viewBox="0 0 24 24" fill="currentColor" className="close-icon">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
               </svg>
             </button>
           </div>
           <div className="mobile-menu-content">
-            {navLinks.map((link) => (
+            {dishCoveryNavLinks.map((link) => (
               <a
                 key={link.name}
                 href={link.href}
                 className="mobile-nav-link"
                 onClick={(e) => {
                   e.preventDefault();
-                  setShowMobileMenu(false);
+                  setDishCoveryShowMobileMenu(false);
                   if (link.onClick) link.onClick();
                   else document.querySelector(link.href)?.scrollIntoView({ behavior: 'smooth' });
                 }}
@@ -324,28 +322,61 @@ export default function DishCoveryLanding() {
                 {link.name}
               </a>
             ))}
-            {!isLoggedIn ? (
+            {!dishCoveryIsLoggedIn ? (
               <>
-                <button className="mobile-nav-link mobile-scan-btn" onClick={handleScanClick}>
+                <button className="mobile-nav-link mobile-scan-btn" onClick={dishCoveryHandleScanClick}>
                   <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                   </svg>
                   Scan Ingredients
                 </button>
-                <button className="mobile-nav-link mobile-sign-in-btn" onClick={handleSignInClick}>
+                <button className="mobile-nav-link mobile-sign-in-btn" onClick={dishCoveryHandleSignInClick}>
                   Sign In
                 </button>
               </>
             ) : (
               <>
-                <a href="#my-recipes" className="mobile-nav-link" onClick={() => setShowMobileMenu(false)}>My Recipes</a>
-                <a href="#profile" className="mobile-nav-link" onClick={() => setShowMobileMenu(false)}>Profile</a>
-                <button className="mobile-nav-link logout-btn" onClick={handleLogout}>Logout</button>
+                <a href="/favorites" className="mobile-nav-link" onClick={() => setDishCoveryShowMobileMenu(false)}>Favorites</a>
+                <a href="/user-profile" className="mobile-nav-link" onClick={() => setDishCoveryShowMobileMenu(false)}>Profile</a>
+                <button className="mobile-nav-link logout-btn" onClick={dishCoveryHandleLogout}>Logout</button>
               </>
             )}
           </div>
         </div>
       )}
+
+      <nav className="mobile-bottom-nav">
+        <a href="/ph" className="bottom-nav-link" onClick={(e) => { e.preventDefault(); document.querySelector('/ph')?.scrollIntoView({ behavior: 'smooth' }); }}>
+          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+          </svg>
+          Home
+        </a>
+        <a href="/pantry" className="bottom-nav-link" onClick={(e) => { e.preventDefault(); document.querySelector('/pantry')?.scrollIntoView({ behavior: 'smooth' }); }}>
+          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 7H5c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm0 8H5V9h14v6z"/>
+            <path d="M12 15c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/>
+          </svg>
+          My Pantry
+        </a>
+        <button className="bottom-nav-scan" onClick={dishCoveryHandleScanClick}>
+          <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+          </svg>
+        </button>
+        <a href="/favorites" className="bottom-nav-link" onClick={(e) => { e.preventDefault(); document.querySelector('/favorites')?.scrollIntoView({ behavior: 'smooth' }); }}>
+          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          Favorites
+        </a>
+        <a href="/user-profile" className="bottom-nav-link" onClick={(e) => { e.preventDefault(); document.querySelector('/user-profile')?.scrollIntoView({ behavior: 'smooth' }); }}>
+          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+          </svg>
+          User
+        </a>
+      </nav>
 
       <main className="main-content">
         <div className="left-section">
@@ -354,7 +385,7 @@ export default function DishCoveryLanding() {
               <path d="M9,21.35L10.91,20.54C15.23,21.59 19,18.96 19,14.5V9C19,8.65 18.76,8.35 18.44,8.27L12,6.3L5.56,8.27C5.24,8.35 5,8.65 5,9V14.5C5,18.96 8.77,21.59 13.09,20.54L15,21.35V19H9V21.35M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17Z"/>
             </svg>
             <span className="badge-text">
-              <span className="animated-word">{animatedWords[animatedTextIndex]}</span>
+              <span className="animated-word">{dishCoveryAnimatedWords[dishCoveryAnimatedTextIndex]}</span>
               <span className="static-text"> medically verified recipes</span>
             </span>
           </div>
@@ -402,10 +433,10 @@ export default function DishCoveryLanding() {
 
           <div className="button-group">
             <button
-              className={`scan-btn ${hoverStates.scan ? 'scan-btn-hover' : ''}`}
-              onClick={handleScanClick}
-              onMouseEnter={() => handleHover('scan', true)}
-              onMouseLeave={() => handleHover('scan', false)}
+              className={`scan-btn ${dishCoveryHoverStates.scan ? 'scan-btn-hover' : ''}`}
+              onClick={dishCoveryHandleScanClick}
+              onMouseEnter={() => dishCoveryHandleHover('scan', true)}
+              onMouseLeave={() => dishCoveryHandleHover('scan', false)}
               style={{
                 backgroundColor: '#2E7D32',
                 color: 'white',
@@ -418,7 +449,7 @@ export default function DishCoveryLanding() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: hoverStates.scan ? '0 5px 12px rgba(46, 125, 50, 0.25)' : '0 3px 8px rgba(46, 125, 50, 0.15)',
+                boxShadow: dishCoveryHoverStates.scan ? '0 5px 12px rgba(46, 125, 50, 0.25)' : '0 3px 8px rgba(46, 125, 50, 0.15)',
                 transition: 'all 0.3s ease',
               }}
             >
@@ -428,10 +459,10 @@ export default function DishCoveryLanding() {
               <span className="btn-text">Scan Ingredients</span>
             </button>
             <a
-              href="#how-to-use"
-              className={`how-to-use ${hoverStates.howToUse ? 'how-to-use-hover' : ''}`}
-              onMouseEnter={() => handleHover('howToUse', true)}
-              onMouseLeave={() => handleHover('howToUse', false)}
+              href="/pantry"
+              className={`how-to-use ${dishCoveryHoverStates.howToUse ? 'how-to-use-hover' : ''}`}
+              onMouseEnter={() => dishCoveryHandleHover('howToUse', true)}
+              onMouseLeave={() => dishCoveryHandleHover('howToUse', false)}
             >
               How It Works
               <svg className="arrow" viewBox="0 0 24 24" fill="currentColor">
@@ -447,9 +478,9 @@ export default function DishCoveryLanding() {
             <img
               src="/main.png"
               alt="Personalized healthy meal"
-              className={`plate-image ${hoverStates.plate ? 'plate-image-hover' : ''}`}
-              onMouseEnter={() => handleHover('plate', true)}
-              onMouseLeave={() => handleHover('plate', false)}
+              className={`plate-image ${dishCoveryHoverStates.plate ? 'plate-image-hover' : ''}`}
+              onMouseEnter={() => dishCoveryHandleHover('plate', true)}
+              onMouseLeave={() => dishCoveryHandleHover('plate', false)}
             />
             <div className="floating-badge badge-1">✓ Personalized</div>
             <div className="floating-badge badge-2">✓ Health-Focused</div>
@@ -457,20 +488,20 @@ export default function DishCoveryLanding() {
         </div>
       </main>
 
-      <section className="carousel-section" id="recipes">
+      <section className="carousel-section" id="/favorites">
         <div className="carousel-header">
           <h2 className="carousel-title">Delicious Recipe Inspirations</h2>
           <p className="carousel-subtitle">
             Join thousands of satisfied users who have revolutionized their cooking, reduced food waste, and discovered amazing new recipes.
           </p>
-          <button className="carousel-start-btn" onClick={handleStartJourneyClick}>
+          <button className="carousel-start-btn" onClick={dishCoveryHandleStartJourneyClick}>
             Start Your Free Journey →
           </button>
         </div>
         <div className="carousel-container">
           <div className="carousel-row top-row">
-            {[...topRecipes, ...topRecipes].map((recipe, index) => (
-              <div key={index} className="recipe-card" onClick={handleRecipeClick}>
+            {[...dishCoveryTopRecipes, ...dishCoveryTopRecipes].map((recipe, index) => (
+              <div key={index} className="recipe-card" onClick={dishCoveryHandleRecipeClick}>
                 <img src={recipe.img} alt={recipe.name} />
                 <div className="recipe-info">
                   <span className="recipe-name">{recipe.name}</span>
@@ -480,8 +511,8 @@ export default function DishCoveryLanding() {
             ))}
           </div>
           <div className="carousel-row bottom-row">
-            {[...bottomRecipes, ...bottomRecipes].map((recipe, index) => (
-              <div key={index} className="recipe-card" onClick={handleRecipeClick}>
+            {[...dishCoveryBottomRecipes, ...dishCoveryBottomRecipes].map((recipe, index) => (
+              <div key={index} className="recipe-card" onClick={dishCoveryHandleRecipeClick}>
                 <img src={recipe.img} alt={recipe.name} />
                 <div className="recipe-info">
                   <span className="recipe-name">{recipe.name}</span>
@@ -493,7 +524,7 @@ export default function DishCoveryLanding() {
         </div>
       </section>
 
-      <section className="how-to-use-section" id="how-to-use">
+      <section className="how-to-use-section" id="/pantry">
         <h2 className="section-title">How to Use</h2>
         <div className="how-to-content">
           <div className="how-to-steps">
@@ -510,7 +541,7 @@ export default function DishCoveryLanding() {
               <p className="step-text">Get suggested recipes based on your ingredients and preferences.</p>
             </div>
           </div>
-          <div className="how-to-video" onClick={handleVideoClick}>
+          <div className="how-to-video" onClick={dishCoveryHandleVideoClick}>
             <img src="https://via.placeholder.com/400x300.png?text=Healthy+Cooking+Demo" alt="Video Preview" className="video-preview" />
             <div className="video-placeholder">
               <svg viewBox="0 0 24 24" fill="currentColor">
@@ -521,7 +552,7 @@ export default function DishCoveryLanding() {
         </div>
       </section>
 
-      <section className="confidence-section" id="features">
+      <section className="confidence-section" id="/ph">
         <div className="confidence-header">
           <h2 className="confidence-title">Recipes You Can Rely On</h2>
         </div>
@@ -529,7 +560,7 @@ export default function DishCoveryLanding() {
           <div className="confidence-card">
             <div className="confidence-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
             </div>
             <h3 className="confidence-card-title">AI Recipe Generator</h3>
@@ -559,9 +590,9 @@ export default function DishCoveryLanding() {
       <footer className="footer">
         <div className="footer-section">
           <div className="footer-column">
-            <button className="footer-logo" onClick={scrollToTop}>
+            <a className="footer-logo" onClick={dishCoveryScrollToTop}>
               <span className="logo-text">DishCovery</span>
-            </button>
+            </a>
             <p className="footer-description">
               Creating delicious meals with AI-powered personalized recipes tailored to your ingredients and preferences.
             </p>
@@ -586,10 +617,10 @@ export default function DishCoveryLanding() {
           <div className="footer-column">
             <h3 className="footer-title">Quick Links</h3>
             <ul className="footer-links">
-              <li><a href="#home">Home</a></li>
+              <li><a href="/ph">Home</a></li>
               <li><a href="#about">About Us</a></li>
               <li><a href="#create">Create Recipe</a></li>
-              <li><a href="#my-recipes">My Recipes</a></li>
+              <li><a href="/favorites">Favorites</a></li>
             </ul>
           </div>
           <div className="footer-column">
@@ -613,38 +644,38 @@ export default function DishCoveryLanding() {
         </div>
       </footer>
 
-      {showSignInModal && (
-        <div className="modal-overlay" onClick={closeModal}>
+      {dishCoveryShowSignInModal && (
+        <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={closeModal}>×</button>
+            <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
             <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">Welcome to DishCovery!</h2>
             <p className="modal-subtitle">Sign in to continue</p>
-            {error && <p className="modal-error">{error}</p>}
+            {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
             <input
               type="text"
               className="modal-input"
               placeholder="Enter your email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={dishCoveryEmail}
+              onChange={(e) => setDishCoveryEmail(e.target.value)}
             />
             <input
               type="password"
               className="modal-input"
               placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={dishCoveryPassword}
+              onChange={(e) => setDishCoveryPassword(e.target.value)}
             />
             <a href="#" className="forgot-password">Forgot Password?</a>
-            <button className="modal-signin-btn" onClick={handleSignInSubmit}>Sign In</button>
+            <button className="modal-signin-btn" onClick={dishCoveryHandleSignInSubmit}>Sign In</button>
             <div className="modal-or">or</div>
             <div className="social-buttons">
-              <button className="social-btn fb" onClick={handleSocialLogin}>
+              <button className="social-btn fb" onClick={dishCoveryHandleSocialLogin}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/>
                 </svg>
               </button>
-              <button className="social-btn google" onClick={handleSocialLogin}>
+              <button className="social-btn google" onClick={dishCoveryHandleSocialLogin}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.20-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -653,59 +684,59 @@ export default function DishCoveryLanding() {
                 </svg>
               </button>
             </div>
-            <p className="modal-signup-text">Don't have an account yet? <a href="#" onClick={handleSignUpClick}>Sign up</a></p>
+            <p className="modal-signup-text">Don't have an account yet? <a href="#" onClick={dishCoveryHandleSignUpClick}>Sign up</a></p>
           </div>
         </div>
       )}
 
-      {showSignUpModal && (
-        <div className="modal-overlay" onClick={closeModal}>
+      {dishCoveryShowSignUpModal && (
+        <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={closeModal}>×</button>
+            <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
             <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">New to DishCovery?</h2>
             <p className="modal-subtitle">Create account to continue</p>
-            {error && <p className="modal-error">{error}</p>}
+            {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
             <input
               type="text"
               className="modal-input"
               placeholder="First Name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
+              value={dishCoveryFirstName}
+              onChange={(e) => setDishCoveryFirstName(e.target.value)}
             />
             <input
               type="text"
               className="modal-input"
               placeholder="Last Name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
+              value={dishCoveryLastName}
+              onChange={(e) => setDishCoveryLastName(e.target.value)}
             />
             <input
               type="text"
               className="modal-input"
               placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={dishCoveryEmail}
+              onChange={(e) => setDishCoveryEmail(e.target.value)}
             />
             <input
               type="password"
               className="modal-input"
               placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={dishCoveryPassword}
+              onChange={(e) => setDishCoveryPassword(e.target.value)}
             />
             <input
               type="password"
               className="modal-input"
               placeholder="Confirm Password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              value={dishCoveryConfirmPassword}
+              onChange={(e) => setDishCoveryConfirmPassword(e.target.value)}
             />
             <div className="modal-terms">
               <input
                 type="checkbox"
-                checked={isChecked}
-                onChange={() => setIsChecked(!isChecked)}
+                checked={dishCoveryIsChecked}
+                onChange={() => setDishCoveryIsChecked(!dishCoveryIsChecked)}
                 className="modal-checkbox"
               />
               <span>
@@ -715,15 +746,15 @@ export default function DishCoveryLanding() {
                 <a href="https://example.com/privacy" target="_blank" className="modal-link">Privacy Policy</a>.
               </span>
             </div>
-            <button className="modal-signup-btn" disabled={!isChecked} onClick={handleSignUpSubmit}>Sign up</button>
+            <button className="modal-signup-btn" disabled={!dishCoveryIsChecked} onClick={dishCoveryHandleSignUpSubmit}>Sign up</button>
             <div className="modal-or">or</div>
             <div className="social-buttons">
-              <button className="social-btn fb" onClick={handleSocialLogin}>
+              <button className="social-btn fb" onClick={dishCoveryHandleSocialLogin}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/>
                 </svg>
               </button>
-              <button className="social-btn google" onClick={handleSocialLogin}>
+              <button className="social-btn google" onClick={dishCoveryHandleSocialLogin}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.20-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -736,42 +767,45 @@ export default function DishCoveryLanding() {
         </div>
       )}
 
-      {showOneMoreStepModal && (
-        <div className="modal-overlay" onClick={closeModal}>
+      {dishCoveryShowOneMoreStepModal && (
+        <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={closeModal}>×</button>
+            <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
             <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">One More Step</h2>
             <p className="modal-subtitle">Verify your account to get started</p>
-            {error && <p className="modal-error">{error}</p>}
+            {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
             <input
               type="text"
               className="modal-input"
               placeholder="Verification Code"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
+              value={dishCoveryVerificationCode}
+              onChange={(e) => setDishCoveryVerificationCode(e.target.value)}
             />
             <div className="modal-terms">
               <input
                 type="checkbox"
-                checked={isOneMoreStepChecked}
-                onChange={() => setIsOneMoreStepChecked(!isOneMoreStepChecked)}
+                checked={dishCoveryIsOneMoreStepChecked}
+                onChange={() => setDishCoveryIsOneMoreStepChecked(!dishCoveryIsOneMoreStepChecked)}
                 className="modal-checkbox"
               />
               <span>
-                I confirm that I have received and entered the correct verification code sent to my email.
+                By signing up, you confirm that you have read, understood, and agree to be bound by our{' '}
+                <a href="https://example.com/terms" target="_blank" className="modal-link">Terms and Conditions</a>{' '}
+                and{' '}
+                <a href="https://example.com/privacy" target="_blank" className="modal-link">Privacy Policy</a>.
               </span>
             </div>
-            <button className="modal-signin-btn" disabled={!isOneMoreStepChecked} onClick={handleVerifySubmit}>Verify</button>
+            <button className="modal-signin-btn" disabled={!dishCoveryIsOneMoreStepChecked} onClick={dishCoveryHandleVerifySubmit}>Verify</button>
             <p className="modal-signup-text">Didn't receive a code? <a href="#" onClick={() => console.log("Resend code")}>Resend</a></p>
           </div>
         </div>
       )}
 
-      {showVideoModal && (
-        <div className="modal-overlay" onClick={closeModal}>
+      {dishCoveryShowVideoModal && (
+        <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content video-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={closeModal}>×</button>
+            <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
             <video className="modal-video" controls>
               <source src="https://via.placeholder.com/640x360.mp4?text=Healthy+Cooking+Demo" type="video/mp4" />
               Your browser does not support the video tag.
