@@ -1,6 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react'; // Add useEffect import
-import { useSearchParams } from 'next/navigation';
+import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faBars, 
@@ -16,9 +15,11 @@ import {
   faQuestion,
   faHeadset,
   faHandshakeAngle,
+  faCheck,
+  faHeart,
+  faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import { 
-  faHeart, 
   faComment,
   faStar as faStarRegular
 } from '@fortawesome/free-regular-svg-icons';
@@ -31,15 +32,6 @@ import {
 import './style.css';
 
 const RecipePage = () => {
-  // Move useSearchParams and related logic here
-  const searchParams = useSearchParams();
-  const ingredientsFromScanner = searchParams.get('ingredients');
-
-  // Parse ingredients if they exist
-  const scannedIngredients = ingredientsFromScanner 
-    ? ingredientsFromScanner.split(',').map(name => name.trim())
-    : [];
-
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -66,13 +58,8 @@ const RecipePage = () => {
       rice: false
     }
   });
-
- // Debug: Show received ingredients
- useEffect(() => {
-  if (scannedIngredients.length > 0) {
-    console.log('Received ingredients from scanner:', scannedIngredients);
-  }
-}, [scannedIngredients]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState(null);
 
   const recipes = Array(15).fill(null).map((_, index) => ({
     id: index + 1,
@@ -87,6 +74,31 @@ const RecipePage = () => {
       'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=300&h=200&fit=crop',
     rating: 4.5
   }));
+
+  recipes.unshift({
+    id: 0,
+    title: 'Quinoa Buddha Bowl',
+    time: '25 min',
+    likes: 189,
+    comments: 0,
+    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
+    rating: 4.5,
+    description: 'Nutritious bowl with quinoa, roasted vegetables, and tahini dressing',
+    tried: 245,
+    dietaryTags: ['Vegan', 'Gluten-free', 'High-Protein'],
+    healthTags: ['Diabetic-safe', 'Heart-safe'],
+    ingredients: {
+      main: ['Quinoa', 'Sweet potato', 'Broccoli', 'Chickpeas'],
+      condiments: ['Tahini', 'Lemon Juice', 'Olive oil'],
+      optional: ['Avocado', 'Pumpkin Seeds', 'Fresh Herbs']
+    },
+    instructions: [
+      'Cook quinoa according to package directions',
+      'Roast vegetables at 400°F for 25 minutes',
+      'Prepare tahini dressing by whisking tahini, lemon juice, and water',
+      'Assemble bowl with quinoa, vegetables, and dressing'
+    ]
+  });
 
   const handleFilterChange = (category, filterKey) => {
     setFilters(prev => ({
@@ -112,7 +124,17 @@ const RecipePage = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const handleNavLinkClick = () => {
+  const handleNavLinkClick = (href, onClick) => {
+    setIsMobileMenuOpen(false);
+    if (onClick) {
+      onClick();
+    } else {
+      document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleScanClick = () => {
+    console.log("Initiate ingredient scan");
     setIsMobileMenuOpen(false);
   };
 
@@ -198,6 +220,23 @@ const RecipePage = () => {
     contact: faHeadset
   };
 
+  const navLinks = [
+    { name: "Home", href: "/ph", onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
+    { name: "My Pantry", href: "/pantry" },
+    { name: "Favorites", href: "/favorites" },
+    { name: "User", href: "/user-profile" },
+  ];
+
+  const openModal = (recipe) => {
+    setSelectedRecipe(recipe);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedRecipe(null);
+  };
+
   return (
     <div className="recipe-page">
       <header className="header">
@@ -254,21 +293,21 @@ const RecipePage = () => {
             <a 
               href="#home" 
               className="mobile-nav-link"
-              onClick={handleNavLinkClick}
+              onClick={() => handleNavLinkClick('#home')}
             >
               Home
             </a>
             <a 
               href="#recipes" 
               className="mobile-nav-link active"
-              onClick={handleNavLinkClick}
+              onClick={() => handleNavLinkClick('#recipes')}
             >
               Recipes
             </a>
             <a 
               href="#scan" 
               className="mobile-nav-link"
-              onClick={handleNavLinkClick}
+              onClick={() => handleNavLinkClick('#scan')}
             >
               Scan
             </a>
@@ -362,7 +401,7 @@ const RecipePage = () => {
           
           <div className="recipes-grid">
             {recipes.map((recipe) => (
-              <div key={recipe.id} className="recipe-card">
+              <div key={recipe.id} className="recipe-card" onClick={() => openModal(recipe)}>
                 <div className="recipe-image-container">
                   <img 
                     src={recipe.image} 
@@ -397,6 +436,70 @@ const RecipePage = () => {
             <button className="load-more-btn">Load More</button>
           </div>
         </main>
+
+        <nav className="mobile-bottom-nav">
+          <a 
+            href="/ph" 
+            className="bottom-nav-link" 
+            onClick={(e) => { 
+              e.preventDefault(); 
+              handleNavLinkClick('/ph', navLinks[0].onClick); 
+            }}
+          >
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+            </svg>
+            Home
+          </a>
+          <a 
+            href="/pantry" 
+            className="bottom-nav-link" 
+            onClick={(e) => { 
+              e.preventDefault(); 
+              handleNavLinkClick('/pantry'); 
+            }}
+          >
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 7H5c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm0 8H5V9h14v6z"/>
+              <path d="M12 15c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/>
+            </svg>
+            My Pantry
+          </a>
+          <button 
+            className="bottom-nav-scan" 
+            onClick={handleScanClick}
+          >
+            <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+          </button>
+          <a 
+            href="/favorites" 
+            className="bottom-nav-link" 
+            onClick={(e) => { 
+              e.preventDefault(); 
+              handleNavLinkClick('/favorites'); 
+            }}
+          >
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+            Favorites
+          </a>
+          <a 
+            href="/user-profile" 
+            className="bottom-nav-link" 
+            onClick={(e) => { 
+              e.preventDefault(); 
+              handleNavLinkClick('/user-profile'); 
+            }}
+          >
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+            </svg>
+            User
+          </a>
+        </nav>
       </div>
 
       <footer className="footer">
@@ -464,10 +567,10 @@ const RecipePage = () => {
         </div>
         <div className="footer-right">
           <h3 className="footer-title">Contact Us</h3>
-          <form className="contact-form">
+          <div className="contact-form">
             <input type="email" placeholder="Your Email" className="contact-input" />
             <button type="submit" className="subscribe-btn">Subscribe</button>
-          </form>
+          </div>
         </div>
         <div className="footer-social">
           <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
@@ -487,6 +590,100 @@ const RecipePage = () => {
           <p>© 2025 DishCovery. All rights reserved.</p>
         </div>
       </footer>
+
+      {isModalOpen && selectedRecipe && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeModal}>
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+            
+            <h1 className="modal-title">{selectedRecipe.title}</h1>
+            
+            <div className="modal-body">
+              <div className="modal-left">
+                <div className="modal-image-container">
+                  <img src={selectedRecipe.image} alt={selectedRecipe.title} className="modal-image" />
+                </div>
+                
+                <p className="modal-description">{selectedRecipe.description}</p>
+                
+                <div className="modal-health-check">
+                  <span className="modal-health-tag">Healthy Meal</span>
+                  <span className="modal-checked">Checked by Dr. Sarah Johnson, Nutritionist</span>
+                </div>
+                
+                <div className="modal-stats">
+                  <span><FontAwesomeIcon icon={faCheck} /> {selectedRecipe.tried || 0} people tried this</span>
+                  <span><FontAwesomeIcon icon={faHeart} /> {selectedRecipe.likes || 0} people saved this</span>
+                </div>
+              </div>
+              
+              <div className="modal-right">
+                <div className="modal-section">
+                  <div className="section-title">Dietary Tags:</div>
+                  <div className="tag-container">
+                    {selectedRecipe.dietaryTags && selectedRecipe.dietaryTags.map((tag, index) => (
+                      <span key={index} className="modal-tag dietary-tag">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="modal-section">
+                  <div className="section-title">Health Tags:</div>
+                  <div className="tag-container">
+                    {selectedRecipe.healthTags && selectedRecipe.healthTags.map((tag, index) => (
+                      <span key={index} className="modal-tag health-tag">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="ingredients-grid">
+                  <div className="ingredient-column">
+                    <div className="section-title">Main ingredients:</div>
+                    <div className="ingredients-list">
+                      {selectedRecipe.ingredients?.main?.map((ingredient, index) => (
+                        <div key={index} className="ingredient-item">{ingredient}</div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="ingredient-column">
+                    <div className="section-title">Condiments:</div>
+                    <div className="ingredients-list">
+                      {selectedRecipe.ingredients?.condiments?.map((ingredient, index) => (
+                        <div key={index} className="ingredient-item">{ingredient}</div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="ingredient-column">
+                    <div className="section-title">Optional:</div>
+                    <div className="ingredients-list">
+                      {selectedRecipe.ingredients?.optional?.map((ingredient, index) => (
+                        <div key={index} className="ingredient-item">{ingredient}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Instructions section moved outside the modal-right div to span full width */}
+              <div className="modal-section instructions-section">
+                <div className="section-title">Instructions:</div>
+                <div className="instructions-list">
+                  {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
+                    <div key={index} className="instruction-step">
+                      <span className="step-number">{index + 1}.</span>
+                      <span className="step-text">{step}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
