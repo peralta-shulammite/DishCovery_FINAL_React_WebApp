@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faBars, 
@@ -29,6 +29,7 @@ import {
   faTwitter,
   faLinkedin
 } from '@fortawesome/free-brands-svg-icons';
+import { recipeAPI } from './api'; // Import your API
 import './style.css';
 
 const RecipePage = () => {
@@ -60,45 +61,185 @@ const RecipePage = () => {
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
+  
+  // New state for API data
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [limit] = useState(15);
 
-  const recipes = Array(15).fill(null).map((_, index) => ({
-    id: index + 1,
-    title: 'Russian Salad',
-    time: '40 min',
-    likes: 0,
-    comments: 0,
-    image: index % 3 === 0 ? 
-      'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=200&fit=crop' :
-      index % 3 === 1 ?
-      'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop' :
-      'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=300&h=200&fit=crop',
-    rating: 4.5
-  }));
+  // Fetch recipes from API
+  const fetchRecipes = async (isLoadMore = false) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Prepare filters for API call
+      const activeFilters = {};
+      
+      // Get active meal types
+      const activeMealTypes = Object.entries(filters.mealType)
+        .filter(([key, value]) => value)
+        .map(([key]) => key);
+      
+      if (activeMealTypes.length > 0) {
+        activeFilters.mealType = activeMealTypes.join(',');
+      }
+      
+      // Get active dish types
+      const activeDishTypes = Object.entries(filters.dishType)
+        .filter(([key, value]) => value)
+        .map(([key]) => key);
+      
+      if (activeDishTypes.length > 0) {
+        activeFilters.dishType = activeDishTypes.join(',');
+      }
+      
+      // Add search query if exists
+      if (searchQuery.trim()) {
+        activeFilters.search = searchQuery.trim();
+      }
+      
+      // Add pagination
+      activeFilters.limit = limit;
+      activeFilters.offset = isLoadMore ? offset : 0;
+      
+      const response = await recipeAPI.getAllRecipes(activeFilters);
+      
+      if (response && response.data) {
+        const newRecipes = response.data.map(recipe => ({
+          id: recipe.id,
+          title: recipe.title || recipe.name,
+          time: recipe.cookingTime || recipe.prepTime || '30 min',
+          likes: recipe.likes || 0,
+          comments: recipe.comments || 0,
+          image: recipe.image || recipe.imageUrl || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=200&fit=crop',
+          rating: recipe.rating || 4.5,
+          description: recipe.description,
+          tried: recipe.tried || 0,
+          dietaryTags: recipe.dietaryTags || recipe.dietary_restrictions || [],
+          healthTags: recipe.healthTags || [],
+          ingredients: recipe.ingredients || {
+            main: [],
+            condiments: [],
+            optional: []
+          },
+          instructions: recipe.instructions || []
+        }));
+        
+        if (isLoadMore) {
+          setRecipes(prev => [...prev, ...newRecipes]);
+          setOffset(prev => prev + limit);
+        } else {
+          setRecipes(newRecipes);
+          setOffset(limit);
+        }
+        
+        // Check if there are more recipes
+        setHasMore(newRecipes.length === limit);
+      } else {
+        if (!isLoadMore) {
+          setRecipes([]);
+        }
+        setHasMore(false);
+      }
+      
+    } catch (err) {
+      console.error('Error fetching recipes:', err);
+      setError('Failed to load recipes. Please try again.');
+      
+      // If it's the first load and there's an error, show fallback data
+      if (!isLoadMore && recipes.length === 0) {
+        const fallbackRecipes = Array(15).fill(null).map((_, index) => ({
+          id: index + 1,
+          title: 'Russian Salad',
+          time: '40 min',
+          likes: 0,
+          comments: 0,
+          image: index % 3 === 0 ? 
+            'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=200&fit=crop' :
+            index % 3 === 1 ?
+            'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop' :
+            'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=300&h=200&fit=crop',
+          rating: 4.5
+        }));
+        
+        fallbackRecipes.unshift({
+          id: 0,
+          title: 'Quinoa Buddha Bowl',
+          time: '25 min',
+          likes: 189,
+          comments: 0,
+          image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
+          rating: 4.5,
+          description: 'Nutritious bowl with quinoa, roasted vegetables, and tahini dressing',
+          tried: 245,
+          dietaryTags: ['Vegan', 'Gluten-free', 'High-Protein'],
+          healthTags: ['Diabetic-safe', 'Heart-safe'],
+          ingredients: {
+            main: ['Quinoa', 'Sweet potato', 'Broccoli', 'Chickpeas'],
+            condiments: ['Tahini', 'Lemon Juice', 'Olive oil'],
+            optional: ['Avocado', 'Pumpkin Seeds', 'Fresh Herbs']
+          },
+          instructions: [
+            'Cook quinoa according to package directions',
+            'Roast vegetables at 400°F for 25 minutes',
+            'Prepare tahini dressing by whisking tahini, lemon juice, and water',
+            'Assemble bowl with quinoa, vegetables, and dressing'
+          ]
+        });
+        
+        setRecipes(fallbackRecipes);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  recipes.unshift({
-    id: 0,
-    title: 'Quinoa Buddha Bowl',
-    time: '25 min',
-    likes: 189,
-    comments: 0,
-    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
-    rating: 4.5,
-    description: 'Nutritious bowl with quinoa, roasted vegetables, and tahini dressing',
-    tried: 245,
-    dietaryTags: ['Vegan', 'Gluten-free', 'High-Protein'],
-    healthTags: ['Diabetic-safe', 'Heart-safe'],
-    ingredients: {
-      main: ['Quinoa', 'Sweet potato', 'Broccoli', 'Chickpeas'],
-      condiments: ['Tahini', 'Lemon Juice', 'Olive oil'],
-      optional: ['Avocado', 'Pumpkin Seeds', 'Fresh Herbs']
-    },
-    instructions: [
-      'Cook quinoa according to package directions',
-      'Roast vegetables at 400°F for 25 minutes',
-      'Prepare tahini dressing by whisking tahini, lemon juice, and water',
-      'Assemble bowl with quinoa, vegetables, and dressing'
-    ]
-  });
+  // Fetch recipe details when opening modal
+  const fetchRecipeDetails = async (recipeId) => {
+    try {
+      const response = await recipeAPI.getRecipeDetails(recipeId);
+      if (response && response.data) {
+        return {
+          ...response.data,
+          ingredients: response.data.ingredients || {
+            main: [],
+            condiments: [],
+            optional: []
+          },
+          instructions: response.data.instructions || []
+        };
+      }
+      return null;
+    } catch (err) {
+      console.error('Error fetching recipe details:', err);
+      return null;
+    }
+  };
+
+  // Initial fetch on component mount
+  useEffect(() => {
+    fetchRecipes();
+  }, []);
+
+  // Fetch when filters change
+  useEffect(() => {
+    const delayedFetch = setTimeout(() => {
+      fetchRecipes();
+    }, 300); // Debounce the API call
+
+    return () => clearTimeout(delayedFetch);
+  }, [filters, searchQuery]);
+
+  // Load more recipes
+  const handleLoadMore = () => {
+    if (!loading && hasMore) {
+      fetchRecipes(true);
+    }
+  };
 
   const handleFilterChange = (category, filterKey) => {
     setFilters(prev => ({
@@ -227,9 +368,17 @@ const RecipePage = () => {
     { name: "User", href: "/user-profile" },
   ];
 
-  const openModal = (recipe) => {
+  const openModal = async (recipe) => {
     setSelectedRecipe(recipe);
     setIsModalOpen(true);
+    
+    // Fetch detailed recipe data if needed
+    if (recipe.id && (!recipe.instructions || recipe.instructions.length === 0)) {
+      const detailedRecipe = await fetchRecipeDetails(recipe.id);
+      if (detailedRecipe) {
+        setSelectedRecipe(detailedRecipe);
+      }
+    }
   };
 
   const closeModal = () => {
@@ -399,42 +548,73 @@ const RecipePage = () => {
             <h2 className="page-title">Recommended Recipes</h2>
           </div>
           
-          <div className="recipes-grid">
-            {recipes.map((recipe) => (
-              <div key={recipe.id} className="recipe-card" onClick={() => openModal(recipe)}>
-                <div className="recipe-image-container">
-                  <img 
-                    src={recipe.image} 
-                    alt={recipe.title}
-                    className="recipe-image"
-                  />
-                </div>
-                <div className="recipe-content">
-                  <div className="recipe-rating">
-                    {renderStars(recipe.rating)}
+          {error && (
+            <div className="error-message" style={{ 
+              color: 'red', 
+              textAlign: 'center', 
+              padding: '20px',
+              backgroundColor: '#ffebee',
+              borderRadius: '4px',
+              margin: '20px 0'
+            }}>
+              {error}
+            </div>
+          )}
+          
+          {loading && recipes.length === 0 ? (
+            <div className="loading-spinner" style={{ 
+              textAlign: 'center', 
+              padding: '40px',
+              fontSize: '18px'
+            }}>
+              Loading recipes...
+            </div>
+          ) : (
+            <div className="recipes-grid">
+              {recipes.map((recipe) => (
+                <div key={recipe.id} className="recipe-card" onClick={() => openModal(recipe)}>
+                  <div className="recipe-image-container">
+                    <img 
+                      src={recipe.image} 
+                      alt={recipe.title}
+                      className="recipe-image"
+                    />
                   </div>
-                  <h3 className="recipe-title">{recipe.title}</h3>
-                  <div className="recipe-meta">
-                    <span className="recipe-time">{recipe.time}</span>
-                    <div className="recipe-actions">
-                      <button className="action-btn like-btn">
-                        <FontAwesomeIcon icon={faHeart} />
-                        <span>{recipe.likes}</span>
-                      </button>
-                      <button className="action-btn comment-btn">
-                        <FontAwesomeIcon icon={faComment} />
-                        <span>{recipe.comments}</span>
-                      </button>
+                  <div className="recipe-content">
+                    <div className="recipe-rating">
+                      {renderStars(recipe.rating)}
+                    </div>
+                    <h3 className="recipe-title">{recipe.title}</h3>
+                    <div className="recipe-meta">
+                      <span className="recipe-time">{recipe.time}</span>
+                      <div className="recipe-actions">
+                        <button className="action-btn like-btn">
+                          <FontAwesomeIcon icon={faHeart} />
+                          <span>{recipe.likes}</span>
+                        </button>
+                        <button className="action-btn comment-btn">
+                          <FontAwesomeIcon icon={faComment} />
+                          <span>{recipe.comments}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           
-          <div className="load-more-container">
-            <button className="load-more-btn">Load More</button>
-          </div>
+          {hasMore && (
+            <div className="load-more-container">
+              <button 
+                className="load-more-btn" 
+                onClick={handleLoadMore}
+                disabled={loading}
+              >
+                {loading ? 'Loading...' : 'Load More'}
+              </button>
+            </div>
+          )}
         </main>
 
         <nav className="mobile-bottom-nav">

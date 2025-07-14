@@ -1,22 +1,26 @@
-const jwt = require("jsonwebtoken")
+import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"]
-  const token = authHeader && authHeader.split(" ")[1]
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ message: "Access token required" })
+    return res.status(401).json({ message: "Access token required" });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ message: "Invalid or expired token" })
+      return res.status(403).json({ message: "Invalid or expired token" });
     }
-    req.user = user
-    next()
-  })
-}
+    req.user = user;
+    next();
+  });
+};
 
-module.exports = { authenticateToken }
+// Export as default for your current import syntax
+export default authenticateToken;
+
+// Also export as named export if needed elsewhere
+export { authenticateToken };
