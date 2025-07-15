@@ -14,7 +14,7 @@ router.post('/:id/save', async (req, res) => {
     const userId = req.user.id;
 
     // Check if recipe exists
-    const recipeExists = await db.query('SELECT id FROM recipes WHERE id = ?', [recipeId]);
+    const recipeExists = await db.query('SELECT recipe_id FROM recipes WHERE recipe_id = ?', [recipeId]);
     if (recipeExists.length === 0) {
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
@@ -73,8 +73,8 @@ router.get('/saved', async (req, res) => {
 
     const query = `
       SELECT 
-        r.id,
-        r.title,
+        r.recipe_id as id,
+        r.recipe_name as title,
         r.description,
         r.prep_time,
         r.cook_time,
@@ -84,13 +84,13 @@ router.get('/saved', async (req, res) => {
         r.dish_type,
         uri.saved_at,
         COALESCE(AVG(uri_avg.rating), 0) as average_rating,
-        COUNT(DISTINCT uri_saves.id) as save_count
+        COUNT(DISTINCT uri_saves.interaction_id) as save_count
       FROM recipes r
-      INNER JOIN user_recipe_interactions uri ON r.id = uri.recipe_id
-      LEFT JOIN user_recipe_interactions uri_avg ON r.id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
-      LEFT JOIN user_recipe_interactions uri_saves ON r.id = uri_saves.recipe_id AND uri_saves.is_saved = 1
-      WHERE uri.user_id = ? AND uri.is_saved = 1
-      GROUP BY r.id
+      INNER JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
+      LEFT JOIN user_recipe_interactions uri_avg ON r.recipe_id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
+      LEFT JOIN user_recipe_interactions uri_saves ON r.recipe_id = uri_saves.recipe_id AND uri_saves.is_saved = 1
+     WHERE uri.user_id = ? AND uri.is_saved = 1
+      GROUP BY r.recipe_id
       ORDER BY uri.saved_at DESC
       LIMIT ? OFFSET ?
     `;
@@ -119,7 +119,7 @@ router.post('/:id/tried', async (req, res) => {
     const userId = req.user.id;
 
     // Check if recipe exists
-    const recipeExists = await db.query('SELECT id FROM recipes WHERE id = ?', [recipeId]);
+    const recipeExists = await db.query('SELECT recipe_id FROM recipes WHERE recipe_id = ?', [recipeId]);
     if (recipeExists.length === 0) {
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
@@ -164,7 +164,7 @@ router.post('/:id/rate', async (req, res) => {
     }
 
     // Check if recipe exists
-    const recipeExists = await db.query('SELECT id FROM recipes WHERE id = ?', [recipeId]);
+    const recipeExists = await db.query('SELECT recipe_id FROM recipes WHERE recipe_id = ?', [recipeId]);
     if (recipeExists.length === 0) {
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
@@ -245,8 +245,8 @@ router.get('/history', async (req, res) => {
 
     const query = `
       SELECT 
-        r.id,
-        r.title,
+        r.recipe_id as id,
+        r.recipe_name as title,
         r.description,
         r.image_url,
         r.prep_time,
@@ -263,7 +263,7 @@ router.get('/history', async (req, res) => {
           COALESCE(uri.rated_at, '1970-01-01')
         ) as last_interaction
       FROM recipes r
-      INNER JOIN user_recipe_interactions uri ON r.id = uri.recipe_id
+      INNER JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
       WHERE uri.user_id = ? 
         AND (uri.is_saved = 1 OR uri.is_tried = 1 OR uri.rating IS NOT NULL)
       ORDER BY last_interaction DESC
@@ -295,8 +295,8 @@ router.get('/tried', async (req, res) => {
 
     const query = `
       SELECT 
-        r.id,
-        r.title,
+       r.recipe_id as id,
+        r.recipe_name as title,
         r.description,
         r.prep_time,
         r.cook_time,
@@ -307,13 +307,13 @@ router.get('/tried', async (req, res) => {
         uri.tried_at,
         uri.rating,
         COALESCE(AVG(uri_avg.rating), 0) as average_rating,
-        COUNT(DISTINCT uri_saves.id) as save_count
+        COUNT(DISTINCT uri_saves.interaction_id) as save_count
       FROM recipes r
-      INNER JOIN user_recipe_interactions uri ON r.id = uri.recipe_id
-      LEFT JOIN user_recipe_interactions uri_avg ON r.id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
-      LEFT JOIN user_recipe_interactions uri_saves ON r.id = uri_saves.recipe_id AND uri_saves.is_saved = 1
+      INNER JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
+      LEFT JOIN user_recipe_interactions uri_avg ON r.recipe_id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
+      LEFT JOIN user_recipe_interactions uri_saves ON r.recipe_id = uri_saves.recipe_id AND uri_saves.is_saved = 1
       WHERE uri.user_id = ? AND uri.is_tried = 1
-      GROUP BY r.id
+      GROUP BY r.recipe_id
       ORDER BY uri.tried_at DESC
       LIMIT ? OFFSET ?
     `;
@@ -343,8 +343,8 @@ router.get('/rated', async (req, res) => {
 
     const query = `
       SELECT 
-        r.id,
-        r.title,
+        r.recipe_id as id,
+        r.recipe_name as title,
         r.description,
         r.prep_time,
         r.cook_time,
@@ -355,13 +355,13 @@ router.get('/rated', async (req, res) => {
         uri.rating,
         uri.rated_at,
         COALESCE(AVG(uri_avg.rating), 0) as average_rating,
-        COUNT(DISTINCT uri_saves.id) as save_count
+        COUNT(DISTINCT uri_saves.interaction_id) as save_count
       FROM recipes r
-      INNER JOIN user_recipe_interactions uri ON r.id = uri.recipe_id
-      LEFT JOIN user_recipe_interactions uri_avg ON r.id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
-      LEFT JOIN user_recipe_interactions uri_saves ON r.id = uri_saves.recipe_id AND uri_saves.is_saved = 1
+      INNER JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
+      LEFT JOIN user_recipe_interactions uri_avg ON r.recipe_id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
+      LEFT JOIN user_recipe_interactions uri_saves ON r.recipe_id = uri_saves.recipe_id AND uri_saves.is_saved = 1
       WHERE uri.user_id = ? AND uri.rating IS NOT NULL
-      GROUP BY r.id
+      GROUP BY r.recipe_id
       ORDER BY uri.rated_at DESC
       LIMIT ? OFFSET ?
     `;
@@ -496,7 +496,7 @@ router.post('/bulk-save', async (req, res) => {
     // Check if recipes exist
     const placeholders = recipeIds.map(() => '?').join(',');
     const recipesExist = await db.query(
-      `SELECT id FROM recipes WHERE id IN (${placeholders})`,
+      `SELECT recipe_id FROM recipes WHERE recipe_id IN (${placeholders})`,
       recipeIds
     );
 
@@ -549,8 +549,8 @@ router.get('/recommendations', async (req, res) => {
     // Get recommendations based on user preferences
     let recommendationQuery = `
       SELECT 
-        r.id,
-        r.title,
+       r.recipe_id as id,
+        r.recipe_name as title,
         r.description,
         r.prep_time,
         r.cook_time,
@@ -559,13 +559,13 @@ router.get('/recommendations', async (req, res) => {
         r.meal_type,
         r.dish_type,
         COALESCE(AVG(uri_avg.rating), 0) as average_rating,
-        COUNT(DISTINCT uri_saves.id) as save_count,
-        COUNT(DISTINCT uri_tried.id) as tried_count
+       COUNT(DISTINCT uri_saves.interaction_id) as save_count,
+        COUNT(DISTINCT uri_tried.interaction_id) as tried_count
       FROM recipes r
-      LEFT JOIN user_recipe_interactions uri_avg ON r.id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
-      LEFT JOIN user_recipe_interactions uri_saves ON r.id = uri_saves.recipe_id AND uri_saves.is_saved = 1
-      LEFT JOIN user_recipe_interactions uri_tried ON r.id = uri_tried.recipe_id AND uri_tried.is_tried = 1
-      WHERE r.id NOT IN (
+      LEFT JOIN user_recipe_interactions uri_avg ON r.recipe_id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
+      LEFT JOIN user_recipe_interactions uri_saves ON r.recipe_id = uri_saves.recipe_id AND uri_saves.is_saved = 1
+      LEFT JOIN user_recipe_interactions uri_tried ON r.recipe_id = uri_tried.recipe_id AND uri_tried.is_tried = 1
+      WHERE r.recipe_id NOT IN (
         SELECT recipe_id FROM user_recipe_interactions 
         WHERE user_id = ? AND (is_saved = 1 OR is_tried = 1)
       )
@@ -576,7 +576,7 @@ router.get('/recommendations', async (req, res) => {
     // Add restriction filtering if user has restrictions
     if (restrictions.length > 0) {
       const restrictionPlaceholders = restrictions.map(() => '?').join(',');
-      recommendationQuery += ` AND r.id IN (
+      recommendationQuery += ` AND r.recipe_id IN (
         SELECT rr.recipe_id FROM recipe_restrictions rr 
         WHERE rr.restriction_id IN (${restrictionPlaceholders})
       )`;
@@ -584,7 +584,7 @@ router.get('/recommendations', async (req, res) => {
     }
 
     recommendationQuery += `
-      GROUP BY r.id
+      GROUP BY r.recipe_id
       ORDER BY average_rating DESC, save_count DESC, tried_count DESC
       LIMIT ?
     `;
