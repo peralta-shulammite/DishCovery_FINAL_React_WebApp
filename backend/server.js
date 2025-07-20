@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import recipesRouter from './routes/recipes.js';
+import profileRouter from './routes/profile.js';
 import userRecipesRouter from './routes/userRecipes.js';
 import pool from './db.js';
 
@@ -17,6 +18,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use('/api/profile', profileRouter);
 app.use('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
