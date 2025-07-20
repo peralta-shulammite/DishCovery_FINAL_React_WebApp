@@ -13,6 +13,15 @@ export default function GetStarted() {
     excludedIngredients: [],
   });
   const [isSaved, setIsSaved] = useState(false);
+  const [memberId, setMemberId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const getAuthToken = () => {
+    // return localStorage.getItem('authToken') || 'your-jwt-token-here';
+    return 'bypass-token-for-testing';
+  };
+
   const userProfile = { firstName: 'John' }; // Mocked from signup
 
   useEffect(() => {
@@ -23,30 +32,105 @@ export default function GetStarted() {
     }
   }, [cookingFor, userProfile.firstName]);
 
-  const handleNext = () => {
-    if (step === 1) {
-      if (cookingFor !== 'Myself' && !personName) {
-        alert('Please enter the name of the person.');
-        return;
-      }
-      setStep(2);
-    } else if (step === 2) {
-      setStep(3);
+  // REPLACE THIS ENTIRE FUNCTION:
+const handleNext = async () => {
+  setError('');
+  
+  if (step === 1) {
+    if (cookingFor !== 'Myself' && !personName) {
+      setError('Please enter the name of the person.');
+      return;
     }
-  };
+
+    // Create member profile if cooking for others
+    if (cookingFor === 'Others') {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:5000/api/profile/member', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getAuthToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: personName,
+            relationship: 'Family Member'
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create member profile');
+        }
+
+        const data = await response.json();
+        setMemberId(data.memberId);
+      } catch (error) {
+        setError('Failed to create profile. Please try again.');
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+    setStep(2);
+  } else if (step === 2) {
+    setStep(3);
+  }
+};
 
   const handlePrev = () => {
     setStep(step - 1);
     setIsSaved(false); // Reset saved state when going back
   };
 
-  const handleSave = () => {
+  // REPLACE THIS ENTIRE FUNCTION:
+const handleSave = async () => {
+  try {
+    setLoading(true);
+    
+    // Save restrictions
+    const restrictionsResponse = await fetch('http://localhost:5000/api/profile/restrictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getAuthToken()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        memberId: memberId,
+        allergies: dietaryData.allergies,
+        healthConditions: dietaryData.healthConditions,
+        dietPreferences: dietaryData.dietPreferences
+      })
+    });
+
+    if (!restrictionsResponse.ok) {
+      throw new Error('Failed to save restrictions');
+    }
+
+    // Save excluded ingredients
+    const ingredientsResponse = await fetch('http://localhost:5000/api/profile/excluded-ingredients', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getAuthToken()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        memberId: memberId,
+        ingredients: dietaryData.excludedIngredients
+      })
+    });
+
+    if (!ingredientsResponse.ok) {
+      throw new Error('Failed to save excluded ingredients');
+    }
+
     setIsSaved(true);
-    // Simulate saving profile (e.g., API call)
-    setTimeout(() => {
-      // Optionally reset or redirect after animation
-    }, 2000); // Reduced animation duration for a cleaner feel
-  };
+  } catch (error) {
+    setError('Failed to save profile. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDietaryChange = (category, value) => {
     setDietaryData((prev) => {
@@ -121,6 +205,18 @@ export default function GetStarted() {
     <div className="step-content">
       <h1 className="step-title">Who are you cooking for?</h1>
       <p className="step-subtitle">Create a profile for yourself or someone else.</p>
+      {error && (
+    <div style={{
+    background: '#ffebee',
+    color: '#c62828',
+    padding: '12px',
+    borderRadius: '8px',
+    marginBottom: '16px',
+    fontSize: '14px'
+      }}>
+    {error}
+      </div>
+    )}
       <div className="selection-group">
         <label className="radio-label">
           <input
@@ -150,9 +246,13 @@ export default function GetStarted() {
           onChange={(e) => setPersonName(e.target.value)}
         />
       )}
-      <button className="nav-btn next-btn" onClick={handleNext}>
-        Next Step
-        <span className="arrow-icon">→</span>
+      <button 
+      className="nav-btn next-btn" 
+       onClick={handleNext}
+      disabled={loading}
+>
+    {loading ? 'Loading...' : 'Next Step'}
+    <span className="arrow-icon">→</span>
       </button>
     </div>
   );
@@ -160,7 +260,19 @@ export default function GetStarted() {
   const renderStep2 = () => (
     <div className="step-content">
       <h1 className="step-title">{cookingFor === 'Myself' ? 'What are your dietary needs?' : `What are ${personName || 'their'} dietary needs?`}</h1>
-      <div className="dietary-section">
+        {error && (
+  <div style={{
+    background: '#ffebee',
+    color: '#c62828',
+    padding: '12px',
+    borderRadius: '8px',
+    marginBottom: '16px',
+    fontSize: '14px'
+          }}>
+    {error}
+  </div>
+)}
+          <div className="dietary-section">
         <div className="dietary-category ingredient-grid">
           <h3>Allergies</h3>
           <div className="ingredient-options">
@@ -235,10 +347,14 @@ export default function GetStarted() {
           <span className="arrow-icon">←</span>
           Previous
         </button>
-        <button className="nav-btn next-btn" onClick={handleNext}>
-          Next Step
-          <span className="arrow-icon">→</span>
-        </button>
+        <button 
+  className="nav-btn next-btn" 
+  onClick={handleNext}
+  disabled={loading}
+>
+  {loading ? 'Loading...' : 'Next Step'}
+  <span className="arrow-icon">→</span>
+</button>
       </div>
     </div>
   );
@@ -257,8 +373,20 @@ export default function GetStarted() {
         </div>
       ) : (
         <>
-          <h1 className="step-title">Confirm Your Profile</h1>
-          <div className="summary-section">
+  <h1 className="step-title">Confirm Your Profile</h1>
+  {error && (
+    <div style={{
+      background: '#ffebee',
+      color: '#c62828',
+      padding: '12px',
+      borderRadius: '8px',
+      marginBottom: '16px',
+      fontSize: '14px'
+    }}>
+      {error}
+    </div>
+  )}
+  <div className="summary-section">
             <p><strong>Name:</strong> {personName}</p>
             <p><strong>Allergies:</strong> {dietaryData.allergies.join(', ') || 'None'}</p>
             <p><strong>Health Conditions:</strong> {dietaryData.healthConditions.join(', ') || 'None'}</p>
@@ -274,10 +402,14 @@ export default function GetStarted() {
               Edit
               <span className="arrow-icon">→</span>
             </button>
-            <button className="nav-btn save-btn" onClick={handleSave}>
-              Save Profile
-              <span className="arrow-icon">→</span>
-            </button>
+            <button 
+  className="nav-btn save-btn" 
+  onClick={handleSave}
+  disabled={loading}
+>
+  {loading ? 'Saving...' : 'Save Profile'}
+  <span className="arrow-icon">→</span>
+</button>
           </div>
         </>
       )}
