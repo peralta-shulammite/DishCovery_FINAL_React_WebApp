@@ -1,5 +1,6 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { recipeAPI, handleAPIError } from './api.js'; // Import the API functions
 import './styles.css';
 
 const RecipeManagement = () => {
@@ -14,79 +15,11 @@ const RecipeManagement = () => {
   const [mealTypeFilter, setMealTypeFilter] = useState('All');
   const [healthFilter, setHealthFilter] = useState('All'); // New state for health filter
   const [editingRecipeId, setEditingRecipeId] = useState(null); // Track recipe being edited
-
-  // Sample recipe data
-  const [recipes, setRecipes] = useState([
-    {
-      id: 1,
-      title: "Quinoa Buddha Bowl",
-      description: "Nutritious bowl with quinoa, roasted vegetables, and tahini dressing",
-      images: ["/api/placeholder/300/200"],
-      mealType: "Heavy Meal",
-      instructions: [
-        "Cook quinoa according to package directions",
-        "Roast vegetables at 400°F for 25 minutes",
-        "Prepare tahini dressing by whisking tahini, lemon juice, and water",
-        "Assemble bowl with quinoa, vegetables, and dressing"
-      ],
-      ingredients: {
-        main: ["Quinoa", "Sweet potato", "Broccoli", "Chickpeas"],
-        condiments: ["Tahini", "Lemon juice", "Olive oil"],
-        optional: ["Avocado", "Pumpkin seeds", "Fresh herbs"]
-      },
-      dietaryTags: ["Vegan", "Gluten-free", "High-protein"],
-      healthTags: ["Diabetic-safe", "Heart-healthy"],
-      verificationStatus: "Checked by: Dr. Sarah Johnson, Nutritionist",
-      engagement: { tried: 245, saved: 189 },
-      dateAdded: "2024-01-15"
-    },
-    {
-      id: 2,
-      title: "Green Smoothie Bowl",
-      description: "Refreshing smoothie bowl with spinach, banana, and tropical fruits",
-      images: ["/api/placeholder/300/200"],
-      mealType: "Smoothie",
-      instructions: [
-        "Blend spinach, banana, and mango until smooth",
-        "Pour into bowl",
-        "Top with granola, coconut flakes, and fresh berries",
-        "Drizzle with honey if desired"
-      ],
-      ingredients: {
-        main: ["Spinach", "Banana", "Mango", "Coconut milk"],
-        condiments: ["Honey", "Chia seeds"],
-        optional: ["Granola", "Coconut flakes", "Fresh berries"]
-      },
-      dietaryTags: ["Vegan", "Raw", "Dairy-free"],
-      healthTags: ["Antioxidant-rich", "Peanut-free"],
-      verificationStatus: "AI-generated",
-      engagement: { tried: 156, saved: 234 },
-      dateAdded: "2024-01-20"
-    },
-    {
-      id: 3,
-      title: "Mediterranean Grilled Chicken",
-      description: "Herb-marinated chicken with Mediterranean vegetables",
-      images: ["/api/placeholder/300/200"],
-      mealType: "Heavy Meal",
-      instructions: [
-        "Marinate chicken in olive oil, lemon, and herbs for 2 hours",
-        "Grill chicken for 6-8 minutes per side",
-        "Roast vegetables with olive oil and seasonings",
-        "Serve with tzatziki sauce"
-      ],
-      ingredients: {
-        main: ["Chicken breast", "Zucchini", "Bell peppers", "Red onion"],
-        condiments: ["Olive oil", "Lemon juice", "Greek yogurt", "Garlic"],
-        optional: ["Feta cheese", "Olives", "Fresh herbs"]
-      },
-      dietaryTags: ["Gluten-free", "High-protein", "Mediterranean"],
-      healthTags: ["Heart-healthy", "Low-carb"],
-      verificationStatus: "Checked by: Maria Rodriguez, Dietitian",
-      engagement: { tried: 312, saved: 267 },
-      dateAdded: "2024-01-18"
-    }
-  ]);
+  
+  // Database connection states
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [recipes, setRecipes] = useState([]); // Now connected to database
 
   // Form state for adding/editing recipes
   const [formData, setFormData] = useState({
@@ -110,6 +43,37 @@ const RecipeManagement = () => {
   const mealTypes = ['Breakfast', 'Dessert', 'Dinner', 'Heavy Meal', 'Light Meal', 'Lunch', 'Smoothie', 'Snack'].sort();
   const dietaryOptions = ['Dairy-free', 'Gluten-free', 'Halal', 'Keto', 'Mediterranean', 'Paleo', 'Vegan', 'Vegetarian'].sort();
   const healthOptions = ['Antioxidant-rich', 'Diabetic-safe', 'Heart-healthy', 'High-protein', 'Low-carb', 'Low-sodium', 'Peanut-free'].sort();
+
+  // Fetch recipes from database
+  const fetchRecipes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const filters = {
+        search: searchTerm,
+        status: statusFilter,
+        mealType: mealTypeFilter
+      };
+      
+      console.log('Fetching recipes with filters:', filters);
+      
+      const fetchedRecipes = await recipeAPI.getAll(filters);
+      setRecipes(fetchedRecipes);
+      
+    } catch (err) {
+      const errorMessage = handleAPIError(err);
+      setError(errorMessage);
+      console.error('Error fetching recipes:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load recipes on component mount and when filters change
+  useEffect(() => {
+    fetchRecipes();
+  }, [searchTerm, statusFilter, mealTypeFilter]);
 
   const toggleSidebar = () => {
     setSidebarVisible(!sidebarVisible);
@@ -137,34 +101,47 @@ const RecipeManagement = () => {
     setShowAddModal(true);
   };
 
-  const handleDeleteRecipe = (recipeId) => {
+  const handleDeleteRecipe = async (recipeId) => {
     if (window.confirm('Are you sure you want to delete this recipe?')) {
-      setRecipes(recipes.filter(recipe => recipe.id !== recipeId));
+      try {
+        await recipeAPI.delete(recipeId);
+        
+        // Remove from local state
+        setRecipes(recipes.filter(recipe => recipe.id !== recipeId));
+        setShowViewModal(false);
+        alert('Recipe deleted successfully!');
+      } catch (err) {
+        const errorMessage = handleAPIError(err);
+        alert(`Error deleting recipe: ${errorMessage}`);
+      }
     }
   };
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
-    const verificationStatus = formData.verificationStatus === 'AI-generated'
-      ? 'AI-generated'
-      : `Checked by: ${formData.verifierName}, ${formData.verifierCredentials}`;
     
-    const recipeData = {
-      ...formData,
-      verificationStatus,
-      engagement: formData.id ? formData.engagement : { tried: 0, saved: 0 },
-      dateAdded: formData.id ? formData.dateAdded : new Date().toISOString().split('T')[0],
-      id: formData.id || Date.now()
-    };
+    try {
+      setLoading(true);
+      
+      if (editingRecipeId) {
+        // Update existing recipe
+        await recipeAPI.update(editingRecipeId, formData);
+        alert('Recipe updated successfully!');
+      } else {
+        // Create new recipe
+        await recipeAPI.create(formData);
+        alert('Recipe added successfully!');
+      }
 
-    if (editingRecipeId) {
-      setRecipes(recipes.map(r => r.id === editingRecipeId ? recipeData : r));
-    } else {
-      setRecipes([...recipes, recipeData]);
+      setShowAddModal(false);
+      resetForm();
+      fetchRecipes(); // Refresh the list
+    } catch (err) {
+      const errorMessage = handleAPIError(err);
+      alert(`Error saving recipe: ${errorMessage}`);
+    } finally {
+      setLoading(false);
     }
-
-    setShowAddModal(false);
-    resetForm();
   };
 
   const resetForm = () => {
@@ -276,6 +253,48 @@ const RecipeManagement = () => {
       images: imageUrls
     });
   };
+
+  // Show loading state
+  if (loading && recipes.length === 0) {
+    return (
+      <div className="dashboard-container">
+        <div className="main-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div style={{ textAlign: 'center' }}>
+            <h3>Loading recipes...</h3>
+            <p>Please wait while we fetch your recipes from the database.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error && recipes.length === 0) {
+    return (
+      <div className="dashboard-container">
+        <div className="main-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div style={{ textAlign: 'center', color: '#dc2626' }}>
+            <h3>Error loading recipes</h3>
+            <p>{error}</p>
+            <button 
+              onClick={fetchRecipes} 
+              style={{ 
+                marginTop: '10px', 
+                padding: '10px 20px', 
+                background: '#2E7D32', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '5px', 
+                cursor: 'pointer' 
+              }}
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Icons Components (unchanged)
   const DashboardIcon = () => (
@@ -515,6 +534,9 @@ const RecipeManagement = () => {
           {filteredRecipes.length === 0 ? (
             <div className="no-recipes">
               <p>No recipes found matching your criteria.</p>
+              {!loading && recipes.length === 0 && (
+                <p>Start by adding your first recipe!</p>
+              )}
             </div>
           ) : (
             filteredRecipes.map(recipe => (
@@ -760,8 +782,8 @@ const RecipeManagement = () => {
                   <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn-submit">
-                    {editingRecipeId ? 'Update Recipe' : 'Add Recipe'}
+                  <button type="submit" className="btn-submit" disabled={loading}>
+                    {loading ? 'Saving...' : (editingRecipeId ? 'Update Recipe' : 'Add Recipe')}
                   </button>
                 </div>
               </form>
