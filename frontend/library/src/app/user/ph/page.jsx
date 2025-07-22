@@ -132,7 +132,11 @@ export default function DishCoveryLanding() {
   };
 
   const dishCoveryHandleStartJourneyClick = () => {
-    setDishCoveryShowSignInModal(true);
+    if (!dishCoveryIsLoggedIn) {
+      setDishCoveryShowSignInModal(true);
+    } else {
+      window.location.href = '/user/get-started';
+    }
   };
 
   const dishCoveryToggleMobileMenu = () => {
@@ -277,7 +281,7 @@ export default function DishCoveryLanding() {
                 onMouseEnter={() => dishCoveryHandleHover('avatar', true)}
                 onMouseLeave={() => dishCoveryHandleHover('avatar', false)}
               >
-                {dishCoveryUser ? dishCoveryUser.firstName.charAt(0) + dishCoveryUser.lastName?.charAt(0) : 'JD'}
+                {dishCoveryUser ? (dishCoveryUser.firstName?.charAt(0) || 'J') + (dishCoveryUser.lastName?.charAt(0) || 'D') : 'JD'}
               </button>
               {dishCoveryShowAvatarDropdown && (
                 <div className="avatar-dropdown">
