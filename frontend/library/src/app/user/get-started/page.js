@@ -18,19 +18,30 @@ export default function GetStarted() {
   const [error, setError] = useState('');
 
   const getAuthToken = () => {
-    // return localStorage.getItem('authToken') || 'your-jwt-token-here';
-    return 'bypass-token-for-testing';
+    return localStorage.getItem('token');
   };
-
-  const userProfile = { firstName: 'John' }; // Mocked from signup
+  
+  const [userProfile, setUserProfile] = useState(null);
+  
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch('http://localhost:5000/api/users/profile', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => setUserProfile(data))
+      .catch(err => console.error('Failed to load user profile:', err));
+    }
+  }, []);
 
   useEffect(() => {
-    if (cookingFor === 'Myself') {
+    if (cookingFor === 'Myself' && userProfile) {
       setPersonName(userProfile.firstName);
     } else {
       setPersonName('');
     }
-  }, [cookingFor, userProfile.firstName]);
+  }, [cookingFor, userProfile]);
 
   // REPLACE THIS ENTIRE FUNCTION:
 const handleNext = async () => {
@@ -125,6 +136,10 @@ const handleSave = async () => {
     }
 
     setIsSaved(true);
+// Redirect to main page after 2 seconds
+setTimeout(() => {
+  window.location.href = '/user/ph';
+}, 2000);
   } catch (error) {
     setError('Failed to save profile. Please try again.');
   } finally {
@@ -225,7 +240,7 @@ const handleSave = async () => {
             checked={cookingFor === 'Myself'}
             onChange={(e) => setCookingFor(e.target.value)}
           />
-          Myself ({userProfile.firstName})
+          Myself ({userProfile?.firstName || 'Loading...'})
         </label>
         <label className="radio-label">
           <input
