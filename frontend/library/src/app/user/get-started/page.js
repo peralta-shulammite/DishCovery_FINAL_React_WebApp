@@ -26,6 +26,13 @@ export default function GetStarted() {
   const [memberId, setMemberId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // ADD THIS STATE - Load restrictions from database
+  const [apiRestrictions, setApiRestrictions] = useState({
+    dietaryRestrictions: [],
+    preferredDiets: [],
+    medicalConditions: []
+  });
 
   const getAuthToken = () => {
     return localStorage.getItem('token');
@@ -43,6 +50,27 @@ export default function GetStarted() {
       .then(data => setUserProfile(data))
       .catch(err => console.error('Failed to load user profile:', err));
     }
+  }, []);
+
+  // ADD THIS useEffect - Load restrictions from database
+  useEffect(() => {
+    const loadRestrictions = async () => {
+      try {
+        console.log('📥 Loading restrictions from database...');
+        const response = await fetch('http://localhost:5000/api/dietary-restrictions/public');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setApiRestrictions(result.data);
+            console.log('✅ Loaded restrictions from database');
+          }
+        }
+      } catch (error) {
+        console.log('Using fallback restrictions');
+      }
+    };
+    
+    loadRestrictions();
   }, []);
 
   useEffect(() => {
@@ -103,53 +131,50 @@ export default function GetStarted() {
     setIsSaved(false);
   };
 
+  // UPDATED handleSave - Now connects to API
   const handleSave = async () => {
     try {
       setLoading(true);
+      console.log('💾 Saving dietary profile...');
       
-      // Save restrictions
-      const restrictionsResponse = await fetch('http://localhost:5000/api/profile/restrictions', {
+      // Prepare data for API
+      const saveData = {
+        memberId: memberId,
+        dietaryRestrictions: dietaryData.dietaryRestrictions,
+        medicalConditions: dietaryData.medicalConditions,
+        preferredDiets: dietaryData.preferredDiets,
+        excludedIngredients: dietaryData.excludedIngredients.split(',').map(item => item.trim()).filter(item => item)
+      };
+
+      // Call the new API
+      const response = await fetch('http://localhost:5000/api/dietary-restrictions/user/save', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          memberId: memberId,
-          dietaryRestrictions: dietaryData.dietaryRestrictions,
-          medicalConditions: dietaryData.medicalConditions,
-          preferredDiets: dietaryData.preferredDiets
-        })
+        body: JSON.stringify(saveData)
       });
 
-      if (!restrictionsResponse.ok) {
-        throw new Error('Failed to save restrictions');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save');
       }
 
-      // Save excluded ingredients
-      const ingredientsResponse = await fetch('http://localhost:5000/api/profile/excluded-ingredients', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          memberId: memberId,
-          ingredients: dietaryData.excludedIngredients.split(',').map(item => item.trim()).filter(item => item)
-        })
-      });
-
-      if (!ingredientsResponse.ok) {
-        throw new Error('Failed to save excluded ingredients');
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Profile saved successfully');
+        setIsSaved(true);
+        setTimeout(() => {
+          window.location.href = '/user/ph';
+        }, 2000);
+      } else {
+        throw new Error(result.message || 'Failed to save profile');
       }
-
-      setIsSaved(true);
-      // Redirect to main page after 2 seconds
-      setTimeout(() => {
-        window.location.href = '/user/ph';
-      }, 2000);
     } catch (error) {
-      setError('Failed to save profile. Please try again.');
+      console.error('❌ Error saving profile:', error);
+      setError(`Failed to save profile: ${error.message}. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -195,19 +220,19 @@ export default function GetStarted() {
     }
   };
 
+  // UPDATED categoryOptions - Now uses API data with fallback
   const categoryOptions = {
-    dietaryRestrictions: [
-      'Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Gluten-Free', 
-      'Dairy-Free', 'Nut-Free', 'Shellfish-Free'
-    ],
-    preferredDiets: [
-      'Keto', 'Vegan', 'Low-Carb', 'Low-Sodium', 'Paleo', 
-      'Mediterranean', 'Intermittent Fasting'
-    ],
-    medicalConditions: [
-      'Hypertension', 'Diabetes', 'High Cholesterol', 'Heart Disease', 
-      'PCOS', 'Acid Reflux'
-    ]
+    dietaryRestrictions: apiRestrictions.dietaryRestrictions.length > 0 
+      ? apiRestrictions.dietaryRestrictions 
+      : ['Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Gluten-Free', 'Dairy-Free', 'Nut-Free', 'Shellfish-Free'],
+    
+    preferredDiets: apiRestrictions.preferredDiets.length > 0 
+      ? apiRestrictions.preferredDiets 
+      : ['Keto', 'Vegan', 'Low-Carb', 'Low-Sodium', 'Paleo', 'Mediterranean', 'Intermittent Fasting'],
+    
+    medicalConditions: apiRestrictions.medicalConditions.length > 0 
+      ? apiRestrictions.medicalConditions 
+      : ['Hypertension', 'Diabetes', 'High Cholesterol', 'Heart Disease', 'PCOS', 'Acid Reflux']
   };
 
   const renderStep1 = () => (

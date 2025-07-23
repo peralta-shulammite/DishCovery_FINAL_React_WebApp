@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
 
@@ -13,63 +13,18 @@ const DietaryRestrictionsManagementContent = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const restrictionsPerPage = 10;
 
-  // Sample restriction data
-  const [restrictions, setRestrictions] = useState([
-    {
-      id: 1,
-      name: 'Lactose Intolerant',
-      category: 'Medical',
-      description: 'Avoids dairy due to intolerance',
-      status: 'Active',
-      usedBy: 1224,
-      lastEdited: '2024-01-15',
-      lastEditedBy: 'Admin',
-      changeLog: [{ date: '2024-01-15', by: 'Admin', change: 'Created restriction' }],
-    },
-    {
-      id: 2,
-      name: 'Halal',
-      category: 'Religious',
-      description: 'Food must comply with Islamic dietary laws',
-      status: 'Active',
-      usedBy: 3509,
-      lastEdited: '2024-01-20',
-      lastEditedBy: 'Admin',
-      changeLog: [{ date: '2024-01-20', by: 'Admin', change: 'Created restriction' }],
-    },
-    {
-      id: 3,
-      name: 'Gluten-Free',
-      category: 'Medical',
-      description: 'Avoids gluten due to celiac or sensitivity',
-      status: 'Active',
-      usedBy: 2841,
-      lastEdited: '2024-01-18',
-      lastEditedBy: 'Admin',
-      changeLog: [{ date: '2024-01-18', by: 'Admin', change: 'Created restriction' }],
-    },
-    {
-      id: 4,
-      name: 'No Shellfish',
-      category: 'Custom',
-      description: 'User-submitted restriction',
-      status: 'Pending',
-      usedBy: 1,
-      lastEdited: '2024-01-22',
-      lastEditedBy: 'User123',
-      changeLog: [{ date: '2024-01-22', by: 'User123', change: 'Requested restriction' }],
-    },
-  ]);
+  // Sample restriction data - UPDATED: Now loads from API
+  const [restrictions, setRestrictions] = useState([]);
 
-  const [pendingRequests, setPendingRequests] = useState([
-    {
-      id: 5,
-      name: 'Low-Sodium',
-      user: 'User456',
-      dateSubmitted: '2024-01-25',
-      suggestedDescription: 'Diet with reduced salt intake',
-    },
-  ]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+
+  // ADD THESE STATE VARIABLES
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const getAuthToken = () => {
+    return localStorage.getItem('token');
+  };
 
   // Form state for adding/editing restrictions
   const [formData, setFormData] = useState({
@@ -82,6 +37,50 @@ const DietaryRestrictionsManagementContent = () => {
 
   const categories = ['Medical', 'Religious', 'Lifestyle', 'Ethical', 'Custom'].sort();
   const statuses = ['Active', 'Inactive'];
+
+  // ADD THIS useEffect - Load data from API
+  useEffect(() => {
+    loadDataFromAPI();
+  }, []);
+
+  const loadDataFromAPI = async () => {
+    try {
+      setLoading(true);
+      console.log('📥 Loading data from API...');
+      
+      // Load restrictions
+      const restrictionsRes = await fetch('http://localhost:5000/api/dietary-restrictions/admin', {
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+      });
+      
+      if (restrictionsRes.ok) {
+        const restrictionsData = await restrictionsRes.json();
+        if (restrictionsData.success) {
+          setRestrictions(restrictionsData.data);
+          console.log('✅ Loaded restrictions from database');
+        }
+      }
+
+      // Load pending requests
+      const pendingRes = await fetch('http://localhost:5000/api/dietary-restrictions/admin/pending-requests', {
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+      });
+      
+      if (pendingRes.ok) {
+        const pendingData = await pendingRes.json();
+        if (pendingData.success) {
+          setPendingRequests(pendingData.data);
+          console.log('✅ Loaded pending requests from database');
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Error loading data:', error);
+      setError('Failed to load data. Please refresh the page.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddRestriction = () => {
     setSelectedRestriction(null);
@@ -101,27 +100,70 @@ const DietaryRestrictionsManagementContent = () => {
     setShowEditModal(true);
   };
 
-  const handleDeleteRestriction = (restrictionId) => {
-    if (window.confirm('Are you sure you want to delete this restriction?')) {
-      setRestrictions(restrictions.filter((r) => r.id !== restrictionId));
+  // UPDATED handleDeleteRestriction - Now connects to API
+  const handleDeleteRestriction = async (restrictionId) => {
+    if (!window.confirm('Are you sure you want to delete this restriction?')) {
+      return;
+    }
+
+    try {
+      console.log(`🗑️ Deleting restriction ID: ${restrictionId}`);
+      
+      const response = await fetch(`http://localhost:5000/api/dietary-restrictions/admin/${restrictionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('✅ Restriction deleted successfully');
+        alert(result.message);
+        loadDataFromAPI(); // Reload data
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error deleting restriction:', error);
+      alert(`Failed to delete restriction: ${error.message}`);
     }
   };
 
-  const handleApproveRequest = (request) => {
-    const newRestriction = {
-      id: Date.now(),
-      name: request.name,
-      category: 'Custom',
-      description: request.suggestedDescription,
-      status: 'Active',
-      usedBy: 1,
-      lastEdited: new Date().toISOString().split('T')[0],
-      lastEditedBy: 'Admin',
-      changeLog: [{ date: new Date().toISOString().split('T')[0], by: 'Admin', change: 'Approved user request' }],
-      visibility: 'Public',
-    };
-    setRestrictions([...restrictions, newRestriction]);
-    setPendingRequests(pendingRequests.filter((r) => r.id !== request.id));
+  // UPDATED handleApproveRequest - Now connects to API
+  const handleApproveRequest = async (request) => {
+    try {
+      console.log('✅ Approving request:', request);
+      
+      // Create the restriction
+      const createResponse = await fetch('http://localhost:5000/api/dietary-restrictions/admin', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: request.name,
+          category: 'Custom',
+          description: request.suggestedDescription,
+          status: 'Active'
+        })
+      });
+
+      const createResult = await createResponse.json();
+
+      if (createResult.success) {
+        console.log('✅ Request approved successfully');
+        alert(`Restriction "${request.name}" has been approved and added.`);
+        loadDataFromAPI(); // Reload data
+      } else {
+        throw new Error(createResult.message);
+      }
+    } catch (error) {
+      console.error('❌ Error approving request:', error);
+      alert(`Failed to approve request: ${error.message}`);
+    }
   };
 
   const handleRejectRequest = (requestId) => {
@@ -130,34 +172,46 @@ const DietaryRestrictionsManagementContent = () => {
     }
   };
 
-  const handleFormSubmit = (e) => {
+  // UPDATED handleFormSubmit - Now connects to API
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
-    const restrictionData = {
-      ...formData,
-      id: selectedRestriction ? selectedRestriction.id : Date.now(),
-      lastEdited: new Date().toISOString().split('T')[0],
-      lastEditedBy: 'Admin',
-      changeLog: selectedRestriction
-        ? [
-            ...selectedRestriction.changeLog,
-            {
-              date: new Date().toISOString().split('T')[0],
-              by: 'Admin',
-              change: 'Updated restriction details',
-            },
-          ]
-        : [{ date: new Date().toISOString().split('T')[0], by: 'Admin', change: 'Created restriction' }],
-      usedBy: selectedRestriction ? selectedRestriction.usedBy : 0,
-    };
+    
+    try {
+      console.log('💾 Submitting form to API...');
+      
+      const url = selectedRestriction 
+        ? `http://localhost:5000/api/dietary-restrictions/admin/${selectedRestriction.id}`
+        : 'http://localhost:5000/api/dietary-restrictions/admin';
+      
+      const method = selectedRestriction ? 'PUT' : 'POST';
 
-    if (selectedRestriction) {
-      setRestrictions(restrictions.map((r) => (r.id === selectedRestriction.id ? restrictionData : r)));
-      setShowEditModal(false);
-    } else {
-      setRestrictions([...restrictions, restrictionData]);
-      setShowAddModal(false);
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('✅ Form submitted successfully');
+        alert(selectedRestriction ? 'Restriction updated successfully!' : 'Restriction created successfully!');
+        
+        // Close modals and reload data
+        setShowAddModal(false);
+        setShowEditModal(false);
+        resetForm();
+        loadDataFromAPI();
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error submitting form:', error);
+      alert(`Failed to save restriction: ${error.message}`);
     }
-    resetForm();
   };
 
   const resetForm = () => {
@@ -183,6 +237,30 @@ const DietaryRestrictionsManagementContent = () => {
   const indexOfFirstRestriction = indexOfLastRestriction - restrictionsPerPage;
   const currentRestrictions = filteredRestrictions.slice(indexOfFirstRestriction, indexOfLastRestriction);
   const totalPages = Math.ceil(filteredRestrictions.length / restrictionsPerPage);
+
+  // ADD LOADING STATE
+  if (loading) {
+    return (
+      <div className="main-content">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+          <p>Loading dietary restrictions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="main-content">
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <p style={{ color: 'red' }}>{error}</p>
+          <button onClick={loadDataFromAPI} style={{ marginTop: '20px', padding: '10px 20px' }}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Icons Components
   const SearchIcon = () => (
@@ -663,7 +741,7 @@ const DietaryRestrictionsManagementContent = () => {
               <div className="form-section">
                 <label className="form-label">Change Log</label>
                 <ul style={{ padding: '0', listStyle: 'none' }}>
-                  {selectedRestriction.changeLog.map((log, index) => (
+                  {selectedRestriction.changeLog?.map((log, index) => (
                     <li key={index} style={{ color: '#64748b', marginBottom: '8px' }}>
                       {log.date} - {log.by}: {log.change}
                     </li>
