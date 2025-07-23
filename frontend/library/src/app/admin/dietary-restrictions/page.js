@@ -3,6 +3,19 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
 
+// // 🧪 TEMPORARY BYPASS FOR TESTING - REMOVE IN PRODUCTION  
+// const BYPASS_AUTH_FOR_TESTING = true;
+
+// const getAuthToken = () => {
+//   if (BYPASS_AUTH_FOR_TESTING) {
+//     console.warn('⚠️ BYPASSING AUTH FOR TESTING - REMOVE IN PRODUCTION');
+//     return 'test-token';
+//   }
+  
+//   const token = localStorage.getItem('token');
+//   // ... rest of existing getAuthToken code stays the same
+// };
+
 const DietaryRestrictionsManagementContent = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -13,32 +26,115 @@ const DietaryRestrictionsManagementContent = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const restrictionsPerPage = 10;
 
-  // Sample restriction data - UPDATED: Now loads from API
   const [restrictions, setRestrictions] = useState([]);
-
   const [pendingRequests, setPendingRequests] = useState([]);
-
-  // ADD THESE STATE VARIABLES
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // 🔐 ENHANCED TOKEN MANAGEMENT
   const getAuthToken = () => {
-    return localStorage.getItem('token');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn('⚠️ No authentication token found');
+      return null;
+    }
+    
+    // Basic token validation
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Date.now() / 1000;
+      
+      if (payload.exp && payload.exp < currentTime) {
+        console.warn('⚠️ Token has expired');
+        handleAuthError('Token expired');
+        return null;
+      }
+      
+      console.log('✅ Token is valid');
+      return token;
+    } catch (error) {
+      console.error('❌ Invalid token format:', error);
+      handleAuthError('Invalid token format');
+      return null;
+    }
+  };
+
+  // 🚨 ENHANCED ERROR HANDLING
+  const handleAuthError = (message) => {
+    console.error('🔐 Authentication Error:', message);
+    
+    // Clear invalid token
+    localStorage.removeItem('token');
+    
+    // Show user-friendly message
+    setError(`Authentication failed: ${message}. Please log in again.`);
+    
+    // Redirect to login after a delay
+    setTimeout(() => {
+      window.location.href = '/login'; // Adjust path as needed
+    }, 3000);
+  };
+
+  // 🔧 ENHANCED API CALL WRAPPER
+  const makeAuthenticatedRequest = async (url, options = {}) => {
+    const token = getAuthToken();
+    
+    if (!token) {
+      throw new Error('No valid authentication token');
+    }
+
+    const defaultOptions = {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
+    };
+
+    const requestOptions = { ...defaultOptions, ...options };
+    
+    console.log(`🌐 Making request to: ${url}`);
+    console.log('📋 Request headers:', requestOptions.headers);
+
+    try {
+      const response = await fetch(url, requestOptions);
+      
+      // Handle different response status codes
+      if (response.status === 401) {
+        throw new Error('Invalid or expired token');
+      } else if (response.status === 403) {
+        throw new Error('Access forbidden - insufficient permissions');
+      } else if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('❌ Request failed:', error);
+      
+      // Handle specific authentication errors
+      if (error.message.includes('token') || error.message.includes('401') || error.message.includes('403')) {
+        handleAuthError(error.message);
+      }
+      
+      throw error;
+    }
   };
 
   // Form state for adding/editing restrictions
   const [formData, setFormData] = useState({
     name: '',
-    category: 'Medical',
+    category: 'Allergies', // Changed from 'Medical' to 'Allergies'
     description: '',
     status: 'Active',
     visibility: 'Public',
   });
 
-  const categories = ['Medical', 'Religious', 'Lifestyle', 'Ethical', 'Custom'].sort();
+  const categories = ['Allergies', 'Health Conditions', 'Dietary Lifestyle', 'Custom'].sort();
   const statuses = ['Active', 'Inactive'];
 
-  // ADD THIS useEffect - Load data from API
+  // 🔄 ENHANCED DATA LOADING
   useEffect(() => {
     loadDataFromAPI();
   }, []);
@@ -46,37 +142,43 @@ const DietaryRestrictionsManagementContent = () => {
   const loadDataFromAPI = async () => {
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       console.log('📥 Loading data from API...');
       
-      // Load restrictions
-      const restrictionsRes = await fetch('http://localhost:5000/api/dietary-restrictions/admin', {
-        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
-      });
-      
-      if (restrictionsRes.ok) {
-        const restrictionsData = await restrictionsRes.json();
+      // Load restrictions with enhanced error handling
+      try {
+        const restrictionsData = await makeAuthenticatedRequest('http://localhost:5000/api/dietary-restrictions/admin');
+        
         if (restrictionsData.success) {
           setRestrictions(restrictionsData.data);
           console.log('✅ Loaded restrictions from database');
+        } else {
+          throw new Error(restrictionsData.message || 'Failed to load restrictions');
         }
+      } catch (error) {
+        console.error('❌ Error loading restrictions:', error);
+        setError(`Failed to load restrictions: ${error.message}`);
       }
 
-      // Load pending requests
-      const pendingRes = await fetch('http://localhost:5000/api/dietary-restrictions/admin/pending-requests', {
-        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
-      });
-      
-      if (pendingRes.ok) {
-        const pendingData = await pendingRes.json();
+      // Load pending requests with enhanced error handling
+      try {
+        const pendingData = await makeAuthenticatedRequest('http://localhost:5000/api/dietary-restrictions/admin/pending-requests');
+        
         if (pendingData.success) {
           setPendingRequests(pendingData.data);
           console.log('✅ Loaded pending requests from database');
+        } else {
+          console.warn('⚠️ Could not load pending requests:', pendingData.message);
+          // Don't set error for pending requests as it's not critical
         }
+      } catch (error) {
+        console.warn('⚠️ Error loading pending requests:', error);
+        // Don't set error for pending requests as it's not critical
       }
 
     } catch (error) {
-      console.error('❌ Error loading data:', error);
-      setError('Failed to load data. Please refresh the page.');
+      console.error('❌ Critical error loading data:', error);
+      setError('Failed to load data. Please refresh the page or try logging in again.');
     } finally {
       setLoading(false);
     }
@@ -100,7 +202,7 @@ const DietaryRestrictionsManagementContent = () => {
     setShowEditModal(true);
   };
 
-  // UPDATED handleDeleteRestriction - Now connects to API
+  // 🗑️ ENHANCED DELETE WITH AUTH
   const handleDeleteRestriction = async (restrictionId) => {
     if (!window.confirm('Are you sure you want to delete this restriction?')) {
       return;
@@ -109,14 +211,10 @@ const DietaryRestrictionsManagementContent = () => {
     try {
       console.log(`🗑️ Deleting restriction ID: ${restrictionId}`);
       
-      const response = await fetch(`http://localhost:5000/api/dietary-restrictions/admin/${restrictionId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
-        }
-      });
-
-      const result = await response.json();
+      const result = await makeAuthenticatedRequest(
+        `http://localhost:5000/api/dietary-restrictions/admin/${restrictionId}`,
+        { method: 'DELETE' }
+      );
 
       if (result.success) {
         console.log('✅ Restriction deleted successfully');
@@ -131,34 +229,30 @@ const DietaryRestrictionsManagementContent = () => {
     }
   };
 
-  // UPDATED handleApproveRequest - Now connects to API
+  // ✅ ENHANCED APPROVE REQUEST WITH AUTH
   const handleApproveRequest = async (request) => {
     try {
       console.log('✅ Approving request:', request);
       
-      // Create the restriction
-      const createResponse = await fetch('http://localhost:5000/api/dietary-restrictions/admin', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: request.name,
-          category: 'Custom',
-          description: request.suggestedDescription,
-          status: 'Active'
-        })
-      });
+      const result = await makeAuthenticatedRequest(
+        'http://localhost:5000/api/dietary-restrictions/admin',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            name: request.name,
+            category: 'Custom',
+            description: request.suggestedDescription,
+            status: 'Active'
+          })
+        }
+      );
 
-      const createResult = await createResponse.json();
-
-      if (createResult.success) {
+      if (result.success) {
         console.log('✅ Request approved successfully');
         alert(`Restriction "${request.name}" has been approved and added.`);
         loadDataFromAPI(); // Reload data
       } else {
-        throw new Error(createResult.message);
+        throw new Error(result.message);
       }
     } catch (error) {
       console.error('❌ Error approving request:', error);
@@ -172,10 +266,16 @@ const DietaryRestrictionsManagementContent = () => {
     }
   };
 
-  // UPDATED handleFormSubmit - Now connects to API
+  // 💾 ENHANCED FORM SUBMIT WITH AUTH
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     
+  // 🔍 DEBUG: Log what we're sending
+  console.log('🚀 Form Data Being Sent:', formData);
+  console.log('📍 API Endpoint:', selectedRestriction 
+    ? `http://localhost:5000/api/dietary-restrictions/admin/${selectedRestriction.id}`
+    : 'http://localhost:5000/api/dietary-restrictions/admin');
+
     try {
       console.log('💾 Submitting form to API...');
       
@@ -185,16 +285,10 @@ const DietaryRestrictionsManagementContent = () => {
       
       const method = selectedRestriction ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const result = await makeAuthenticatedRequest(url, {
         method,
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(formData)
       });
-
-      const result = await response.json();
 
       if (result.success) {
         console.log('✅ Form submitted successfully');
@@ -238,25 +332,66 @@ const DietaryRestrictionsManagementContent = () => {
   const currentRestrictions = filteredRestrictions.slice(indexOfFirstRestriction, indexOfLastRestriction);
   const totalPages = Math.ceil(filteredRestrictions.length / restrictionsPerPage);
 
-  // ADD LOADING STATE
+  // 🔐 ENHANCED LOADING STATE WITH AUTH CHECK
   if (loading) {
     return (
       <div className="main-content">
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-          <p>Loading dietary restrictions...</p>
+          <div style={{ textAlign: 'center' }}>
+            <p>Loading dietary restrictions...</p>
+            <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+              Verifying authentication...
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
+  // 🚨 ENHANCED ERROR STATE
   if (error) {
     return (
       <div className="main-content">
         <div style={{ textAlign: 'center', padding: '40px' }}>
-          <p style={{ color: 'red' }}>{error}</p>
-          <button onClick={loadDataFromAPI} style={{ marginTop: '20px', padding: '10px 20px' }}>
-            Retry
-          </button>
+          <div style={{ 
+            background: '#fee', 
+            border: '1px solid #fcc', 
+            borderRadius: '8px', 
+            padding: '20px',
+            maxWidth: '500px',
+            margin: '0 auto'
+          }}>
+            <h3 style={{ color: '#c33', marginBottom: '10px' }}>⚠️ Authentication Error</h3>
+            <p style={{ color: '#c33', marginBottom: '20px' }}>{error}</p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button 
+                onClick={loadDataFromAPI} 
+                style={{ 
+                  padding: '10px 20px', 
+                  background: '#2E7D32', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Retry
+              </button>
+              <button 
+                onClick={() => window.location.href = '/login'} 
+                style={{ 
+                  padding: '10px 20px', 
+                  background: '#1976D2', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Go to Login
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );

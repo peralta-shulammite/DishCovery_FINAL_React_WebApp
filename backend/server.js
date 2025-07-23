@@ -7,6 +7,7 @@ import recipesRouter from './routes/recipes.js';
 import profileRouter from './routes/profile.js';
 import userRecipesRouter from './routes/userRecipes.js';
 import adminRecipesRouter from './routes/adminRecipes.js';
+import adminAuthRouter from './routes/adminAuth.js';
 import dietaryRestrictionsRouter from './routes/dietaryRestrictions.js'; // ← ADD THIS LINE
 import pool from './db.js';
 
@@ -28,6 +29,7 @@ app.use('/api/recipes', recipesRouter);
 app.use('/api/user/recipes', userRecipesRouter);
 app.use('/api/admin/recipes', adminRecipesRouter);
 app.use('/api/dietary-restrictions', dietaryRestrictionsRouter); // ← ADD THIS LINE
+app.use('/api/admin/auth', adminAuthRouter);
 
 // Database connection
 // (Initialized via pool import)
@@ -53,6 +55,11 @@ app.listen(PORT, () => {
   console.log('   - PUT  /api/dietary-restrictions/admin/:id (🔒 Update Restriction)');
   console.log('   - DELETE /api/dietary-restrictions/admin/:id (🔒 Delete Restriction)');
   console.log('   - GET  /api/dietary-restrictions/admin/pending-requests (🔒 Pending Requests)');
+  console.log('   - GET  /api/dietary-restrictions/public (🌐 Public Restrictions)');
+  console.log('   - GET  /api/dietary-restrictions/admin (🔒 Admin Restrictions)');
+  console.log('   - POST /api/dietary-restrictions/admin (🔒 Create Restriction)');
+  console.log('   - PUT  /api/dietary-restrictions/admin/:id (🔒 Update Restriction)');
+  console.log('   - DELETE /api/dietary-restrictions/admin/:id (🔒 Delete Restriction)');
 });
 
 export default app;
