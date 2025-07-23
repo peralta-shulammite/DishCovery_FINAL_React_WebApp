@@ -7,10 +7,20 @@ export default function GetStarted() {
   const [cookingFor, setCookingFor] = useState('Myself');
   const [personName, setPersonName] = useState('');
   const [dietaryData, setDietaryData] = useState({
-    allergies: [],
-    healthConditions: [],
-    dietPreferences: [],
-    excludedIngredients: [],
+    dietaryRestrictions: [],
+    excludedIngredients: '',
+    preferredDiets: [],
+    medicalConditions: [],
+  });
+  const [customInputs, setCustomInputs] = useState({
+    dietaryRestrictions: '',
+    preferredDiets: '',
+    medicalConditions: '',
+  });
+  const [feedbackMessages, setFeedbackMessages] = useState({
+    dietaryRestrictions: '',
+    preferredDiets: '',
+    medicalConditions: '',
   });
   const [isSaved, setIsSaved] = useState(false);
   const [memberId, setMemberId] = useState(null);
@@ -43,109 +53,107 @@ export default function GetStarted() {
     }
   }, [cookingFor, userProfile]);
 
-  // REPLACE THIS ENTIRE FUNCTION:
-const handleNext = async () => {
-  setError('');
-  
-  if (step === 1) {
-    if (cookingFor !== 'Myself' && !personName) {
-      setError('Please enter the name of the person.');
-      return;
-    }
-
-    // Create member profile if cooking for others
-    if (cookingFor === 'Others') {
-      try {
-        setLoading(true);
-        const response = await fetch('http://localhost:5000/api/profile/member', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${getAuthToken()}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            name: personName,
-            relationship: 'Family Member'
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to create member profile');
-        }
-
-        const data = await response.json();
-        setMemberId(data.memberId);
-      } catch (error) {
-        setError('Failed to create profile. Please try again.');
-        setLoading(false);
+  const handleNext = async () => {
+    setError('');
+    
+    if (step === 1) {
+      if (cookingFor !== 'Myself' && !personName) {
+        setError('Please enter the name of the person.');
         return;
-      } finally {
-        setLoading(false);
       }
+
+      // Create member profile if cooking for others
+      if (cookingFor === 'Others') {
+        try {
+          setLoading(true);
+          const response = await fetch('http://localhost:5000/api/profile/member', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${getAuthToken()}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              name: personName,
+              relationship: 'Family Member'
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create member profile');
+          }
+
+          const data = await response.json();
+          setMemberId(data.memberId);
+        } catch (error) {
+          setError('Failed to create profile. Please try again.');
+          setLoading(false);
+          return;
+        } finally {
+          setLoading(false);
+        }
+      }
+      setStep(2);
+    } else if (step === 2) {
+      setStep(3);
     }
-    setStep(2);
-  } else if (step === 2) {
-    setStep(3);
-  }
-};
+  };
 
   const handlePrev = () => {
     setStep(step - 1);
-    setIsSaved(false); // Reset saved state when going back
+    setIsSaved(false);
   };
 
-  // REPLACE THIS ENTIRE FUNCTION:
-const handleSave = async () => {
-  try {
-    setLoading(true);
-    
-    // Save restrictions
-    const restrictionsResponse = await fetch('http://localhost:5000/api/profile/restrictions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${getAuthToken()}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        memberId: memberId,
-        allergies: dietaryData.allergies,
-        healthConditions: dietaryData.healthConditions,
-        dietPreferences: dietaryData.dietPreferences
-      })
-    });
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      
+      // Save restrictions
+      const restrictionsResponse = await fetch('http://localhost:5000/api/profile/restrictions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          memberId: memberId,
+          dietaryRestrictions: dietaryData.dietaryRestrictions,
+          medicalConditions: dietaryData.medicalConditions,
+          preferredDiets: dietaryData.preferredDiets
+        })
+      });
 
-    if (!restrictionsResponse.ok) {
-      throw new Error('Failed to save restrictions');
+      if (!restrictionsResponse.ok) {
+        throw new Error('Failed to save restrictions');
+      }
+
+      // Save excluded ingredients
+      const ingredientsResponse = await fetch('http://localhost:5000/api/profile/excluded-ingredients', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          memberId: memberId,
+          ingredients: dietaryData.excludedIngredients.split(',').map(item => item.trim()).filter(item => item)
+        })
+      });
+
+      if (!ingredientsResponse.ok) {
+        throw new Error('Failed to save excluded ingredients');
+      }
+
+      setIsSaved(true);
+      // Redirect to main page after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/user/ph';
+      }, 2000);
+    } catch (error) {
+      setError('Failed to save profile. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    // Save excluded ingredients
-    const ingredientsResponse = await fetch('http://localhost:5000/api/profile/excluded-ingredients', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${getAuthToken()}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        memberId: memberId,
-        ingredients: dietaryData.excludedIngredients
-      })
-    });
-
-    if (!ingredientsResponse.ok) {
-      throw new Error('Failed to save excluded ingredients');
-    }
-
-    setIsSaved(true);
-// Redirect to main page after 2 seconds
-setTimeout(() => {
-  window.location.href = '/user/ph';
-}, 2000);
-  } catch (error) {
-    setError('Failed to save profile. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleDietaryChange = (category, value) => {
     setDietaryData((prev) => {
@@ -159,61 +167,47 @@ setTimeout(() => {
     });
   };
 
-  const handleExcludeIngredient = (ingredient) => {
-    if (!dietaryData.excludedIngredients.includes(ingredient)) {
-      setDietaryData((prev) => ({
-        ...prev,
-        excludedIngredients: [...prev.excludedIngredients, ingredient],
-      }));
-    }
-  };
-
-  const handleRemoveIngredient = (ingredient) => {
-    setDietaryData((prev) => ({
+  const handleCustomInput = (category, value) => {
+    setCustomInputs(prev => ({
       ...prev,
-      excludedIngredients: prev.excludedIngredients.filter((item) => item !== ingredient),
+      [category]: value
     }));
   };
 
+  const handleSendCustom = (category) => {
+    const value = customInputs[category].trim();
+    if (value) {
+      setFeedbackMessages(prev => ({
+        ...prev,
+        [category]: 'Thanks! We\'ll review your suggestion.'
+      }));
+      setCustomInputs(prev => ({
+        ...prev,
+        [category]: ''
+      }));
+      // Clear feedback after 3 seconds
+      setTimeout(() => {
+        setFeedbackMessages(prev => ({
+          ...prev,
+          [category]: ''
+        }));
+      }, 3000);
+    }
+  };
+
   const categoryOptions = {
-    allergies: [
-      { name: 'Nuts', img: 'https://via.placeholder.com/30?text=N' },
-      { name: 'Seafood', img: 'https://via.placeholder.com/30?text=Sf' },
-      { name: 'Eggs', img: 'https://via.placeholder.com/30?text=E' },
-      { name: 'Dairy', img: 'https://via.placeholder.com/30?text=D' },
-      { name: 'Soy', img: 'https://via.placeholder.com/30?text=So' },
-      { name: 'Gluten', img: 'https://via.placeholder.com/30?text=G' },
+    dietaryRestrictions: [
+      'Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Gluten-Free', 
+      'Dairy-Free', 'Nut-Free', 'Shellfish-Free'
     ],
-    healthConditions: [
-      { name: 'Diabetes', img: 'https://via.placeholder.com/30?text=Di' },
-      { name: 'Hypertension', img: 'https://via.placeholder.com/30?text=H' },
-      { name: 'High Cholesterol', img: 'https://via.placeholder.com/30?text=HC' },
-      { name: 'Lactose Intolerance', img: 'https://via.placeholder.com/30?text=LI' },
-      { name: 'Gluten Intolerance', img: 'https://via.placeholder.com/30?text=GI' },
+    preferredDiets: [
+      'Keto', 'Vegan', 'Low-Carb', 'Low-Sodium', 'Paleo', 
+      'Mediterranean', 'Intermittent Fasting'
     ],
-    dietPreferences: [
-      { name: 'Vegetarian', img: 'https://via.placeholder.com/30?text=V' },
-      { name: 'Vegan', img: 'https://via.placeholder.com/30?text=Ve' },
-      { name: 'Keto', img: 'https://via.placeholder.com/30?text=K' },
-      { name: 'Low-Carb', img: 'https://via.placeholder.com/30?text=LC' },
-      { name: 'Low-Sodium', img: 'https://via.placeholder.com/30?text=LS' },
-    ],
-    excludedIngredients: [
-      { name: 'Bacon', img: 'https://via.placeholder.com/30?text=B' },
-      { name: 'Bell Pepper', img: 'https://via.placeholder.com/30?text=BP' },
-      { name: 'Bread', img: 'https://via.placeholder.com/30?text=Br' },
-      { name: 'Brown Sugar', img: 'https://via.placeholder.com/30?text=BS' },
-      { name: 'Butter Salted', img: 'https://via.placeholder.com/30?text=Bu' },
-      { name: 'Carrot', img: 'https://via.placeholder.com/30?text=C' },
-      { name: 'Chicken Breast', img: 'https://via.placeholder.com/30?text=CB' },
-      { name: 'Chocolate Mini Eggs', img: 'https://via.placeholder.com/30?text=CM' },
-      { name: 'Ground Beef', img: 'https://via.placeholder.com/30?text=GB' },
-      { name: 'Spaghetti', img: 'https://via.placeholder.com/30?text=S' },
-      { name: 'Spinach', img: 'https://via.placeholder.com/30?text=Sp' },
-      { name: 'Steak', img: 'https://via.placeholder.com/30?text=St' },
-      { name: 'White Rice', img: 'https://via.placeholder.com/30?text=WR' },
-      { name: 'White Sugar', img: 'https://via.placeholder.com/30?text=WS' },
-    ],
+    medicalConditions: [
+      'Hypertension', 'Diabetes', 'High Cholesterol', 'Heart Disease', 
+      'PCOS', 'Acid Reflux'
+    ]
   };
 
   const renderStep1 = () => (
@@ -221,17 +215,10 @@ setTimeout(() => {
       <h1 className="step-title">Who are you cooking for?</h1>
       <p className="step-subtitle">Create a profile for yourself or someone else.</p>
       {error && (
-    <div style={{
-    background: '#ffebee',
-    color: '#c62828',
-    padding: '12px',
-    borderRadius: '8px',
-    marginBottom: '16px',
-    fontSize: '14px'
-      }}>
-    {error}
-      </div>
-    )}
+        <div className="error-message">
+          {error}
+        </div>
+      )}
       <div className="selection-group">
         <label className="radio-label">
           <input
@@ -262,114 +249,137 @@ setTimeout(() => {
         />
       )}
       <button 
-      className="nav-btn next-btn" 
-       onClick={handleNext}
-      disabled={loading}
->
-    {loading ? 'Loading...' : 'Next Step'}
-    <span className="arrow-icon">→</span>
+        className="btn btn-primary" 
+        onClick={handleNext}
+        disabled={loading}
+      >
+        {loading ? 'Loading...' : 'Next Step'}
+              <span className="btn-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </span>
       </button>
+    </div>
+  );
+
+  const renderDietarySection = (title, category, subtitle, fallbackText) => (
+    <div className="dietary-section">
+      <h3 className="section-title">{title}</h3>
+      <p className="section-subtitle">{subtitle}</p>
+      <div className="checkbox-grid">
+        {categoryOptions[category].map((option) => (
+          <label key={option} className="checkbox-item">
+            <input
+              type="checkbox"
+              checked={dietaryData[category].includes(option)}
+              onChange={() => handleDietaryChange(category, option)}
+            />
+            <span className="checkmark"></span>
+            {option}
+          </label>
+        ))}
+      </div>
+      
+      <div className="fallback-section">
+        <p className="fallback-text">{fallbackText}</p>
+        <div className="custom-input-group">
+          <input
+            type="text"
+            className="custom-input"
+            placeholder="Type here..."
+            value={customInputs[category]}
+            onChange={(e) => handleCustomInput(category, e.target.value)}
+          />
+          <button 
+            className="btn btn-send"
+            onClick={() => handleSendCustom(category)}
+            disabled={!customInputs[category].trim()}
+          >
+            Send
+          </button>
+        </div>
+        {feedbackMessages[category] && (
+          <p className="feedback-message">{feedbackMessages[category]}</p>
+        )}
+      </div>
     </div>
   );
 
   const renderStep2 = () => (
     <div className="step-content">
-      <h1 className="step-title">{cookingFor === 'Myself' ? 'What are your dietary needs?' : `What are ${personName || 'their'} dietary needs?`}</h1>
-        {error && (
-  <div style={{
-    background: '#ffebee',
-    color: '#c62828',
-    padding: '12px',
-    borderRadius: '8px',
-    marginBottom: '16px',
-    fontSize: '14px'
-          }}>
-    {error}
-  </div>
-)}
-          <div className="dietary-section">
-        <div className="dietary-category ingredient-grid">
-          <h3>Allergies</h3>
-          <div className="ingredient-options">
-            {categoryOptions.allergies.map((item) => (
-              <button
-                key={item.name}
-                className={`ingredient-btn ${dietaryData.allergies.includes(item.name) ? 'selected' : ''}`}
-                onClick={() => handleDietaryChange('allergies', item.name)}
-              >
-                <img src={item.img} alt={item.name} className="ingredient-img" />
-                {item.name}
-              </button>
-            ))}
-          </div>
+      <h1 className="step-title">
+        {cookingFor === 'Myself' ? 'What are your dietary needs?' : `What are ${personName || 'their'} dietary needs?`}
+      </h1>
+      {error && (
+        <div className="error-message">
+          {error}
         </div>
-        <div className="dietary-category ingredient-grid">
-          <h3>Health Conditions</h3>
-          <div className="ingredient-options">
-            {categoryOptions.healthConditions.map((item) => (
-              <button
-                key={item.name}
-                className={`ingredient-btn ${dietaryData.healthConditions.includes(item.name) ? 'selected' : ''}`}
-                onClick={() => handleDietaryChange('healthConditions', item.name)}
-              >
-                <img src={item.img} alt={item.name} className="ingredient-img" />
-                {item.name}
-              </button>
-            ))}
-          </div>
+      )}
+      
+      <div className="form-sections">
+        {/* Dietary Restrictions */}
+        {renderDietarySection(
+          'Dietary Restrictions',
+          'dietaryRestrictions',
+          'Select all dietary restrictions that apply',
+          'Can\'t find your restriction? Send it to us'
+        )}
+
+        {/* Excluded Ingredients */}
+        <div className="dietary-section">
+          <h3 className="section-title">Excluded Ingredients</h3>
+          <p className="section-subtitle">List ingredients you want to avoid</p>
+          <input
+            type="text"
+            className="full-width-input"
+            placeholder="Example: honey, peanuts, pork, dairy"
+            value={dietaryData.excludedIngredients}
+            onChange={(e) => setDietaryData(prev => ({
+              ...prev,
+              excludedIngredients: e.target.value
+            }))}
+          />
         </div>
-        <div className="dietary-category ingredient-grid">
-          <h3>Dietary Lifestyle</h3>
-          <div className="ingredient-options">
-            {categoryOptions.dietPreferences.map((item) => (
-              <button
-                key={item.name}
-                className={`ingredient-btn ${dietaryData.dietPreferences.includes(item.name) ? 'selected' : ''}`}
-                onClick={() => handleDietaryChange('dietPreferences', item.name)}
-              >
-                <img src={item.img} alt={item.name} className="ingredient-img" />
-                {item.name}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="dietary-category ingredient-grid">
-          <h3>Ingredients to Exclude</h3>
-          <div className="ingredient-options">
-            {categoryOptions.excludedIngredients.map((item) => (
-              <button
-                key={item.name}
-                className={`ingredient-btn ${dietaryData.excludedIngredients.includes(item.name) ? 'selected' : ''}`}
-                onClick={() => handleExcludeIngredient(item.name)}
-              >
-                <img src={item.img} alt={item.name} className="ingredient-img" />
-                {item.name}
-              </button>
-            ))}
-          </div>
-          <div className="excluded-list">
-            {dietaryData.excludedIngredients.map((ingredient) => (
-              <span key={ingredient} className="exclude-tag">
-                {ingredient}
-                <button className="remove-btn" onClick={() => handleRemoveIngredient(ingredient)}>×</button>
-              </span>
-            ))}
-          </div>
-        </div>
+
+        {/* Preferred Diets */}
+        {renderDietarySection(
+          'Preferred Diets',
+          'preferredDiets',
+          'Select your preferred dietary approaches',
+          'Don\'t see your diet? Let us know'
+        )}
+
+        {/* Medical Conditions */}
+        {renderDietarySection(
+          'Medical Conditions',
+          'medicalConditions',
+          'Select any relevant medical conditions',
+          'Still missing something? Tell us here'
+        )}
       </div>
+
       <div className="nav-buttons">
-        <button className="nav-btn prev-btn" onClick={handlePrev}>
-          <span className="arrow-icon">←</span>
+        <button className="btn btn-secondary" onClick={handlePrev}>
+          <span className="btn-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </span>
           Previous
         </button>
         <button 
-  className="nav-btn next-btn" 
-  onClick={handleNext}
-  disabled={loading}
->
-  {loading ? 'Loading...' : 'Next Step'}
-  <span className="arrow-icon">→</span>
-</button>
+          className="btn btn-primary" 
+          onClick={handleNext}
+          disabled={loading}
+        >
+          {loading ? 'Loading...' : 'Next Step'}
+          <span className="btn-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -378,53 +388,75 @@ setTimeout(() => {
     <div className="step-content">
       {isSaved ? (
         <div className="success-message">
+          <div className="success-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" fill="#059669"/>
+              <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
           <h1 className="welcome-title">Welcome, {personName}!</h1>
           <p className="welcome-text">
             {cookingFor === 'Myself'
               ? 'Your profile is now set up. Explore personalized recipes tailored to your needs.'
               : 'Your profile for someone else is set up. Start discovering suitable recipes.'}
           </p>
-          <button className="nav-btn continue-btn" onClick={() => setStep(1)}>Continue</button>
+          <button className="btn btn-primary">Continue</button>
         </div>
       ) : (
         <>
-  <h1 className="step-title">Confirm Your Profile</h1>
-  {error && (
-    <div style={{
-      background: '#ffebee',
-      color: '#c62828',
-      padding: '12px',
-      borderRadius: '8px',
-      marginBottom: '16px',
-      fontSize: '14px'
-    }}>
-      {error}
-    </div>
-  )}
-  <div className="summary-section">
-            <p><strong>Name:</strong> {personName}</p>
-            <p><strong>Allergies:</strong> {dietaryData.allergies.join(', ') || 'None'}</p>
-            <p><strong>Health Conditions:</strong> {dietaryData.healthConditions.join(', ') || 'None'}</p>
-            <p><strong>Dietary Lifestyle:</strong> {dietaryData.dietPreferences.join(', ') || 'None'}</p>
-            <p><strong>Excluded Ingredients:</strong> {dietaryData.excludedIngredients.join(', ') || 'None'}</p>
+          <h1 className="step-title">Confirm Your Profile</h1>
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+          <div className="summary-section">
+            <div className="summary-item">
+              <strong>Name:</strong> {personName}
+            </div>
+            <div className="summary-item">
+              <strong>Dietary Restrictions:</strong> {dietaryData.dietaryRestrictions.join(', ') || 'None'}
+            </div>
+            <div className="summary-item">
+              <strong>Excluded Ingredients:</strong> {dietaryData.excludedIngredients || 'None'}
+            </div>
+            <div className="summary-item">
+              <strong>Preferred Diets:</strong> {dietaryData.preferredDiets.join(', ') || 'None'}
+            </div>
+            <div className="summary-item">
+              <strong>Medical Conditions:</strong> {dietaryData.medicalConditions.join(', ') || 'None'}
+            </div>
           </div>
           <div className="nav-buttons">
-            <button className="nav-btn prev-btn" onClick={handlePrev}>
-              <span className="arrow-icon">←</span>
+            <button className="btn btn-secondary" onClick={handlePrev}>
+              <span className="btn-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </span>
               Back
             </button>
-            <button className="nav-btn edit-btn" onClick={() => setStep(2)}>
+            <button className="btn btn-outline" onClick={() => setStep(2)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
               Edit
-              <span className="arrow-icon">→</span>
             </button>
             <button 
-  className="nav-btn save-btn" 
-  onClick={handleSave}
-  disabled={loading}
->
-  {loading ? 'Saving...' : 'Save Profile'}
-  <span className="arrow-icon">→</span>
-</button>
+              className="btn btn-primary" 
+              onClick={handleSave}
+              disabled={loading}
+            >
+              {loading ? 'Saving...' : 'Save Profile'}
+              <span className="btn-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <polyline points="17,21 17,13 7,13 7,21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <polyline points="7,3 7,8 15,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </span>
+            </button>
           </div>
         </>
       )}
