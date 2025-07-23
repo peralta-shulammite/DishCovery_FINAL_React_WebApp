@@ -5,6 +5,60 @@ import express from 'express';
 import pool from '../db.js';
 import authenticateToken from '../middleware/auth.js';
 
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch((error) => {
+    console.error('❌ Route error:', error);
+    
+    // Check if it's an authentication error
+    if (error.message.includes('token') || error.message.includes('auth')) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication failed. Please log in again.',
+        errorType: 'AUTH_ERROR',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    // Database connection errors
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection failed',
+        errorType: 'DB_CONNECTION_ERROR'
+      });
+    }
+    
+    // Generic server error
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      errorType: 'SERVER_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  });
+};
+
+// Enhanced authentication check with detailed logging
+const enhancedAuthCheck = (req, res, next) => {
+  console.log('🔐 Enhanced auth check for route:', req.path);
+  
+  if (!req.user) {
+    console.log('❌ No user found in request object');
+    return res.status(401).json({
+      success: false,
+      message: 'User authentication required',
+      errorType: 'NO_USER_CONTEXT'
+    });
+  }
+  
+  console.log('✅ User authenticated:', {
+    userId: req.user.userId,
+    email: req.user.email
+  });
+  
+  next();
+};
+
 const router = express.Router();
 
 // ========================================
@@ -258,219 +312,246 @@ router.get('/user/profile', authenticateToken, async (req, res) => {
 // ========================================
 
 // Get all restrictions (admin view)
-router.get('/admin', authenticateToken, async (req, res) => {
-  try {
-    console.log('🔍 Admin fetching all dietary restrictions...');
-    
-    const query = `
-      SELECT 
-        r.restriction_id,
-        r.restriction_name,
-        r.description,
-        r.severity_level,
-        r.is_active,
-        r.created_at,
-        rc.category_name,
-        rc.category_id,
-        COUNT(ur.user_restriction_id) as user_count
-      FROM restrictions r
-      JOIN restriction_categories rc ON r.category_id = rc.category_id
-      LEFT JOIN user_restrictions ur ON r.restriction_id = ur.restriction_id
-      GROUP BY r.restriction_id, r.restriction_name, r.description, r.severity_level, r.is_active, r.created_at, rc.category_name, rc.category_id
-      ORDER BY rc.category_name, r.restriction_name
-    `;
-    
-    const restrictions = await pool.query(query);
-    
-    // Transform to match your existing admin page structure
-    const transformedRestrictions = restrictions.map(restriction => ({
-      id: restriction.restriction_id,
-      name: restriction.restriction_name,
-      category: restriction.category_name,
-      categoryId: restriction.category_id,
-      description: restriction.description || 'No description',
-      severityLevel: restriction.severity_level,
-      status: restriction.is_active ? 'Active' : 'Inactive',
-      isActive: restriction.is_active,
-      usedBy: restriction.user_count,
-      userCount: restriction.user_count,
-      createdAt: restriction.created_at,
-      lastEdited: restriction.created_at.toISOString().split('T')[0],
-      lastEditedBy: 'Admin',
-      changeLog: [
-        { 
-          date: restriction.created_at.toISOString().split('T')[0], 
-          by: 'Admin', 
-          change: 'Created restriction' 
-        }
-      ]
-    }));
-    
-    console.log(`✅ Found ${restrictions.length} total restrictions for admin`);
-    res.json({
-      success: true,
-      data: transformedRestrictions
-    });
-  } catch (error) {
-    console.error('❌ Error fetching admin restrictions:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch restrictions',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+// 🔧 REPLACE your existing admin routes with these enhanced versions:
 
-// Create new restriction (admin)
-router.post('/admin', authenticateToken, async (req, res) => {
-  try {
-    console.log('➕ Admin creating new restriction...');
-    console.log('Request body:', req.body);
-    
-    const { name, category, description, status, visibility } = req.body;
-
-    if (!name || !category) {
-      return res.status(400).json({
-        success: false,
-        message: 'Restriction name and category are required'
-      });
-    }
-
-    // Get category ID from category name
-    const categoryResult = await pool.query(
-      'SELECT category_id FROM restriction_categories WHERE category_name = ?',
-      [category]
-    );
-
-    if (categoryResult.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid category'
-      });
-    }
-
-    const categoryId = categoryResult[0].category_id;
-
-    // Check if restriction already exists
-    const existing = await pool.query(
-      'SELECT restriction_id FROM restrictions WHERE restriction_name = ?',
-      [name]
-    );
-
-    if (existing.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'A restriction with this name already exists'
-      });
-    }
-
-    // Insert new restriction
-    const result = await pool.query(
-      'INSERT INTO restrictions (restriction_name, category_id, description, severity_level, is_active, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
-      [name, categoryId, description, 'Medium', status === 'Active' ? 1 : 0]
-    );
-
-    console.log(`✅ Created new restriction with ID: ${result.insertId}`);
-    
-    res.status(201).json({
-      success: true,
-      message: 'Restriction created successfully',
-      data: {
-        id: result.insertId,
-        name,
-        category,
-        description,
-        status,
-        visibility
+// Get all restrictions (admin view) - ENHANCED
+router.get('/admin', authenticateToken, enhancedAuthCheck, asyncHandler(async (req, res) => {
+  console.log('🔍 Admin fetching all dietary restrictions...');
+  console.log('👤 Request user:', { userId: req.user.userId, email: req.user.email });
+  
+  const query = `
+    SELECT 
+      r.restriction_id,
+      r.restriction_name,
+      r.description,
+      r.severity_level,
+      r.is_active,
+      r.created_at,
+      rc.category_name,
+      rc.category_id,
+      COUNT(ur.user_restriction_id) as user_count
+    FROM restrictions r
+    JOIN restriction_categories rc ON r.category_id = rc.category_id
+    LEFT JOIN user_restrictions ur ON r.restriction_id = ur.restriction_id
+    GROUP BY r.restriction_id, r.restriction_name, r.description, r.severity_level, r.is_active, r.created_at, rc.category_name, rc.category_id
+    ORDER BY rc.category_name, r.restriction_name
+  `;
+  
+  const restrictions = await pool.query(query);
+  
+  // Transform to match your existing admin page structure
+  const transformedRestrictions = restrictions.map(restriction => ({
+    id: restriction.restriction_id,
+    name: restriction.restriction_name,
+    category: restriction.category_name,
+    categoryId: restriction.category_id,
+    description: restriction.description || 'No description',
+    severityLevel: restriction.severity_level,
+    status: restriction.is_active ? 'Active' : 'Inactive',
+    isActive: restriction.is_active,
+    usedBy: restriction.user_count,
+    userCount: restriction.user_count,
+    createdAt: restriction.created_at,
+    lastEdited: restriction.created_at.toISOString().split('T')[0],
+    lastEditedBy: 'Admin',
+    changeLog: [
+      { 
+        date: restriction.created_at.toISOString().split('T')[0], 
+        by: 'Admin', 
+        change: 'Created restriction' 
       }
-    });
+    ]
+  }));
+  
+  console.log(`✅ Found ${restrictions.length} total restrictions for admin`);
+  res.json({
+    success: true,
+    data: transformedRestrictions,
+    meta: {
+      total: restrictions.length,
+      requestedBy: req.user.email,
+      timestamp: new Date().toISOString()
+    }
+  });
+}));
 
-  } catch (error) {
-    console.error('❌ Error creating restriction:', error);
-    res.status(500).json({
+// Create new restriction (admin) - ENHANCED
+router.post('/admin', authenticateToken, enhancedAuthCheck, asyncHandler(async (req, res) => {
+  console.log('➕ Admin creating new restriction...');
+  console.log('👤 Request user:', { userId: req.user.userId, email: req.user.email });
+  console.log('📋 Request body:', req.body);
+  
+  const { name, category, description, status, visibility } = req.body;
+
+  if (!name || !category) {
+    return res.status(400).json({
       success: false,
-      message: 'Failed to create restriction',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Restriction name and category are required',
+      errorType: 'VALIDATION_ERROR',
+      missingFields: [
+        !name && 'name',
+        !category && 'category'
+      ].filter(Boolean)
     });
   }
-});
 
-// Update restriction (admin)
-router.put('/admin/:id', authenticateToken, async (req, res) => {
-  try {
-    const restrictionId = req.params.id;
-    console.log(`✏️ Admin updating restriction ID: ${restrictionId}`);
-    console.log('Request body:', req.body);
-    
-    const { name, category, description, status } = req.body;
+  // Get category ID from category name
+  const categoryResult = await pool.query(
+    'SELECT category_id FROM restriction_categories WHERE category_name = ?',
+    [category]
+  );
 
-    if (!name || !category) {
-      return res.status(400).json({
-        success: false,
-        message: 'Restriction name and category are required'
-      });
-    }
-
-    // Get category ID from category name
-    const categoryResult = await pool.query(
-      'SELECT category_id FROM restriction_categories WHERE category_name = ?',
-      [category]
-    );
-
-    if (categoryResult.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid category'
-      });
-    }
-
-    const categoryId = categoryResult[0].category_id;
-
-    // Check if restriction exists
-    const existing = await pool.query(
-      'SELECT restriction_id FROM restrictions WHERE restriction_id = ?',
-      [restrictionId]
-    );
-
-    if (existing.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Restriction not found'
-      });
-    }
-
-    // Update restriction
-    await pool.query(
-      'UPDATE restrictions SET restriction_name = ?, category_id = ?, description = ?, is_active = ? WHERE restriction_id = ?',
-      [name, categoryId, description, status === 'Active' ? 1 : 0, restrictionId]
-    );
-
-    console.log(`✅ Updated restriction ID: ${restrictionId}`);
-    
-    res.json({
-      success: true,
-      message: 'Restriction updated successfully'
-    });
-
-  } catch (error) {
-    console.error('❌ Error updating restriction:', error);
-    res.status(500).json({
+  if (categoryResult.length === 0) {
+    return res.status(400).json({
       success: false,
-      message: 'Failed to update restriction',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Invalid category',
+      errorType: 'INVALID_CATEGORY',
+      providedCategory: category
     });
   }
-});
 
-// Delete restriction (admin)
-router.delete('/admin/:id', authenticateToken, async (req, res) => {
+  const categoryId = categoryResult[0].category_id;
+
+  // Check if restriction already exists
+  const existing = await pool.query(
+    'SELECT restriction_id FROM restrictions WHERE restriction_name = ?',
+    [name]
+  );
+
+  if (existing.length > 0) {
+    return res.status(409).json({
+      success: false,
+      message: 'A restriction with this name already exists',
+      errorType: 'DUPLICATE_RESTRICTION',
+      existingId: existing[0].restriction_id
+    });
+  }
+
+  // Insert new restriction
+  const result = await pool.query(
+    'INSERT INTO restrictions (restriction_name, category_id, description, severity_level, is_active, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+    [name, categoryId, description, 'Medium', status === 'Active' ? 1 : 0]
+  );
+
+  console.log(`✅ Created new restriction with ID: ${result.insertId}`);
+  
+  res.status(201).json({
+    success: true,
+    message: 'Restriction created successfully',
+    data: {
+      id: result.insertId,
+      name,
+      category,
+      description,
+      status,
+      visibility,
+      createdBy: req.user.email,
+      createdAt: new Date().toISOString()
+    }
+  });
+}));
+
+// Update restriction (admin) - ENHANCED
+router.put('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(async (req, res) => {
+  const restrictionId = req.params.id;
+  console.log(`✏️ Admin updating restriction ID: ${restrictionId}`);
+  console.log('👤 Request user:', { userId: req.user.userId, email: req.user.email });
+  console.log('📋 Request body:', req.body);
+  
+  const { name, category, description, status } = req.body;
+
+  if (!name || !category) {
+    return res.status(400).json({
+      success: false,
+      message: 'Restriction name and category are required',
+      errorType: 'VALIDATION_ERROR',
+      missingFields: [
+        !name && 'name',
+        !category && 'category'
+      ].filter(Boolean)
+    });
+  }
+
+  // Get category ID from category name
+  const categoryResult = await pool.query(
+    'SELECT category_id FROM restriction_categories WHERE category_name = ?',
+    [category]
+  );
+
+  if (categoryResult.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid category',
+      errorType: 'INVALID_CATEGORY',
+      providedCategory: category
+    });
+  }
+
+  const categoryId = categoryResult[0].category_id;
+
+  // Check if restriction exists
+  const existing = await pool.query(
+    'SELECT restriction_id FROM restrictions WHERE restriction_id = ?',
+    [restrictionId]
+  );
+
+  if (existing.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: 'Restriction not found',
+      errorType: 'NOT_FOUND',
+      requestedId: restrictionId
+    });
+  }
+
+  // Update restriction
+  await pool.query(
+    'UPDATE restrictions SET restriction_name = ?, category_id = ?, description = ?, is_active = ? WHERE restriction_id = ?',
+    [name, categoryId, description, status === 'Active' ? 1 : 0, restrictionId]
+  );
+
+  console.log(`✅ Updated restriction ID: ${restrictionId}`);
+  
+  res.json({
+    success: true,
+    message: 'Restriction updated successfully',
+    data: {
+      id: restrictionId,
+      name,
+      category,
+      description,
+      status,
+      updatedBy: req.user.email,
+      updatedAt: new Date().toISOString()
+    }
+  });
+}));
+
+// Delete restriction (admin) - ENHANCED
+router.delete('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(async (req, res) => {
   const connection = await pool.getConnection();
   
   try {
     const restrictionId = req.params.id;
     console.log(`🗑️ Admin deleting restriction ID: ${restrictionId}`);
+    console.log('👤 Request user:', { userId: req.user.userId, email: req.user.email });
 
     await connection.beginTransaction();
+
+    // Check if restriction exists
+    const restrictionCheck = await connection.query(
+      'SELECT restriction_id, restriction_name FROM restrictions WHERE restriction_id = ?',
+      [restrictionId]
+    );
+
+    if (restrictionCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Restriction not found',
+        errorType: 'NOT_FOUND',
+        requestedId: restrictionId
+      });
+    }
 
     // Check if restriction is being used by users
     const userRestrictions = await connection.query(
@@ -489,7 +570,10 @@ router.delete('/admin/:id', authenticateToken, async (req, res) => {
       
       return res.json({
         success: true,
-        message: `Restriction deactivated (was being used by ${userRestrictions[0].count} users)`
+        message: `Restriction deactivated (was being used by ${userRestrictions[0].count} users)`,
+        action: 'deactivated',
+        userCount: userRestrictions[0].count,
+        deactivatedBy: req.user.email
       });
     } else {
       // Safe to delete
@@ -503,23 +587,19 @@ router.delete('/admin/:id', authenticateToken, async (req, res) => {
       console.log(`✅ Deleted restriction ID: ${restrictionId}`);
       res.json({
         success: true,
-        message: 'Restriction deleted successfully'
+        message: 'Restriction deleted successfully',
+        action: 'deleted',
+        deletedBy: req.user.email
       });
     }
 
   } catch (error) {
     await connection.rollback();
-    console.error('❌ Error deleting restriction:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete restriction',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    throw error; // Let asyncHandler deal with it
   } finally {
     connection.release();
   }
-});
-
+}));
 // Get restriction categories (for dropdowns)
 router.get('/categories', async (req, res) => {
   try {
