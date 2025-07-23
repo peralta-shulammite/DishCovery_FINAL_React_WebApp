@@ -155,11 +155,28 @@ export default function DishCoveryLanding() {
   const dishCoveryHandleSignInSubmit = async (e) => {
     e.preventDefault();
     try {
+      console.log('🔐 Processing login for:', dishCoveryEmail);
       const data = await api.signIn(dishCoveryEmail, dishCoveryPassword);
-      setDishCoveryUser(data.user);
-      setDishCoveryIsLoggedIn(true);
-      dishCoveryCloseModal();
+      
+      if (data.isAdmin) {
+        console.log('👑 Admin login detected, redirecting to admin dashboard');
+        setDishCoveryUser(data.user);
+        setDishCoveryIsLoggedIn(true);
+        dishCoveryCloseModal();
+        
+        // Redirect to your existing admin dashboard
+        window.location.href = '/admin/dashboard';
+      } else {
+        console.log('👤 Regular user login, staying on main page');
+        setDishCoveryUser(data.user);
+        setDishCoveryIsLoggedIn(true);
+        dishCoveryCloseModal();
+        
+        // Optional: redirect to user area or stay on current page
+        // window.location.href = '/user/get-started';
+      }
     } catch (error) {
+      console.error('❌ Login error:', error);
       setDishCoveryError(error.message);
     }
   };
