@@ -6,7 +6,8 @@ import usersRouter from './routes/users.js';
 import recipesRouter from './routes/recipes.js';
 import profileRouter from './routes/profile.js';
 import userRecipesRouter from './routes/userRecipes.js';
-import adminRecipesRouter from './routes/adminRecipes.js'; // Add this import
+import adminRecipesRouter from './routes/adminRecipes.js';
+import dietaryRestrictionsRouter from './routes/dietaryRestrictions.js'; // ← ADD THIS LINE
 import pool from './db.js';
 
 dotenv.config();
@@ -25,7 +26,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/recipes', recipesRouter);
 app.use('/api/user/recipes', userRecipesRouter);
-app.use('/api/admin/recipes', adminRecipesRouter); // Add this line - VERY IMPORTANT!
+app.use('/api/admin/recipes', adminRecipesRouter);
+app.use('/api/dietary-restrictions', dietaryRestrictionsRouter); // ← ADD THIS LINE
 
 // Database connection
 // (Initialized via pool import)
@@ -43,6 +45,14 @@ app.listen(PORT, () => {
   console.log('   - PUT  /api/admin/recipes/:id (🔒 Admin Routes)');
   console.log('   - DELETE /api/admin/recipes/:id (🔒 Admin Routes)');
   console.log('   - GET  /api/admin/recipes/test (🧪 Test Route)');
+  console.log('   🆕 DIETARY RESTRICTIONS ROUTES:');
+  console.log('   - GET  /api/dietary-restrictions/public (📋 For Get-Started Page)');
+  console.log('   - POST /api/dietary-restrictions/user/save (📋 Save User Data)');
+  console.log('   - GET  /api/dietary-restrictions/admin (🔒 For Admin Page)');
+  console.log('   - POST /api/dietary-restrictions/admin (🔒 Create Restriction)');
+  console.log('   - PUT  /api/dietary-restrictions/admin/:id (🔒 Update Restriction)');
+  console.log('   - DELETE /api/dietary-restrictions/admin/:id (🔒 Delete Restriction)');
+  console.log('   - GET  /api/dietary-restrictions/admin/pending-requests (🔒 Pending Requests)');
 });
 
 export default app;
