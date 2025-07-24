@@ -131,7 +131,7 @@ const DietaryRestrictionsManagementContent = () => {
     visibility: 'Public',
   });
 
-  const categories = ['Allergies', 'Health Conditions', 'Dietary Lifestyle', 'Custom'].sort();
+  const categories = ['Allergies', 'Health Conditions', 'Dietary Lifestyle'].sort();
   const statuses = ['Active', 'Inactive'];
 
   // 🔄 ENHANCED DATA LOADING
@@ -311,14 +311,14 @@ const DietaryRestrictionsManagementContent = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      category: 'Medical',
+      category: 'Allergies',  // ✅ FIXED TO MATCH DATABASE
       description: '',
       status: 'Active',
       visibility: 'Public',
     });
     setSelectedRestriction(null);
   };
-
+  
   const filteredRestrictions = restrictions.filter((restriction) => {
     const matchesSearch = restriction.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === 'All' || restriction.category === categoryFilter;
