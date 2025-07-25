@@ -254,6 +254,8 @@ body {
 .settings-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
   margin-top: 32px;
   padding: 24px 32px;
   background: white;
