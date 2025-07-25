@@ -47,9 +47,74 @@ const SettingsContent = () => {
   const [welcomeText, setWelcomeText] = useState('Welcome to DishCovery Admin Dashboard v1.0');
 
   // Data & Maintenance Tools
-  const [isSuperAdmin] = useState(false); // Simulate super admin status
+  const [isSuperAdmin] = useState(false);
   const lastBackupTimestamp = 'July 5, 2025 – 10:30 PM';
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+
+  // ← ADDED: Logout function copied from your api.js file
+  const performLogout = async () => {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+    const token = localStorage.getItem('token');
+    const isAdmin = localStorage.getItem('isAdmin') === 'true';
+    const userId = localStorage.getItem('userId');
+    const userType = localStorage.getItem('userType');
+    
+    console.log('🚪 Logging out user...', { isAdmin, userId, userType });
+
+    // If we have a token, try to logout on server side
+    if (token && userId) {
+      try {
+        const endpoint = isAdmin ? '/admin/auth/logout' : '/auth/logout';
+        
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ 
+            userId: parseInt(userId),
+            userType: userType,
+            logoutTime: new Date().toISOString()
+          }),
+        });
+
+        if (response.ok) {
+          console.log('✅ Server-side logout successful');
+        } else {
+          console.log('⚠️ Server-side logout failed, continuing with client-side cleanup');
+        }
+      } catch (error) {
+        console.log('⚠️ Server-side logout error:', error.message);
+        // Continue with client-side cleanup even if server-side fails
+      }
+    }
+
+    // Clear all localStorage data
+    const itemsToRemove = [
+      'token', 
+      'isAdmin', 
+      'userType', 
+      'userId', 
+      'userEmail',
+      'userPreferences',
+      'lastActivity'
+    ];
+    
+    itemsToRemove.forEach(item => {
+      localStorage.removeItem(item);
+    });
+
+    console.log('✅ Client-side cleanup completed');
+
+    // Redirect to Philippines user page
+    setTimeout(() => {
+      console.log('🇵🇭 Redirecting to Philippines user page...');
+      window.location.href = '/user/ph';
+    }, 100);
+
+    return { success: true, message: 'Logout successful' };
+  };
 
   const openTemplateModal = (templateKey) => {
     setSelectedTemplate(templateKey);
@@ -97,6 +162,22 @@ const SettingsContent = () => {
     }
   };
 
+  // ← UPDATED: Now calls the local logout function
+  const handleLogout = async () => {
+    console.log('🚪 Admin logging out from settings...');
+    
+    try {
+      await performLogout();
+      console.log('✅ Admin logout successful, redirecting to PH landing page...');
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      
+      // Fallback: Clear data and redirect anyway
+      localStorage.clear();
+      window.location.href = '/user/ph';
+    }
+  };
+
   // Icons
   const SaveIcon = () => (
     <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
@@ -119,6 +200,12 @@ const SettingsContent = () => {
   const DownloadIcon = () => (
     <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
       <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+    </svg>
+  );
+
+  const LogoutIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
     </svg>
   );
 
@@ -264,7 +351,7 @@ const SettingsContent = () => {
             />
           </div>
           <div className="setting-group toggle-group">
-            <label>Restrict “Checked by Doctor/Nutritionist” Tag</label>
+            <label>Restrict "Checked by Doctor/Nutritionist" Tag</label>
             <input
               type="checkbox"
               checked={restrictDoctorTag}
@@ -428,6 +515,10 @@ const SettingsContent = () => {
 
       {/* Save Button */}
       <div className="settings-actions">
+        <button className="action-btn secondary" onClick={handleLogout}>
+          <LogoutIcon />
+          Logout
+        </button>
         <button className="action-btn primary" onClick={saveSettings}>
           <SaveIcon />
           Save Settings
