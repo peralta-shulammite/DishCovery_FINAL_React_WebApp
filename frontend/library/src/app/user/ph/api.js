@@ -10,15 +10,17 @@ const handleResponse = async (response) => {
 
 const api = {
   signIn: async (email, password) => {
-    console.log('🔐 Attempting login for:', email);
+    console.log('🔐 Smart login attempt for:', email);
     
     // SMART LOGIN: Check if email looks like admin first
-    const isLikelyAdmin = email.includes('admin') || email.endsWith('@dishcovery.com');
+    const isLikelyAdmin = email.includes('admin') || email.endsWith('@dishcovery.com') || email.includes('test.com');
     
     if (isLikelyAdmin) {
       // Try admin login first for admin-like emails
       try {
         console.log('👑 Trying admin login first (admin-like email)...');
+        console.log('🌐 Admin endpoint: /api/admin-auth/login');
+        
         const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -27,13 +29,13 @@ const api = {
 
         if (adminResponse.ok) {
           const adminData = await adminResponse.json();
-          console.log('✅ Admin login successful');
+          console.log('✅ Admin login successful:', adminData);
           
           localStorage.setItem('token', adminData.token);
           localStorage.setItem('isAdmin', 'true');
           localStorage.setItem('userType', 'admin');
-          localStorage.setItem('userId', adminData.user.adminId);
-          localStorage.setItem('userEmail', adminData.user.email);
+          localStorage.setItem('userId', adminData.user?.adminId || adminData.admin?.adminId);
+          localStorage.setItem('userEmail', adminData.user?.email || adminData.admin?.email);
           
           return {
             ...adminData,
@@ -41,7 +43,8 @@ const api = {
             redirectTo: '/admin/dashboard'
           };
         } else {
-          console.log('❌ Admin login failed, trying user login...');
+          const errorData = await adminResponse.json();
+          console.log('❌ Admin login failed:', errorData.message);
         }
       } catch (adminError) {
         console.log('⚠️ Admin login error:', adminError.message);
@@ -50,7 +53,9 @@ const api = {
 
     // Try regular user login (either as fallback or primary for non-admin emails)
     try {
-      console.log('👤 Trying user login for regular user...');
+      console.log('👤 Trying user login...');
+      console.log('🌐 User endpoint: /api/auth/login');
+      
       const userResponse = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,7 +63,7 @@ const api = {
       });
 
       const userData = await handleResponse(userResponse);
-      console.log('✅ User login successful');
+      console.log('✅ User login successful:', userData);
       
       localStorage.setItem('token', userData.token);
       localStorage.setItem('isAdmin', 'false');
@@ -91,8 +96,8 @@ const api = {
             localStorage.setItem('token', adminData.token);
             localStorage.setItem('isAdmin', 'true');
             localStorage.setItem('userType', 'admin');
-            localStorage.setItem('userId', adminData.user.adminId);
-            localStorage.setItem('userEmail', adminData.user.email);
+            localStorage.setItem('userId', adminData.user?.adminId || adminData.admin?.adminId);
+            localStorage.setItem('userEmail', adminData.user?.email || adminData.admin?.email);
             
             return {
               ...adminData,
@@ -158,34 +163,6 @@ const api = {
     const userType = localStorage.getItem('userType');
     
     console.log('🚪 Logging out user...', { isAdmin, userId, userType });
-
-    // If we have a token, try to logout on server side
-    if (token && userId) {
-      try {
-        const endpoint = isAdmin ? '/admin-auth/logout' : '/auth/logout';
-        
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ 
-            userId: parseInt(userId),
-            userType: userType,
-            logoutTime: new Date().toISOString()
-          }),
-        });
-
-        if (response.ok) {
-          console.log('✅ Server-side logout successful');
-        } else {
-          console.log('⚠️ Server-side logout failed, continuing with client-side cleanup');
-        }
-      } catch (error) {
-        console.log('⚠️ Server-side logout error:', error.message);
-      }
-    }
 
     // Clear all localStorage data
     const itemsToRemove = [
