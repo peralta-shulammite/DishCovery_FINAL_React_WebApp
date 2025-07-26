@@ -12,40 +12,45 @@ const api = {
   signIn: async (email, password) => {
     console.log('🔐 Attempting login for:', email);
     
-    // First try admin login
-    try {
-      console.log('👑 Trying admin login...');
-      const adminResponse = await fetch(`${API_BASE_URL}/admin/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+    // SMART LOGIN: Check if email looks like admin first
+    const isLikelyAdmin = email.includes('admin') || email.endsWith('@dishcovery.com');
+    
+    if (isLikelyAdmin) {
+      // Try admin login first for admin-like emails
+      try {
+        console.log('👑 Trying admin login first (admin-like email)...');
+        const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
 
-      if (adminResponse.ok) {
-        const adminData = await adminResponse.json();
-        console.log('✅ Admin login successful');
-        
-        localStorage.setItem('token', adminData.token);
-        localStorage.setItem('isAdmin', 'true');
-        localStorage.setItem('userType', 'admin');
-        localStorage.setItem('userId', adminData.user.adminId);
-        localStorage.setItem('userEmail', adminData.user.email);
-        
-        return {
-          ...adminData,
-          isAdmin: true,
-          redirectTo: '/admin/dashboard'
-        };
-      } else {
-        console.log('❌ Admin login failed, trying user login...');
+        if (adminResponse.ok) {
+          const adminData = await adminResponse.json();
+          console.log('✅ Admin login successful');
+          
+          localStorage.setItem('token', adminData.token);
+          localStorage.setItem('isAdmin', 'true');
+          localStorage.setItem('userType', 'admin');
+          localStorage.setItem('userId', adminData.user.adminId);
+          localStorage.setItem('userEmail', adminData.user.email);
+          
+          return {
+            ...adminData,
+            isAdmin: true,
+            redirectTo: '/admin/dashboard'
+          };
+        } else {
+          console.log('❌ Admin login failed, trying user login...');
+        }
+      } catch (adminError) {
+        console.log('⚠️ Admin login error:', adminError.message);
       }
-    } catch (adminError) {
-      console.log('⚠️ Admin login error:', adminError.message);
     }
 
-    // If admin login fails, try regular user login
+    // Try regular user login (either as fallback or primary for non-admin emails)
     try {
-      console.log('👤 Trying user login...');
+      console.log('👤 Trying user login for regular user...');
       const userResponse = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,7 +72,39 @@ const api = {
         redirectTo: '/user/dashboard'
       };
     } catch (userError) {
-      console.log('❌ User login also failed');
+      console.log('❌ User login failed:', userError.message);
+      
+      // If user login fails and we haven't tried admin yet, try admin as last resort
+      if (!isLikelyAdmin) {
+        try {
+          console.log('🔄 Last resort: trying admin login...');
+          const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
+
+          if (adminResponse.ok) {
+            const adminData = await adminResponse.json();
+            console.log('✅ Admin login successful (last resort)');
+            
+            localStorage.setItem('token', adminData.token);
+            localStorage.setItem('isAdmin', 'true');
+            localStorage.setItem('userType', 'admin');
+            localStorage.setItem('userId', adminData.user.adminId);
+            localStorage.setItem('userEmail', adminData.user.email);
+            
+            return {
+              ...adminData,
+              isAdmin: true,
+              redirectTo: '/admin/dashboard'
+            };
+          }
+        } catch (lastResortError) {
+          console.log('❌ Admin login also failed');
+        }
+      }
+      
       throw new Error('Invalid email or password');
     }
   },
@@ -102,7 +139,7 @@ const api = {
     
     if (!token) throw new Error('No token found');
     
-    const endpoint = isAdmin ? '/admin/auth/profile' : '/auth/profile';
+    const endpoint = isAdmin ? '/admin-auth/profile' : '/users/profile';
     
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
@@ -114,7 +151,6 @@ const api = {
     return handleResponse(response);
   },
 
-  // Enhanced logout function with database connection and PH page redirect
   logout: async (redirectToPH = true) => {
     const token = localStorage.getItem('token');
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
@@ -126,7 +162,7 @@ const api = {
     // If we have a token, try to logout on server side
     if (token && userId) {
       try {
-        const endpoint = isAdmin ? '/admin/auth/logout' : '/auth/logout';
+        const endpoint = isAdmin ? '/admin-auth/logout' : '/auth/logout';
         
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
           method: 'POST',
@@ -148,7 +184,6 @@ const api = {
         }
       } catch (error) {
         console.log('⚠️ Server-side logout error:', error.message);
-        // Continue with client-side cleanup even if server-side fails
       }
     }
 
@@ -169,9 +204,7 @@ const api = {
 
     console.log('✅ Client-side cleanup completed');
 
-    // Redirect to Philippines user page
     if (redirectToPH && typeof window !== 'undefined') {
-      // Add a small delay to ensure cleanup is complete
       setTimeout(() => {
         console.log('🇵🇭 Redirecting to Philippines user page...');
         window.location.href = '/user/ph';
@@ -181,17 +214,14 @@ const api = {
     return { success: true, message: 'Logout successful' };
   },
 
-  // Helper function to check if current user is admin
   isAdmin: () => {
     return localStorage.getItem('isAdmin') === 'true';
   },
 
-  // Helper function to get user type
   getUserType: () => {
     return localStorage.getItem('userType') || 'user';
   },
 
-  // Helper function to get current user info
   getCurrentUser: () => {
     return {
       userId: localStorage.getItem('userId'),

@@ -5,9 +5,11 @@ dotenv.config();
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || '127.0.0.1',
+  port: parseInt(process.env.DB_PORT) || 3306,  // Parse as integer
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'db_dishcovery',
+  ssl: process.env.DB_HOST !== '127.0.0.1' ? { rejectUnauthorized: false } : false,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -19,7 +21,7 @@ const testConnection = async () => {
     console.log('Testing database connection...');
     const connection = await pool.getConnection();
     console.log('✅ Database connected successfully!');
-    console.log(`📊 Connected to: ${process.env.DB_NAME} on ${process.env.DB_HOST}`);
+    console.log(`📊 Connected to: ${process.env.DB_NAME} on ${process.env.DB_HOST}:${process.env.DB_PORT}`);
     connection.release();
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
