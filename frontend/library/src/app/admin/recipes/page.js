@@ -21,7 +21,7 @@ const RecipeManagement = () => {
   const [error, setError] = useState(null);
   const [recipes, setRecipes] = useState([]); // Now connected to database
 
-  // Form state for adding/editing recipes
+  // Form state for adding/editing recipes - UPDATED with alternative ingredients
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -29,9 +29,9 @@ const RecipeManagement = () => {
     mealType: 'Light Meal',
     instructions: [''],
     ingredients: {
-      main: [''],
-      condiments: [''],
-      optional: ['']
+      main: [{ ingredient: '', alternative: '' }],
+      condiments: [{ ingredient: '', alternative: '' }],
+      optional: [{ ingredient: '', alternative: '' }]
     },
     dietaryTags: [],
     healthTags: [],
@@ -86,10 +86,29 @@ const RecipeManagement = () => {
     setShowViewModal(true);
   };
 
+  // UPDATED handleEditRecipe function to handle new ingredient structure
   const handleEditRecipe = (recipe) => {
     setEditingRecipeId(recipe.id);
+    
+    // Convert old array format to new object format if needed
+    const convertIngredients = (ingredients) => {
+      if (Array.isArray(ingredients)) {
+        return ingredients.map(item => 
+          typeof item === 'string' 
+            ? { ingredient: item, alternative: '' }
+            : item
+        );
+      }
+      return ingredients || [{ ingredient: '', alternative: '' }];
+    };
+
     setFormData({
       ...recipe,
+      ingredients: {
+        main: convertIngredients(recipe.ingredients.main),
+        condiments: convertIngredients(recipe.ingredients.condiments),
+        optional: convertIngredients(recipe.ingredients.optional)
+      },
       verifierName: recipe.verificationStatus.includes('Checked by') ? recipe.verificationStatus.split(': ')[1].split(', ')[0] : '',
       verifierCredentials: recipe.verificationStatus.includes('Checked by') ? recipe.verificationStatus.split(', ')[1] || '' : ''
     });
@@ -140,6 +159,7 @@ const RecipeManagement = () => {
     }
   };
 
+  // UPDATED resetForm function
   const resetForm = () => {
     setFormData({
       title: '',
@@ -148,9 +168,9 @@ const RecipeManagement = () => {
       mealType: 'Light Meal',
       instructions: [''],
       ingredients: {
-        main: [''],
-        condiments: [''],
-        optional: ['']
+        main: [{ ingredient: '', alternative: '' }],
+        condiments: [{ ingredient: '', alternative: '' }],
+        optional: [{ ingredient: '', alternative: '' }]
       },
       dietaryTags: [],
       healthTags: [],
@@ -187,25 +207,28 @@ const RecipeManagement = () => {
     }
   };
 
+  // UPDATED addIngredient function
   const addIngredient = (category) => {
     setFormData({
       ...formData,
       ingredients: {
         ...formData.ingredients,
-        [category]: [...formData.ingredients[category], '']
+        [category]: [...formData.ingredients[category], { ingredient: '', alternative: '' }]
       }
     });
   };
 
-  const updateIngredient = (category, index, value) => {
+  // UPDATED updateIngredient function to handle both ingredient and alternative
+  const updateIngredient = (category, index, field, value) => {
     const newIngredients = { ...formData.ingredients };
-    newIngredients[category][index] = value;
+    newIngredients[category][index][field] = value;
     setFormData({
       ...formData,
       ingredients: newIngredients
     });
   };
 
+  // UPDATED removeIngredient function
   const removeIngredient = (category, index) => {
     if (formData.ingredients[category].length > 1) {
       const newIngredients = { ...formData.ingredients };
@@ -539,22 +562,39 @@ const RecipeManagement = () => {
                   </button>
                 </div>
 
+                {/* UPDATED Ingredients Section with Alternatives */}
                 <div className="form-section">
                   <label className="form-label">Ingredients</label>
                   {['main', 'condiments', 'optional'].map(category => (
                     <div key={category} className="ingredient-category">
                       <h4 className="category-title">{category.charAt(0).toUpperCase() + category.slice(1)} Ingredients</h4>
-                      {formData.ingredients[category].map((ingredient, index) => (
-                        <div key={index} className="ingredient-input-group">
-                          <input
-                            type="text"
-                            className="form-input"
-                            value={ingredient}
-                            onChange={(e) => updateIngredient(category, index, e.target.value)}
-                            placeholder={`Enter ${category} ingredient...`}
-                          />
+                      {formData.ingredients[category].map((item, index) => (
+                        <div key={index} className="ingredient-item-group">
+                          <div className="ingredient-input-row">
+                            <div className="ingredient-input-container">
+                              <label className="ingredient-label">Ingredient {index + 1}</label>
+                              <input
+                                type="text"
+                                className="form-input"
+                                value={item.ingredient}
+                                onChange={(e) => updateIngredient(category, index, 'ingredient', e.target.value)}
+                                placeholder={`Enter ${category} ingredient...`}
+                                required={category === 'main' && index === 0}
+                              />
+                            </div>
+                            <div className="ingredient-input-container">
+                              <label className="ingredient-label">Alternative (Optional)</label>
+                              <input
+                                type="text"
+                                className="form-input alternative-input"
+                                value={item.alternative}
+                                onChange={(e) => updateIngredient(category, index, 'alternative', e.target.value)}
+                                placeholder={`Alternative for ${item.ingredient || 'ingredient'}...`}
+                              />
+                            </div>
+                          </div>
                           {formData.ingredients[category].length > 1 && (
-                            <button type="button" className="remove-btn" onClick={() => removeIngredient(category, index)}>
+                            <button type="button" className="remove-btn ingredient-remove" onClick={() => removeIngredient(category, index)}>
                               <CloseIcon />
                             </button>
                           )}
@@ -704,30 +744,52 @@ const RecipeManagement = () => {
                   </div>
                 </div>
 
+                {/* UPDATED Ingredients Display with Alternatives */}
                 <div className="recipe-ingredients-display">
                   <h4>Ingredients:</h4>
                   <div className="ingredients-grid">
                     <div className="ingredient-group">
                       <h5>Main Ingredients:</h5>
                       <ul>
-                        {selectedRecipe.ingredients.main.map((ingredient, index) => (
-                          <li key={index}>{ingredient}</li>
+                        {selectedRecipe.ingredients.main.map((item, index) => (
+                          <li key={index} className="ingredient-with-alternative">
+                            <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
+                            {typeof item === 'object' && item.alternative && (
+                              <span className="alternative-ingredient">
+                                <em>Alternative: {item.alternative}</em>
+                              </span>
+                            )}
+                          </li>
                         ))}
                       </ul>
                     </div>
                     <div className="ingredient-group">
                       <h5>Condiments:</h5>
                       <ul>
-                        {selectedRecipe.ingredients.condiments.map((ingredient, index) => (
-                          <li key={index}>{ingredient}</li>
+                        {selectedRecipe.ingredients.condiments.map((item, index) => (
+                          <li key={index} className="ingredient-with-alternative">
+                            <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
+                            {typeof item === 'object' && item.alternative && (
+                              <span className="alternative-ingredient">
+                                <em>Alternative: {item.alternative}</em>
+                              </span>
+                            )}
+                          </li>
                         ))}
                       </ul>
                     </div>
                     <div className="ingredient-group">
                       <h5>Optional:</h5>
                       <ul>
-                        {selectedRecipe.ingredients.optional.map((ingredient, index) => (
-                          <li key={index}>{ingredient}</li>
+                        {selectedRecipe.ingredients.optional.map((item, index) => (
+                          <li key={index} className="ingredient-with-alternative">
+                            <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
+                            {typeof item === 'object' && item.alternative && (
+                              <span className="alternative-ingredient">
+                                <em>Alternative: {item.alternative}</em>
+                              </span>
+                            )}
+                          </li>
                         ))}
                       </ul>
                     </div>
