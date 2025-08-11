@@ -1,0 +1,25 @@
+services:
+  frontend:
+    build:
+      context: ./frontend/library
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://backend:5000
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: dishcovery-mysql-askiapesa-1f7c.i.aivencloud.com
+      DB_PORT: 26758
+      DB_USER: avnadmin
+      DB_PASSWORD: AVNS_V_0Tp7_nC5ZERnJ39Zn
+      DB_NAME: defaultdb
+      DB_SSL_MODE: REQUIRED
