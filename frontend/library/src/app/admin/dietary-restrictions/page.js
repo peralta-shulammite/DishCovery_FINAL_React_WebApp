@@ -147,7 +147,7 @@ const DietaryRestrictionsManagementContent = () => {
       
       // Load restrictions with enhanced error handling
       try {
-        const restrictionsData = await makeAuthenticatedRequest('http://localhost:5000/api/dietary-restrictions/admin');
+        const restrictionsData = await makeAuthenticatedRequest(`${API_BASE_URL}/dietary-restrictions/admin`);
         
         if (restrictionsData.success) {
           setRestrictions(restrictionsData.data);
@@ -162,7 +162,7 @@ const DietaryRestrictionsManagementContent = () => {
 
       // Load pending requests with enhanced error handling
       try {
-        const pendingData = await makeAuthenticatedRequest('http://localhost:5000/api/dietary-restrictions/admin/pending-requests');
+        const pendingData = await makeAuthenticatedRequest(`${API_BASE_URL}/dietary-restrictions/admin/pending-requests`);
         
         if (pendingData.success) {
           setPendingRequests(pendingData.data);
@@ -212,7 +212,7 @@ const DietaryRestrictionsManagementContent = () => {
       console.log(`🗑️ Deleting restriction ID: ${restrictionId}`);
       
       const result = await makeAuthenticatedRequest(
-        `http://localhost:5000/api/dietary-restrictions/admin/${restrictionId}`,
+        `${API_BASE_URL}/dietary-restrictions/admin/${restrictionId}`,
         { method: 'DELETE' }
       );
 
@@ -235,7 +235,7 @@ const DietaryRestrictionsManagementContent = () => {
       console.log('✅ Approving request:', request);
       
       const result = await makeAuthenticatedRequest(
-        'http://localhost:5000/api/dietary-restrictions/admin',
+        `${API_BASE_URL}/dietary-restrictions/admin`,
         {
           method: 'POST',
           body: JSON.stringify({
@@ -273,15 +273,15 @@ const DietaryRestrictionsManagementContent = () => {
   // 🔍 DEBUG: Log what we're sending
   console.log('🚀 Form Data Being Sent:', formData);
   console.log('📍 API Endpoint:', selectedRestriction 
-    ? `http://localhost:5000/api/dietary-restrictions/admin/${selectedRestriction.id}`
-    : 'http://localhost:5000/api/dietary-restrictions/admin');
+    ? `${API_BASE_URL}/dietary-restrictions/admin/${selectedRestriction.id}`
+    : `${API_BASE_URL}/dietary-restrictions/admin`);
 
     try {
       console.log('💾 Submitting form to API...');
       
       const url = selectedRestriction 
-        ? `http://localhost:5000/api/dietary-restrictions/admin/${selectedRestriction.id}`
-        : 'http://localhost:5000/api/dietary-restrictions/admin';
+        ? `${API_BASE_URL}/dietary-restrictions/admin/${selectedRestriction.id}`
+        : `${API_BASE_URL}/dietary-restrictions/admin`;
       
       const method = selectedRestriction ? 'PUT' : 'POST';
 
