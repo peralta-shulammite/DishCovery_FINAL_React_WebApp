@@ -23,11 +23,7 @@
     }
   ],
   "env": {
+    "NEXT_PUBLIC_API_BASE_URL": "https://dishcovery-backend-wvhn.onrender.com",
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "app/api/**/*.js": {
-      "maxDuration": 30
-    }
   }
 }
