@@ -2,7 +2,7 @@
 // Update your api.js file with this enhanced version
 
 // Base API URL - Updated to match your server port
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 // Helper function to get auth token
 const getAuthToken = () => {
