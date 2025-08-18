@@ -43,7 +43,7 @@ export default function GetStarted() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      fetch('http://localhost:5000/api/users/profile', {
+      fetch(`${API_BASE_URL}/users/profile`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -57,7 +57,7 @@ export default function GetStarted() {
     const loadRestrictions = async () => {
       try {
         console.log('📥 Loading restrictions from database...');
-        const response = await fetch('http://localhost:5000/api/dietary-restrictions/public');
+        const response = await fetch(`${API_BASE_URL}/dietary-restrictions/public`);
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
@@ -94,7 +94,7 @@ export default function GetStarted() {
       if (cookingFor === 'Others') {
         try {
           setLoading(true);
-          const response = await fetch('http://localhost:5000/api/profile/member', {
+          const response = await fetch(`${API_BASE_URL}/profile/member`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${getAuthToken()}`,
@@ -147,7 +147,7 @@ export default function GetStarted() {
       };
 
       // Call the new API
-      const response = await fetch('http://localhost:5000/api/dietary-restrictions/user/save', {
+      const response = await fetch(`${API_BASE_URL}/dietary-restrictions/user/save`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
