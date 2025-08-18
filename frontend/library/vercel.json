@@ -1,9 +1,8 @@
 {
-  "name": "dishcovery-app",
   "version": 2,
   "builds": [
     {
-      "src": "frontend/library/package.json",
+      "src": "package.json",
       "use": "@vercel/next"
     }
   ],
@@ -16,10 +15,6 @@
       "src": "/",
       "dest": "/user/ph",
       "status": 308
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
     }
   ],
   "env": {
