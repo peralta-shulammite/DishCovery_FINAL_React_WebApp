@@ -46,7 +46,7 @@ function walkDir(dir) {
 
 walkDir(targetDir);
 
-// Report
+// Print report
 console.log("🔍 API Consistency Scan Results:\n");
 results.forEach(({ file, findings }) => {
   console.log(file);
