@@ -3,45 +3,46 @@ const path = require("path");
 
 const targetDir = path.resolve(__dirname, "src");
 
-// Detect hardcoded localhost URLs
-const localhostRegex =
-  /(['"`])http:\/\/localhost:5000\/api([^'"`]*)\1/g;
+// Regex to detect hardcoded localhost URLs
+const localhostRegex = /(['"`])http:\/\/localhost:5000(\/api[^'"`]*)\1/g;
 
-// Ensure `API_BASE_URL` is declared at top of the file
-const apiBaseDeclaration =
-  `const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;\n`;
+// Regex to detect self-referencing API_BASE_URL
+const brokenApiRegex = /const\s+API_BASE_URL\s*=\s*process\.env\.NEXT_PUBLIC_API_BASE_URL\s*\|\|\s*`?\$\{API_BASE_URL\}`?;/;
+
+// Correct API_BASE_URL declaration
+const correctApiDeclaration = `const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";\n`;
 
 function replaceInFile(filePath) {
   let content = fs.readFileSync(filePath, "utf8");
   let updated = false;
+  let changes = [];
 
-  // Collect previews
-  let previews = [];
+  // Fix broken self-referencing API_BASE_URL
+  if (brokenApiRegex.test(content)) {
+    const before = content.match(brokenApiRegex)[0];
+    content = content.replace(brokenApiRegex, correctApiDeclaration.trim());
+    changes.push({ before, after: correctApiDeclaration.trim() });
+    updated = true;
+  }
 
-  // Replace localhost references with API_BASE_URL
+  // Replace other hardcoded localhost references
   content = content.replace(localhostRegex, (match, quote, rest) => {
-    const replacement = `\`${"${API_BASE_URL}"}${rest}\``;
-    previews.push({ before: match, after: replacement });
+    const replacement = `\`\${API_BASE_URL}${rest}\``;
+    changes.push({ before: match, after: replacement });
     updated = true;
     return replacement;
   });
 
-  // If file had replacements but no API_BASE_URL defined, add it at the top
-  if (updated && !content.includes("API_BASE_URL")) {
-    content = apiBaseDeclaration + content;
-  }
-
+  // Write changes and log
   if (updated) {
-    // Show previews
     console.log(`\n📂 File: ${filePath}`);
-    previews.forEach((p, idx) => {
-      console.log(`   🔎 Found #${idx + 1}: ${p.before}`);
-      console.log(`   ✅ Replaced → ${p.after}\n`);
+    changes.forEach((c, i) => {
+      console.log(`   🔎 Change #${i + 1}:`);
+      console.log(`      Before: ${c.before}`);
+      console.log(`      After:  ${c.after}`);
     });
-
-    // Write back the updated content
     fs.writeFileSync(filePath, content, "utf8");
-    console.log(`💾 Saved fixes in: ${filePath}`);
+    console.log(`💾 Saved changes to: ${filePath}`);
   }
 }
 
@@ -57,4 +58,4 @@ function walkDir(dir) {
 }
 
 walkDir(targetDir);
-console.log("\n✨ Auto-fix complete! All localhost references replaced with API_BASE_URL\n");
+console.log("\n✨ Auto-fix complete! All API_BASE_URL errors and localhost references fixed\n");
