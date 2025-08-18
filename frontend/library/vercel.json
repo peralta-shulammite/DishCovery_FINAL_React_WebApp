@@ -1,28 +1,33 @@
 {
-    "name": "dishcovery-app",
-    "version": 2,
-    "builds": [
-      {
-        "src": "package.json",
-        "use": "@vercel/next"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/api/(.*)",
-        "dest": "/api/$1"
-      },
-      {
-        "src": "/(.*)",
-        "dest": "/$1"
-      }
-    ],
-    "env": {
-      "NODE_ENV": "production"
+  "name": "dishcovery-app",
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
-    "functions": {
-      "app/api/**/*.js": {
-        "maxDuration": 30
-      }
+    {
+      "src": "/",
+      "dest": "/user/ph",
+      "status": 308
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "app/api/**/*.js": {
+      "maxDuration": 30
     }
   }
+}
