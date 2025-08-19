@@ -87,6 +87,11 @@ router.post('/login', async (req, res) => {
     };
 
     const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+    // DEBUG LOGS
+    console.log('[AUTH/LOGIN] JWT secret present:', !!process.env.JWT_SECRET ? 'yes' : 'NO');
+    console.log('[AUTH/LOGIN] Issued token parts:', (token || '').split('.').length, 'len:', (token || '').length);
+
     await pool.query('UPDATE users SET last_login = NOW() WHERE user_id = ?', [user.user_id]);
 
     res.json({ 
@@ -126,6 +131,11 @@ router.post('/verify', async (req, res) => {
     await pool.query('UPDATE pending_requests SET status = ? WHERE request_id = ?', ['completed', requests[0].request_id]);
     
     const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+    // DEBUG LOGS
+    console.log('[AUTH/VERIFY] JWT secret present:', !!process.env.JWT_SECRET ? 'yes' : 'NO');
+    console.log('[AUTH/VERIFY] Issued token parts:', (token || '').split('.').length, 'len:', (token || '').length);
+
     const userDetails = await pool.query('SELECT user_id, email, first_name, last_name FROM users WHERE user_id = ?', [userId]);
     const user = userDetails[0];
     
