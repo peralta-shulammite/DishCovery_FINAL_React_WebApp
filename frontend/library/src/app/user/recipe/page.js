@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faBars, 
@@ -9,66 +9,305 @@ import {
   faChevronDown,
   faFilter,
   faHome,
-  faInfoCircle,
   faUtensils,
   faBook,
-  faQuestion,
-  faHeadset,
-  faHandshakeAngle,
-  faCheck,
   faHeart,
-  faTimes
+  faTimes,
+  faChevronLeft,
+  faChevronRight,
+  faShieldAlt,
+  faUserMd,
+  faRobot,
+  faExchangeAlt,
+  faEye,
+  faBookmark,
+  faAward,
+  faGrid3x3,
+  faList,
+  faClock,
+  faUsers,
+  faUser,
+  faLeaf,
+  faDroplet,
+  faMagic,
+  faChefHat
 } from '@fortawesome/free-solid-svg-icons';
 import { 
   faComment,
-  faStar as faStarRegular
+  faStar as faStarRegular,
+  faHeart as faHeartRegular
 } from '@fortawesome/free-regular-svg-icons';
-import {
-  faInstagram,
-  faFacebook,
-  faTwitter,
-  faLinkedin
-} from '@fortawesome/free-brands-svg-icons';
 import { recipeAPI } from './api'; // Import your API
-import './style.css';
+import './styles.css';
 
 const RecipePage = () => {
+  // DishCovery Navigation States
+  const dishCoveryTopRef = useRef(null);
+  const [dishCoveryIsLoggedIn, setDishCoveryIsLoggedIn] = useState(true);
+  const [dishCoveryShowAvatarDropdown, setDishCoveryShowAvatarDropdown] = useState(false);
+  const [dishCoveryShowMobileMenu, setDishCoveryShowMobileMenu] = useState(false);
+  const [dishCoveryUser, setDishCoveryUser] = useState({
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john.doe@example.com'
+  });
+  const dishCoveryAvatarRef = useRef(null);
+  const iconRef = useRef(null);
+
+  // DishCovery Search and Filter States
+  const [dishCoverySearchQuery, setDishCoverySearchQuery] = useState('');
+  const [dishCoverySortBy, setDishCoverySortBy] = useState('relevance');
+  const [dishCoveryViewMode, setDishCoveryViewMode] = useState('grid'); // 'grid' or 'list'
+
+  const [dishCoveryHoverStates, setDishCoveryHoverStates] = useState({
+    logo: false,
+    avatar: false,
+    signIn: false,
+    scanNav: false,
+  });
+
+  // Original Recipe Page State management
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
+  const [viewMode, setViewMode] = useState('grid');
   const [filters, setFilters] = useState({
-    mealType: {
-      breakfast: true,
-      dinner: false,
-      lightMeal: false,
-      lunch: false,
-      snack: false,
-      dessert: false
-    },
-    dishType: {
-      bread: true,
-      grilled: false,
-      pasta: false,
-      salad: false,
-      sandwich: false,
-      soup: false,
-      stewStir: false,
-      smoothie: false,
-      drinks: false,
-      noodles: false,
-      rice: false
-    }
+    mealType: [],
+    dietaryTags: [],
+    healthTags: []
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showAlternatives, setShowAlternatives] = useState({});
   
-  // New state for API data
+  // API-related state
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [limit] = useState(15);
+  
+  const [hoverStates, setHoverStates] = useState({
+    logo: false,
+    avatar: false,
+  });
+
+  const avatarRef = useRef(null);
+
+  // DishCovery Navigation Handlers
+  const dishCoveryHandleHover = (element, isHover) => {
+    setDishCoveryHoverStates((prev) => ({ ...prev, [element]: isHover }));
+  };
+
+  const dishCoveryScrollToTop = useCallback(() => {
+    dishCoveryTopRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  const dishCoveryNavLinks = [
+    { name: "Home", href: "/user/home" },
+    { name: "My Pantry", href: "/user/pantry" },
+    { name: "Favorites", href: "/user/favorites" },
+  ];
+
+  const dishCoveryToggleMobileMenu = () => {
+    setDishCoveryShowMobileMenu((prev) => !prev);
+  };
+
+  const dishCoveryHandleLogout = () => {
+    setDishCoveryIsLoggedIn(false);
+    setDishCoveryUser(null);
+    setDishCoveryShowAvatarDropdown(false);
+    setDishCoveryShowMobileMenu(false);
+    window.location.href = '/';
+  };
+
+  const dishCoveryHandleScanClick = () => {
+    if (!dishCoveryIsLoggedIn) {
+      // Handle sign in
+    } else {
+      window.location.href = '/user/scanning';
+    }
+    setDishCoveryShowMobileMenu(false);
+  };
+
+  const dishCoveryHandleSignInClick = () => {
+    // Handle sign in modal
+  };
+
+  const handleHover = (element, isHover) => {
+    setHoverStates((prev) => ({ ...prev, [element]: isHover }));
+  };
+
+  // Close dropdown when clicking outside or pressing Escape
+  useEffect(() => {
+    const dishCoveryHandleClickOutside = (event) => {
+      if (dishCoveryAvatarRef.current && !dishCoveryAvatarRef.current.contains(event.target)) {
+        setDishCoveryShowAvatarDropdown(false);
+      }
+    };
+    const handleClickOutside = (event) => {
+      if (avatarRef.current && !avatarRef.current.contains(event.target)) {
+        setShowAvatarDropdown(false);
+      }
+    };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && isModalOpen) closeModal();
+    };
+    document.addEventListener('mousedown', dishCoveryHandleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', dishCoveryHandleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isModalOpen]);
+
+  // Enhanced sample data as fallback
+  const sampleRecipes = [
+    {
+      id: 1,
+      title: 'Mediterranean Quinoa Bowl',
+      description: 'Nutritious bowl packed with quinoa, roasted vegetables, and creamy tahini dressing. Perfect for a healthy lunch or dinner.',
+      images: [
+        'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=300&fit=crop'
+      ],
+      mealType: 'Lunch',
+      ingredients: {
+        main: [
+          { ingredient: 'Quinoa (1 cup)', alternative: 'Brown rice or bulgur wheat' },
+          { ingredient: 'Sweet potato, cubed', alternative: 'Butternut squash or regular potato' },
+          { ingredient: 'Broccoli florets', alternative: 'Cauliflower or Brussels sprouts' },
+          { ingredient: 'Chickpeas (1 can)', alternative: 'Black beans or lentils' }
+        ],
+        condiments: [
+          { ingredient: 'Tahini (3 tbsp)', alternative: 'Almond butter or cashew cream' },
+          { ingredient: 'Lemon juice', alternative: 'Lime juice or apple cider vinegar' },
+          { ingredient: 'Olive oil', alternative: 'Avocado oil' },
+          { ingredient: 'Garlic, minced', alternative: 'Garlic powder' }
+        ],
+        optional: [
+          { ingredient: 'Avocado slices', alternative: 'Cucumber slices' },
+          { ingredient: 'Pumpkin seeds', alternative: 'Sunflower seeds or chopped nuts' },
+          { ingredient: 'Fresh herbs (parsley, cilantro)', alternative: 'Dried herbs' }
+        ]
+      },
+      instructions: [
+        'Cook quinoa according to package directions. Fluff with a fork and set aside.',
+        'Preheat oven to 400°F (200°C). Toss sweet potato and broccoli with olive oil, salt, and pepper.',
+        'Roast vegetables for 25 minutes until tender and slightly caramelized.',
+        'Prepare tahini dressing by whisking tahini, lemon juice, water, and minced garlic until smooth.',
+        'Drain and rinse chickpeas. Season with salt, pepper, and a drizzle of olive oil.',
+        'Assemble bowls with quinoa as the base, top with roasted vegetables and chickpeas.',
+        'Drizzle with tahini dressing and garnish with avocado, pumpkin seeds, and fresh herbs.'
+      ],
+      dietaryTags: ['Vegan', 'Gluten-free', 'Mediterranean'],
+      healthTags: ['Heart-healthy', 'High-protein', 'Diabetic-safe'],
+      verificationStatus: 'Checked by: Nutritionist',
+      verifierName: 'Dr. Sarah Johnson',
+      verifierCredentials: 'RD, PhD in Nutritional Science',
+      engagement: { tried: 245, saved: 189 },
+      rating: 4.8,
+      cookTime: '25 min',
+      servings: 4
+    },
+    {
+      id: 2,
+      title: 'Classic Chicken Stir Fry',
+      description: 'Quick and healthy chicken stir fry with fresh vegetables and a savory sauce.',
+      images: [
+        'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop'
+      ],
+      mealType: 'Dinner',
+      ingredients: {
+        main: [
+          { ingredient: 'Chicken breast (1 lb)', alternative: 'Chicken thighs or tofu' },
+          { ingredient: 'Bell peppers', alternative: 'Snap peas or broccoli' },
+          { ingredient: 'Onions', alternative: 'Shallots or green onions' },
+          { ingredient: 'Carrots', alternative: 'Snow peas or celery' }
+        ],
+        condiments: [
+          { ingredient: 'Soy sauce', alternative: 'Tamari or coconut aminos' },
+          { ingredient: 'Sesame oil', alternative: 'Vegetable oil' },
+          { ingredient: 'Garlic', alternative: 'Garlic powder' },
+          { ingredient: 'Ginger', alternative: 'Ground ginger' }
+        ],
+        optional: [
+          { ingredient: 'Green onions', alternative: 'Chives' },
+          { ingredient: 'Sesame seeds', alternative: 'Crushed peanuts' }
+        ]
+      },
+      instructions: [
+        'Cut chicken into bite-sized pieces and season with salt and pepper.',
+        'Heat oil in a large wok or skillet over high heat.',
+        'Add chicken and cook until golden brown, about 5-6 minutes.',
+        'Add vegetables and stir-fry for 3-4 minutes until crisp-tender.',
+        'Mix sauce ingredients and pour over chicken and vegetables.',
+        'Stir-fry for another 2 minutes until sauce thickens.',
+        'Serve immediately over rice, garnished with green onions and sesame seeds.'
+      ],
+      dietaryTags: ['High-protein', 'Gluten-free'],
+      healthTags: ['Low-carb', 'Heart-healthy'],
+      verificationStatus: 'AI-generated',
+      verifierName: '',
+      verifierCredentials: '',
+      engagement: { tried: 156, saved: 98 },
+      rating: 4.5,
+      cookTime: '20 min',
+      servings: 4
+    },
+    {
+      id: 3,
+      title: 'Avocado Toast Supreme',
+      description: 'Elevated avocado toast with perfectly poached egg and everything seasoning.',
+      images: [
+        'https://images.unsplash.com/photo-1541519227354-08fa5d50c44d?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=400&h=300&fit=crop'
+      ],
+      mealType: 'Breakfast',
+      ingredients: {
+        main: [
+          { ingredient: 'Sourdough bread (2 slices)', alternative: 'Whole grain or gluten-free bread' },
+          { ingredient: 'Ripe avocado (1 large)', alternative: 'Hummus or mashed beans' },
+          { ingredient: 'Eggs (2)', alternative: 'Tofu scramble' }
+        ],
+        condiments: [
+          { ingredient: 'Lemon juice', alternative: 'Lime juice' },
+          { ingredient: 'Everything bagel seasoning', alternative: 'Salt, pepper, and sesame seeds' },
+          { ingredient: 'Olive oil', alternative: 'Avocado oil' }
+        ],
+        optional: [
+          { ingredient: 'Cherry tomatoes', alternative: 'Sun-dried tomatoes' },
+          { ingredient: 'Red pepper flakes', alternative: 'Hot sauce' },
+          { ingredient: 'Microgreens', alternative: 'Fresh herbs' }
+        ]
+      },
+      instructions: [
+        'Toast bread slices until golden brown.',
+        'Mash avocado with lemon juice, salt, and pepper.',
+        'Bring water to a gentle simmer for poaching eggs.',
+        'Crack eggs into small bowls and gently slide into simmering water.',
+        'Poach eggs for 3-4 minutes until whites are set but yolks are runny.',
+        'Spread mashed avocado on toast and top with poached eggs.',
+        'Sprinkle with everything seasoning and add optional toppings.'
+      ],
+      dietaryTags: ['Vegetarian', 'High-protein'],
+      healthTags: ['Heart-healthy', 'High-protein'],
+      verificationStatus: 'Checked by: Dietitian',
+      verifierName: 'Maria Rodriguez',
+      verifierCredentials: 'RD, MS in Clinical Nutrition',
+      engagement: { tried: 312, saved: 267 },
+      rating: 4.9,
+      cookTime: '15 min',
+      servings: 2
+    }
+  ];
 
   // Fetch recipes from API
   const fetchRecipes = async (isLoadMore = false) => {
@@ -80,26 +319,24 @@ const RecipePage = () => {
       const activeFilters = {};
       
       // Get active meal types
-      const activeMealTypes = Object.entries(filters.mealType)
-        .filter(([key, value]) => value)
-        .map(([key]) => key);
-      
-      if (activeMealTypes.length > 0) {
-        activeFilters.mealType = activeMealTypes.join(',');
+      if (filters.mealType.length > 0) {
+        activeFilters.mealType = filters.mealType.join(',');
       }
       
-      // Get active dish types
-      const activeDishTypes = Object.entries(filters.dishType)
-        .filter(([key, value]) => value)
-        .map(([key]) => key);
-      
-      if (activeDishTypes.length > 0) {
-        activeFilters.dishType = activeDishTypes.join(',');
+      // Get active dietary tags
+      if (filters.dietaryTags.length > 0) {
+        activeFilters.dietaryTags = filters.dietaryTags.join(',');
       }
       
-      // Add search query if exists
-      if (searchQuery.trim()) {
-        activeFilters.search = searchQuery.trim();
+      // Get active health tags
+      if (filters.healthTags.length > 0) {
+        activeFilters.healthTags = filters.healthTags.join(',');
+      }
+      
+      // Add search query if exists (use DishCovery search for consistency)
+      const searchTerm = dishCoverySearchQuery.trim() || searchQuery.trim();
+      if (searchTerm) {
+        activeFilters.search = searchTerm;
       }
       
       // Add pagination
@@ -112,21 +349,27 @@ const RecipePage = () => {
         const newRecipes = response.data.map(recipe => ({
           id: recipe.id,
           title: recipe.title || recipe.name,
-          time: recipe.cookingTime || recipe.prepTime || '30 min',
-          likes: recipe.likes || 0,
-          comments: recipe.comments || 0,
-          image: recipe.image || recipe.imageUrl || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=200&fit=crop',
-          rating: recipe.rating || 4.5,
           description: recipe.description,
-          tried: recipe.tried || 0,
-          dietaryTags: recipe.dietaryTags || recipe.dietary_restrictions || [],
-          healthTags: recipe.healthTags || [],
+          images: recipe.images || [recipe.image || recipe.imageUrl || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop'],
+          mealType: recipe.mealType,
           ingredients: recipe.ingredients || {
             main: [],
             condiments: [],
             optional: []
           },
-          instructions: recipe.instructions || []
+          instructions: recipe.instructions || [],
+          dietaryTags: recipe.dietaryTags || recipe.dietary_restrictions || [],
+          healthTags: recipe.healthTags || [],
+          verificationStatus: recipe.verificationStatus || 'AI-generated',
+          verifierName: recipe.verifierName || '',
+          verifierCredentials: recipe.verifierCredentials || '',
+          engagement: {
+            tried: recipe.tried || recipe.engagement?.tried || 0,
+            saved: recipe.saved || recipe.engagement?.saved || 0
+          },
+          rating: recipe.rating || 4.5,
+          cookTime: recipe.cookTime || recipe.cookingTime || recipe.prepTime || '30 min',
+          servings: recipe.servings || 4
         }));
         
         if (isLoadMore) {
@@ -152,46 +395,7 @@ const RecipePage = () => {
       
       // If it's the first load and there's an error, show fallback data
       if (!isLoadMore && recipes.length === 0) {
-        const fallbackRecipes = Array(15).fill(null).map((_, index) => ({
-          id: index + 1,
-          title: 'Russian Salad',
-          time: '40 min',
-          likes: 0,
-          comments: 0,
-          image: index % 3 === 0 ? 
-            'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=200&fit=crop' :
-            index % 3 === 1 ?
-            'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop' :
-            'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=300&h=200&fit=crop',
-          rating: 4.5
-        }));
-        
-        fallbackRecipes.unshift({
-          id: 0,
-          title: 'Quinoa Buddha Bowl',
-          time: '25 min',
-          likes: 189,
-          comments: 0,
-          image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
-          rating: 4.5,
-          description: 'Nutritious bowl with quinoa, roasted vegetables, and tahini dressing',
-          tried: 245,
-          dietaryTags: ['Vegan', 'Gluten-free', 'High-Protein'],
-          healthTags: ['Diabetic-safe', 'Heart-safe'],
-          ingredients: {
-            main: ['Quinoa', 'Sweet potato', 'Broccoli', 'Chickpeas'],
-            condiments: ['Tahini', 'Lemon Juice', 'Olive oil'],
-            optional: ['Avocado', 'Pumpkin Seeds', 'Fresh Herbs']
-          },
-          instructions: [
-            'Cook quinoa according to package directions',
-            'Roast vegetables at 400°F for 25 minutes',
-            'Prepare tahini dressing by whisking tahini, lemon juice, and water',
-            'Assemble bowl with quinoa, vegetables, and dressing'
-          ]
-        });
-        
-        setRecipes(fallbackRecipes);
+        setRecipes(sampleRecipes);
       }
     } finally {
       setLoading(false);
@@ -205,6 +409,7 @@ const RecipePage = () => {
       if (response && response.data) {
         return {
           ...response.data,
+          images: response.data.images || [response.data.image || response.data.imageUrl || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop'],
           ingredients: response.data.ingredients || {
             main: [],
             condiments: [],
@@ -225,14 +430,14 @@ const RecipePage = () => {
     fetchRecipes();
   }, []);
 
-  // Fetch when filters change
+  // Fetch when filters change with debouncing
   useEffect(() => {
     const delayedFetch = setTimeout(() => {
       fetchRecipes();
     }, 300); // Debounce the API call
 
     return () => clearTimeout(delayedFetch);
-  }, [filters, searchQuery]);
+  }, [filters, dishCoverySearchQuery]);
 
   // Load more recipes
   const handleLoadMore = () => {
@@ -241,42 +446,40 @@ const RecipePage = () => {
     }
   };
 
-  const handleFilterChange = (category, filterKey) => {
+  // Filter options
+  const filterOptions = {
+    mealType: ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert', 'Light Meal', 'Heavy Meal'],
+    dietaryTags: ['Vegan', 'Vegetarian', 'Gluten-free', 'Dairy-free', 'Mediterranean', 'High-protein', 'Keto', 'Paleo'],
+    healthTags: ['Heart-healthy', 'Low-carb', 'Diabetic-safe', 'High-protein', 'Antioxidant-rich', 'Low-sodium', 'Peanut-free']
+  };
+
+  // Filter recipes based on current filters and search (for fallback data)
+  const filteredRecipes = recipes.filter(recipe => {
+    const searchTerm = dishCoverySearchQuery || searchQuery;
+    const matchesSearch = recipe.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         recipe.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesMealType = filters.mealType.length === 0 || filters.mealType.includes(recipe.mealType);
+    const matchesDietary = filters.dietaryTags.length === 0 || 
+                          filters.dietaryTags.some(tag => recipe.dietaryTags.includes(tag));
+    const matchesHealth = filters.healthTags.length === 0 || 
+                         filters.healthTags.some(tag => recipe.healthTags.includes(tag));
+    
+    return matchesSearch && matchesMealType && matchesDietary && matchesHealth;
+  });
+
+  // Event handlers
+  const handleFilterChange = (category, value) => {
     setFilters(prev => ({
       ...prev,
-      [category]: {
-        ...prev[category],
-        [filterKey]: !prev[category][filterKey]
-      }
+      [category]: prev[category].includes(value)
+        ? prev[category].filter(item => item !== value)
+        : [...prev[category], value]
     }));
   };
 
   const getActiveFilterCount = () => {
-    const mealTypeCount = Object.values(filters.mealType).filter(Boolean).length;
-    const dishTypeCount = Object.values(filters.dishType).filter(Boolean).length;
-    return mealTypeCount + dishTypeCount;
-  };
-
-  const toggleFilterDropdown = () => {
-    setIsFilterDropdownOpen(!isFilterDropdownOpen);
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
-  const handleNavLinkClick = (href, onClick) => {
-    setIsMobileMenuOpen(false);
-    if (onClick) {
-      onClick();
-    } else {
-      document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const handleScanClick = () => {
-    console.log("Initiate ingredient scan");
-    setIsMobileMenuOpen(false);
+    return filters.mealType.length + filters.dietaryTags.length + filters.healthTags.length;
   };
 
   const renderStars = (rating) => {
@@ -285,92 +488,33 @@ const RecipePage = () => {
     const hasHalfStar = rating % 1 !== 0;
     
     for (let i = 0; i < fullStars; i++) {
-      stars.push(
-        <FontAwesomeIcon 
-          key={i} 
-          icon={faStar} 
-          className="star filled" 
-        />
-      );
+      stars.push(<FontAwesomeIcon key={i} icon={faStar} className="star filled" />);
     }
     
     if (hasHalfStar) {
-      stars.push(
-        <FontAwesomeIcon 
-          key="half" 
-          icon={faStarHalfStroke} 
-          className="star half" 
-        />
-      );
+      stars.push(<FontAwesomeIcon key="half" icon={faStarHalfStroke} className="star half" />);
     }
     
     const emptyStars = 5 - Math.ceil(rating);
     for (let i = 0; i < emptyStars; i++) {
-      stars.push(
-        <FontAwesomeIcon 
-          key={`empty-${i}`} 
-          icon={faStarRegular} 
-          className="star empty" 
-        />
-      );
+      stars.push(<FontAwesomeIcon key={`empty-${i}`} icon={faStarRegular} className="star empty" />);
     }
     
     return stars;
   };
 
-  const filterOptions = {
-    mealType: {
-      title: 'Meal Type',
-      options: [
-        { key: 'breakfast', label: 'Breakfast' },
-        { key: 'dinner', label: 'Dinner' },
-        { key: 'lightMeal', label: 'Light Meal' },
-        { key: 'lunch', label: 'Lunch' },
-        { key: 'snack', label: 'Snack' },
-        { key: 'dessert', label: 'Dessert' }
-      ]
-    },
-    dishType: {
-      title: 'Dish Type',
-      options: [
-        { key: 'bread', label: 'Bread' },
-        { key: 'grilled', label: 'Grilled' },
-        { key: 'pasta', label: 'Pasta' },
-        { key: 'salad', label: 'Salad' },
-        { key: 'sandwich', label: 'Sandwich' },
-        { key: 'soup', label: 'Soup' },
-        { key: 'stewStir', label: 'Stew/Stir' },
-        { key: 'smoothie', label: 'Smoothie' },
-        { key: 'drinks', label: 'Drinks' },
-        { key: 'noodles', label: 'Noodles' },
-        { key: 'rice', label: 'Rice' }
-      ]
-    }
+  const getVerificationIcon = (status) => {
+    if (status === 'AI-generated') return faRobot;
+    if (status.includes('Doctor')) return faUserMd;
+    return faShieldAlt;
   };
-
-  const quickLinkIcons = {
-    home: faHome,
-    about: faInfoCircle,
-    create: faUtensils,
-    myrecipes: faBook
-  };
-
-  const supportLinkIcons = {
-    help: faHandshakeAngle,
-    faqs: faQuestion,
-    contact: faHeadset
-  };
-
-  const navLinks = [
-    { name: "Home", href: "/ph", onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
-    { name: "My Pantry", href: "/pantry" },
-    { name: "Favorites", href: "/favorites" },
-    { name: "User", href: "/user-profile" },
-  ];
 
   const openModal = async (recipe) => {
     setSelectedRecipe(recipe);
     setIsModalOpen(true);
+    setCurrentImageIndex(0);
+    setShowAlternatives({});
+    document.body.style.overflow = 'hidden';
     
     // Fetch detailed recipe data if needed
     if (recipe.id && (!recipe.instructions || recipe.instructions.length === 0)) {
@@ -384,393 +528,426 @@ const RecipePage = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedRecipe(null);
+    setCurrentImageIndex(0);
+    setShowAlternatives({});
+    document.body.style.overflow = 'unset';
   };
 
+  const nextImage = () => {
+    if (selectedRecipe && selectedRecipe.images.length > 1) {
+      setCurrentImageIndex((prev) => 
+        prev === selectedRecipe.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
+
+  const prevImage = () => {
+    if (selectedRecipe && selectedRecipe.images.length > 1) {
+      setCurrentImageIndex((prev) => 
+        prev === 0 ? selectedRecipe.images.length - 1 : prev - 1
+      );
+    }
+  };
+
+  const toggleAlternative = (categoryIndex, itemIndex) => {
+    const key = `${categoryIndex}-${itemIndex}`;
+    setShowAlternatives(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const handleLogout = () => {
+    setShowAvatarDropdown(false);
+    console.log("User logged out");
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // Use API data if available, otherwise use filtered sample data
+  const displayRecipes = recipes.length > 0 ? recipes : filteredRecipes;
+
   return (
-    <div className="recipe-page">
+    <div ref={dishCoveryTopRef} className="recipe-container">
+      {/* Enhanced DishCovery Header Navigation */}
       <header className="header">
-        <div className="header-container">
-          <div className="header-left">
-            <button 
-              className="menu-btn"
-              onClick={toggleMobileMenu}
-              aria-expanded={isMobileMenuOpen}
-              aria-controls="mobile-nav-menu"
-              aria-label="Toggle navigation menu"
+        <button
+          className={`logo ${dishCoveryHoverStates.logo ? 'logo-hover' : ''}`}
+          onClick={dishCoveryScrollToTop}
+          onMouseEnter={() => dishCoveryHandleHover('logo', true)}
+          onMouseLeave={() => dishCoveryHandleHover('logo', false)}
+        >
+          <span className="logo-text">DishCovery</span>
+        </button>
+
+        <nav className="nav-links">
+          {dishCoveryNavLinks.map((link) => (
+            <a
+              key={link.name}
+              href={link.href}
+              className={`nav-link ${link.active ? 'nav-link-active' : ''}`}
+              onClick={() => setDishCoveryShowMobileMenu(false)}
             >
-              <FontAwesomeIcon icon={faBars} />
-            </button>
-            <div className="logo">
-              <div className="logo-container" aria-label="DishCovery Logo"></div>
+              {link.name}
+            </a>
+          ))}
+        </nav>
+
+        <div className="nav-actions">
+          {!dishCoveryIsLoggedIn ? (
+            <>
+              <button
+                className={`scan-nav-btn ${dishCoveryHoverStates.scanNav ? 'scan-nav-btn-hover' : ''}`}
+                onClick={dishCoveryHandleScanClick}
+                onMouseEnter={() => dishCoveryHandleHover('scanNav', true)}
+                onMouseLeave={() => dishCoveryHandleHover('scanNav', false)}
+              >
+                <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                Scan Now
+              </button>
+              <button
+                className={`sign-in-btn ${dishCoveryHoverStates.signIn ? 'sign-in-btn-hover' : ''}`}
+                onClick={dishCoveryHandleSignInClick}
+                onMouseEnter={() => dishCoveryHandleHover('signIn', true)}
+                onMouseLeave={() => dishCoveryHandleHover('signIn', false)}
+              >
+                Sign In
+              </button>
+            </>
+          ) : (
+            <div className="avatar-container" ref={dishCoveryAvatarRef}>
+              <button
+                className={`avatar-btn ${dishCoveryHoverStates.avatar ? 'avatar-btn-hover' : ''}`}
+                onClick={() => setDishCoveryShowAvatarDropdown((prev) => !prev)}
+                onMouseEnter={() => dishCoveryHandleHover('avatar', true)}
+                onMouseLeave={() => dishCoveryHandleHover('avatar', false)}
+              >
+                {dishCoveryUser?.photo ? (
+                  <img 
+                    src={dishCoveryUser.photo} 
+                    alt="User profile" 
+                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <svg className="user-icon" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                  </svg>
+                )}
+              </button>
+              {dishCoveryShowAvatarDropdown && (
+                <div className="avatar-dropdown">
+                  <a href="/user-profile" className="dropdown-item">User Profile</a>
+                  <a href="/settings" className="dropdown-item">Settings</a>
+                  <button className="dropdown-item logout-btn" onClick={dishCoveryHandleLogout}>Sign Out</button>
+                </div>
+              )}
             </div>
+          )}
+          <button className="hamburger-btn" onClick={dishCoveryToggleMobileMenu}>
+            <svg className="hamburger-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Menu */}
+      {dishCoveryShowMobileMenu && (
+        <div className="mobile-menu">
+          <div className="mobile-menu-header">
+            <span className="mobile-menu-logo">DishCovery</span>
+            <button className="close-mobile-menu" onClick={dishCoveryToggleMobileMenu}>
+              <svg viewBox="0 0 24 24" fill="currentColor" className="close-icon">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
           </div>
-          
-          <div className="header-center">
+          <div className="mobile-menu-content">
+            {dishCoveryNavLinks.map((link) => (
+              <a
+                key={link.name}
+                href={link.href}
+                className={`mobile-nav-link ${link.active ? 'mobile-nav-link-active' : ''}`}
+                onClick={() => setDishCoveryShowMobileMenu(false)}
+              >
+                {link.name}
+              </a>
+            ))}
+            {!dishCoveryIsLoggedIn ? (
+              <>
+                <button className="mobile-nav-link mobile-scan-btn" onClick={dishCoveryHandleScanClick}>
+                  <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                  Scan Ingredients
+                </button>
+                <button className="mobile-nav-link mobile-sign-in-btn" onClick={dishCoveryHandleSignInClick}>
+                  Sign In
+                </button>
+              </>
+            ) : (
+              <>
+                <a href="/user/favorites" className="mobile-nav-link" onClick={() => setDishCoveryShowMobileMenu(false)}>Favorites</a>
+                <a href="/user-profile" className="mobile-nav-link" onClick={() => setDishCoveryShowMobileMenu(false)}>Profile</a>
+                <button className="mobile-nav-link logout-btn" onClick={dishCoveryHandleLogout}>Logout</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="main-content">
+        {/* Page Header */}
+        <div className="page-header">
+          <h1 className="page-title">Recommended Recipes</h1>
+          <p className="page-subtitle">
+            Explore our collection of professionally verified recipes with detailed ingredients and alternatives
+          </p>
+        </div>
+
+        {/* Enhanced Controls with DishCovery Search */}
+        <div className="controls-container">
+          {/* DishCovery Search Section */}
+          <div className="search-section">
             <div className="search-container">
-              <FontAwesomeIcon icon={faSearch} className="search-icon" />
+              <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
               <input
                 type="text"
-                placeholder="Search meals (e.g. Full Meal, Dessert, Snack, Drink)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search recipes..."
+                value={dishCoverySearchQuery}
+                onChange={(e) => setDishCoverySearchQuery(e.target.value)}
                 className="search-input"
               />
             </div>
           </div>
 
-          <div className="header-right">
-            <nav className="nav-links">
-              <a href="#home" className="nav-link">Home</a>
-              <a href="#recipes" className="nav-link active">Recipes</a>
-              <a href="#scan" className="nav-link">Scan</a>
-            </nav>
-            <div className="user-profile">
-              <img 
-                src="https://via.placeholder.com/32x32?text=U" 
-                alt="User Profile" 
-                className="profile-img"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div 
-          id="mobile-nav-menu"
-          className={`mobile-nav-menu ${isMobileMenuOpen ? 'open' : ''}`}
-        >
-          <nav className="mobile-nav-links">
-            <a 
-              href="#home" 
-              className="mobile-nav-link"
-              onClick={() => handleNavLinkClick('#home')}
-            >
-              Home
-            </a>
-            <a 
-              href="#recipes" 
-              className="mobile-nav-link active"
-              onClick={() => handleNavLinkClick('#recipes')}
-            >
-              Recipes
-            </a>
-            <a 
-              href="#scan" 
-              className="mobile-nav-link"
-              onClick={() => handleNavLinkClick('#scan')}
-            >
-              Scan
-            </a>
-          </nav>
-        </div>
-      </header>
-
-      <div className="main-container">
-        <aside className="sidebar">
-          <div className="mobile-filter-dropdown">
-            <button 
-              className={`filter-dropdown-button ${isFilterDropdownOpen ? 'open' : ''}`}
-              onClick={toggleFilterDropdown}
-              aria-expanded={isFilterDropdownOpen}
-              aria-controls="filter-dropdown-content"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="filter-section">
+            {/* Filter Dropdown */}
+            <div className="filter-dropdown">
+              <button
+                className="filter-button"
+                onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+              >
                 <FontAwesomeIcon icon={faFilter} />
-                <span>Filters</span>
+                Filters
                 {getActiveFilterCount() > 0 && (
-                  <span className={`filter-count-badge ${getActiveFilterCount() > 0 ? 'show' : ''}`}>
+                  <span className="filter-count-badge">
                     {getActiveFilterCount()}
                   </span>
                 )}
-              </div>
-              <FontAwesomeIcon 
-                icon={faChevronDown} 
-                className="filter-dropdown-icon"
-              />
-            </button>
-            
-            <div 
-              id="filter-dropdown-content"
-              className={`filter-dropdown-content ${isFilterDropdownOpen ? 'open' : ''}`}
-            >
-              {Object.entries(filterOptions).map(([categoryKey, category]) => (
-                <div key={categoryKey} className="mobile-filter-group">
-                  <div className="mobile-filter-category">{category.title}</div>
-                  {category.options.map((option) => (
-                    <label key={option.key} className="mobile-filter-item">
-                      <input 
-                        type="checkbox" 
-                        checked={filters[categoryKey][option.key]}
-                        onChange={() => handleFilterChange(categoryKey, option.key)}
-                      />
-                      <span className="mobile-filter-text">{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
+                <FontAwesomeIcon icon={faChevronDown} />
+              </button>
 
-          <div className="filters-section">
-            <h3 className="filters-title">Filters</h3>
-            
-            <div className="filter-group">
-              <h4 className="filter-category">Meal Type</h4>
-              {filterOptions.mealType.options.map((option) => (
-                <label key={option.key} className="filter-item">
-                  <input 
-                    type="checkbox" 
-                    checked={filters.mealType[option.key]}
-                    onChange={() => handleFilterChange('mealType', option.key)}
-                  />
-                  <span className="filter-text">{option.label}</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="filter-group">
-              <h4 className="filter-category">Dish Type</h4>
-              {filterOptions.dishType.options.map((option) => (
-                <label key={option.key} className="filter-item">
-                  <input 
-                    type="checkbox" 
-                    checked={filters.dishType[option.key]}
-                    onChange={() => handleFilterChange('dishType', option.key)}
-                  />
-                  <span className="filter-text">{option.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </aside>
-
-        <main className="main-content">
-          <div className="content-header">
-            <h2 className="page-title">Recommended Recipes</h2>
-          </div>
-          
-          {error && (
-            <div className="error-message" style={{ 
-              color: 'red', 
-              textAlign: 'center', 
-              padding: '20px',
-              backgroundColor: '#ffebee',
-              borderRadius: '4px',
-              margin: '20px 0'
-            }}>
-              {error}
-            </div>
-          )}
-          
-          {loading && recipes.length === 0 ? (
-            <div className="loading-spinner" style={{ 
-              textAlign: 'center', 
-              padding: '40px',
-              fontSize: '18px'
-            }}>
-              Loading recipes...
-            </div>
-          ) : (
-            <div className="recipes-grid">
-              {recipes.map((recipe) => (
-                <div key={recipe.id} className="recipe-card" onClick={() => openModal(recipe)}>
-                  <div className="recipe-image-container">
-                    <img 
-                      src={recipe.image} 
-                      alt={recipe.title}
-                      className="recipe-image"
-                    />
-                  </div>
-                  <div className="recipe-content">
-                    <div className="recipe-rating">
-                      {renderStars(recipe.rating)}
-                    </div>
-                    <h3 className="recipe-title">{recipe.title}</h3>
-                    <div className="recipe-meta">
-                      <span className="recipe-time">{recipe.time}</span>
-                      <div className="recipe-actions">
-                        <button className="action-btn like-btn">
-                          <FontAwesomeIcon icon={faHeart} />
-                          <span>{recipe.likes}</span>
-                        </button>
-                        <button className="action-btn comment-btn">
-                          <FontAwesomeIcon icon={faComment} />
-                          <span>{recipe.comments}</span>
-                        </button>
+              {isFilterDropdownOpen && (
+                <div className="filter-dropdown-content">
+                  {Object.entries(filterOptions).map(([category, options]) => (
+                    <div key={category} className="filter-section">
+                      <h4 className="filter-section-title">
+                        {category.replace('Tags', ' Tags')}
+                      </h4>
+                      <div className="filter-options">
+                        {options.map(option => (
+                          <label key={option} className="filter-option">
+                            <input
+                              type="checkbox"
+                              className="filter-checkbox"
+                              checked={filters[category].includes(option)}
+                              onChange={() => handleFilterChange(category, option)}
+                            />
+                            {option}
+                          </label>
+                        ))}
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-          
-          {hasMore && (
-            <div className="load-more-container">
-              <button 
-                className="load-more-btn" 
-                onClick={handleLoadMore}
-                disabled={loading}
+
+            {/* DishCovery View Toggle */}
+            <div className="view-toggle">
+              <button
+                className={`view-btn ${dishCoveryViewMode === 'grid' ? 'view-btn-active' : ''}`}
+                onClick={() => setDishCoveryViewMode('grid')}
               >
-                {loading ? 'Loading...' : 'Load More'}
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>
+                </svg>
+              </button>
+              <button
+                className={`view-btn ${dishCoveryViewMode === 'list' ? 'view-btn-active' : ''}`}
+                onClick={() => setDishCoveryViewMode('list')}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                </svg>
               </button>
             </div>
-          )}
-        </main>
+          </div>
+        </div>
 
-        <nav className="mobile-bottom-nav">
-          <a 
-            href="/ph" 
-            className="bottom-nav-link" 
-            onClick={(e) => { 
-              e.preventDefault(); 
-              handleNavLinkClick('/ph', navLinks[0].onClick); 
-            }}
-          >
-            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
-            </svg>
-            Home
-          </a>
-          <a 
-            href="/pantry" 
-            className="bottom-nav-link" 
-            onClick={(e) => { 
-              e.preventDefault(); 
-              handleNavLinkClick('/pantry'); 
-            }}
-          >
-            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 7H5c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm0 8H5V9h14v6z"/>
-              <path d="M12 15c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/>
-            </svg>
-            My Pantry
-          </a>
-          <button 
-            className="bottom-nav-scan" 
-            onClick={handleScanClick}
-          >
-            <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-            </svg>
-          </button>
-          <a 
-            href="/favorites" 
-            className="bottom-nav-link" 
-            onClick={(e) => { 
-              e.preventDefault(); 
-              handleNavLinkClick('/favorites'); 
-            }}
-          >
-            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
-            Favorites
-          </a>
-          <a 
-            href="/user-profile" 
-            className="bottom-nav-link" 
-            onClick={(e) => { 
-              e.preventDefault(); 
-              handleNavLinkClick('/user-profile'); 
-            }}
-          >
-            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-            </svg>
-            User
-          </a>
-        </nav>
-      </div>
+        {/* Loading State */}
+        {loading && recipes.length === 0 && (
+          <div className="loading-container">
+            Loading delicious recipes...
+          </div>
+        )}
 
-      <footer className="footer">
-        <div className="footer-left">
-          <div className="footer-logo">
-            <div className="footer-logo-container" aria-label="DishCovery Logo"></div>
+        {/* Error State */}
+        {error && (
+          <div className="error-container">
+            {error}
           </div>
-          <p className="footer-description">
-            Creating delicious meals with AI-powered personalized recipes tailored to your ingredients and preferences.
-          </p>
-        </div>
-        <div className="footer-middle">
-          <div className="quick-links">
-            <h3 className="footer-title">Quick Links</h3>
-            <ul className="footer-links">
-              <li>
-                <a href="#home">
-                  <FontAwesomeIcon icon={quickLinkIcons.home} className="footer-link-icon" />
-                  Home
-                </a>
-              </li>
-              <li>
-                <a href="#about">
-                  <FontAwesomeIcon icon={quickLinkIcons.about} className="footer-link-icon" />
-                  About Us
-                </a>
-              </li>
-              <li>
-                <a href="#create">
-                  <FontAwesomeIcon icon={quickLinkIcons.create} className="footer-link-icon" />
-                  Create Recipe
-                </a>
-              </li>
-              <li>
-                <a href="#myrecipes">
-                  <FontAwesomeIcon icon={quickLinkIcons.myrecipes} className="footer-link-icon" />
-                  My Recipes
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div className="support-links">
-            <h3 className="footer-title">Support</h3>
-            <ul className="footer-links">
-              <li>
-                <a href="#help">
-                  <FontAwesomeIcon icon={supportLinkIcons.help} className="footer-link-icon" />
-                  Help Center
-                </a>
-              </li>
-              <li>
-                <a href="#faqs">
-                  <FontAwesomeIcon icon={supportLinkIcons.faqs} className="footer-link-icon" />
-                  FAQs
-                </a>
-              </li>
-              <li>
-                <a href="#contact">
-                  <FontAwesomeIcon icon={supportLinkIcons.contact} className="footer-link-icon" />
-                  Contact Us
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div className="footer-right">
-          <h3 className="footer-title">Contact Us</h3>
-          <div className="contact-form">
-            <input type="email" placeholder="Your Email" className="contact-input" />
-            <button type="submit" className="subscribe-btn">Subscribe</button>
-          </div>
-        </div>
-        <div className="footer-social">
-          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
-            <FontAwesomeIcon icon={faInstagram} />
-          </a>
-          <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">
-            <FontAwesomeIcon icon={faFacebook} />
-          </a>
-          <a href="https://twitter.com" target="_blank" rel="noopener noreferrer">
-            <FontAwesomeIcon icon={faTwitter} />
-          </a>
-          <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">
-            <FontAwesomeIcon icon={faLinkedin} />
-          </a>
-        </div>
-        <div className="footer-bottom">
-          <p>© 2025 DishCovery. All rights reserved.</p>
-        </div>
-      </footer>
+        )}
 
+        {/* Empty State */}
+        {!loading && !error && displayRecipes.length === 0 && (
+          <div className="empty-container">
+            No recipes found matching your criteria. Try adjusting your filters.
+          </div>
+        )}
+
+        {/* Recipes Display */}
+        {!loading && displayRecipes.length > 0 && (
+          <div className={`recipes-container ${dishCoveryViewMode === 'grid' ? 'recipes-grid' : 'recipes-list'}`}>
+            {displayRecipes.map(recipe => (
+              <div
+                key={recipe.id}
+                className={`recipe-card ${dishCoveryViewMode === 'list' ? 'list-view' : ''}`}
+                onClick={() => openModal(recipe)}
+              >
+                {/* Recipe Image */}
+                <div className="recipe-image-container">
+                  <img
+                    src={Array.isArray(recipe.images) ? recipe.images[0] : recipe.images}
+                    alt={recipe.title}
+                    className="recipe-image"
+                    onError={(e) => { 
+                      e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
+                    }}
+                  />
+                  
+                  {/* Verification Badge */}
+                  <div className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai-generated' : 'verified'}`}>
+                    <FontAwesomeIcon icon={getVerificationIcon(recipe.verificationStatus)} />
+                  </div>
+
+                  {/* Health Badge */}
+                  {recipe.healthTags.length > 0 && (
+                    <div className="health-badge">
+                      <FontAwesomeIcon icon={faAward} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Recipe Content */}
+                <div className="recipe-content">
+                  {/* Rating */}
+                  <div className="recipe-rating">
+                    {renderStars(recipe.rating)}
+                    <span className="rating-value">({recipe.rating})</span>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="recipe-title">{recipe.title}</h3>
+
+                  {/* Description */}
+                  <p className="recipe-description">{recipe.description}</p>
+
+                  {/* Meta Info */}
+                  <div className="recipe-meta">
+                    <div className="recipe-meta-info">
+                      <div className="meta-item">
+                        <FontAwesomeIcon icon={faClock} />
+                        {recipe.cookTime}
+                      </div>
+                      <div className="meta-item">
+                        <FontAwesomeIcon icon={faUsers} />
+                        {recipe.servings} servings
+                      </div>
+                    </div>
+                    
+                    <span className="meal-type-badge">
+                      {recipe.mealType}
+                    </span>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="recipe-tags">
+                    <div className="tags-container">
+                      {recipe.dietaryTags.slice(0, 2).map(tag => (
+                        <span key={tag} className="recipe-tag dietary">
+                          {tag}
+                        </span>
+                      ))}
+                      {recipe.healthTags.slice(0, 1).map(tag => (
+                        <span key={tag} className="recipe-tag health">
+                          {tag}
+                        </span>
+                      ))}
+                      {(recipe.dietaryTags.length + recipe.healthTags.length) > 3 && (
+                        <span className="tags-more">
+                          +{(recipe.dietaryTags.length + recipe.healthTags.length) - 3} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Engagement */}
+                  <div className="recipe-engagement">
+                    <div className="engagement-item">
+                      <FontAwesomeIcon icon={faEye} />
+                      {recipe.engagement.tried} tried
+                    </div>
+                    <div className="engagement-item">
+                      <FontAwesomeIcon icon={faHeartRegular} />
+                      {recipe.engagement.saved} saved
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Load More Button (for API pagination) */}
+        {hasMore && !loading && recipes.length > 0 && (
+          <div className="load-more-container" style={{ textAlign: 'center', marginTop: '32px' }}>
+            <button 
+              className="load-more-btn" 
+              onClick={handleLoadMore}
+              disabled={loading}
+              style={{
+                background: '#2E7D32',
+                color: 'white',
+                border: 'none',
+                borderRadius: '20px',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontFamily: 'Poppins, sans-serif'
+              }}
+            >
+              {loading ? 'Loading...' : 'Load More Recipes'}
+            </button>
+          </div>
+        )}
+      </main>
+
+      {/* Modal */}
       {isModalOpen && selectedRecipe && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -778,92 +955,232 @@ const RecipePage = () => {
               <FontAwesomeIcon icon={faTimes} />
             </button>
             
-            <h1 className="modal-title">{selectedRecipe.title}</h1>
+            {/* Modal Header */}
+            <div className="modal-header">
+              <h1 className="modal-title">{selectedRecipe.title}</h1>
+              <p className="modal-subtitle">{selectedRecipe.description}</p>
+            </div>
             
+            {/* Modal Body */}
             <div className="modal-body">
+              {/* Left Column - Image and Verification */}
               <div className="modal-left">
+                {/* Image Gallery */}
                 <div className="modal-image-container">
-                  <img src={selectedRecipe.image} alt={selectedRecipe.title} className="modal-image" />
+                  <img 
+                    src={Array.isArray(selectedRecipe.images) ? selectedRecipe.images[currentImageIndex] : selectedRecipe.images} 
+                    alt={selectedRecipe.title} 
+                    className="modal-image" 
+                    onError={(e) => { 
+                      e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
+                    }}
+                  />
+                  {Array.isArray(selectedRecipe.images) && selectedRecipe.images.length > 1 && (
+                    <>
+                      <button className="image-nav prev" onClick={prevImage}>
+                        <FontAwesomeIcon icon={faChevronLeft} />
+                      </button>
+                      <button className="image-nav next" onClick={nextImage}>
+                        <FontAwesomeIcon icon={faChevronRight} />
+                      </button>
+                      <div className="image-indicators">
+                        {selectedRecipe.images.map((_, index) => (
+                          <button
+                            key={index}
+                            className={`indicator ${index === currentImageIndex ? 'active' : ''}`}
+                            onClick={() => setCurrentImageIndex(index)}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
                 
-                <p className="modal-description">{selectedRecipe.description}</p>
-                
-                <div className="modal-health-check">
-                  <span className="modal-health-tag">Healthy Meal</span>
-                  <span className="modal-checked">Checked by Dr. Sarah Johnson, Nutritionist</span>
+                {/* Verification Section */}
+                <div className="verification-section">
+                  <div className="verification-main">
+                    <FontAwesomeIcon 
+                      className="verification-icon"
+                      icon={getVerificationIcon(selectedRecipe.verificationStatus)}
+                    />
+                    <span className="verification-status">
+                      {selectedRecipe.verificationStatus === 'AI-generated' 
+                        ? 'AI Generated Recipe' 
+                        : 'Professionally Verified'
+                      }
+                    </span>
+                  </div>
+                  {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
+                    <div className="verifier-details">
+                      <span className="verifier-name">
+                        Verified by: {selectedRecipe.verifierName}
+                      </span>
+                      {selectedRecipe.verifierCredentials && (
+                        <span className="verifier-credentials">
+                          {selectedRecipe.verifierCredentials}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
+                {/* Recipe Statistics */}
                 <div className="modal-stats">
-                  <span><FontAwesomeIcon icon={faCheck} /> {selectedRecipe.tried || 0} people tried this</span>
-                  <span><FontAwesomeIcon icon={faHeart} /> {selectedRecipe.likes || 0} people saved this</span>
+                  <div className="stat-item">
+                    <FontAwesomeIcon icon={faEye} className="stat-icon" />
+                    <span className="stat-value">{selectedRecipe.engagement.tried} people tried this</span>
+                  </div>
+                  <div className="stat-item">
+                    <FontAwesomeIcon icon={faBookmark} className="stat-icon" />
+                    <span className="stat-value">{selectedRecipe.engagement.saved} people saved this</span>
+                  </div>
                 </div>
               </div>
               
+              {/* Center Column - Instructions */}
+              <div className="modal-center">
+                <div className="instructions-section">
+                  <h3 className="section-title">Step-by-Step Instructions</h3>
+                  <div className="instructions-list">
+                    {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
+                      <div key={index} className="instruction-step">
+                        <span className="step-number">{index + 1}</span>
+                        <span className="step-text">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Right Column - Tags and Ingredients */}
               <div className="modal-right">
-                <div className="modal-section">
-                  <div className="section-title">Dietary Tags:</div>
-                  <div className="tag-container">
-                    {selectedRecipe.dietaryTags && selectedRecipe.dietaryTags.map((tag, index) => (
-                      <span key={index} className="modal-tag dietary-tag">{tag}</span>
-                    ))}
+                {/* Dietary Information */}
+                {selectedRecipe.dietaryTags && selectedRecipe.dietaryTags.length > 0 && (
+                  <div className="modal-section">
+                    <h3 className="section-title">Dietary Tags</h3>
+                    <div className="modal-tags">
+                      {selectedRecipe.dietaryTags.map((tag, index) => (
+                        <span key={index} className="modal-tag dietary">{tag}</span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                <div className="modal-section">
-                  <div className="section-title">Health Tags:</div>
-                  <div className="tag-container">
-                    {selectedRecipe.healthTags && selectedRecipe.healthTags.map((tag, index) => (
-                      <span key={index} className="modal-tag health-tag">{tag}</span>
-                    ))}
+                {/* Health Benefits */}
+                {selectedRecipe.healthTags && selectedRecipe.healthTags.length > 0 && (
+                  <div className="modal-section">
+                    <h3 className="section-title">Health Benefits</h3>
+                    <div className="modal-tags">
+                      {selectedRecipe.healthTags.map((tag, index) => (
+                        <span key={index} className="modal-tag health">
+                          <FontAwesomeIcon icon={faAward} />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                <div className="ingredients-grid">
-                  <div className="ingredient-column">
-                    <div className="section-title">Main ingredients:</div>
-                    <div className="ingredients-list">
-                      {selectedRecipe.ingredients?.main?.map((ingredient, index) => (
-                        <div key={index} className="ingredient-item">{ingredient}</div>
-                      ))}
-                    </div>
+                {/* Ingredients Section */}
+                <div className="modal-section">
+                  <h3 className="section-title">Ingredients</h3>
+                  <div className="ingredients-grid">
+                    {['main', 'condiments', 'optional'].map((category, categoryIndex) => {
+                      const ingredients = selectedRecipe.ingredients[category];
+                      if (!ingredients || ingredients.length === 0) return null;
+                      
+                      return (
+                        <div key={category} className="ingredient-category">
+                          <h4 className="ingredient-category-title">
+                            {category === 'main' ? 'Main Ingredients' : 
+                             category === 'condiments' ? 'Condiments & Seasonings' : 'Optional Ingredients'}
+                          </h4>
+                          <div className="ingredient-list">
+                            {ingredients.map((item, index) => {
+                              const ingredient = typeof item === 'string' ? item : item.ingredient;
+                              const alternative = typeof item === 'object' ? item.alternative : '';
+                              const showAltKey = `${categoryIndex}-${index}`;
+                              
+                              return (
+                                <div key={index} className="ingredient-item">
+                                  <div className="ingredient-main">
+                                    <span>{ingredient}</span>
+                                    {alternative && (
+                                      <button 
+                                        className="alternative-button"
+                                        onClick={() => toggleAlternative(categoryIndex, index)}
+                                        title="Show alternative ingredient"
+                                      >
+                                        <FontAwesomeIcon icon={faExchangeAlt} />
+                                      </button>
+                                    )}
+                                  </div>
+                                  {alternative && showAlternatives[showAltKey] && (
+                                    <div className="alternative-content">
+                                      <span className="alternative-label">Alternative:</span>
+                                      <span className="alternative-text">{alternative}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-
-                  <div className="ingredient-column">
-                    <div className="section-title">Condiments:</div>
-                    <div className="ingredients-list">
-                      {selectedRecipe.ingredients?.condiments?.map((ingredient, index) => (
-                        <div key={index} className="ingredient-item">{ingredient}</div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="ingredient-column">
-                    <div className="section-title">Optional:</div>
-                    <div className="ingredients-list">
-                      {selectedRecipe.ingredients?.optional?.map((ingredient, index) => (
-                        <div key={index} className="ingredient-item">{ingredient}</div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Instructions section moved outside the modal-right div to span full width */}
-              <div className="modal-section instructions-section">
-                <div className="section-title">Instructions:</div>
-                <div className="instructions-list">
-                  {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
-                    <div key={index} className="instruction-step">
-                      <span className="step-number">{index + 1}.</span>
-                      <span className="step-text">{step}</span>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="mobile-bottom-nav">
+        <a href="/user/home" className="bottom-nav-link">
+          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+          </svg>
+          Home
+        </a>
+        
+        <a href="/user/pantry" className="bottom-nav-link">
+          <svg 
+            ref={iconRef}
+            className="nav-icon" 
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24" 
+            fill="currentColor"
+          >
+            <rect x="6" y="2" width="12" height="20" rx="2" ry="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+            <line x1="6" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="2"/>
+            <line x1="8" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="2"/>
+            <line x1="8" y1="14" x2="10" y2="14" stroke="currentColor" strokeWidth="2"/>
+          </svg>
+          My Pantry
+        </a>
+
+        <button className="bottom-nav-scan" onClick={dishCoveryHandleScanClick}>
+          <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+          </svg>
+        </button>
+        
+        <a href="/user/favorites" className="bottom-nav-link">
+          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          Favorites
+        </a>
+        
+        <a href="/user/user-profile" className="bottom-nav-link">
+          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+          </svg>
+          User
+        </a>
+      </nav>
     </div>
   );
 };
