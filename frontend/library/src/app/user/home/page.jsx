@@ -4,6 +4,7 @@ import api from './api';
 import './styles.css';
 import Link from 'next/link';
 
+
 export default function DishCoveryLanding() {
   const dishCoveryTopRef = useRef(null);
   const [dishCoveryAnimatedTextIndex, setDishCoveryAnimatedTextIndex] = useState(0);
@@ -25,6 +26,7 @@ export default function DishCoveryLanding() {
   const [dishCoveryUser, setDishCoveryUser] = useState(null);
   const [dishCoveryError, setDishCoveryError] = useState('');
   const iconRef = useRef(null);
+  const dishCoveryAvatarRef = useRef(null);
 
   const dishCoveryAnimatedWords = ['discover', 'explore', 'uncover'];
 
