@@ -17,7 +17,18 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [
+  "https://dishcovery-frontend-tau.vercel.app", // ✅ Vercel frontend
+  "http://localhost:3000" // ✅ local dev
+];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true, // allow cookies/auth headers if you use them
+  })
+);
+
 app.use(express.json());
 
 // Routes
