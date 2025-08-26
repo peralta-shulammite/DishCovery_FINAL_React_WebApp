@@ -13,7 +13,7 @@
     },
     {
       "src": "/$",
-      "dest": "/user/ph",
+      "dest": "/user/home",
       "status": 308
     },
     {
