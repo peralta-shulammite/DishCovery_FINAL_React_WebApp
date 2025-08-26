@@ -16,16 +16,22 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// ✅ CORS with fallback
 const allowedOrigins = [
-  "https://dishcovery-frontend-tau.vercel.app", // ✅ Vercel frontend
-  "http://localhost:3000" // ✅ local dev
+  "https://dishcovery-frontend-tau.vercel.app", // Vercel frontend
+  "http://localhost:3000" // local dev
 ];
 
 app.use(
   cors({
-    origin: allowedOrigins,
-    credentials: true, // allow cookies/auth headers if you use them
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
   })
 );
 
@@ -33,22 +39,27 @@ app.use(express.json());
 
 // Routes
 app.use('/api/profile', profileRouter);
-app.use('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/recipes', recipesRouter);
 app.use('/api/user/recipes', userRecipesRouter);
 app.use('/api/admin/recipes', adminRecipesRouter);
 app.use('/api/dietary-restrictions', dietaryRestrictionsRouter);
-// 🔧 FIXED: Changed from '/api/admin/auth' to '/api/admin-auth'
 app.use('/api/admin-auth', adminAuthRouter);
 
-// Database connection
-// (Initialized via pool import)
+// ✅ Improved health route (also checks DB)
+app.use('/api/health', async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT 1");
+    res.json({ status: 'ok', db: 'connected' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', db: 'not connected', error: err.message });
+  }
+});
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
   console.log('📍 Available routes:');
   console.log('   - GET  /api/health');
   console.log('   - POST /api/auth/register');
