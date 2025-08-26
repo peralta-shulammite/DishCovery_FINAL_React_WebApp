@@ -67,11 +67,6 @@ const RecipePage = () => {
   });
 
   // Original Recipe Page State management
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
-  const [viewMode, setViewMode] = useState('grid');
   const [filters, setFilters] = useState({
     mealType: [],
     dietaryTags: [],
@@ -150,7 +145,7 @@ const RecipePage = () => {
     };
     const handleClickOutside = (event) => {
       if (avatarRef.current && !avatarRef.current.contains(event.target)) {
-        setShowAvatarDropdown(false);
+        setDishCoveryShowAvatarDropdown(false);
       }
     };
     const handleEscape = (event) => {
@@ -334,7 +329,7 @@ const RecipePage = () => {
       }
       
       // Add search query if exists (use DishCovery search for consistency)
-      const searchTerm = dishCoverySearchQuery.trim() || searchQuery.trim();
+      const searchTerm = dishCoverySearchQuery.trim();
       if (searchTerm) {
         activeFilters.search = searchTerm;
       }
@@ -455,7 +450,7 @@ const RecipePage = () => {
 
   // Filter recipes based on current filters and search (for fallback data)
   const filteredRecipes = recipes.filter(recipe => {
-    const searchTerm = dishCoverySearchQuery || searchQuery;
+    const searchTerm = dishCoverySearchQuery;
     const matchesSearch = recipe.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          recipe.description.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -476,6 +471,14 @@ const RecipePage = () => {
         ? prev[category].filter(item => item !== value)
         : [...prev[category], value]
     }));
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      mealType: [],
+      dietaryTags: [],
+      healthTags: []
+    });
   };
 
   const getActiveFilterCount = () => {
@@ -558,7 +561,7 @@ const RecipePage = () => {
   };
 
   const handleLogout = () => {
-    setShowAvatarDropdown(false);
+    setDishCoveryShowAvatarDropdown(false);
     console.log("User logged out");
   };
 
@@ -566,15 +569,11 @@ const RecipePage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
   // Use API data if available, otherwise use filtered sample data
   const displayRecipes = recipes.length > 0 ? recipes : filteredRecipes;
 
   return (
-    <div ref={dishCoveryTopRef} className="recipe-container">
+    <div ref={dishCoveryTopRef} className="available-recipes-container">
       {/* Enhanced DishCovery Header Navigation */}
       <header className="header">
         <button
@@ -704,248 +703,270 @@ const RecipePage = () => {
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="main-content">
-        {/* Page Header */}
-        <div className="page-header">
-          <h1 className="page-title">Recommended Recipes</h1>
+      {/* Page Header */}
+      <div className="page-header">
+        <div className="page-title-section">
+          <h1 className="page-title">Available Recipes</h1>
           <p className="page-subtitle">
             Explore our collection of professionally verified recipes with detailed ingredients and alternatives
           </p>
         </div>
+      </div>
 
-        {/* Enhanced Controls with DishCovery Search */}
-        <div className="controls-container">
-          {/* DishCovery Search Section */}
-          <div className="search-section">
-            <div className="search-container">
-              <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-              </svg>
-              <input
-                type="text"
-                placeholder="Search recipes..."
-                value={dishCoverySearchQuery}
-                onChange={(e) => setDishCoverySearchQuery(e.target.value)}
-                className="search-input"
-              />
-            </div>
+      <div className="content-wrapper">
+        {/* Sidebar Filters */}
+        <aside className="filters-sidebar">
+          <div className="filters-title">
+            <FontAwesomeIcon icon={faFilter} />
+            Filters
           </div>
 
-          <div className="filter-section">
-            {/* Filter Dropdown */}
-            <div className="filter-dropdown">
-              <button
-                className="filter-button"
-                onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-              >
-                <FontAwesomeIcon icon={faFilter} />
-                Filters
-                {getActiveFilterCount() > 0 && (
-                  <span className="filter-count-badge">
-                    {getActiveFilterCount()}
-                  </span>
-                )}
-                <FontAwesomeIcon icon={faChevronDown} />
-              </button>
+          <select
+            value={dishCoverySortBy}
+            onChange={(e) => setDishCoverySortBy(e.target.value)}
+            className="sort-dropdown"
+          >
+            <option value="popularity">Most Popular</option>
+            <option value="rating">Highest Rated</option>
+            <option value="cookTime">Cook Time</option>
+            <option value="alphabetical">A-Z</option>
+          </select>
 
-              {isFilterDropdownOpen && (
-                <div className="filter-dropdown-content">
-                  {Object.entries(filterOptions).map(([category, options]) => (
-                    <div key={category} className="filter-section">
-                      <h4 className="filter-section-title">
-                        {category.replace('Tags', ' Tags')}
-                      </h4>
-                      <div className="filter-options">
-                        {options.map(option => (
-                          <label key={option} className="filter-option">
-                            <input
-                              type="checkbox"
-                              className="filter-checkbox"
-                              checked={filters[category].includes(option)}
-                              onChange={() => handleFilterChange(category, option)}
-                            />
-                            {option}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* DishCovery View Toggle */}
-            <div className="view-toggle">
-              <button
-                className={`view-btn ${dishCoveryViewMode === 'grid' ? 'view-btn-active' : ''}`}
-                onClick={() => setDishCoveryViewMode('grid')}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>
-                </svg>
-              </button>
-              <button
-                className={`view-btn ${dishCoveryViewMode === 'list' ? 'view-btn-active' : ''}`}
-                onClick={() => setDishCoveryViewMode('list')}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Loading State */}
-        {loading && recipes.length === 0 && (
-          <div className="loading-container">
-            Loading delicious recipes...
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="error-container">
-            {error}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && !error && displayRecipes.length === 0 && (
-          <div className="empty-container">
-            No recipes found matching your criteria. Try adjusting your filters.
-          </div>
-        )}
-
-        {/* Recipes Display */}
-        {!loading && displayRecipes.length > 0 && (
-          <div className={`recipes-container ${dishCoveryViewMode === 'grid' ? 'recipes-grid' : 'recipes-list'}`}>
-            {displayRecipes.map(recipe => (
-              <div
-                key={recipe.id}
-                className={`recipe-card ${dishCoveryViewMode === 'list' ? 'list-view' : ''}`}
-                onClick={() => openModal(recipe)}
-              >
-                {/* Recipe Image */}
-                <div className="recipe-image-container">
-                  <img
-                    src={Array.isArray(recipe.images) ? recipe.images[0] : recipe.images}
-                    alt={recipe.title}
-                    className="recipe-image"
-                    onError={(e) => { 
-                      e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
-                    }}
-                  />
-                  
-                  {/* Verification Badge */}
-                  <div className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai-generated' : 'verified'}`}>
-                    <FontAwesomeIcon icon={getVerificationIcon(recipe.verificationStatus)} />
-                  </div>
-
-                  {/* Health Badge */}
-                  {recipe.healthTags.length > 0 && (
-                    <div className="health-badge">
-                      <FontAwesomeIcon icon={faAward} />
-                    </div>
-                  )}
-                </div>
-
-                {/* Recipe Content */}
-                <div className="recipe-content">
-                  {/* Rating */}
-                  <div className="recipe-rating">
-                    {renderStars(recipe.rating)}
-                    <span className="rating-value">({recipe.rating})</span>
-                  </div>
-
-                  {/* Title */}
-                  <h3 className="recipe-title">{recipe.title}</h3>
-
-                  {/* Description */}
-                  <p className="recipe-description">{recipe.description}</p>
-
-                  {/* Meta Info */}
-                  <div className="recipe-meta">
-                    <div className="recipe-meta-info">
-                      <div className="meta-item">
-                        <FontAwesomeIcon icon={faClock} />
-                        {recipe.cookTime}
-                      </div>
-                      <div className="meta-item">
-                        <FontAwesomeIcon icon={faUsers} />
-                        {recipe.servings} servings
-                      </div>
-                    </div>
-                    
-                    <span className="meal-type-badge">
-                      {recipe.mealType}
-                    </span>
-                  </div>
-
-                  {/* Tags */}
-                  <div className="recipe-tags">
-                    <div className="tags-container">
-                      {recipe.dietaryTags.slice(0, 2).map(tag => (
-                        <span key={tag} className="recipe-tag dietary">
-                          {tag}
-                        </span>
-                      ))}
-                      {recipe.healthTags.slice(0, 1).map(tag => (
-                        <span key={tag} className="recipe-tag health">
-                          {tag}
-                        </span>
-                      ))}
-                      {(recipe.dietaryTags.length + recipe.healthTags.length) > 3 && (
-                        <span className="tags-more">
-                          +{(recipe.dietaryTags.length + recipe.healthTags.length) - 3} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Engagement */}
-                  <div className="recipe-engagement">
-                    <div className="engagement-item">
-                      <FontAwesomeIcon icon={faEye} />
-                      {recipe.engagement.tried} tried
-                    </div>
-                    <div className="engagement-item">
-                      <FontAwesomeIcon icon={faHeartRegular} />
-                      {recipe.engagement.saved} saved
-                    </div>
-                  </div>
-                </div>
+          {Object.entries(filterOptions).map(([category, options]) => (
+            <div key={category} className="filter-category">
+              <h3 className="filter-category-title">
+                {category === 'mealType' ? 'Meal Type' : 
+                 category === 'dietaryTags' ? 'Dietary Tags' : 'Health Tags'}
+              </h3>
+              <div className="filter-options">
+                {options.map(option => (
+                  <label key={option} className="filter-option">
+                    <input
+                      type="checkbox"
+                      className="filter-checkbox"
+                      checked={filters[category].includes(option)}
+                      onChange={() => handleFilterChange(category, option)}
+                    />
+                    {option}
+                  </label>
+                ))}
               </div>
-            ))}
+            </div>
+          ))}
+
+          {getActiveFilterCount() > 0 && (
+            <div className="active-filters">
+              <div className="active-filters-title">Active Filters</div>
+              <div className="active-filter-tags">
+                {Object.entries(filters).map(([category, values]) =>
+                  values.map(value => (
+                    <span key={`${category}-${value}`} className="active-filter-tag">
+                      {value}
+                      <button onClick={() => handleFilterChange(category, value)}>×</button>
+                    </span>
+                  ))
+                )}
+              </div>
+              <button className="clear-all-filters" onClick={clearAllFilters}>
+                Clear All
+              </button>
+            </div>
+          )}
+        </aside>
+
+        {/* Main Content */}
+        <main className="main-content">
+          {/* Enhanced Controls with DishCovery Search */}
+          <div className="controls-container">
+            {/* DishCovery Search Section */}
+            <div className="search-section">
+              <div className="search-container">
+                <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search recipes..."
+                  value={dishCoverySearchQuery}
+                  onChange={(e) => setDishCoverySearchQuery(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+            </div>
+
+            <div className="filter-section">
+              {/* DishCovery View Toggle */}
+              <div className="view-toggle">
+                <button
+                  className={`view-btn ${dishCoveryViewMode === 'grid' ? 'view-btn-active' : ''}`}
+                  onClick={() => setDishCoveryViewMode('grid')}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>
+                  </svg>
+                </button>
+                <button
+                  className={`view-btn ${dishCoveryViewMode === 'list' ? 'view-btn-active' : ''}`}
+                  onClick={() => setDishCoveryViewMode('list')}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
-        )}
-        
-        {/* Load More Button (for API pagination) */}
-        {hasMore && !loading && recipes.length > 0 && (
-          <div className="load-more-container" style={{ textAlign: 'center', marginTop: '32px' }}>
-            <button 
-              className="load-more-btn" 
-              onClick={handleLoadMore}
-              disabled={loading}
-              style={{
-                background: '#2E7D32',
-                color: 'white',
-                border: 'none',
-                borderRadius: '20px',
-                padding: '12px 24px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                fontFamily: 'Poppins, sans-serif'
-              }}
-            >
-              {loading ? 'Loading...' : 'Load More Recipes'}
-            </button>
-          </div>
-        )}
-      </main>
+
+          {/* Loading State */}
+          {loading && recipes.length === 0 && (
+            <div className="loading-container">
+              Loading delicious recipes...
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="error-container">
+              {error}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && !error && displayRecipes.length === 0 && (
+            <div className="empty-container">
+              No recipes found matching your criteria. Try adjusting your filters.
+            </div>
+          )}
+
+          {/* Recipes Display */}
+          {!loading && displayRecipes.length > 0 && (
+            <div className={`recipes-container ${dishCoveryViewMode === 'grid' ? 'recipes-grid' : 'recipes-list'}`}>
+              {displayRecipes.map(recipe => (
+                <div
+                  key={recipe.id}
+                  className={`recipe-card ${dishCoveryViewMode === 'list' ? 'list-view' : ''}`}
+                  onClick={() => openModal(recipe)}
+                >
+                  {/* Recipe Image */}
+                  <div className="recipe-image-container">
+                    <img
+                      src={Array.isArray(recipe.images) ? recipe.images[0] : recipe.images}
+                      alt={recipe.title}
+                      className="recipe-image"
+                      onError={(e) => { 
+                        e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
+                      }}
+                    />
+                    
+                    {/* Verification Badge */}
+                    <div className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai-generated' : 'verified'}`}>
+                      <FontAwesomeIcon icon={getVerificationIcon(recipe.verificationStatus)} />
+                    </div>
+
+                    {/* Health Badge */}
+                    {recipe.healthTags.length > 0 && (
+                      <div className="health-badge">
+                        <FontAwesomeIcon icon={faAward} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recipe Content */}
+                  <div className="recipe-content">
+                    {/* Rating */}
+                    <div className="recipe-rating">
+                      {renderStars(recipe.rating)}
+                      <span className="rating-value">({recipe.rating})</span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="recipe-title">{recipe.title}</h3>
+
+                    {/* Description */}
+                    <p className="recipe-description">{recipe.description}</p>
+
+                    {/* Meta Info */}
+                    <div className="recipe-meta">
+                      <div className="recipe-meta-info">
+                        <div className="meta-item">
+                          <FontAwesomeIcon icon={faClock} />
+                          {recipe.cookTime}
+                        </div>
+                        <div className="meta-item">
+                          <FontAwesomeIcon icon={faUsers} />
+                          {recipe.servings} servings
+                        </div>
+                      </div>
+                      
+                      <span className="meal-type-badge">
+                        {recipe.mealType}
+                      </span>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="recipe-tags">
+                      <div className="tags-container">
+                        {recipe.dietaryTags.slice(0, 2).map(tag => (
+                          <span key={tag} className="recipe-tag dietary">
+                            {tag}
+                          </span>
+                        ))}
+                        {recipe.healthTags.slice(0, 1).map(tag => (
+                          <span key={tag} className="recipe-tag health">
+                            {tag}
+                          </span>
+                        ))}
+                        {(recipe.dietaryTags.length + recipe.healthTags.length) > 3 && (
+                          <span className="tags-more">
+                            +{(recipe.dietaryTags.length + recipe.healthTags.length) - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Engagement */}
+                    <div className="recipe-engagement">
+                      <div className="engagement-item">
+                        <FontAwesomeIcon icon={faEye} />
+                        {recipe.engagement.tried} tried
+                      </div>
+                      <div className="engagement-item">
+                        <FontAwesomeIcon icon={faHeartRegular} />
+                        {recipe.engagement.saved} saved
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Load More Button (for API pagination) */}
+          {hasMore && !loading && recipes.length > 0 && (
+            <div className="load-more-container" style={{ textAlign: 'center', marginTop: '32px' }}>
+              <button 
+                className="load-more-btn" 
+                onClick={handleLoadMore}
+                disabled={loading}
+                style={{
+                  background: '#2E7D32',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '12px 24px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontFamily: 'Poppins, sans-serif'
+                }}
+              >
+                {loading ? 'Loading...' : 'Load More Recipes'}
+              </button>
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* Modal */}
       {isModalOpen && selectedRecipe && (
