@@ -9,6 +9,7 @@ import userRecipesRouter from './routes/userRecipes.js';
 import adminRecipesRouter from './routes/adminRecipes.js';
 import adminAuthRouter from './routes/adminAuth.js';
 import dietaryRestrictionsRouter from './routes/dietaryRestrictions.js';
+import pantryRouter from './routes/pantry.js';
 import pool from './db.js';
 
 dotenv.config();
@@ -46,6 +47,7 @@ app.use('/api/user/recipes', userRecipesRouter);
 app.use('/api/admin/recipes', adminRecipesRouter);
 app.use('/api/dietary-restrictions', dietaryRestrictionsRouter);
 app.use('/api/admin-auth', adminAuthRouter);
+app.use('/api/pantry', pantryRouter);
 
 // ✅ Improved health route (also checks DB)
 app.use('/api/health', async (req, res) => {
@@ -80,6 +82,11 @@ app.listen(PORT, () => {
   console.log('   - PUT  /api/dietary-restrictions/admin/:id (🔒 Update Restriction)');
   console.log('   - DELETE /api/dietary-restrictions/admin/:id (🔒 Delete Restriction)');
   console.log('   - GET  /api/dietary-restrictions/admin/pending-requests (🔒 Pending Requests)');
+  console.log('   🆕 PANTRY ROUTES:');
+  console.log('   - GET  /api/pantry/ingredients (🔒 Get All Pantry Ingredients)');
+  console.log('   - POST /api/pantry/save-selection (🔒 Save User Ingredient Selection)');
+  console.log('   - GET  /api/pantry/my-selection (🔒 Get User Previous Selection)');
+  console.log('   - POST /api/pantry/generate-recipe (🔒 Generate Recipes from Ingredients)');
 });
 
 export default app;
