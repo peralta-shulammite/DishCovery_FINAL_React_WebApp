@@ -1,9 +1,96 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import './styles.css';
 
+// Backend API service integrated directly
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+const pantryService = {
+  getAuthToken() {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('token');
+    }
+    return null;
+  },
+
+  createHeaders() {
+    const token = this.getAuthToken();
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+  },
+
+  async handleResponse(response) {
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('API Error:', data);
+      throw new Error(data.message || `HTTP error! status: ${response.status}`);
+    }
+    return data;
+  },
+
+  async getIngredients() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pantry/ingredients`, {
+        method: 'GET',
+        headers: this.createHeaders(),
+      });
+      const result = await this.handleResponse(response);
+      return result.ingredients || [];
+    } catch (error) {
+      console.error('Error fetching ingredients:', error);
+      throw error;
+    }
+  },
+
+  async saveIngredientSelection(selectedIngredients) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pantry/save-selection`, {
+        method: 'POST',
+        headers: this.createHeaders(),
+        body: JSON.stringify({ selectedIngredients })
+      });
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Error saving ingredient selection:', error);
+      throw error;
+    }
+  },
+
+  async getUserSelection() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pantry/my-selection`, {
+        method: 'GET',
+        headers: this.createHeaders(),
+      });
+      const result = await this.handleResponse(response);
+      return result.selectedIngredients || [];
+    } catch (error) {
+      console.error('Error fetching user selection:', error);
+      throw error;
+    }
+  },
+
+  async generateRecipe(selectedIngredients) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pantry/generate-recipe`, {
+        method: 'POST',
+        headers: this.createHeaders(),
+        body: JSON.stringify({ selectedIngredients })
+      });
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Error generating recipes:', error);
+      throw error;
+    }
+  }
+};
+
 export default function DishCoveryPantry() {
+  const router = useRouter();
   const dishCoveryTopRef = useRef(null);
   const dishCoveryAvatarRef = useRef(null);
   
@@ -11,7 +98,7 @@ export default function DishCoveryPantry() {
   const [dishCoveryShowSignInModal, setDishCoveryShowSignInModal] = useState(false);
   const [dishCoveryShowSignUpModal, setDishCoveryShowSignUpModal] = useState(false);
   const [dishCoveryShowOneMoreStepModal, setDishCoveryShowOneMoreStepModal] = useState(false);
-  const [dishCoveryIsLoggedIn, setDishCoveryIsLoggedIn] = useState(true); // Set to true for pantry page
+  const [dishCoveryIsLoggedIn, setDishCoveryIsLoggedIn] = useState(false);
   const [dishCoveryShowMobileMenu, setDishCoveryShowMobileMenu] = useState(false);
   const [dishCoveryShowAvatarDropdown, setDishCoveryShowAvatarDropdown] = useState(false);
   
@@ -22,12 +109,14 @@ export default function DishCoveryPantry() {
   const [dishCoverySortBy, setDishCoverySortBy] = useState('name');
   const [dishCoveryShowSortMenu, setDishCoveryShowSortMenu] = useState(false);
   
-  const [dishCoveryUser] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
-    photo: null
-  });
+  // Backend integration states
+  const [dishCoveryIngredients, setDishCoveryIngredients] = useState([]);
+  const [dishCoveryLoading, setDishCoveryLoading] = useState(true);
+  const [dishCoveryError, setDishCoveryError] = useState(null);
+  const [dishCoverySaving, setDishCoverySaving] = useState(false);
+  const [dishCoveryGenerating, setDishCoveryGenerating] = useState(false);
+  
+  const [dishCoveryUser, setDishCoveryUser] = useState(null);
 
   const dishCoveryScrollToTop = useCallback(() => {
     dishCoveryTopRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -51,22 +140,8 @@ export default function DishCoveryPantry() {
     { name: "Favorites", href: "/user/favorites" },
   ];
 
-  useEffect(() => {
-    const dishCoveryHandleClickOutside = (event) => {
-      if (dishCoveryAvatarRef.current && !dishCoveryAvatarRef.current.contains(event.target)) {
-        setDishCoveryShowAvatarDropdown(false);
-      }
-      
-      // Close sort menu when clicking outside
-      if (!event.target.closest('.sort-dropdown')) {
-        setDishCoveryShowSortMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', dishCoveryHandleClickOutside);
-    return () => document.removeEventListener('mousedown', dishCoveryHandleClickOutside);
-  }, []);
-
-  const dishCoveryIngredients = [
+  // Fallback ingredients for testing (when backend is unavailable)
+  const fallbackIngredients = [
     // Proteins
     { id: 1, name: 'Chicken Breast', category: 'Protein', image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=200&h=200&fit=crop' },
     { id: 2, name: 'Ground Beef', category: 'Protein', image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=200&h=200&fit=crop' },
@@ -110,14 +185,112 @@ export default function DishCoveryPantry() {
     { id: 32, name: 'Flour', category: 'Pantry', image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=200&h=200&fit=crop' },
   ];
 
+  // Check authentication status (DISABLED FOR TESTING)
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('userData');
+    
+    if (token && userData) {
+      try {
+        const user = JSON.parse(userData);
+        setDishCoveryUser(user);
+        setDishCoveryIsLoggedIn(true);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        setDishCoveryIsLoggedIn(false);
+      }
+    } else {
+      // TEMPORARILY DISABLED: router.push('/auth/login');
+      // For testing, set mock user and logged in state
+      setDishCoveryIsLoggedIn(true);
+      setDishCoveryUser({
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com'
+      });
+      console.log('Auth redirect disabled for testing - using mock user');
+    }
+  }, [router]);
+
+  // Load ingredients from backend with fallback
+  useEffect(() => {
+    const loadIngredients = async () => {
+      try {
+        setDishCoveryLoading(true);
+        setDishCoveryError(null);
+        
+        console.log('Loading pantry ingredients...');
+        
+        // Try to load from backend first
+        try {
+          const ingredients = await pantryService.getIngredients();
+          setDishCoveryIngredients(ingredients);
+          
+          const userSelection = await pantryService.getUserSelection();
+          setDishCoverySelectedIngredients(userSelection);
+          
+          console.log('Loaded ingredients from backend:', ingredients.length);
+        } catch (backendError) {
+          console.warn('Backend unavailable, using fallback ingredients:', backendError.message);
+          // Use fallback ingredients when backend is not available
+          setDishCoveryIngredients(fallbackIngredients);
+          setDishCoverySelectedIngredients([]);
+        }
+        
+      } catch (error) {
+        console.error('Error loading ingredients:', error);
+        setDishCoveryError('Failed to load ingredients. Using offline mode.');
+        setDishCoveryIngredients(fallbackIngredients);
+      } finally {
+        setDishCoveryLoading(false);
+      }
+    };
+
+    loadIngredients();
+  }, [dishCoveryIsLoggedIn]);
+
+  // Auto-save selection when ingredients change (with fallback for testing)
+  useEffect(() => {
+    const saveSelection = async () => {
+      if (!dishCoveryIsLoggedIn || dishCoverySelectedIngredients.length === 0) return;
+      
+      try {
+        await pantryService.saveIngredientSelection(dishCoverySelectedIngredients);
+        console.log('Selection auto-saved to backend');
+      } catch (error) {
+        console.error('Error auto-saving to backend:', error);
+        // Fallback: save to localStorage for testing
+        localStorage.setItem('selectedIngredients', JSON.stringify(dishCoverySelectedIngredients));
+        console.log('Selection saved to localStorage as fallback');
+      }
+    };
+
+    const timeoutId = setTimeout(saveSelection, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [dishCoverySelectedIngredients, dishCoveryIsLoggedIn]);
+
+  useEffect(() => {
+    const dishCoveryHandleClickOutside = (event) => {
+      if (dishCoveryAvatarRef.current && !dishCoveryAvatarRef.current.contains(event.target)) {
+        setDishCoveryShowAvatarDropdown(false);
+      }
+      
+      if (!event.target.closest('.sort-dropdown')) {
+        setDishCoveryShowSortMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', dishCoveryHandleClickOutside);
+    return () => document.removeEventListener('mousedown', dishCoveryHandleClickOutside);
+  }, []);
+
   const dishCoveryCategories = [
-  { id: 'All', name: 'All Items' },
-  { id: 'Protein', name: 'Proteins' },
-  { id: 'Vegetable', name: 'Vegetables' },
-  { id: 'Grain', name: 'Grains' },
-  { id: 'Dairy', name: 'Dairy' },
-  { id: 'Pantry', name: 'Pantry' }, // Added missing comma here
-];
+    { id: 'All', name: 'All Items' },
+    { id: 'Protein', name: 'Proteins' },
+    { id: 'Vegetable', name: 'Vegetables' },
+    { id: 'Grain', name: 'Grains' },
+    { id: 'Dairy', name: 'Dairy' },
+    { id: 'Pantry', name: 'Pantry' },
+  ];
 
   const dishCoverySortOptions = [
     { id: 'name', name: 'Name (A-Z)' },
@@ -155,23 +328,40 @@ export default function DishCoveryPantry() {
       }
     });
 
-  const dishCoveryToggleIngredient = (ingredientId) => {
+  const dishCoveryToggleIngredient = async (ingredientId) => {
     setDishCoverySelectedIngredients(prev => {
-      if (prev.includes(ingredientId)) {
-        return prev.filter(id => id !== ingredientId);
-      } else {
-        return [...prev, ingredientId];
-      }
+      const newSelection = prev.includes(ingredientId)
+        ? prev.filter(id => id !== ingredientId)
+        : [...prev, ingredientId];
+      
+      return newSelection;
     });
   };
 
-  const dishCoveryHandleGenerateRecipe = () => {
-    if (dishCoverySelectedIngredients.length > 0) {
-      const selectedNames = dishCoverySelectedIngredients.map(id => 
-        dishCoveryIngredients.find(ing => ing.id === id)?.name
-      ).join(', ');
-      console.log('Generating recipe with ingredients:', selectedNames);
-      // Here you would navigate to recipe generation page or call API
+  const dishCoveryHandleGenerateRecipe = async () => {
+    if (dishCoverySelectedIngredients.length === 0) {
+      alert('Please select some ingredients first!');
+      return;
+    }
+
+    try {
+      setDishCoveryGenerating(true);
+      
+      const result = await pantryService.generateRecipe(dishCoverySelectedIngredients);
+      
+      if (result.success) {
+        localStorage.setItem('generatedRecipes', JSON.stringify(result.recipes));
+        localStorage.setItem('usedIngredients', JSON.stringify(dishCoverySelectedIngredients));
+        router.push('/user/recipe-results');
+      } else {
+        alert(result.message || 'Failed to generate recipes');
+      }
+      
+    } catch (error) {
+      console.error('Error generating recipes:', error);
+      alert('Failed to generate recipes. Please try again.');
+    } finally {
+      setDishCoveryGenerating(false);
     }
   };
 
@@ -194,15 +384,41 @@ export default function DishCoveryPantry() {
   };
 
   const dishCoveryHandleLogout = () => {
-    // Add your logout logic here
+    localStorage.removeItem('token');
+    localStorage.removeItem('userData');
     setDishCoveryIsLoggedIn(false);
     setDishCoveryUser(null);
     setDishCoveryShowAvatarDropdown(false);
     setDishCoveryShowMobileMenu(false);
-    console.log("User logged out");
-    // Redirect to landing page
-    window.location.href = '/';
+    router.push('/');
   };
+
+  // Loading state
+  if (dishCoveryLoading) {
+    return (
+      <div className="pantry-container">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px 20px' }}>
+          <div style={{ width: '40px', height: '40px', border: '4px solid rgba(46, 125, 50, 0.1)', borderTop: '4px solid #2E7D32', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }}></div>
+          <p>Loading your pantry...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (dishCoveryError) {
+    return (
+      <div className="pantry-container">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px 20px', textAlign: 'center' }}>
+          <h2 style={{ color: '#D32F2F', marginBottom: '12px' }}>Oops! Something went wrong</h2>
+          <p style={{ marginBottom: '24px' }}>{dishCoveryError}</p>
+          <button onClick={() => window.location.reload()} style={{ background: '#2E7D32', color: 'white', border: 'none', borderRadius: '20px', padding: '12px 24px', cursor: 'pointer' }}>
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={dishCoveryTopRef} className="pantry-container">
@@ -210,7 +426,7 @@ export default function DishCoveryPantry() {
       <div className="decorative-circle circle2"></div>
       <div className="decorative-circle circle3"></div>
 
-      {/* Updated Header Navigation */}
+      {/* Header Navigation */}
       <header className="header">
         <button
           className={`logo ${dishCoveryHoverStates.logo ? 'logo-hover' : ''}`}
@@ -294,7 +510,7 @@ export default function DishCoveryPantry() {
         </div>
       </header>
 
-      {/* Updated Mobile Menu */}
+      {/* Mobile Menu */}
       {dishCoveryShowMobileMenu && (
         <div className="mobile-menu">
           <div className="mobile-menu-header">
@@ -311,12 +527,7 @@ export default function DishCoveryPantry() {
                 key={link.name}
                 href={link.href}
                 className="mobile-nav-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setDishCoveryShowMobileMenu(false);
-                  if (link.onClick) link.onClick();
-                  else document.querySelector(link.href)?.scrollIntoView({ behavior: 'smooth' });
-                }}
+                onClick={() => setDishCoveryShowMobileMenu(false)}
               >
                 {link.name}
               </a>
@@ -344,7 +555,7 @@ export default function DishCoveryPantry() {
         </div>
       )}
 
-      {/* Updated Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation */}
       <nav className="mobile-bottom-nav">
         <Link href="/user/home" className="bottom-nav-link">
           <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -354,12 +565,7 @@ export default function DishCoveryPantry() {
         </Link>
         
         <Link href="/user/pantry" className="bottom-nav-link bottom-nav-active">
-          <svg 
-            className="nav-icon" 
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24" 
-            fill="currentColor"
-          >
+          <svg className="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
             <rect x="6" y="2" width="12" height="20" rx="2" ry="2" stroke="currentColor" strokeWidth="2" fill="none"/>
             <line x1="6" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="2"/>
             <line x1="8" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="2"/>
@@ -420,12 +626,7 @@ export default function DishCoveryPantry() {
                 onChange={(e) => setDishCoverySearchTerm(e.target.value)}
               />
               {dishCoverySearchTerm && (
-                <button 
-                  className="clear-search" 
-                  onClick={() => setDishCoverySearchTerm('')}
-                >
-                  ×
-                </button>
+                <button className="clear-search" onClick={() => setDishCoverySearchTerm('')}>×</button>
               )}
             </div>
             
@@ -443,10 +644,7 @@ export default function DishCoveryPantry() {
               ))}
               
               {dishCoverySelectedCategory !== 'All' && (
-                <button
-                  className="clear-filters-btn"
-                  onClick={() => setDishCoverySelectedCategory('All')}
-                >
+                <button className="clear-filters-btn" onClick={() => setDishCoverySelectedCategory('All')}>
                   <svg viewBox="0 0 24 24" fill="currentColor" style={{width: '12px', height: '12px'}}>
                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                   </svg>
@@ -563,13 +761,31 @@ export default function DishCoveryPantry() {
       {dishCoverySelectedIngredients.length > 0 && (
         <div className="generate-recipe-container">
           <button
-            className={`generate-recipe-btn ${dishCoveryHoverStates.generateBtn ? 'generate-recipe-btn-hover' : ''}`}
+            className={`generate-recipe-btn ${dishCoveryHoverStates.generateBtn ? 'generate-recipe-btn-hover' : ''} ${dishCoveryGenerating ? 'generating' : ''}`}
             onClick={dishCoveryHandleGenerateRecipe}
             onMouseEnter={() => dishCoveryHandleHover('generateBtn', true)}
             onMouseLeave={() => dishCoveryHandleHover('generateBtn', false)}
+            disabled={dishCoveryGenerating}
           >
-            Generate Recipe
-            <span className="generate-count">({dishCoverySelectedIngredients.length})</span>
+            {dishCoveryGenerating ? (
+              <>
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  borderTop: '2px solid white',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  marginRight: '8px'
+                }}></div>
+                Generating...
+              </>
+            ) : (
+              <>
+                Generate Recipe
+                <span className="generate-count">({dishCoverySelectedIngredients.length})</span>
+              </>
+            )}
           </button>
         </div>
       )}
