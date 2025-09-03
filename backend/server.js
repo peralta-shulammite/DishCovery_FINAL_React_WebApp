@@ -19,22 +19,26 @@ const PORT = process.env.PORT || 5000;
 
 // ✅ CORS with fallback
 const allowedOrigins = [
-  "https://dishcovery-frontend-tau.vercel.app", // Vercel frontend
-  "http://localhost:3000" // local dev
+  "https://dishcovery-frontend-tau.vercel.app",
+  "http://localhost:3000"
 ];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS: " + origin));
+    }
+  },
+  credentials: true,
+}));
+
+// Handle preflight requests
+app.options('*', cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 
 app.use(express.json());
 

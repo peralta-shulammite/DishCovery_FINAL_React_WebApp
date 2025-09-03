@@ -1,4 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
 const handleResponse = async (response) => {
   if (!response.ok) {
@@ -21,7 +23,7 @@ const api = {
         console.log('👑 Trying admin login first (admin-like email)...');
         console.log('🌐 Admin endpoint: /api/admin-auth/login');
         
-        const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
+        const adminResponse = await fetch(`${API_BASE_URL}/api/admin-auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
@@ -56,7 +58,7 @@ const api = {
       console.log('👤 Trying user login...');
       console.log('🌐 User endpoint: /api/auth/login');
       
-      const userResponse = await fetch(`${API_BASE_URL}/auth/login`, {
+      const userResponse = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -83,7 +85,7 @@ const api = {
       if (!isLikelyAdmin) {
         try {
           console.log('🔄 Last resort: trying admin login...');
-          const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
+          const adminResponse = await fetch(`${API_BASE_URL}/api/admin-auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
@@ -115,7 +117,7 @@ const api = {
   },
 
   signUp: async (firstName, lastName, email, password) => {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ firstName, lastName, email, password }),
@@ -124,7 +126,7 @@ const api = {
   },
 
   verify: async (email, verificationCode) => {
-    const response = await fetch(`${API_BASE_URL}/auth/verify`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, code: verificationCode }),
@@ -144,7 +146,7 @@ const api = {
     
     if (!token) throw new Error('No token found');
     
-    const endpoint = isAdmin ? '/admin-auth/profile' : '/users/profile';
+    const endpoint = isAdmin ? '/api/admin-auth/profile' : '/api/users/profile';
     
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
