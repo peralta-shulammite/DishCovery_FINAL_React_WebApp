@@ -1,4 +1,5 @@
-
+// api.js - Fixed Authentication API for landing page
+// File: /app/user/ph/api.js
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
