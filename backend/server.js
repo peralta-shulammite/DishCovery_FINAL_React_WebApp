@@ -17,28 +17,30 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ CORS with fallback
+// ✅ CORS with regex for Vercel previews
 const allowedOrigins = [
-  "https://dishcovery-frontend-tau.vercel.app",
-  "http://localhost:3000"
+  "http://localhost:3000",
+  "https://dishcovery-frontend-tau.vercel.app", // your production domain
+  /\.vercel\.app$/ // allow all Vercel preview deployments
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.some(o =>
+      o instanceof RegExp ? o.test(origin) : o === origin
+    )) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS: " + origin));
     }
   },
   credentials: true,
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Handle preflight requests
-app.options('*', cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 
