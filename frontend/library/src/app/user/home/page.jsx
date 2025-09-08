@@ -129,7 +129,7 @@ export default function DishCoveryLanding() {
     if (!dishCoveryIsLoggedIn) {
       setDishCoveryShowSignInModal(true);
     } else {
-      window.location.href = '/user/scanning';
+      window.location.href = '/user/Scanning';
     }
     setDishCoveryShowMobileMenu(false);
   };
