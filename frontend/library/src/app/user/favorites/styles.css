@@ -1828,3 +1828,82 @@
     display: none;
   }
 }
+
+/* Add to your CSS file */
+.rating-section {
+  padding: 20px;
+  background: rgba(46, 125, 50, 0.05);
+  border-radius: 12px;
+  margin-top: 16px;
+  text-align: center;
+}
+
+.rating-section .section-title {
+  margin-bottom: 12px;
+  text-align: center;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.star-rating {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  transition: all 0.2s ease;
+  color: #e5e7eb;
+}
+
+.star-btn:hover:not(:disabled) {
+  transform: scale(1.2);
+  color: #fbbf24;
+}
+
+.star-btn.active {
+  color: #fbbf24;
+}
+
+.star-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.star-btn svg {
+  width: 28px;
+  height: 28px;
+}
+
+.rating-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #2E7D32;
+  font-weight: 500;
+  font-size: 14px;
+  animation: fadeIn 0.3s ease;
+}
+
+.rating-feedback svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Add responsive styles */
+@media (max-width: 768px) {
+  .star-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .rating-section {
+    padding: 16px;
+  }
+}

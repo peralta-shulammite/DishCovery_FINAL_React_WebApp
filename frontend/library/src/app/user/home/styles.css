@@ -473,7 +473,7 @@ body.modal-open {
 
 .animated-word {
   display: inline-block;
-  animation: textFade 6s ease-in-out infinite;
+  animation: textFade 10s ease-in-out infinite;
   font-weight: 800;
   color: #2E7D32;
   margin-right: 4px;

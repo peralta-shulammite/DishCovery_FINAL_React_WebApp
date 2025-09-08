@@ -1051,10 +1051,10 @@ const RecipePage = () => {
                     <FontAwesomeIcon icon={faEye} className="stat-icon" />
                     <span className="stat-value">{selectedRecipe.engagement.tried} people tried this</span>
                   </div>
-                  <div className="stat-item">
-                    <FontAwesomeIcon icon={faBookmark} className="stat-icon" />
-                    <span className="stat-value">{selectedRecipe.engagement.saved} people saved this</span>
-                  </div>
+                  <button className="favorite-button">
+                    <FontAwesomeIcon icon={faHeartRegular} className="favorite-icon" />
+                    <span className="favorite-text">Add to Favorites</span>
+                  </button>
                 </div>
               </div>
               
