@@ -25,6 +25,8 @@ export default function FavoritesPage() {
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAlternatives, setShowAlternatives] = useState({});
+  const [userRating, setUserRating] = useState(0);
+  const [hasRated, setHasRated] = useState(false);
 
   // Enhanced mock favorites data with full recipe details
   const [dishCoveryFavoriteRecipes, setDishCoveryFavoriteRecipes] = useState([
@@ -375,6 +377,19 @@ export default function FavoritesPage() {
     }));
   };
 
+  const handleRateRecipe = (rating) => {
+    setUserRating(rating);
+    setHasRated(true);
+    
+    // In a real app, you would save this rating to your backend
+    console.log(`User rated recipe ${selectedRecipe.id} with ${rating} stars`);
+    
+    // Optional: Show a confirmation message
+    setTimeout(() => {
+      setHasRated(false);
+    }, 2000);
+  };
+
   return (
     <div ref={dishCoveryTopRef} className="favorites-container">
       <div className="decorative-circle circle1"></div>
@@ -501,117 +516,69 @@ export default function FavoritesPage() {
               </>
             ) : (
               <>
-                <a href="/user/favorites" className="mobile-nav-link" onClick={() => setDishCoveryShowMobileMenu(false)}>Favorites</a>
-                <a href="/user-profile" className="mobile-nav-link" onClick={() => setDishCoveryShowMobileMenu(false)}>Profile</a>
-                <button className="mobile-nav-link logout-btn" onClick={dishCoveryHandleLogout}>Logout</button>
               </>
             )}
           </div>
         </div>
       )}
 
-      {/* Mobile Bottom Navigation */}
-      <nav className="mobile-bottom-nav">
-        <a href="/user/home" className="bottom-nav-link">
-          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
-          </svg>
-          Home
-        </a>
-        
-        <a href="/user/pantry" className="bottom-nav-link">
-          <svg 
-            ref={iconRef}
-            className="nav-icon" 
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24" 
-            fill="currentColor"
-          >
-            <rect x="6" y="2" width="12" height="20" rx="2" ry="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-            <line x1="6" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="2"/>
-            <line x1="8" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="2"/>
-            <line x1="8" y1="14" x2="10" y2="14" stroke="currentColor" strokeWidth="2"/>
-          </svg>
-          My Pantry
-        </a>
-
-        <button className="bottom-nav-scan" onClick={dishCoveryHandleScanClick}>
-          <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-          </svg>
-        </button>
-        
-        <a href="/user/favorites" className="bottom-nav-link bottom-nav-active">
-          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-          </svg>
-          Favorites
-        </a>
-        
-        <a href="/user/user-profile" className="bottom-nav-link">
-          <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-          </svg>
-          User
-        </a>
-      </nav>
-
+      {/* Favorites Content */}
       <main className="favorites-main-content">
+        {/* Favorites Header */}
         <div className="favorites-header">
           <div className="page-title-section">
-            <h1 className="page-title">My Favorite Recipes</h1>
-            <p className="page-subtitle">Your personalized collection of saved meals</p>
+            <h1 className="page-title">Your Favorite Recipes</h1>
+            <p className="page-subtitle">Discover and manage your saved healthy meals</p>
           </div>
 
-          {dishCoveryFavoriteRecipes.length > 0 && (
-            <div className="favorites-controls">
-              <div className="search-section">
-                <div className="search-container">
-                  <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Search your favorite recipes..."
-                    value={dishCoverySearchQuery}
-                    onChange={(e) => setDishCoverySearchQuery(e.target.value)}
-                    className="search-input"
-                  />
-                </div>
-              </div>
-
-              <div className="filter-section">
-                <select
-                  value={dishCoverySortBy}
-                  onChange={(e) => setDishCoverySortBy(e.target.value)}
-                  className="sort-dropdown"
-                >
-                  <option value="dateSaved">Recently Saved</option>
-                  <option value="prepTime">Prep Time</option>
-                  <option value="alphabetical">A-Z</option>
-                </select>
-
-                <div className="view-toggle">
-                  <button
-                    className={`view-btn ${dishCoveryViewMode === 'grid' ? 'view-btn-active' : ''}`}
-                    onClick={() => setDishCoveryViewMode('grid')}
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>
-                    </svg>
-                  </button>
-                  <button
-                    className={`view-btn ${dishCoveryViewMode === 'list' ? 'view-btn-active' : ''}`}
-                    onClick={() => setDishCoveryViewMode('list')}
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-                    </svg>
-                  </button>
-                </div>
+          {/* Controls */}
+          <div className="favorites-controls">
+            <div className="search-section">
+              <div className="search-container">
+                <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search favorites..."
+                  value={dishCoverySearchQuery}
+                  onChange={(e) => setDishCoverySearchQuery(e.target.value)}
+                  className="search-input"
+                />
               </div>
             </div>
-          )}
+
+            <div className="filter-section">
+              <select
+                value={dishCoverySortBy}
+                onChange={(e) => setDishCoverySortBy(e.target.value)}
+                className="sort-dropdown"
+              >
+                <option value="dateSaved">Recently Saved</option>
+                <option value="prepTime">Prep Time</option>
+                <option value="alphabetical">A-Z</option>
+              </select>
+
+              <div className="view-toggle">
+                <button
+                  className={`view-btn ${dishCoveryViewMode === 'grid' ? 'view-btn-active' : ''}`}
+                  onClick={() => setDishCoveryViewMode('grid')}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>
+                  </svg>
+                </button>
+                <button
+                  className={`view-btn ${dishCoveryViewMode === 'list' ? 'view-btn-active' : ''}`}
+                  onClick={() => setDishCoveryViewMode('list')}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {dishCoveryFilteredAndSortedRecipes.length === 0 ? (
@@ -866,6 +833,32 @@ export default function FavoritesPage() {
                           {selectedRecipe.verifierCredentials}
                         </span>
                       )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rating-section">
+                  <h3 className="section-title">Rate this Recipe</h3>
+                  <div className="star-rating">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        className={`star-btn ${star <= userRating ? 'active' : ''}`}
+                        onClick={() => handleRateRecipe(star)}
+                        disabled={hasRated}
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                  {hasRated && (
+                    <div className="rating-feedback">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                      Thanks for your rating!
                     </div>
                   )}
                 </div>
