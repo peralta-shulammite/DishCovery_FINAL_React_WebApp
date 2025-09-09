@@ -754,41 +754,71 @@ const IngredientScanner = () => {
       )}
 
       {showHelpModal && (
-        <div className="modal-overlay">
-          <div className="modal-container">
-            <div className="modal-header">
-              <h2>Help - Ingredient Scanner</h2>
-              <button className="close-button" onClick={closeHelpModal}>
+        <div className="help-modal-overlay">
+          <div className="help-modal-container">
+            <div className="help-modal-header">
+              <h1 className="help-modal-title">Ingredient Scanner Help</h1>
+              <button className="help-close-button" onClick={closeHelpModal}>
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
-            <div className="modal-content" style={{ padding: '1.5rem' }}>
-              <h3>How to Use the Ingredient Scanner</h3>
-              <ol>
-                <li>Point the camera at your ingredients with good lighting.</li>
-                <li>Keep ingredients separated and visible.</li>
-                <li>Press "Scan Ingredient" to capture and analyze the image.</li>
-                <li>Review detected ingredients and adjust selections as needed.</li>
-                <li>Add any missed ingredients manually.</li>
-                <li>Click "Generate Recipe" to proceed with selected ingredients.</li>
-              </ol>
+            
+            <div className="help-modal-content">
+              <div className="help-section">
+                <h2 className="help-section-title">How to Use the Ingredient Scanner</h2>
+                <ul className="help-steps">
+                  <li className="help-step">
+                    <div className="help-step-number">1</div>
+                    <p className="help-step-text">Point the camera at your ingredients with good lighting.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">2</div>
+                    <p className="help-step-text">Keep ingredients separated and visible.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">3</div>
+                    <p className="help-step-text">Press "Scan Ingredient" to capture and analyze the image.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">4</div>
+                    <p className="help-step-text">Review detected ingredients and adjust selections as needed.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">5</div>
+                    <p className="help-step-text">Add any missed ingredients manually.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">6</div>
+                    <p className="help-step-text">Click "Generate Recipe" to proceed with selected ingredients.</p>
+                  </li>
+                </ul>
+              </div>
 
-              <h3>Tips for Better Detection</h3>
-              <ul>
-                <li>Use bright, even lighting for best results.</li>
-                <li>Place ingredients on a plain, contrasting background.</li>
-                <li>Keep ingredients separated and fully visible.</li>
-                <li>Hold the camera steady during scanning.</li>
-                <li>For small items, move the camera closer.</li>
-              </ul>
-
-              <h3>Troubleshooting</h3>
-              <ul>
-                <li>If detection is inaccurate, try different lighting or angles.</li>
-                <li>Manually add or remove ingredients as needed.</li>
-                <li>For best results, scan 3-5 ingredients at a time.</li>
-                <li>Restart the app if performance issues occur.</li>
-              </ul>
+              <div className="help-section">
+                <h2 className="help-section-title">Tips for Better Detection</h2>
+                <ul className="help-steps">
+                  <li className="help-step">
+                    <div className="help-step-number">1</div>
+                    <p className="help-step-text">Use bright, even lighting for best results.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">2</div>
+                    <p className="help-step-text">Place ingredients on a plain, contrasting background.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">3</div>
+                    <p className="help-step-text">Keep ingredients separated and fully visible.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">4</div>
+                    <p className="help-step-text">Hold the camera steady during scanning.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">5</div>
+                    <p className="help-step-text">For small items, move the camera closer.</p>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
