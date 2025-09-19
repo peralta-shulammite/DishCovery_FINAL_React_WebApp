@@ -39,6 +39,7 @@ import {
 } from '@fortawesome/free-regular-svg-icons';
 import { recipeAPI } from './api'; // Import your API
 import './styles.css';
+import UserLayout from '../../components/user/userlayout';
 
 const RecipePage = () => {
   // DishCovery Navigation States
@@ -573,135 +574,13 @@ const RecipePage = () => {
   const displayRecipes = recipes.length > 0 ? recipes : filteredRecipes;
 
   return (
-    <div ref={dishCoveryTopRef} className="available-recipes-container">
-      {/* Enhanced DishCovery Header Navigation */}
-      <header className="header">
-        <button
-          className={`logo ${dishCoveryHoverStates.logo ? 'logo-hover' : ''}`}
-          onClick={dishCoveryScrollToTop}
-          onMouseEnter={() => dishCoveryHandleHover('logo', true)}
-          onMouseLeave={() => dishCoveryHandleHover('logo', false)}
+        <UserLayout 
+          isLoggedIn={dishCoveryIsLoggedIn}
+          user={dishCoveryUser}
+          onSignInClick={dishCoveryHandleSignInClick}
+          onLogout={dishCoveryHandleLogout}
         >
-          <span className="logo-text">DishCovery</span>
-        </button>
-
-        <nav className="nav-links">
-          {dishCoveryNavLinks.map((link) => (
-            <a
-              key={link.name}
-              href={link.href}
-              className={`nav-link ${link.active ? 'nav-link-active' : ''}`}
-              onClick={() => setDishCoveryShowMobileMenu(false)}
-            >
-              {link.name}
-            </a>
-          ))}
-        </nav>
-
-        <div className="nav-actions">
-          {!dishCoveryIsLoggedIn ? (
-            <>
-              <button
-                className={`scan-nav-btn ${dishCoveryHoverStates.scanNav ? 'scan-nav-btn-hover' : ''}`}
-                onClick={dishCoveryHandleScanClick}
-                onMouseEnter={() => dishCoveryHandleHover('scanNav', true)}
-                onMouseLeave={() => dishCoveryHandleHover('scanNav', false)}
-              >
-                <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                </svg>
-                Scan Now
-              </button>
-              <button
-                className={`sign-in-btn ${dishCoveryHoverStates.signIn ? 'sign-in-btn-hover' : ''}`}
-                onClick={dishCoveryHandleSignInClick}
-                onMouseEnter={() => dishCoveryHandleHover('signIn', true)}
-                onMouseLeave={() => dishCoveryHandleHover('signIn', false)}
-              >
-                Sign In
-              </button>
-            </>
-          ) : (
-            <div className="avatar-container" ref={dishCoveryAvatarRef}>
-              <button
-                className={`avatar-btn ${dishCoveryHoverStates.avatar ? 'avatar-btn-hover' : ''}`}
-                onClick={() => setDishCoveryShowAvatarDropdown((prev) => !prev)}
-                onMouseEnter={() => dishCoveryHandleHover('avatar', true)}
-                onMouseLeave={() => dishCoveryHandleHover('avatar', false)}
-              >
-                {dishCoveryUser?.photo ? (
-                  <img 
-                    src={dishCoveryUser.photo} 
-                    alt="User profile" 
-                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <svg className="user-icon" viewBox="0 0 24 24" fill="white">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-                  </svg>
-                )}
-              </button>
-              {dishCoveryShowAvatarDropdown && (
-                <div className="avatar-dropdown">
-                  <a href="/user-profile" className="dropdown-item">User Profile</a>
-                  <a href="/settings" className="dropdown-item">Settings</a>
-                  <button className="dropdown-item logout-btn" onClick={dishCoveryHandleLogout}>Sign Out</button>
-                </div>
-              )}
-            </div>
-          )}
-          <button className="hamburger-btn" onClick={dishCoveryToggleMobileMenu}>
-            <svg className="hamburger-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
-            </svg>
-          </button>
-        </div>
-      </header>
-
-      {/* Mobile Menu */}
-      {dishCoveryShowMobileMenu && (
-        <div className="mobile-menu">
-          <div className="mobile-menu-header">
-            <span className="mobile-menu-logo">DishCovery</span>
-            <button className="close-mobile-menu" onClick={dishCoveryToggleMobileMenu}>
-              <svg viewBox="0 0 24 24" fill="currentColor" className="close-icon">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
-          </div>
-          <div className="mobile-menu-content">
-            {dishCoveryNavLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                className={`mobile-nav-link ${link.active ? 'mobile-nav-link-active' : ''}`}
-                onClick={() => setDishCoveryShowMobileMenu(false)}
-              >
-                {link.name}
-              </a>
-            ))}
-            {!dishCoveryIsLoggedIn ? (
-              <>
-                <button className="mobile-nav-link mobile-scan-btn" onClick={dishCoveryHandleScanClick}>
-                  <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                    </svg>
-                  Scan Ingredients
-                </button>
-                <button className="mobile-nav-link mobile-sign-in-btn" onClick={dishCoveryHandleSignInClick}>
-                  Sign In
-                </button>
-              </>
-            ) : (
-              <>
-                <a href="/user/favorites" className="mobile-nav-link" onClick={() => setDishCoveryShowMobileMenu(false)}>Favorites</a>
-                <a href="/user-profile" className="mobile-nav-link" onClick={() => setDishCoveryShowMobileMenu(false)}>Profile</a>
-                <button className="mobile-nav-link logout-btn" onClick={dishCoveryHandleLogout}>Logout</button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+    <div ref={dishCoveryTopRef} className="available-recipes-container">
 
       {/* Page Header */}
       <div className="page-header">
@@ -1203,6 +1082,7 @@ const RecipePage = () => {
         </a>
       </nav>
     </div>
+    </UserLayout>
   );
 };
 
