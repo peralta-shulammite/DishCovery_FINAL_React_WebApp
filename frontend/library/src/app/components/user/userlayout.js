@@ -133,7 +133,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
                   <Link href="/settings" className="dropdown-item">
                     Settings
                   </Link>
-                  <Link href="/home" className="dropdown-item">
+                  <Link href="/user/home" className="dropdown-item">
                     Sign Out
                   </Link>
                 </div>
