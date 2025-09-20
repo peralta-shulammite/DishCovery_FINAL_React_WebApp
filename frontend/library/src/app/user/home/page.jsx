@@ -421,7 +421,7 @@ const dishCoveryNavLinks = [
         </div>
       </section>
 
-      <section className="confidence-section" id="/ph">
+      <section className="confidence-section" id="/home">
         <div className="confidence-header">
           <h2 className="confidence-title">Recipes You Can Rely On</h2>
         </div>
