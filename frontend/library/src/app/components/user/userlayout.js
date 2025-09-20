@@ -47,10 +47,12 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
   };
 
   const handleLogout = () => {
-    onLogout();
+    onLogout(); // clears session or token
     setShowAvatarDropdown(false);
     setShowMobileMenu(false);
+    window.location.href = '/user/home'; // redirect properly
   };
+  
 
   const navLinks = [
     { name: 'Home', href: '/user/home' },
@@ -133,9 +135,9 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
                   <Link href="/settings" className="dropdown-item">
                     Settings
                   </Link>
-                  <Link href="/home" className="dropdown-item">
-                    Sign Out
-                  </Link>
+                  <button onClick={handleLogout} className="dropdown-item">
+                  Sign Out
+                  </button>
                 </div>
               )}
             </div>
