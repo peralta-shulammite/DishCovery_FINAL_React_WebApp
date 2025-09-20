@@ -159,7 +159,7 @@ const api = {
     return handleResponse(response);
   },
 
-  logout: async (redirectToPH = true) => {
+  logout: async (redirectToHome = true) => {
     const token = localStorage.getItem('token');
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
     const userId = localStorage.getItem('userId');
@@ -186,8 +186,8 @@ const api = {
 
     if (redirectToPH && typeof window !== 'undefined') {
       setTimeout(() => {
-        console.log('🇵🇭 Redirecting to Philippines user page...');
-        window.location.href = '/user/ph';
+        console.log('Redirecting to home page...');
+        window.location.href = '/user/home';
       }, 100);
     }
 
