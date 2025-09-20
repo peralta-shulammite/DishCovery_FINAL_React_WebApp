@@ -109,8 +109,8 @@ const SettingsContent = () => {
 
     // Redirect to Philippines user page
     setTimeout(() => {
-      console.log('🇵🇭 Redirecting to Philippines user page...');
-      window.location.href = '/user/ph';
+      console.log('Redirecting to home page...');
+      window.location.href = '/user/home';
     }, 100);
 
     return { success: true, message: 'Logout successful' };
@@ -168,13 +168,13 @@ const SettingsContent = () => {
     
     try {
       await performLogout();
-      console.log('✅ Admin logout successful, redirecting to PH landing page...');
+      console.log('✅ Admin logout successful, redirecting to home page...');
     } catch (error) {
       console.error('❌ Logout error:', error);
       
       // Fallback: Clear data and redirect anyway
       localStorage.clear();
-      window.location.href = '/user/ph';
+      window.location.href = '/user/home';
     }
   };
 
