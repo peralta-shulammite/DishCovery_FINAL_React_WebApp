@@ -562,26 +562,6 @@ const IngredientScanner = () => {
       <div className="header">
         <h1 className="title">Ingredient Scanner</h1>
         <div className="header-right">
-          {/* Model selector */}
-          <select 
-            value={currentModel} 
-            onChange={(e) => setCurrentModel(e.target.value)}
-            className="model-selector"
-            style={{
-              marginRight: '10px',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid #ddd',
-              backgroundColor: '#fff',
-              fontSize: '14px'
-            }}
-          >
-            {Object.entries(MODELS).map(([key, config]) => (
-              <option key={key} value={key}>
-                {config.name}
-              </option>
-            ))}
-          </select>
           
           <button className="help-button" onClick={() => setShowHelpModal(true)}>
             <FontAwesomeIcon icon={faQuestionCircle} className="icon" />
@@ -847,30 +827,26 @@ const IngredientScanner = () => {
                 <ul className="help-steps">
                   <li className="help-step">
                     <div className="help-step-number">1</div>
-                    <p className="help-step-text">Select your preferred AI model from the dropdown in the header.</p>
-                  </li>
-                  <li className="help-step">
-                    <div className="help-step-number">2</div>
                     <p className="help-step-text">Point the camera at your ingredients with good lighting.</p>
                   </li>
                   <li className="help-step">
-                    <div className="help-step-number">3</div>
+                    <div className="help-step-number">2</div>
                     <p className="help-step-text">Keep ingredients separated and visible.</p>
                   </li>
                   <li className="help-step">
-                    <div className="help-step-number">4</div>
+                    <div className="help-step-number">3</div>
                     <p className="help-step-text">Press "Scan Ingredient" to capture and analyze the image.</p>
                   </li>
                   <li className="help-step">
-                    <div className="help-step-number">5</div>
+                    <div className="help-step-number">4</div>
                     <p className="help-step-text">Review detected ingredients and adjust selections as needed.</p>
                   </li>
                   <li className="help-step">
-                    <div className="help-step-number">6</div>
+                    <div className="help-step-number">5</div>
                     <p className="help-step-text">Add any missed ingredients manually.</p>
                   </li>
                   <li className="help-step">
-                    <div className="help-step-number">7</div>
+                    <div className="help-step-number">6</div>
                     <p className="help-step-text">Click "Generate Recipe" to proceed with selected ingredients.</p>
                   </li>
                 </ul>
@@ -900,10 +876,7 @@ const IngredientScanner = () => {
                     <div className="help-step-number">5</div>
                     <p className="help-step-text">For small items, move the camera closer.</p>
                   </li>
-                  <li className="help-step">
-                    <div className="help-step-number">6</div>
-                    <p className="help-step-text">Try different AI models if one doesn't detect your ingredients well.</p>
-                  </li>
+                 
                 </ul>
               </div>
             </div>
