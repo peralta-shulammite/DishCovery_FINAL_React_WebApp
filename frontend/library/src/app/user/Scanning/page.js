@@ -16,20 +16,8 @@ import * as ort from 'onnxruntime-web';
 import './style.css';
 
 const INPUT_SIZE = 640;
-
-// Multiple models configuration
-const MODELS = {
-  yolov8s: {
-    url: "/assets/yolov8s-model.onnx",
-    labels: "/assets/labels.txt",
-    description: "General ingredient detection"
-  },
-  custom: {
-    url: "/assets/your-second-model.onnx",
-    labels: "/assets/labels2.txt",
-    description: "Specialized food detection"
-  }
-};
+const MODEL_URL = "/assets/yolov8s-model.onnx";
+const LABELS_URL = "/assets/labels.txt";
 
 // Calculate Intersection over Union
 function calculateIoU(boxA, boxB) {
@@ -74,7 +62,6 @@ const IngredientScanner = () => {
   const fileInputRef = useRef(null);
   const ingredientsListRef = useRef(null);
   const detectionTimeoutRef = useRef(null);
-  const newIngredientRef = useRef(null);
   
   const [cameraState, setCameraState] = useState('not-started');
   const [isScanning, setIsScanning] = useState(false);
@@ -83,13 +70,13 @@ const IngredientScanner = () => {
   const [capturedImage, setCapturedImage] = useState(null);
   const [scannedIngredients, setScannedIngredients] = useState([]);
   const [newIngredient, setNewIngredient] = useState('');
+  const newIngredientRef = useRef(null);
 
-  // Updated state for multiple models
-  const [sessions, setSessions] = useState({});
-  const [labelsData, setLabelsData] = useState({});
-  const [currentModel, setCurrentModel] = useState('yolov8s');
-  const [modelLoadingStates, setModelLoadingStates] = useState({});
-  const [modelErrors, setModelErrors] = useState({});
+  // ONNX model and labels state
+  const [session, setSession] = useState(null);
+  const [labels, setLabels] = useState([]);
+  const [modelError, setModelError] = useState(null);
+  const [isModelLoading, setIsModelLoading] = useState(true);
   const [detections, setDetections] = useState([]);
 
   const startCamera = useCallback(async () => {
@@ -133,40 +120,39 @@ const IngredientScanner = () => {
   };
 
   const handleFileChange = async (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const imageDataUrl = e.target.result;
-        setCapturedImage(imageDataUrl);
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const imageDataUrl = e.target.result;
+      setCapturedImage(imageDataUrl);
+      
+      // Run detection on uploaded image
+      setIsScanning(true);
+      try {
+        const detections = await runDetection(imageDataUrl);
         
-        // Run detection on uploaded image
-        setIsScanning(true);
-        try {
-          const detections = await runDetection(imageDataUrl);
-          
-          // Convert detections to ingredients format
-          const ingredients = detections.map((det, idx) => ({
-            id: idx + 1,
-            name: capitalizeWords(det.name),
-            selected: true,
-            confidence: det.confidence
-          }));
-          
-          setScannedIngredients(ingredients);
-        } catch (error) {
-          console.error('Error processing uploaded image:', error);
-          setScannedIngredients([]);
-        } finally {
-          setIsScanning(false);
-        }
+        // Convert detections to ingredients format
+        const ingredients = detections.map((det, idx) => ({
+          id: idx + 1,
+          name: capitalizeWords(det.name),
+          selected: true,
+          confidence: det.confidence
+        }));
         
-        setShowModal(true);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
+        setScannedIngredients(ingredients);
+      } catch (error) {
+        console.error('Error processing uploaded image:', error);
+        setScannedIngredients([]);
+      } finally {
+        setIsScanning(false);
+      }
+      
+      setShowModal(true);
+    };
+    reader.readAsDataURL(file);
+  }
+};
   const handleScan = async () => {
     setIsScanning(true);
     captureImage();
@@ -249,98 +235,57 @@ const IngredientScanner = () => {
     // Navigate to recipe page with ingredients
     window.location.href = `/user/recipe?${params.toString()}`;
   };
-
   const getSelectedCount = () => {
     return scannedIngredients.filter(i => i.selected).length;
   };
 
-  // Check if any model is loading
-  const isAnyModelLoading = () => {
-    return Object.values(modelLoadingStates).some(loading => loading);
-  };
-
-  // Get current model data
-  const getCurrentModel = () => {
-    return {
-      session: sessions[currentModel],
-      labels: labelsData[currentModel]
-    };
-  };
-
-  // Load all ONNX models
+  // Load ONNX model
   useEffect(() => {
-    const loadAllModels = async () => {
-      const modelKeys = Object.keys(MODELS);
-      
-      // Initialize loading states
-      const initialLoadingStates = {};
-      modelKeys.forEach(key => {
-        initialLoadingStates[key] = true;
-      });
-      setModelLoadingStates(initialLoadingStates);
+    const loadModel = async () => {
+      setIsModelLoading(true);
+      setModelError(null);
       
       try {
         // Set WASM paths for ONNX runtime
         ort.env.wasm.wasmPaths = '/assets/';
         
-        const loadedSessions = {};
-        const loadedLabels = {};
-        const loadedErrors = {};
-        
-        for (const [key, config] of Object.entries(MODELS)) {
-          try {
-            console.log(`Loading model: ${config.name}`);
-            
-            // Check if model file exists first
-            const modelResponse = await fetch(config.url, { method: 'HEAD' });
-            if (!modelResponse.ok) {
-              throw new Error(`Model file not found: ${config.url}`);
-            }
-            
-            // Create inference session
-            const session = await ort.InferenceSession.create(config.url);
-            loadedSessions[key] = session;
-            
-            // Load labels
-            const response = await fetch(config.labels);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch labels: ${response.statusText}`);
-            }
-            const text = await response.text();
-            const labels = text.split('\n')
-              .map(line => line.trim())
-              .filter(line => line.length > 0);
-            
-            loadedLabels[key] = labels;
-            console.log(`${config.name} loaded successfully with ${labels.length} classes`);
-            
-          } catch (error) {
-            console.error(`Error loading model ${key}:`, error);
-            loadedErrors[key] = `${config.name}: ${error.message}`;
-            
-            // If this is the current model and it fails, switch to a working one
-            if (key === currentModel) {
-              const workingModels = Object.keys(loadedSessions);
-              if (workingModels.length > 0) {
-                setCurrentModel(workingModels[0]);
-              }
-            }
-          }
-          
-          // Update individual model loading state
-          setModelLoadingStates(prev => ({ ...prev, [key]: false }));
-        }
-        
-        setSessions(loadedSessions);
-        setLabelsData(loadedLabels);
-        setModelErrors(loadedErrors);
-        
+        // Create inference session
+        const inferenceSession = await ort.InferenceSession.create(MODEL_URL);
+        setSession(inferenceSession);
+        console.log('Model loaded successfully');
       } catch (error) {
-        console.error('Error in loadAllModels:', error);
+        console.error('Error loading model:', error);
+        setModelError(`Model load error: ${error.message}`);
+      } finally {
+        setIsModelLoading(false);
       }
     };
 
-    loadAllModels();
+    loadModel();
+  }, []);
+
+  // Load labels from labels.txt
+  useEffect(() => {
+    const loadLabels = async () => {
+      try {
+        const response = await fetch(LABELS_URL);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch labels: ${response.statusText}`);
+        }
+        const text = await response.text();
+        const labelLines = text.split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+        
+        setLabels(labelLines);
+        console.log('Labels loaded:', labelLines.length, 'classes');
+      } catch (error) {
+        console.error('Error loading labels:', error);
+        setModelError(`Labels load error: ${error.message}`);
+      }
+    };
+
+    loadLabels();
   }, []);
 
   // Preprocess image for YOLOv8
@@ -363,7 +308,7 @@ const IngredientScanner = () => {
   }
 
   // Parse YOLOv8 detection output
-  function parseDetections(results, labels, session) {
+  function parseDetections(results, labels) {
     if (!results || !session || !session.outputNames || session.outputNames.length === 0) {
       console.error('Invalid results or session');
       return [];
@@ -380,9 +325,11 @@ const IngredientScanner = () => {
     const outputData = Array.from(output.data);
     const detections = [];
     
-    // YOLOv8 output format: [batch, 84, 8400] where 84 = 4 (bbox) + num_classes
+    // YOLOv8 output format: [batch, 84, 8400] where 84 = 4 (bbox) + 80 (classes)
+    // We need to transpose this to [8400, 84]
     const numDetections = 8400;
     const numClasses = labels.length;
+    const outputSize = 4 + numClasses; // 4 for bbox + num_classes for class scores
 
     for (let i = 0; i < numDetections; i++) {
       // Extract bbox coordinates (center_x, center_y, width, height)
@@ -423,12 +370,10 @@ const IngredientScanner = () => {
     return detections;
   }
 
-  // Run detection on image using current model
+  // Run detection on image
   async function runDetection(imageDataUrl) {
-    const { session, labels } = getCurrentModel();
-    
-    if (!session || !labels || !labels.length) {
-      console.log('Current model not ready');
+    if (!session || !labels.length) {
+      console.log('Model or labels not ready');
       return [];
     }
 
@@ -458,7 +403,7 @@ const IngredientScanner = () => {
       const results = await session.run(feeds);
 
       // Parse results
-      const rawDetections = parseDetections(results, labels, session);
+      const rawDetections = parseDetections(results, labels);
       
       // Apply NMS to remove duplicate detections
       const finalDetections = nms(rawDetections, 0.4);
@@ -478,9 +423,7 @@ const IngredientScanner = () => {
   useEffect(() => {
     let interval;
     
-    const { session, labels } = getCurrentModel();
-    
-    if (session && labels && labels.length && cameraState === 'available' && !showModal) {
+    if (session && labels.length && cameraState === 'available' && !showModal) {
       interval = setInterval(async () => {
         if (!videoRef.current || !canvasRef.current) return;
         
@@ -502,7 +445,7 @@ const IngredientScanner = () => {
           feeds[session.inputNames[0]] = tensor;
           const results = await session.run(feeds);
           
-          const rawDetections = parseDetections(results, labels, session);
+          const rawDetections = parseDetections(results, labels);
           const finalDetections = nms(rawDetections, 0.5);
           
           // Filter for high-confidence detections for real-time display
@@ -534,7 +477,7 @@ const IngredientScanner = () => {
         clearTimeout(detectionTimeoutRef.current);
       }
     };
-  }, [sessions, labelsData, currentModel, cameraState, showModal]);
+  }, [session, labels, cameraState, showModal]);
 
   // Start camera on mount
   useEffect(() => {
@@ -562,7 +505,6 @@ const IngredientScanner = () => {
       <div className="header">
         <h1 className="title">Ingredient Scanner</h1>
         <div className="header-right">
-          
           <button className="help-button" onClick={() => setShowHelpModal(true)}>
             <FontAwesomeIcon icon={faQuestionCircle} className="icon" />
           </button>
@@ -691,12 +633,12 @@ const IngredientScanner = () => {
         <div className="controls-container">
           <button 
             onClick={handleScan}
-            disabled={isScanning || cameraState !== 'available' || isAnyModelLoading()}
-            className={`scan-button ${isScanning || cameraState !== 'available' || isAnyModelLoading() ? 'disabled' : ''}`}
+            disabled={isScanning || cameraState !== 'available' || isModelLoading}
+            className={`scan-button ${isScanning || cameraState !== 'available' || isModelLoading ? 'disabled' : ''}`}
           >
             <FontAwesomeIcon icon={faSearch} className="scan-icon" />
             <span>
-              {isAnyModelLoading() ? 'Loading Models...' :
+              {isModelLoading ? 'Loading Model...' :
                cameraState === 'available' ? 'Scan Ingredient' : 
                cameraState === 'loading' ? 'Camera Loading...' :
                cameraState === 'denied' ? 'Enable Camera' : 'Start Camera'}
@@ -704,8 +646,8 @@ const IngredientScanner = () => {
           </button>
           <button 
             onClick={handleImageUpload}
-            disabled={isScanning || isAnyModelLoading()}
-            className={`upload-button ${isScanning || isAnyModelLoading() ? 'disabled' : ''}`}
+            disabled={isScanning || isModelLoading}
+            className={`upload-button ${isScanning || isModelLoading ? 'disabled' : ''}`}
           >
             <FontAwesomeIcon icon={faUpload} className="upload-icon" />
           </button>
@@ -852,7 +794,6 @@ const IngredientScanner = () => {
                 </ul>
               </div>
 
-
               <div className="help-section">
                 <h2 className="help-section-title">Tips for Better Detection</h2>
                 <ul className="help-steps">
@@ -876,7 +817,6 @@ const IngredientScanner = () => {
                     <div className="help-step-number">5</div>
                     <p className="help-step-text">For small items, move the camera closer.</p>
                   </li>
-                 
                 </ul>
               </div>
             </div>
@@ -884,7 +824,7 @@ const IngredientScanner = () => {
         </div>
       )}
 
-      {isAnyModelLoading() && (
+      {isModelLoading && (
         <div style={{ 
           position: 'fixed', 
           bottom: '20px', 
@@ -897,10 +837,10 @@ const IngredientScanner = () => {
           fontSize: '0.9rem',
           zIndex: 1000
         }}>
-          Loading AI models for ingredient detection...
+          Loading AI model for ingredient detection...
         </div>
       )}
-      {Object.keys(modelErrors).length > 0 && (
+      {modelError && (
         <div style={{ 
           position: 'fixed', 
           bottom: '20px', 
@@ -911,11 +851,9 @@ const IngredientScanner = () => {
           padding: '10px 20px', 
           borderRadius: '20px',
           fontSize: '0.9rem',
-          zIndex: 1000,
-          maxWidth: '80%',
-          textAlign: 'center'
+          zIndex: 1000
         }}>
-          Model Errors: {Object.values(modelErrors)[0]}
+          Model Error: {modelError}
         </div>
       )}
     </div>
