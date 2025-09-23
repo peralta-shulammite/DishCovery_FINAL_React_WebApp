@@ -22,13 +22,11 @@ const MODELS = {
   yolov8s: {
     url: "/assets/yolov8s-model.onnx",
     labels: "/assets/labels.txt",
-    name: "YOLOv8s General",
     description: "General ingredient detection"
   },
   custom: {
     url: "/assets/your-second-model.onnx",
     labels: "/assets/labels2.txt",
-    name: "Custom Food Model",
     description: "Specialized food detection"
   }
 };
@@ -878,19 +876,6 @@ const IngredientScanner = () => {
                 </ul>
               </div>
 
-              <div className="help-section">
-                <h2 className="help-section-title">Available AI Models</h2>
-                <ul className="help-steps">
-                  <li className="help-step">
-                    <div className="help-step-number">1</div>
-                    <p className="help-step-text">YOLOv8s General: Best for general ingredient detection with wide variety support.</p>
-                  </li>
-                  <li className="help-step">
-                    <div className="help-step-number">2</div>
-                    <p className="help-step-text">Custom Food Model: Specialized for food items with enhanced accuracy for specific ingredients.</p>
-                  </li>
-                </ul>
-              </div>
 
               <div className="help-section">
                 <h2 className="help-section-title">Tips for Better Detection</h2>
