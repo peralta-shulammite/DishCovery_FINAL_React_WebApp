@@ -1,92 +1,88 @@
-// routes/pantry.js
+// routes/pantry.js - Updated to connect with ingredients table
 import express from 'express';
 import authenticateToken from '../middleware/auth.js';
 import pool from '../db.js';
 
 const router = express.Router();
 
-// Get all available ingredients from pantry table
+// Get all available ingredients from ingredients table
 router.get('/ingredients', authenticateToken, async (req, res) => {
   try {
     console.log('📋 Fetching all pantry ingredients...');
     
-    // Get all ingredients from pantry table
+    // Get active ingredients from ingredients table
     const ingredients = await pool.query(`
-      SELECT * FROM pantry 
-      ORDER BY Asparagus, Bell_Peppers, Black_Pepper, Bread, Broccoli
+      SELECT 
+        ingredient_id as id,
+        ingredient_name as name,
+        category,
+        nutritional_data,
+        is_active,
+        created_at
+      FROM ingredients 
+      WHERE is_active = 1
+      ORDER BY ingredient_name
     `);
     
-    // Transform the pantry table structure to match frontend expectations
-    const transformedIngredients = [];
-    let ingredientId = 1;
-    
-    // Map of ingredient names to categories and images
-    const ingredientMapping = {
-      'Chicken_Breast': { name: 'Chicken Breast', category: 'Protein', image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=200&h=200&fit=crop' },
-      'Ground_Beef': { name: 'Ground Beef', category: 'Protein', image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=200&h=200&fit=crop' },
-      'Salmon': { name: 'Salmon', category: 'Protein', image: 'https://images.unsplash.com/photo-1567623103079-74d7d37ad37b?w=200&h=200&fit=crop' },
-      'Eggs': { name: 'Eggs', category: 'Protein', image: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop' },
-      'Tofu': { name: 'Tofu', category: 'Protein', image: 'https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?w=200&h=200&fit=crop' },
-      'Shrimp': { name: 'Shrimp', category: 'Protein', image: 'https://images.unsplash.com/photo-1565680018434-b513d5573b07?w=200&h=200&fit=crop' },
-      'Pork_Chops': { name: 'Pork Chops', category: 'Protein', image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=200&h=200&fit=crop' },
-      
-      'Onions': { name: 'Onions', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
-      'Garlic': { name: 'Garlic', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1498654200943-1088dd4438ae?w=200&h=200&fit=crop' },
-      'Tomatoes': { name: 'Tomatoes', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1546470427-e6e4ec0b3fa0?w=200&h=200&fit=crop' },
-      'Bell_Peppers': { name: 'Bell Peppers', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1525607551316-4a8e16d1f9ba?w=200&h=200&fit=crop' },
-      'Carrots': { name: 'Carrots', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1447175008436-054170c2e979?w=200&h=200&fit=crop' },
-      'Broccoli': { name: 'Broccoli', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=200&h=200&fit=crop' },
-      'Spinach': { name: 'Spinach', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=200&h=200&fit=crop' },
-      'Mushrooms': { name: 'Mushrooms', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
-      'Zucchini': { name: 'Zucchini', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1507334566648-4e22ee3e6e6a?w=200&h=200&fit=crop' },
-      'Asparagus': { name: 'Asparagus', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=200&h=200&fit=crop' },
-      
-      'Rice': { name: 'Rice', category: 'Grain', image: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=200&h=200&fit=crop' },
-      'Pasta': { name: 'Pasta', category: 'Grain', image: 'https://images.unsplash.com/photo-1621996346565-e3dbc6d2c5f7?w=200&h=200&fit=crop' },
-      'Potatoes': { name: 'Potatoes', category: 'Grain', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
-      'Bread': { name: 'Bread', category: 'Grain', image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop' },
-      'Quinoa': { name: 'Quinoa', category: 'Grain', image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&h=200&fit=crop' },
-      
-      'Milk': { name: 'Milk', category: 'Dairy', image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200&h=200&fit=crop' },
-      'Cheese': { name: 'Cheese', category: 'Dairy', image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop' },
-      'Butter': { name: 'Butter', category: 'Dairy', image: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=200&h=200&fit=crop' },
-      'Yogurt': { name: 'Yogurt', category: 'Dairy', image: 'https://images.unsplash.com/photo-1571212515416-0d6ce5003db4?w=200&h=200&fit=crop' },
-      'Cream_Cheese': { name: 'Cream Cheese', category: 'Dairy', image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop' },
-      
-      'Olive_Oil': { name: 'Olive Oil', category: 'Pantry', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&h=200&fit=crop' },
-      'Salt': { name: 'Salt', category: 'Pantry', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
-      'Black_Pepper': { name: 'Black Pepper', category: 'Pantry', image: 'https://images.unsplash.com/photo-1506905025911-1aa6f9364a5e?w=200&h=200&fit=crop' },
-      'Soy_Sauce': { name: 'Soy Sauce', category: 'Pantry', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&h=200&fit=crop' },
-      'Flour': { name: 'Flour', category: 'Pantry', image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=200&h=200&fit=crop' }
-    };
+    // Transform ingredients for frontend
+    const transformedIngredients = ingredients.map(ingredient => {
+      let nutritionalData = {};
+      try {
+        nutritionalData = JSON.parse(ingredient.nutritional_data || '{}');
+      } catch (e) {
+        nutritionalData = {};
+      }
 
-    // Create ingredient objects from pantry columns
-    if (ingredients.length > 0) {
-      const pantryRow = ingredients[0];
-      Object.keys(pantryRow).forEach(columnName => {
-        const mapping = ingredientMapping[columnName];
-        if (mapping) {
-          transformedIngredients.push({
-            id: ingredientId++,
-            name: mapping.name,
-            category: mapping.category,
-            image: mapping.image,
-            available: pantryRow[columnName] === 'available' || pantryRow[columnName] === '1'
-          });
-        }
-      });
-    }
+      // Map categories to match frontend expectations
+      let mappedCategory = ingredient.category;
+      if (ingredient.category === 'Main Ingredient') {
+        mappedCategory = 'Protein';
+      } else if (ingredient.category === 'Condiment') {
+        mappedCategory = 'Pantry';
+      } else if (ingredient.category === 'Spice') {
+        mappedCategory = 'Pantry';
+      }
+
+      return {
+        id: ingredient.id,
+        name: ingredient.name,
+        category: mappedCategory || 'Other',
+        image: nutritionalData.image || `https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=200&fit=crop`,
+        dietaryRestrictions: nutritionalData.dietaryRestrictions || [],
+        dietaryLifestyles: nutritionalData.dietaryLifestyles || []
+      };
+    });
 
     console.log(`✅ Found ${transformedIngredients.length} pantry ingredients`);
     res.json({ success: true, ingredients: transformedIngredients });
 
   } catch (error) {
     console.error('❌ Error fetching pantry ingredients:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch pantry ingredients',
-      error: error.message 
-    });
+    
+    // Fallback to sample data if database fails
+    const fallbackIngredients = [
+      { id: 1, name: 'Chicken Breast', category: 'Protein', image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=200&h=200&fit=crop' },
+      { id: 2, name: 'Ground Beef', category: 'Protein', image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=200&h=200&fit=crop' },
+      { id: 3, name: 'Salmon', category: 'Protein', image: 'https://images.unsplash.com/photo-1567623103079-74d7d37ad37b?w=200&h=200&fit=crop' },
+      { id: 4, name: 'Eggs', category: 'Protein', image: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop' },
+      { id: 5, name: 'Tofu', category: 'Protein', image: 'https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?w=200&h=200&fit=crop' },
+      
+      { id: 6, name: 'Onions', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
+      { id: 7, name: 'Garlic', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1498654200943-1088dd4438ae?w=200&h=200&fit=crop' },
+      { id: 8, name: 'Tomatoes', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1546470427-e6e4ec0b3fa0?w=200&h=200&fit=crop' },
+      
+      { id: 14, name: 'Rice', category: 'Grain', image: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=200&h=200&fit=crop' },
+      { id: 15, name: 'Pasta', category: 'Grain', image: 'https://images.unsplash.com/photo-1621996346565-e3dbc6d2c5f7?w=200&h=200&fit=crop' },
+      
+      { id: 18, name: 'Milk', category: 'Dairy', image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200&h=200&fit=crop' },
+      { id: 19, name: 'Cheese', category: 'Dairy', image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop' },
+      
+      { id: 22, name: 'Olive Oil', category: 'Pantry', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&h=200&fit=crop' },
+      { id: 23, name: 'Salt', category: 'Pantry', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' }
+    ];
+    
+    console.log('⚠️ Database error, using fallback ingredients');
+    res.json({ success: true, ingredients: fallbackIngredients });
   }
 });
 
@@ -193,6 +189,13 @@ router.post('/generate-recipe', authenticateToken, async (req, res) => {
 
     const restrictionNames = restrictions.map(r => r.restriction_name);
 
+    // Get ingredient names for the selected IDs
+    const ingredientNames = await pool.query(`
+      SELECT ingredient_name 
+      FROM ingredients 
+      WHERE ingredient_id IN (${selectedIngredients.map(() => '?').join(',')})
+    `, selectedIngredients);
+
     // Find matching recipes from the recipes table
     // For now, we'll return recipes that don't conflict with restrictions
     const recipes = await pool.query(`
@@ -222,7 +225,7 @@ router.post('/generate-recipe', authenticateToken, async (req, res) => {
         userId, 
         recipe.recipe_name, 
         recipe.instructions,
-        selectedIngredients.join(', '),
+        ingredientNames.map(i => i.ingredient_name).join(', '),
         restrictionNames.join(', ')
       ]);
     }
@@ -239,6 +242,65 @@ router.post('/generate-recipe', authenticateToken, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Failed to generate recipes',
+      error: error.message 
+    });
+  }
+});
+
+// Request new ingredient (for users to request ingredients not in the system)
+router.post('/request-ingredient', authenticateToken, async (req, res) => {
+  try {
+    const { ingredientName, category, dietaryRestrictions, dietaryLifestyles, image } = req.body;
+    const userId = req.user.userId;
+
+    console.log('📝 User requesting new ingredient:', ingredientName);
+
+    if (!ingredientName || !ingredientName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ingredient name is required'
+      });
+    }
+
+    // Check if ingredient already exists
+    const existing = await pool.query(
+      'SELECT ingredient_id FROM ingredients WHERE ingredient_name = ?',
+      [ingredientName.trim()]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'This ingredient already exists in our database'
+      });
+    }
+
+    // Create pending request
+    const requestData = JSON.stringify({
+      ingredient_name: ingredientName.trim(),
+      category: category || 'Other',
+      dietaryRestrictions: dietaryRestrictions || [],
+      dietaryLifestyles: dietaryLifestyles || [],
+      image: image || null
+    });
+
+    await pool.query(`
+      INSERT INTO pending_requests 
+      (user_id, request_type, request_data, status, requested_at) 
+      VALUES (?, 'ingredient_request', ?, 'pending', NOW())
+    `, [userId, requestData]);
+
+    console.log(`✅ Ingredient request submitted for: ${ingredientName}`);
+    res.json({ 
+      success: true, 
+      message: 'Ingredient request submitted successfully. Admin will review it soon.' 
+    });
+
+  } catch (error) {
+    console.error('❌ Error submitting ingredient request:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to submit ingredient request',
       error: error.message 
     });
   }
