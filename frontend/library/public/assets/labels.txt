@@ -1,47 +1,63 @@
-almond
-apple
-asparagus
-avocado
-banana
-beans
-beet
-bell pepper
-blackberry
-blueberry
-broccoli
-brussels sprouts
-cabbage
-carrot
-cauliflower
-celery
-cherry
-corn
-cucumber
-egg
-eggplant
-garlic
-grape
-green bean
-green onion
-hot pepper
-kiwi
-lemon
-lettuce
-lime
-mandarin
-mushroom
-onion
-orange
-pattypan squash
-pea
-peach
-pear
-pineapple
-potato
-pumpkin
-radish
-raspberry
-strawberry
-tomato
-vegetable marrow
-watermelon
+Bay-Leaf
+Beef
+BitterGourd
+BottleGourd
+Broccoli
+Cabbage
+Carrots
+Cauliflower
+Chicken
+Egg
+Eggplant
+Galunggong
+Garlic
+Ginger
+Milkfish
+Onion
+Papaya
+Pechay
+Pork
+Potato
+Pumpkin
+Sayote
+StringBeans
+Tilapia
+Tomato
+WaterSpinach
+Calamansi
+Almond
+Apple
+Asparagus
+Avocado
+Banana
+Beans
+Beet
+Bell Pepper
+Blackberry
+Blueberry
+Brussels Sprouts
+Celery
+Cherry
+Corn
+Cucumber
+Grape
+Green Bean
+Green Onion
+Hot Pepper
+Kiwi
+Lemon
+Lettuce
+Lime
+Mandarin
+Mushroom
+Orange
+Pattypan Squash
+Pea
+Peach
+Pear
+Pineapple
+Radish
+Raspberry
+Strawberry
+Vegetable Marrow
+Watermelon
