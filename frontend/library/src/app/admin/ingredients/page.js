@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
 
@@ -19,82 +19,88 @@ const IngredientManagement = () => {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [loading, setLoading] = useState(true);
 
-  // Sample ingredient data
-  const [ingredients, setIngredients] = useState([
-    {
-      id: 1,
-      name: 'Chicken Breast',
-      category: 'Main Ingredient',
-      image: '/api/placeholder/100/100',
-      dietaryRestrictions: ['Not vegan', 'Not vegetarian'],
-      dietaryLifestyles: ['High-protein', 'Keto'],
-      usedInRecipes: 72,
-      usersHave: 4300,
-      status: 'Active',
-      dateAdded: '2024-01-10',
-    },
-    {
-      id: 2,
-      name: 'Olive Oil',
-      category: 'Condiment',
-      image: '/api/placeholder/100/100',
-      dietaryRestrictions: [],
-      dietaryLifestyles: ['Vegan', 'Gluten-free', 'Mediterranean'],
-      usedInRecipes: 48,
-      usersHave: 3210,
-      status: 'Active',
-      dateAdded: '2024-01-12',
-    },
-    {
-      id: 3,
-      name: 'Garlic Powder',
-      category: 'Spice',
-      image: '/api/placeholder/100/100',
-      dietaryRestrictions: [],
-      dietaryLifestyles: ['Vegan', 'Vegetarian', 'Gluten-free'],
-      usedInRecipes: 65,
-      usersHave: 2850,
-      status: 'Active',
-      dateAdded: '2024-01-15',
-    },
-    {
-      id: 4,
-      name: 'Soy Sauce',
-      category: 'Condiment',
-      image: '/api/placeholder/100/100',
-      dietaryRestrictions: ['Contains gluten'],
-      dietaryLifestyles: ['Vegan', 'Vegetarian'],
-      usedInRecipes: 35,
-      usersHave: 1950,
-      status: 'Inactive',
-      dateAdded: '2024-01-08',
-    },
-  ]);
+  // Backend API integration
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-  // Sample pending ingredients
-  const [pendingIngredients, setPendingIngredients] = useState([
-    {
-      id: 5,
-      name: 'Sea Grapes',
-      suggestedCategory: 'Main Ingredient',
-      user: '@lola_chef',
-      image: null,
-      dateRequested: '2025-07-05',
-      dietaryRestrictions: [],
-      dietaryLifestyles: ['Vegan'],
+  const adminIngredientsService = {
+    getAuthToken() {
+      if (typeof window !== 'undefined') {
+        return localStorage.getItem('token');
+      }
+      return null;
     },
-    {
-      id: 6,
-      name: 'Dragon Fruit',
-      suggestedCategory: 'Main Ingredient',
-      user: '@tropical_cook',
-      image: null,
-      dateRequested: '2025-07-03',
-      dietaryRestrictions: [],
-      dietaryLifestyles: ['Vegan', 'Gluten-free'],
+
+    createHeaders() {
+      const token = this.getAuthToken();
+      return {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      };
     },
-  ]);
+
+    async handleResponse(response) {
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      return data;
+    },
+
+    async getAllIngredients() {
+      const response = await fetch(`${API_BASE_URL}/admin/ingredients`, {
+        headers: this.createHeaders(),
+      });
+      return await this.handleResponse(response);
+    },
+
+    async createIngredient(ingredientData) {
+      const response = await fetch(`${API_BASE_URL}/admin/ingredients`, {
+        method: 'POST',
+        headers: this.createHeaders(),
+        body: JSON.stringify(ingredientData)
+      });
+      return await this.handleResponse(response);
+    },
+
+    async updateIngredient(id, ingredientData) {
+      const response = await fetch(`${API_BASE_URL}/admin/ingredients/${id}`, {
+        method: 'PUT',
+        headers: this.createHeaders(),
+        body: JSON.stringify(ingredientData)
+      });
+      return await this.handleResponse(response);
+    },
+
+    async deleteIngredient(id) {
+      const response = await fetch(`${API_BASE_URL}/admin/ingredients/${id}`, {
+        method: 'DELETE',
+        headers: this.createHeaders(),
+      });
+      return await this.handleResponse(response);
+    },
+
+    async approvePendingIngredient(pendingData) {
+      const response = await fetch(`${API_BASE_URL}/admin/ingredients/approve-pending`, {
+        method: 'POST',
+        headers: this.createHeaders(),
+        body: JSON.stringify(pendingData)
+      });
+      return await this.handleResponse(response);
+    },
+
+    async getPendingIngredients() {
+      const response = await fetch(`${API_BASE_URL}/admin/ingredients/pending`, {
+        headers: this.createHeaders(),
+      });
+      return await this.handleResponse(response);
+    }
+  };
+
+  // State for ingredients data
+  const [ingredients, setIngredients] = useState([]);
+  const [pendingIngredients, setPendingIngredients] = useState([]);
 
   // Form state for adding/editing ingredients
   const [formData, setFormData] = useState({
@@ -109,6 +115,43 @@ const IngredientManagement = () => {
   const categories = ['Main Ingredient', 'Condiment', 'Spice', 'Additive', 'Other'].sort();
   const dietaryRestrictions = ['Not vegan', 'Not vegetarian', 'Not safe for nut allergy', 'Contains dairy', 'Contains gluten'].sort();
   const dietaryLifestyles = ['Vegan', 'Vegetarian', 'Gluten-free', 'Halal', 'Keto', 'Paleo', 'High-protein', 'Mediterranean'].sort();
+
+  // Load ingredients from backend
+  useEffect(() => {
+    const loadIngredients = async () => {
+      try {
+        setLoading(true);
+        const [ingredientsResult, pendingResult] = await Promise.all([
+          adminIngredientsService.getAllIngredients().catch(() => ({ ingredients: [] })),
+          adminIngredientsService.getPendingIngredients().catch(() => ({ pendingIngredients: [] }))
+        ]);
+        
+        setIngredients(ingredientsResult.ingredients || []);
+        setPendingIngredients(pendingResult.pendingIngredients || []);
+      } catch (error) {
+        console.error('Error loading ingredients:', error);
+        // Fallback to sample data if backend fails
+        setIngredients([
+          {
+            id: 1,
+            name: 'Chicken Breast',
+            category: 'Main Ingredient',
+            image: '/api/placeholder/100/100',
+            dietaryRestrictions: ['Not vegan', 'Not vegetarian'],
+            dietaryLifestyles: ['High-protein', 'Keto'],
+            usedInRecipes: 72,
+            usersHave: 4300,
+            status: 'Active',
+            dateAdded: '2024-01-10',
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadIngredients();
+  }, []);
 
   const handleAddIngredient = () => {
     resetForm();
@@ -133,38 +176,36 @@ const IngredientManagement = () => {
     setShowConfirmModal(true);
   };
 
-  const handleDeleteIngredient = (id) => {
+  const handleDeleteIngredient = async (id) => {
     showConfirmation(
       'Delete Ingredient',
       'Are you sure you want to delete this ingredient? This action cannot be undone.',
-      () => {
-        setIngredients(ingredients.filter((ing) => ing.id !== id));
-        setShowConfirmModal(false);
+      async () => {
+        try {
+          await adminIngredientsService.deleteIngredient(id);
+          setIngredients(ingredients.filter(ing => ing.id !== id));
+          setShowConfirmModal(false);
+        } catch (error) {
+          alert('Error deleting ingredient: ' + error.message);
+        }
       },
       'delete'
     );
   };
 
-  const handleApprovePending = (pending) => {
+  const handleApprovePending = async (pending) => {
     showConfirmation(
       'Approve Ingredient',
       `Are you sure you want to approve "${pending.name}" as an ingredient?`,
-      () => {
-        const newIngredient = {
-          id: Date.now(),
-          name: pending.name,
-          category: pending.suggestedCategory,
-          image: pending.image || '/api/placeholder/100/100',
-          dietaryRestrictions: pending.dietaryRestrictions || [],
-          dietaryLifestyles: pending.dietaryLifestyles || [],
-          usedInRecipes: 0,
-          usersHave: 1,
-          status: 'Active',
-          dateAdded: new Date().toISOString().split('T')[0],
-        };
-        setIngredients([...ingredients, newIngredient]);
-        setPendingIngredients(pendingIngredients.filter((p) => p.id !== pending.id));
-        setShowConfirmModal(false);
+      async () => {
+        try {
+          const result = await adminIngredientsService.approvePendingIngredient(pending);
+          setIngredients([...ingredients, result.ingredient]);
+          setPendingIngredients(pendingIngredients.filter(p => p.id !== pending.id));
+          setShowConfirmModal(false);
+        } catch (error) {
+          alert('Error approving ingredient: ' + error.message);
+        }
       },
       'confirm'
     );
@@ -182,7 +223,7 @@ const IngredientManagement = () => {
     );
   };
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     
     // Validate required fields
@@ -203,32 +244,20 @@ const IngredientManagement = () => {
       return;
     }
 
-    showConfirmation(
-      selectedIngredient ? 'Update Ingredient' : 'Add Ingredient',
-      selectedIngredient
-        ? `Are you sure you want to update "${formData.name}"?`
-        : `Are you sure you want to add "${formData.name}" as a new ingredient?`,
-      () => {
-        const ingredientData = {
-          ...formData,
-          id: selectedIngredient ? selectedIngredient.id : Date.now(),
-          usedInRecipes: selectedIngredient ? selectedIngredient.usedInRecipes : 0,
-          usersHave: selectedIngredient ? selectedIngredient.usersHave : 1,
-          dateAdded: selectedIngredient ? selectedIngredient.dateAdded : new Date().toISOString().split('T')[0],
-        };
-
-        if (selectedIngredient) {
-          setIngredients(ingredients.map((ing) => (ing.id === selectedIngredient.id ? ingredientData : ing)));
-          setShowEditModal(false);
-        } else {
-          setIngredients([...ingredients, ingredientData]);
-          setShowAddModal(false);
-        }
-        resetForm();
-        setShowConfirmModal(false);
-      },
-      'confirm'
-    );
+    try {
+      if (selectedIngredient) {
+        const result = await adminIngredientsService.updateIngredient(selectedIngredient.id, formData);
+        setIngredients(ingredients.map(ing => ing.id === selectedIngredient.id ? result.ingredient : ing));
+        setShowEditModal(false);
+      } else {
+        const result = await adminIngredientsService.createIngredient(formData);
+        setIngredients([...ingredients, result.ingredient]);
+        setShowAddModal(false);
+      }
+      resetForm();
+    } catch (error) {
+      alert('Error saving ingredient: ' + error.message);
+    }
   };
 
   const resetForm = () => {
@@ -382,6 +411,21 @@ const IngredientManagement = () => {
       <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
     </svg>
   );
+
+  if (loading) {
+    return (
+      <AdminLayout currentPage="Ingredients">
+        <div className="dashboard-container">
+          <div className="main-content">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh' }}>
+              <div style={{ width: '40px', height: '40px', border: '4px solid rgba(46, 125, 50, 0.1)', borderTop: '4px solid #2E7D32', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }}></div>
+              <p>Loading ingredients...</p>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout currentPage="Ingredients">
@@ -544,8 +588,8 @@ const IngredientManagement = () => {
                             )}
                           </div>
                         </td>
-                        <td style={{ padding: '12px', fontWeight: '500', color: '#2E7D32' }}>{ingredient.usedInRecipes}</td>
-                        <td style={{ padding: '12px' }}>{ingredient.usersHave.toLocaleString()}</td>
+                        <td style={{ padding: '12px', fontWeight: '500', color: '#2E7D32' }}>{ingredient.usedInRecipes || 0}</td>
+                        <td style={{ padding: '12px' }}>{(ingredient.usersHave || 0).toLocaleString()}</td>
                         <td style={{ padding: '12px' }}>
                           <span className={`verification-badge ${ingredient.status === 'Active' ? 'verified' : 'ai'}`}>
                             {ingredient.status}
