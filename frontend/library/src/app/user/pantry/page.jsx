@@ -87,6 +87,20 @@ const pantryService = {
       console.error('Error generating recipes:', error);
       throw error;
     }
+  },
+
+  async requestIngredient(ingredientData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pantry/request-ingredient`, {
+        method: 'POST',
+        headers: this.createHeaders(),
+        body: JSON.stringify(ingredientData)
+      });
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Error requesting ingredient:', error);
+      throw error;
+    }
   }
 };
 
@@ -116,6 +130,16 @@ export default function DishCoveryPantry() {
   const [dishCoveryError, setDishCoveryError] = useState(null);
   const [dishCoverySaving, setDishCoverySaving] = useState(false);
   const [dishCoveryGenerating, setDishCoveryGenerating] = useState(false);
+  
+  // Request ingredient modal
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestFormData, setRequestFormData] = useState({
+    ingredientName: '',
+    category: 'Other',
+    dietaryRestrictions: [],
+    dietaryLifestyles: [],
+    image: null
+  });
   
   const [dishCoveryUser, setDishCoveryUser] = useState(null);
 
@@ -366,6 +390,30 @@ export default function DishCoveryPantry() {
     }
   };
 
+  const handleRequestIngredient = async (e) => {
+    e.preventDefault();
+    
+    if (!requestFormData.ingredientName.trim()) {
+      alert('Please enter an ingredient name');
+      return;
+    }
+
+    try {
+      await pantryService.requestIngredient(requestFormData);
+      alert('Ingredient request submitted successfully! Admin will review it soon.');
+      setShowRequestModal(false);
+      setRequestFormData({
+        ingredientName: '',
+        category: 'Other',
+        dietaryRestrictions: [],
+        dietaryLifestyles: [],
+        image: null
+      });
+    } catch (error) {
+      alert('Error submitting request: ' + error.message);
+    }
+  };
+
   const dishCoveryHandleSignInClick = () => {
     setDishCoveryShowSignInModal(true);
     setDishCoveryShowMobileMenu(false);
@@ -591,10 +639,69 @@ export default function DishCoveryPantry() {
                   Show All Categories
                 </button>
               )}
+              <button 
+                className="clear-search-btn"
+                onClick={() => setShowRequestModal(true)}
+                style={{ background: '#2E7D32' }}
+              >
+                Request New Ingredient
+              </button>
             </div>
           </div>
         )}
       </main>
+
+      {/* Request Ingredient Modal */}
+      {showRequestModal && (
+        <div className="modal-overlay" onClick={() => setShowRequestModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Request New Ingredient</h2>
+              <button className="modal-close" onClick={() => setShowRequestModal(false)}>
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleRequestIngredient} className="recipe-form">
+              <div className="form-section">
+                <label className="form-label">Ingredient Name *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={requestFormData.ingredientName}
+                  onChange={(e) => setRequestFormData({ ...requestFormData, ingredientName: e.target.value })}
+                  placeholder="Enter ingredient name"
+                  required
+                />
+              </div>
+
+              <div className="form-section">
+                <label className="form-label">Category</label>
+                <select
+                  className="form-select"
+                  value={requestFormData.category}
+                  onChange={(e) => setRequestFormData({ ...requestFormData, category: e.target.value })}
+                >
+                  <option value="Protein">Protein</option>
+                  <option value="Vegetable">Vegetable</option>
+                  <option value="Grain">Grain</option>
+                  <option value="Dairy">Dairy</option>
+                  <option value="Pantry">Pantry</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowRequestModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit">
+                  Submit Request
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {dishCoverySelectedIngredients.length > 0 && (
         <div className="generate-recipe-container">

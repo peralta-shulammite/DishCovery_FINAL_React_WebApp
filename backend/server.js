@@ -8,6 +8,7 @@ import profileRouter from './routes/profile.js';
 import userRecipesRouter from './routes/userRecipes.js';
 import adminRecipesRouter from './routes/adminRecipes.js';
 import adminAuthRouter from './routes/adminAuth.js';
+import adminIngredientsRouter from './routes/adminIngredients.js';  // NEW ROUTE
 import dietaryRestrictionsRouter from './routes/dietaryRestrictions.js';
 import pantryRouter from './routes/pantry.js';
 import pool from './db.js';
@@ -51,6 +52,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/recipes', recipesRouter);
 app.use('/api/user/recipes', userRecipesRouter);
 app.use('/api/admin/recipes', adminRecipesRouter);
+app.use('/api/admin/ingredients', adminIngredientsRouter); // NEW ADMIN INGREDIENTS ROUTE
 app.use('/api/dietary-restrictions', dietaryRestrictionsRouter);
 app.use('/api/admin-auth', adminAuthRouter);
 app.use('/api/pantry', pantryRouter);
@@ -68,7 +70,7 @@ app.use('/api/health', async (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log('📍 Available routes:');
+  console.log('🔍 Available routes:');
   console.log('   - GET  /api/health');
   console.log('   - POST /api/auth/register');
   console.log('   - POST /api/auth/login');
@@ -80,6 +82,13 @@ app.listen(PORT, () => {
   console.log('   - PUT  /api/admin/recipes/:id (🔒 Admin Routes)');
   console.log('   - DELETE /api/admin/recipes/:id (🔒 Delete Recipe)');
   console.log('   - GET  /api/admin/recipes/test (🧪 Test Route)');
+  console.log('   🆕 ADMIN INGREDIENTS ROUTES:');
+  console.log('   - GET  /api/admin/ingredients (🔒 Get All Ingredients)');
+  console.log('   - POST /api/admin/ingredients (🔒 Create Ingredient)');
+  console.log('   - PUT  /api/admin/ingredients/:id (🔒 Update Ingredient)');
+  console.log('   - DELETE /api/admin/ingredients/:id (🔒 Delete Ingredient)');
+  console.log('   - GET  /api/admin/ingredients/pending (🔒 Get Pending Requests)');
+  console.log('   - POST /api/admin/ingredients/approve-pending (🔒 Approve Pending)');
   console.log('   🆕 DIETARY RESTRICTIONS ROUTES:');
   console.log('   - GET  /api/dietary-restrictions/public (📋 For Get-Started Page)');
   console.log('   - POST /api/dietary-restrictions/user/save (📋 Save User Data)');
@@ -93,6 +102,7 @@ app.listen(PORT, () => {
   console.log('   - POST /api/pantry/save-selection (🔒 Save User Ingredient Selection)');
   console.log('   - GET  /api/pantry/my-selection (🔒 Get User Previous Selection)');
   console.log('   - POST /api/pantry/generate-recipe (🔒 Generate Recipes from Ingredients)');
+  console.log('   - POST /api/pantry/request-ingredient (🔒 Request New Ingredient)');
 });
 
 export default app;
