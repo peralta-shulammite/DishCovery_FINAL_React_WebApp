@@ -86,6 +86,10 @@ const IngredientScanner = () => {
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [detections, setDetections] = useState([]);
 
+  // State for scanning detections
+  const [scanningDetections, setScanningDetections] = useState([]);
+  const [showScanningBounds, setShowScanningBounds] = useState(false);
+
   // Initialize offscreen canvas for better performance
   useEffect(() => {
     if (typeof OffscreenCanvas !== 'undefined') {
@@ -177,12 +181,19 @@ const IngredientScanner = () => {
 
   const handleScan = async () => {
     setIsScanning(true);
+    setScanningDetections([]);
+    setShowScanningBounds(false);
     captureImage();
 
     setTimeout(async () => {
       if (canvasRef.current) {
         const imageDataUrl = canvasRef.current.toDataURL('image/jpeg', 0.9);
-        const detections = await runDetectionHighQuality(imageDataUrl);
+        
+        // Show scanning bounds animation
+        setShowScanningBounds(true);
+        
+        // Run detection and get intermediate results
+        const detections = await runDetectionWithProgress(imageDataUrl);
         
         // Convert detections to ingredients format
         const ingredients = detections.map((det, idx) => ({
@@ -193,10 +204,16 @@ const IngredientScanner = () => {
         }));
         
         setScannedIngredients(ingredients);
+        
+        // Hide scanning bounds and show modal
+        setTimeout(() => {
+          setShowScanningBounds(false);
+          setScanningDetections([]);
+          setIsScanning(false);
+          setShowModal(true);
+        }, 500);
       }
-      setIsScanning(false);
-      setShowModal(true);
-    }, 1000);
+    }, 800);
   };
 
   // Utility function to capitalize words
@@ -526,6 +543,57 @@ const IngredientScanner = () => {
   async function runDetection(imageDataUrl) {
     return runDetectionHighQuality(imageDataUrl);
   }
+  async function runDetectionWithProgress(imageDataUrl) {
+    if (!session || !labels.length) return [];
+
+    try {
+      const img = new Image();
+      img.src = imageDataUrl;
+      await new Promise(resolve => { img.onload = resolve; });
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = INPUT_SIZE;
+      tempCanvas.height = INPUT_SIZE;
+      const ctx = tempCanvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, INPUT_SIZE, INPUT_SIZE);
+
+      const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+      const input = preprocessImage(imageData);
+      
+      const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+      const feeds = {};
+      feeds[session.inputNames[0]] = tensor;
+      
+      // Show progress by simulating detection steps
+      setTimeout(() => {
+        if (showScanningBounds) {
+          setScanningDetections([
+            { bbox: { x_min: 0.2, y_min: 0.2, x_max: 0.4, y_max: 0.4 }, name: 'Analyzing...', confidence: 0.8 },
+            { bbox: { x_min: 0.6, y_min: 0.3, x_max: 0.8, y_max: 0.5 }, name: 'Processing...', confidence: 0.7 }
+          ]);
+        }
+      }, 300);
+
+      const results = await session.run(feeds);
+      const rawDetections = parseDetections(results, labels);
+      const finalDetections = nms(rawDetections, 0.4);
+      
+      // Update with actual detections
+      const topDetections = finalDetections
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, 15);
+
+      if (showScanningBounds) {
+        setScanningDetections(topDetections);
+      }
+
+      return topDetections;
+
+    } catch (error) {
+      console.error("Detection error:", error);
+      return [];
+    }
+  }
 
   // Optimized real-time detection with frame skipping and throttling
   useEffect(() => {
@@ -738,8 +806,9 @@ const IngredientScanner = () => {
                     border: '3px solid #4CAF50',
                     borderRadius: '8px',
                     boxSizing: 'border-box',
-                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    animation: 'fadeIn 0.3s ease-in-out'
+                    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+                    animation: 'pulseDetection 2s ease-in-out infinite',
+                    boxShadow: '0 0 15px rgba(76, 175, 80, 0.4)'
                   }}
                 >
                   <span
@@ -757,7 +826,8 @@ const IngredientScanner = () => {
                       boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
                       maxWidth: '200px',
                       overflow: 'hidden',
-                      textOverflow: 'ellipsis'
+                      textOverflow: 'ellipsis',
+                      animation: 'fadeInLabel 0.3s ease-in-out'
                     }}
                   >
                     {capitalizeWords(det.name)} ({(det.confidence * 100).toFixed(0)}%)
@@ -765,6 +835,134 @@ const IngredientScanner = () => {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Scanning detection overlay with bounding boxes */}
+        {isScanning && showScanningBounds && scanningDetections.length > 0 && (
+          <div 
+            className="scanning-detection-overlay" 
+            style={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              width: '100%', 
+              height: '100%', 
+              pointerEvents: 'none',
+              zIndex: 15
+            }}
+          >
+            {scanningDetections.map((det, idx) => {
+              const left = `${det.bbox.x_min * 100}%`;
+              const top = `${det.bbox.y_min * 100}%`;
+              const width = `${(det.bbox.x_max - det.bbox.x_min) * 100}%`;
+              const height = `${(det.bbox.y_max - det.bbox.y_min) * 100}%`;
+              
+              return (
+                <div
+                  key={`scanning-${det.name}-${idx}`}
+                  style={{
+                    position: 'absolute',
+                    left,
+                    top,
+                    width,
+                    height,
+                    border: '3px solid #FF9800',
+                    borderRadius: '8px',
+                    boxSizing: 'border-box',
+                    backgroundColor: 'rgba(255, 152, 0, 0.2)',
+                    animation: 'scanningBoundsPulse 1s ease-in-out infinite',
+                    boxShadow: '0 0 20px rgba(255, 152, 0, 0.6)'
+                  }}
+                >
+                  <span
+                    style={{
+                      background: 'rgba(255, 152, 0, 0.95)',
+                      color: '#fff',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      position: 'absolute',
+                      top: '-2em',
+                      left: 0,
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                      maxWidth: '200px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      animation: 'fadeInScanLabel 0.3s ease-in-out'
+                    }}
+                  >
+                    {capitalizeWords(det.name)} 
+                    {det.confidence && det.confidence < 1 && ` (${(det.confidence * 100).toFixed(0)}%)`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Scanning detection overlay */}
+        {isScanning && capturedImage && (
+          <div 
+            className="scanning-detection-overlay" 
+            style={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              width: '100%', 
+              height: '100%', 
+              pointerEvents: 'none',
+              zIndex: 15,
+              background: 'rgba(0, 0, 0, 0.3)'
+            }}
+          >
+            <div 
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                background: 'rgba(76, 175, 80, 0.9)',
+                padding: '20px 30px',
+                borderRadius: '15px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                animation: 'scanningPulse 1.5s ease-in-out infinite'
+              }}
+            >
+              <div 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '15px',
+                  color: '#fff',
+                  fontSize: '1rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                <div className="spinner" style={{width: '20px', height: '20px'}}></div>
+                <span>Detecting ingredients...</span>
+              </div>
+            </div>
+            
+            {/* Scanning grid animation */}
+            <div 
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                background: `
+                  linear-gradient(90deg, transparent 24%, rgba(76, 175, 80, 0.3) 25%, rgba(76, 175, 80, 0.3) 26%, transparent 27%, transparent 74%, rgba(76, 175, 80, 0.3) 75%, rgba(76, 175, 80, 0.3) 76%, transparent 77%),
+                  linear-gradient(0deg, transparent 24%, rgba(76, 175, 80, 0.3) 25%, rgba(76, 175, 80, 0.3) 26%, transparent 27%, transparent 74%, rgba(76, 175, 80, 0.3) 75%, rgba(76, 175, 80, 0.3) 76%, transparent 77%)
+                `,
+                backgroundSize: '50px 50px',
+                animation: 'scanGrid 2s linear infinite',
+                opacity: 0.6
+              }}
+            />
           </div>
         )}
       </div>
