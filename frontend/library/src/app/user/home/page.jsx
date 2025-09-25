@@ -15,8 +15,8 @@ export default function DishCoveryLanding() {
   const [dishCoveryShowVideoModal, setDishCoveryShowVideoModal] = useState(false);
   const [dishCoveryIsChecked, setDishCoveryIsChecked] = useState(false);
   const [dishCoveryIsOneMoreStepChecked, setDishCoveryIsOneMoreStepChecked] = useState(false);
-  const [dishCoveryShowMobileMenu, setDishCoveryShowMobileMenu] = useState(false);
-  const [dishCoveryShowAvatarDropdown, setDishCoveryShowAvatarDropdown] = useState(false);
+  const [dishCoveryShowPassword, setDishCoveryShowPassword] = useState(false);
+  const [dishCoveryShowForgotPasswordModal, setDishCoveryShowForgotPasswordModal] = useState(false);
   const [dishCoveryEmail, setDishCoveryEmail] = useState('');
   const [dishCoveryPassword, setDishCoveryPassword] = useState('');
   const [dishCoveryFirstName, setDishCoveryFirstName] = useState('');
@@ -25,8 +25,7 @@ export default function DishCoveryLanding() {
   const [dishCoveryVerificationCode, setDishCoveryVerificationCode] = useState('');
   const [dishCoveryUser, setDishCoveryUser] = useState(null);
   const [dishCoveryError, setDishCoveryError] = useState('');
-  const iconRef = useRef(null);
-  const dishCoveryAvatarRef = useRef(null);
+  
 
   const dishCoveryAnimatedWords = ['discover', 'explore', 'uncover'];
 
@@ -56,16 +55,6 @@ export default function DishCoveryLanding() {
   }, []);
 
   useEffect(() => {
-    const dishCoveryHandleClickOutside = (event) => {
-      if (dishCoveryAvatarRef.current && !dishCoveryAvatarRef.current.contains(event.target)) {
-        setDishCoveryShowAvatarDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', dishCoveryHandleClickOutside);
-    return () => document.removeEventListener('mousedown', dishCoveryHandleClickOutside);
-  }, []);
-
-  useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       setDishCoveryIsLoggedIn(true);
@@ -82,7 +71,6 @@ export default function DishCoveryLanding() {
 
   const dishCoveryHandleSignInClick = () => {
     setDishCoveryShowSignInModal(true);
-    setDishCoveryShowMobileMenu(false);
     setDishCoveryError('');
   };
 
@@ -131,7 +119,6 @@ export default function DishCoveryLanding() {
     } else {
       window.location.href = '/user/Scanning';
     }
-    setDishCoveryShowMobileMenu(false);
   };
 
   const dishCoveryHandleStartJourneyClick = () => {
@@ -142,16 +129,11 @@ export default function DishCoveryLanding() {
     }
   };
 
-  const dishCoveryToggleMobileMenu = () => {
-    setDishCoveryShowMobileMenu((prev) => !prev);
-  };
-
   const dishCoveryHandleLogout = () => {
     api.logout();
     setDishCoveryIsLoggedIn(false);
     setDishCoveryUser(null);
     setDishCoveryShowAvatarDropdown(false);
-    setDishCoveryShowMobileMenu(false);
     console.log("User logged out");
   };
 
@@ -212,28 +194,45 @@ export default function DishCoveryLanding() {
     }
   };
 
-const dishCoveryNavLinks = [
-  { name: "Home", href: "user/home" },
-  { name: "My Pantry", href: "/user/pantry" },
-  { name: "Favorites", href: "/user/favorites" },
-];
-  const dishCoveryTopRecipes = [
-    { name: "Mediterranean Salad", time: "20 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Classic Burger", time: "35 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Japanese Ramen", time: "50 min", difficulty: "Medium", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Pasta Primavera", time: "20 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Mediterranean Salad", time: "20 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Classic Burger", time: "35 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-  ];
+  const dishCoveryHandleForgotPasswordClick = () => {
+  setDishCoveryShowSignInModal(false); // close sign in modal
+  setDishCoveryShowForgotPasswordModal(true); // open forgot password modal
+  setDishCoveryError('');
+};
 
-  const dishCoveryBottomRecipes = [
-    { name: "American BBQ Ribs", time: "90 min", difficulty: "Medium", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Greek Moussaka", time: "60 min", difficulty: "Hard", img: "https://s.yimg.com/ny/api/highlander;w=960;h=960--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Spicy Thai Curry", time: "45 min", difficulty: "Medium", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Mexican Tacos", time: "25 min", difficulty: "Easy", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "American BBQ Ribs", time: "90 min", difficulty: "Medium", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-    { name: "Greek Moussaka", time: "60 min", difficulty: "Hard", img: "https://s.yimg.com/ny/api/res/1.2/wwBOwqvEwbEhZQnLAO3lXg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTk2MDtoPTk2MA--/https://media.zenfs.com/en/eating_well_articles_946/d059d7758b1b90f3c8ce6b1ad99fdf31" },
-  ];
+const dishCoveryHandleForgotPasswordSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    // Replace this with your API call
+    console.log("Password reset requested for:", dishCoveryEmail);
+    alert("Password reset link sent to your email!");
+    setDishCoveryShowForgotPasswordModal(false);
+  } catch (error) {
+    setDishCoveryError(error.message);
+  }
+};
+
+const dishCoveryTopRecipes = [
+    { name: "Adobong Manok", time: "50 min", difficulty: "Easy", img: "/adobong-manok.jpg" },
+    { name: "Ginisang Talbos ng Sayote", time: "20 min", difficulty: "Easy", img: "/ginisang-talbos.jpg" },
+    { name: "Sarsiadong Isda", time: "35 min", difficulty: "Medium", img: "/sarsiadong-isda.jpg" },
+    { name: "Sinabawang Hipon", time: "40 min", difficulty: "Medium", img: "/sinabawang-hipon.jpg" },
+    { name: "Kinilaw", time: "25 min", difficulty: "Easy", img: "/kinilaw.jpg" },
+    { name: "Chop Suey", time: "40 min", difficulty: "Medium", img: "/chop-suey.jpg" },
+    { name: "Pancit Guisado", time: "45 min", difficulty: "Medium", img: "/pancit-guisado.jpg" },
+    { name: "Laing", time: "90 min", difficulty: "Medium", img: "/laing.jpg" },
+];
+
+const dishCoveryBottomRecipes = [
+    { name: "Puto Bumbong", time: "60 min", difficulty: "Hard", img: "/puto-bumbong.jpg" },
+    { name: "Ginataang Bilo-Bilo", time: "60 min", difficulty: "Medium", img: "/ginataang-bilo-bilo.jpg" },
+    { name: "Biko", time: "90 min", difficulty: "Medium", img: "/biko.jpg" },
+    { name: "Maja Blanca", time: "60 min", difficulty: "Easy", img: "/maja-blanca.jpg" },
+    { name: "Turon", time: "25 min", difficulty: "Easy", img: "/turon.png" },
+    { name: "Kutsinta", time: "45 min", difficulty: "Medium", img: "/kutsinta.jpg" },
+    { name: "Suman", time: "90 min", difficulty: "Medium", img: "/suman.jpg" },
+    { name: "Banana Cue", time: "20 min", difficulty: "Easy", img: "/banana-cue.jpg" },
+];
 
   return (
     <UserLayout 
@@ -361,7 +360,7 @@ const dishCoveryNavLinks = [
         <div className="carousel-header">
           <h2 className="carousel-title">Delicious Recipe Inspirations</h2>
           <p className="carousel-subtitle">
-            Join thousands of satisfied users who have revolutionized their cooking, reduced food waste, and discovered amazing new recipes.
+           Be among the first home cooks to transform mealtime. Explore recipes tailored to you, reduce waste, and elevate every meal.
           </p>
           <button className="carousel-start-btn" onClick={dishCoveryHandleStartJourneyClick}>
             Start Your Free Journey →
@@ -432,7 +431,7 @@ const dishCoveryNavLinks = [
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
               </svg>
             </div>
-            <h3 className="confidence-card-title">AI Recipe Generator</h3>
+            <h3 className="confidence-card-title">Recipe Generator</h3>
             <p className="confidence-card-desc">Get smart ideas based on your ingredients and dietary needs.</p>
           </div>
           <div className="confidence-card">
@@ -556,14 +555,45 @@ const dishCoveryNavLinks = [
               value={dishCoveryEmail}
               onChange={(e) => setDishCoveryEmail(e.target.value)}
             />
-            <input
-              type="password"
-              className="modal-input"
-              placeholder="Password"
-              value={dishCoveryPassword}
-              onChange={(e) => setDishCoveryPassword(e.target.value)}
-            />
-            <a href="#" className="forgot-password">Forgot Password?</a>
+              <div className="password-input-container">
+                <input
+                  type={dishCoveryShowPassword ? "text" : "password"}
+                  className="modal-input"
+                  value={dishCoveryPassword}
+                  onChange={(e) => setDishCoveryPassword(e.target.value)}
+                  placeholder="Password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="toggle-password-btn"
+                  onClick={() => setDishCoveryShowPassword(!dishCoveryShowPassword)}
+                >
+                  {dishCoveryShowPassword ? (
+                    // Open Eye - Password is visible
+                    <svg viewBox="0 0 24 24" className="eye-icon">
+                      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                  ) : (
+                    // Closed Eye - Password is hidden
+                    <svg viewBox="0 0 24 24" className="eye-icon">
+                      <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
+
+            {/* Forgot Password link */}
+            <p className="forgot-password-text">
+              <button
+                type="button"
+                onClick={dishCoveryHandleForgotPasswordClick}
+                className="forgot-password-link"
+              >
+                Forgot Password?
+              </button>
+            </p>
+
             <button className="modal-signin-btn" onClick={dishCoveryHandleSignInSubmit}>Sign In</button>
             <div className="modal-or">or</div>
             <div className="social-buttons">
@@ -585,6 +615,28 @@ const dishCoveryNavLinks = [
           </div>
         </div>
       )}
+
+      {/* Forgot Password Modal */}
+      {dishCoveryShowForgotPasswordModal && (
+        <div className="modal-overlay" onClick={() => setDishCoveryShowForgotPasswordModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="close-btn" onClick={() => setDishCoveryShowForgotPasswordModal(false)}>×</button>
+            <h2 className="modal-title">Reset Your Password</h2>
+            <p className="modal-subtitle">Enter your email to get a reset link</p>
+            <input
+              type="email"
+              className="modal-input"
+              placeholder="Enter your email"
+              value={dishCoveryEmail}
+              onChange={(e) => setDishCoveryEmail(e.target.value)}
+              required
+            />
+            {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
+            <button className="modal-signin-btn" onClick={dishCoveryHandleForgotPasswordSubmit}>Send Reset Link</button>
+          </div>
+        </div>
+      )}
+
 
       {dishCoveryShowSignUpModal && (
         <div className="modal-overlay" onClick={dishCoveryCloseModal}>
