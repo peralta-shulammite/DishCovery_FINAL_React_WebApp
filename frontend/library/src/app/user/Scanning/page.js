@@ -63,6 +63,13 @@ const IngredientScanner = () => {
   const ingredientsListRef = useRef(null);
   const detectionTimeoutRef = useRef(null);
   
+  // Performance optimization refs
+  const lastInferenceTime = useRef(0);
+  const processingRef = useRef(false);
+  const offscreenCanvas = useRef(null);
+  const offscreenCtx = useRef(null);
+  const animationFrameRef = useRef(null);
+  
   const [cameraState, setCameraState] = useState('not-started');
   const [isScanning, setIsScanning] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -78,6 +85,20 @@ const IngredientScanner = () => {
   const [modelError, setModelError] = useState(null);
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [detections, setDetections] = useState([]);
+
+  // Initialize offscreen canvas for better performance
+  useEffect(() => {
+    if (typeof OffscreenCanvas !== 'undefined') {
+      offscreenCanvas.current = new OffscreenCanvas(INPUT_SIZE, INPUT_SIZE);
+      offscreenCtx.current = offscreenCanvas.current.getContext('2d');
+    } else {
+      // Fallback for browsers that don't support OffscreenCanvas
+      offscreenCanvas.current = document.createElement('canvas');
+      offscreenCanvas.current.width = INPUT_SIZE;
+      offscreenCanvas.current.height = INPUT_SIZE;
+      offscreenCtx.current = offscreenCanvas.current.getContext('2d');
+    }
+  }, []);
 
   const startCamera = useCallback(async () => {
     setCameraState('loading');
@@ -120,39 +141,40 @@ const IngredientScanner = () => {
   };
 
   const handleFileChange = async (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const imageDataUrl = e.target.result;
-      setCapturedImage(imageDataUrl);
-      
-      // Run detection on uploaded image
-      setIsScanning(true);
-      try {
-        const detections = await runDetection(imageDataUrl);
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageDataUrl = e.target.result;
+        setCapturedImage(imageDataUrl);
         
-        // Convert detections to ingredients format
-        const ingredients = detections.map((det, idx) => ({
-          id: idx + 1,
-          name: capitalizeWords(det.name),
-          selected: true,
-          confidence: det.confidence
-        }));
+        // Run detection on uploaded image
+        setIsScanning(true);
+        try {
+          const detections = await runDetectionHighQuality(imageDataUrl);
+          
+          // Convert detections to ingredients format
+          const ingredients = detections.map((det, idx) => ({
+            id: idx + 1,
+            name: capitalizeWords(det.name),
+            selected: true,
+            confidence: det.confidence
+          }));
+          
+          setScannedIngredients(ingredients);
+        } catch (error) {
+          console.error('Error processing uploaded image:', error);
+          setScannedIngredients([]);
+        } finally {
+          setIsScanning(false);
+        }
         
-        setScannedIngredients(ingredients);
-      } catch (error) {
-        console.error('Error processing uploaded image:', error);
-        setScannedIngredients([]);
-      } finally {
-        setIsScanning(false);
-      }
-      
-      setShowModal(true);
-    };
-    reader.readAsDataURL(file);
-  }
-};
+        setShowModal(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleScan = async () => {
     setIsScanning(true);
     captureImage();
@@ -160,7 +182,7 @@ const IngredientScanner = () => {
     setTimeout(async () => {
       if (canvasRef.current) {
         const imageDataUrl = canvasRef.current.toDataURL('image/jpeg', 0.9);
-        const detections = await runDetection(imageDataUrl);
+        const detections = await runDetectionHighQuality(imageDataUrl);
         
         // Convert detections to ingredients format
         const ingredients = detections.map((det, idx) => ({
@@ -174,7 +196,7 @@ const IngredientScanner = () => {
       }
       setIsScanning(false);
       setShowModal(true);
-    }, 1500);
+    }, 1000);
   };
 
   // Utility function to capitalize words
@@ -235,6 +257,7 @@ const IngredientScanner = () => {
     // Navigate to recipe page with ingredients
     window.location.href = `/user/recipe?${params.toString()}`;
   };
+
   const getSelectedCount = () => {
     return scannedIngredients.filter(i => i.selected).length;
   };
@@ -288,7 +311,27 @@ const IngredientScanner = () => {
     loadLabels();
   }, []);
 
-  // Preprocess image for YOLOv8
+  // Optimized preprocessing with reduced operations
+  function preprocessImageOptimized(canvas) {
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+    const { data } = imageData;
+    const input = new Float32Array(3 * INPUT_SIZE * INPUT_SIZE);
+    
+    const pixelCount = INPUT_SIZE * INPUT_SIZE;
+    
+    // Single loop with direct indexing - much faster
+    for (let i = 0; i < pixelCount; i++) {
+      const pixelIndex = i * 4;
+      input[i] = data[pixelIndex] / 255.0;                    // R
+      input[pixelCount + i] = data[pixelIndex + 1] / 255.0;   // G  
+      input[2 * pixelCount + i] = data[pixelIndex + 2] / 255.0; // B
+    }
+    
+    return input;
+  }
+
+  // Original preprocess image for backward compatibility
   function preprocessImage(imageData) {
     const { data, width, height } = imageData;
     const input = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
@@ -307,7 +350,67 @@ const IngredientScanner = () => {
     return input;
   }
 
-  // Parse YOLOv8 detection output
+  // Optimized detection parsing for real-time (higher threshold)
+  function parseDetectionsOptimized(results, labels, confidenceThreshold = 0.75) {
+    if (!results || !session?.outputNames?.length) return [];
+
+    const outputName = session.outputNames[0];
+    const output = results[outputName];
+    
+    if (!output?.data) return [];
+
+    const outputData = output.data;
+    const numDetections = 8400;
+    const numClasses = labels.length;
+    const detections = [];
+
+    // Process detections with early confidence filtering
+    for (let i = 0; i < numDetections; i++) {
+      const centerX = outputData[i];
+      const centerY = outputData[numDetections + i];
+      const width = outputData[2 * numDetections + i];
+      const height = outputData[3 * numDetections + i];
+
+      // Quick bounds check before processing classes
+      if (centerX < 0 || centerX > INPUT_SIZE || centerY < 0 || centerY > INPUT_SIZE) {
+        continue;
+      }
+
+      // Find max class score efficiently
+      let maxScore = 0;
+      let classIndex = -1;
+      
+      for (let j = 0; j < numClasses; j++) {
+        const score = outputData[(4 + j) * numDetections + i];
+        if (score > maxScore) {
+          maxScore = score;
+          classIndex = j;
+        }
+      }
+
+      // Early exit if confidence too low
+      if (maxScore < confidenceThreshold) continue;
+
+      // Convert coordinates
+      const x_min = Math.max(0, (centerX - width / 2) / INPUT_SIZE);
+      const y_min = Math.max(0, (centerY - height / 2) / INPUT_SIZE);
+      const x_max = Math.min(1, (centerX + width / 2) / INPUT_SIZE);
+      const y_max = Math.min(1, (centerY + height / 2) / INPUT_SIZE);
+
+      // Validate bbox size (minimum size threshold)
+      if (x_max > x_min && y_max > y_min && (x_max - x_min) > 0.02 && (y_max - y_min) > 0.02) {
+        detections.push({
+          name: labels[classIndex],
+          confidence: maxScore,
+          bbox: { x_min, y_min, x_max, y_max }
+        });
+      }
+    }
+
+    return detections;
+  }
+
+  // Parse YOLOv8 detection output (original for high quality scans)
   function parseDetections(results, labels) {
     if (!results || !session || !session.outputNames || session.outputNames.length === 0) {
       console.error('Invalid results or session');
@@ -348,8 +451,8 @@ const IngredientScanner = () => {
       const maxScore = Math.max(...classScores);
       const classIndex = classScores.indexOf(maxScore);
       
-      // Apply confidence threshold
-      if (maxScore > 0.5 && classIndex < labels.length) {
+      // Apply confidence threshold (lower for high quality scans)
+      if (maxScore > 0.4 && classIndex < labels.length) {
         // Convert center coordinates to corner coordinates
         const x_min = Math.max(0, (centerX - width / 2) / INPUT_SIZE);
         const y_min = Math.max(0, (centerY - height / 2) / INPUT_SIZE);
@@ -370,8 +473,8 @@ const IngredientScanner = () => {
     return detections;
   }
 
-  // Run detection on image
-  async function runDetection(imageDataUrl) {
+  // High quality detection for scan button (lower threshold)
+  async function runDetectionHighQuality(imageDataUrl) {
     if (!session || !labels.length) {
       console.log('Model or labels not ready');
       return [];
@@ -402,7 +505,7 @@ const IngredientScanner = () => {
       feeds[session.inputNames[0]] = tensor;
       const results = await session.run(feeds);
 
-      // Parse results
+      // Parse results with original function (lower threshold)
       const rawDetections = parseDetections(results, labels);
       
       // Apply NMS to remove duplicate detections
@@ -411,7 +514,7 @@ const IngredientScanner = () => {
       // Return top detections sorted by confidence
       return finalDetections
         .sort((a, b) => b.confidence - a.confidence)
-        .slice(0, 10); // Limit to top 10 detections
+        .slice(0, 15); // More detections for scan button
 
     } catch (error) {
       console.error("Detection error:", error);
@@ -419,60 +522,97 @@ const IngredientScanner = () => {
     }
   }
 
-  // Real-time detection for camera feed
+  // Run detection on image (original for compatibility)
+  async function runDetection(imageDataUrl) {
+    return runDetectionHighQuality(imageDataUrl);
+  }
+
+  // Optimized real-time detection with frame skipping and throttling
   useEffect(() => {
-    let interval;
+    let isProcessing = false;
     
-    if (session && labels.length && cameraState === 'available' && !showModal) {
-      interval = setInterval(async () => {
-        if (!videoRef.current || !canvasRef.current) return;
-        
-        try {
-          const canvas = canvasRef.current;
-          const video = videoRef.current;
-          const ctx = canvas.getContext("2d");
-          
-          // Set canvas size to match input size
-          canvas.width = INPUT_SIZE;
-          canvas.height = INPUT_SIZE;
-          ctx.drawImage(video, 0, 0, INPUT_SIZE, INPUT_SIZE);
-          
-          const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
-          const input = preprocessImage(imageData);
-          
-          const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-          const feeds = {};
-          feeds[session.inputNames[0]] = tensor;
-          const results = await session.run(feeds);
-          
-          const rawDetections = parseDetections(results, labels);
-          const finalDetections = nms(rawDetections, 0.5);
-          
-          // Filter for high-confidence detections for real-time display
-          const topDetections = finalDetections
-            .filter(det => det.confidence > 0.87)
-            .sort((a, b) => b.confidence - a.confidence)
-            .slice(0, 5);
-          
-          setDetections(topDetections);
-          
-          // Clear detections after timeout
-          if (detectionTimeoutRef.current) {
-            clearTimeout(detectionTimeoutRef.current);
-          }
-          
-          detectionTimeoutRef.current = setTimeout(() => {
-            setDetections([]);
-          }, 2000);
-          
-        } catch (error) {
-          console.error("Real-time detection error:", error);
+    const runRealtimeDetection = async () => {
+      if (isProcessing || !session || !labels.length || cameraState !== 'available' || showModal) {
+        animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
+        return;
+      }
+
+      const now = performance.now();
+      // Throttle to max 2 FPS for real-time detection
+      if (now - lastInferenceTime.current < 500) {
+        animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
+        return;
+      }
+
+      isProcessing = true;
+      lastInferenceTime.current = now;
+
+      try {
+        if (!videoRef.current || videoRef.current.readyState < 2) {
+          animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
+          isProcessing = false;
+          return;
         }
-      }, 1000); // Run detection every second
-    }
+
+        // Use offscreen canvas for better performance
+        const canvas = offscreenCanvas.current;
+        const ctx = offscreenCtx.current;
+        
+        if (!canvas || !ctx) {
+          animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
+          isProcessing = false;
+          return;
+        }
+
+        // Draw video frame to offscreen canvas
+        ctx.drawImage(videoRef.current, 0, 0, INPUT_SIZE, INPUT_SIZE);
+        
+        // Preprocess image
+        const input = preprocessImageOptimized(canvas);
+        
+        // Create tensor and run inference
+        const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+        const feeds = { [session.inputNames[0]]: tensor };
+        
+        const results = await session.run(feeds);
+        const rawDetections = parseDetectionsOptimized(results, labels, 0.8); // High threshold for real-time
+        
+        // Apply lighter NMS for real-time (higher threshold = faster)
+        const finalDetections = nms(rawDetections, 0.6);
+        
+        // Only show high-confidence detections in real-time
+        const topDetections = finalDetections
+          .sort((a, b) => b.confidence - a.confidence)
+          .slice(0, 3); // Limit to 3 detections for better performance
+        
+        setDetections(topDetections);
+        
+        // Clear detections after shorter timeout
+        if (detectionTimeoutRef.current) {
+          clearTimeout(detectionTimeoutRef.current);
+        }
+        
+        detectionTimeoutRef.current = setTimeout(() => {
+          setDetections([]);
+        }, 1500); // Reduced timeout
+        
+      } catch (error) {
+        console.error("Real-time detection error:", error);
+      } finally {
+        isProcessing = false;
+      }
+
+      // Continue the loop
+      animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
+    };
+
+    // Start the detection loop
+    animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
     
     return () => {
-      if (interval) clearInterval(interval);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
       if (detectionTimeoutRef.current) {
         clearTimeout(detectionTimeoutRef.current);
       }
