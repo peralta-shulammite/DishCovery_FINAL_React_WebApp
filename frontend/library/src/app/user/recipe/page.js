@@ -20,7 +20,6 @@ import {
   faRobot,
   faExchangeAlt,
   faEye,
-  faBookmark,
   faAward,
   faGrid3x3,
   faList,
@@ -35,7 +34,7 @@ import {
 import { 
   faComment,
   faStar as faStarRegular,
-  faHeart as faHeartRegular
+  faHeart as faHeartRegular // Keep this aliased version for regular heart
 } from '@fortawesome/free-regular-svg-icons';
 import { recipeAPI } from './api'; // Import your API
 import './styles.css';
@@ -58,7 +57,9 @@ const RecipePage = () => {
   // DishCovery Search and Filter States
   const [dishCoverySearchQuery, setDishCoverySearchQuery] = useState('');
   const [dishCoverySortBy, setDishCoverySortBy] = useState('relevance');
-  const [dishCoveryViewMode, setDishCoveryViewMode] = useState('grid'); // 'grid' or 'list'
+  const [dishCoveryViewMode, setDishCoveryViewMode] = useState('grid'); 
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   const [dishCoveryHoverStates, setDishCoveryHoverStates] = useState({
     logo: false,
@@ -70,9 +71,9 @@ const RecipePage = () => {
   // Original Recipe Page State management
   const [filters, setFilters] = useState({
     mealType: [],
-    dietaryTags: [],
-    healthTags: []
+    dietaryTags: []
   });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -91,7 +92,10 @@ const RecipePage = () => {
     avatar: false,
   });
 
+  const [favoritedRecipes, setFavoritedRecipes] = useState(new Set());
+
   const avatarRef = useRef(null);
+
 
   // DishCovery Navigation Handlers
   const dishCoveryHandleHover = (element, isHover) => {
@@ -150,7 +154,10 @@ const RecipePage = () => {
       }
     };
     const handleEscape = (event) => {
-      if (event.key === 'Escape' && isModalOpen) closeModal();
+      if (event.key === 'Escape') {
+        if (isModalOpen) closeModal();
+        if (showFilterModal) closeFilterModal();
+      }
     };
     document.addEventListener('mousedown', dishCoveryHandleClickOutside);
     document.addEventListener('mousedown', handleClickOutside);
@@ -195,7 +202,7 @@ const RecipePage = () => {
       },
       instructions: [
         'Cook quinoa according to package directions. Fluff with a fork and set aside.',
-        'Preheat oven to 400°F (200°C). Toss sweet potato and broccoli with olive oil, salt, and pepper.',
+        'Preheat oven to 400Ãƒâ€šÃ‚Â°F (200Ãƒâ€šÃ‚Â°C). Toss sweet potato and broccoli with olive oil, salt, and pepper.',
         'Roast vegetables for 25 minutes until tender and slightly caramelized.',
         'Prepare tahini dressing by whisking tahini, lemon juice, water, and minced garlic until smooth.',
         'Drain and rinse chickpeas. Season with salt, pepper, and a drizzle of olive oil.',
@@ -324,11 +331,6 @@ const RecipePage = () => {
         activeFilters.dietaryTags = filters.dietaryTags.join(',');
       }
       
-      // Get active health tags
-      if (filters.healthTags.length > 0) {
-        activeFilters.healthTags = filters.healthTags.join(',');
-      }
-      
       // Add search query if exists (use DishCovery search for consistency)
       const searchTerm = dishCoverySearchQuery.trim();
       if (searchTerm) {
@@ -445,8 +447,7 @@ const RecipePage = () => {
   // Filter options
   const filterOptions = {
     mealType: ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert', 'Light Meal', 'Heavy Meal'],
-    dietaryTags: ['Vegan', 'Vegetarian', 'Gluten-free', 'Dairy-free', 'Mediterranean', 'High-protein', 'Keto', 'Paleo'],
-    healthTags: ['Heart-healthy', 'Low-carb', 'Diabetic-safe', 'High-protein', 'Antioxidant-rich', 'Low-sodium', 'Peanut-free']
+    dietaryTags: ['Vegan', 'Vegetarian', 'Gluten-free', 'Dairy-free', 'Mediterranean', 'High-protein', 'Keto', 'Paleo']
   };
 
   // Filter recipes based on current filters and search (for fallback data)
@@ -458,11 +459,8 @@ const RecipePage = () => {
     const matchesMealType = filters.mealType.length === 0 || filters.mealType.includes(recipe.mealType);
     const matchesDietary = filters.dietaryTags.length === 0 || 
                           filters.dietaryTags.some(tag => recipe.dietaryTags.includes(tag));
-    const matchesHealth = filters.healthTags.length === 0 || 
-                         filters.healthTags.some(tag => recipe.healthTags.includes(tag));
     
-    return matchesSearch && matchesMealType && matchesDietary && matchesHealth;
-  });
+    return matchesSearch && matchesMealType && matchesDietary;});
 
   // Event handlers
   const handleFilterChange = (category, value) => {
@@ -483,7 +481,7 @@ const RecipePage = () => {
   };
 
   const getActiveFilterCount = () => {
-    return filters.mealType.length + filters.dietaryTags.length + filters.healthTags.length;
+    return filters.mealType.length + filters.dietaryTags.length;
   };
 
   const renderStars = (rating) => {
@@ -514,7 +512,11 @@ const RecipePage = () => {
   };
 
   const openModal = async (recipe) => {
-    setSelectedRecipe(recipe);
+    const recipeWithFavoriteStatus = {
+      ...recipe,
+      isFavorited: favoritedRecipes.has(recipe.id)
+    };
+    setSelectedRecipe(recipeWithFavoriteStatus);
     setIsModalOpen(true);
     setCurrentImageIndex(0);
     setShowAlternatives({});
@@ -524,7 +526,10 @@ const RecipePage = () => {
     if (recipe.id && (!recipe.instructions || recipe.instructions.length === 0)) {
       const detailedRecipe = await fetchRecipeDetails(recipe.id);
       if (detailedRecipe) {
-        setSelectedRecipe(detailedRecipe);
+        setSelectedRecipe({
+          ...detailedRecipe,
+          isFavorited: favoritedRecipes.has(recipe.id)
+        });
       }
     }
   };
@@ -570,6 +575,40 @@ const RecipePage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleToggleFavorite = (recipeId) => {
+  setFavoritedRecipes(prev => {
+    const newSet = new Set(prev);
+      if (newSet.has(recipeId)) {
+        newSet.delete(recipeId);
+      } else {
+        newSet.add(recipeId);
+      }
+      return newSet;
+    });
+    
+    if (selectedRecipe && selectedRecipe.id === recipeId) {
+      setSelectedRecipe(prev => ({
+        ...prev,
+        isFavorited: !prev.isFavorited
+      }));
+    }
+  };
+
+    // Filter modal handlers
+  const openFilterModal = () => {
+    setShowFilterModal(true);
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeFilterModal = () => {
+    setShowFilterModal(false);
+    document.body.style.overflow = 'unset';
+  };
+
+  const applyFilters = () => {
+    closeFilterModal();
+  };
+
   // Use API data if available, otherwise use filtered sample data
   const displayRecipes = recipes.length > 0 ? recipes : filteredRecipes;
 
@@ -594,7 +633,16 @@ const RecipePage = () => {
 
       <div className="content-wrapper">
         {/* Sidebar Filters */}
-        <aside className="filters-sidebar">
+        <aside className={`filters-sidebar ${showMobileFilters ? 'mobile-visible' : ''}`}>
+          <div className="mobile-filter-header">
+            <h3>Filters</h3>
+            <button 
+              className="mobile-filter-close"
+              onClick={() => setShowMobileFilters(false)}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
           <div className="filters-title">
             <FontAwesomeIcon icon={faFilter} />
             Filters
@@ -641,7 +689,7 @@ const RecipePage = () => {
                   values.map(value => (
                     <span key={`${category}-${value}`} className="active-filter-tag">
                       {value}
-                      <button onClick={() => handleFilterChange(category, value)}>×</button>
+                      <button onClick={() => handleFilterChange(category, value)}>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â</button>
                     </span>
                   ))
                 )}
@@ -674,6 +722,25 @@ const RecipePage = () => {
             </div>
 
             <div className="filter-section">
+              {/* Mobile Filter Toggle Button */}
+              <button 
+                className="mobile-filter-toggle"
+                onClick={() => {
+                  const isMobile = window.innerWidth <= 768;
+                  if (isMobile) {
+                    openFilterModal();
+                  } else {
+                    setShowMobileFilters(!showMobileFilters);
+                  }
+                }}
+              >
+                <FontAwesomeIcon icon={faFilter} />
+                Filters
+                {getActiveFilterCount() > 0 && (
+                  <span className="filter-count-badge">{getActiveFilterCount()}</span>
+                )}
+              </button>
+
               {/* DishCovery View Toggle */}
               <div className="view-toggle">
                 <button
@@ -782,22 +849,17 @@ const RecipePage = () => {
                       </span>
                     </div>
 
-                    {/* Tags */}
+                   {/* Tags */}
                     <div className="recipe-tags">
                       <div className="tags-container">
-                        {recipe.dietaryTags.slice(0, 2).map(tag => (
+                        {recipe.dietaryTags.slice(0, 3).map(tag => (
                           <span key={tag} className="recipe-tag dietary">
                             {tag}
                           </span>
                         ))}
-                        {recipe.healthTags.slice(0, 1).map(tag => (
-                          <span key={tag} className="recipe-tag health">
-                            {tag}
-                          </span>
-                        ))}
-                        {(recipe.dietaryTags.length + recipe.healthTags.length) > 3 && (
+                        {recipe.dietaryTags.length > 3 && (
                           <span className="tags-more">
-                            +{(recipe.dietaryTags.length + recipe.healthTags.length) - 3} more
+                            +{recipe.dietaryTags.length - 3} more
                           </span>
                         )}
                       </div>
@@ -847,6 +909,106 @@ const RecipePage = () => {
         </main>
       </div>
 
+      {/* Mobile Filter Overlay */}
+      {showMobileFilters && (
+        <div 
+          className="mobile-filter-overlay"
+          onClick={() => setShowMobileFilters(false)}
+        />
+      )}
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <div className="modal-overlay" onClick={closeFilterModal}>
+          <div className="filter-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeFilterModal}>
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+            
+            {/* Filter Modal Header */}
+            <div className="filter-modal-header">
+              <h2 className="filter-modal-title">Filter Recipes</h2>
+              {getActiveFilterCount() > 0 && (
+                <span className="filter-modal-count">
+                  {getActiveFilterCount()} active filter{getActiveFilterCount() !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            
+            {/* Filter Modal Body */}
+            <div className="filter-modal-body">
+              {/* Sort Section */}
+              <div className="filter-modal-section">
+                <h3 className="filter-modal-section-title">Sort By</h3>
+                <select
+                  value={dishCoverySortBy}
+                  onChange={(e) => setDishCoverySortBy(e.target.value)}
+                  className="filter-modal-dropdown"
+                >
+                  <option value="popularity">Most Popular</option>
+                  <option value="rating">Highest Rated</option>
+                  <option value="cookTime">Cook Time</option>
+                  <option value="alphabetical">A-Z</option>
+                </select>
+              </div>
+
+              {/* Filter Categories */}
+              {Object.entries(filterOptions).map(([category, options]) => (
+                <div key={category} className="filter-modal-section">
+                  <h3 className="filter-modal-section-title">
+                    {category === 'mealType' ? 'Meal Type' : 
+                     category === 'dietaryTags' ? 'Dietary Tags' : 'Health Tags'}
+                  </h3>
+                  <div className="filter-modal-options">
+                    {options.map(option => (
+                      <label key={option} className="filter-modal-option">
+                        <input
+                          type="checkbox"
+                          className="filter-modal-checkbox"
+                          checked={filters[category].includes(option)}
+                          onChange={() => handleFilterChange(category, option)}
+                        />
+                        <span className="filter-modal-option-text">{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Active Filters */}
+              {getActiveFilterCount() > 0 && (
+                <div className="filter-modal-section">
+                  <h3 className="filter-modal-section-title">Active Filters</h3>
+                  <div className="filter-modal-active-tags">
+                    {Object.entries(filters).map(([category, values]) =>
+                      values.map(value => (
+                        <span key={`${category}-${value}`} className="filter-modal-active-tag">
+                          {value}
+                          <button onClick={() => handleFilterChange(category, value)}>ÃƒÆ’Ã¢â‚¬â€</button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  <button className="filter-modal-clear-all" onClick={clearAllFilters}>
+                    Clear All Filters
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Filter Modal Footer */}
+            <div className="filter-modal-footer">
+              <button className="filter-modal-btn-secondary" onClick={closeFilterModal}>
+                Cancel
+              </button>
+              <button className="filter-modal-btn-primary" onClick={applyFilters}>
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal */}
       {isModalOpen && selectedRecipe && (
         <div className="modal-overlay" onClick={closeModal}>
@@ -854,6 +1016,7 @@ const RecipePage = () => {
             <button className="modal-close" onClick={closeModal}>
               <FontAwesomeIcon icon={faTimes} />
             </button>
+            
             
             {/* Modal Header */}
             <div className="modal-header">
@@ -926,17 +1089,34 @@ const RecipePage = () => {
                 
                 {/* Recipe Statistics */}
                 <div className="modal-stats">
-                  <div className="stat-item">
+                  <div className="stat-item-display">
                     <FontAwesomeIcon icon={faEye} className="stat-icon" />
-                    <span className="stat-value">{selectedRecipe.engagement.tried} people tried this</span>
+                    <div className="stat-text">
+                      <div className="stat-number">{selectedRecipe.engagement.tried} people tried this</div>
+                    </div>
                   </div>
-                  <button className="favorite-button">
-                    <FontAwesomeIcon icon={faHeartRegular} className="favorite-icon" />
-                    <span className="favorite-text">Add to Favorites</span>
+                  <button 
+                    className={`stat-item-button favorite-button-compact stat-button-ripple ${selectedRecipe.isFavorited ? 'favorited' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleFavorite(selectedRecipe.id);
+                    }}
+                    aria-label={selectedRecipe.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                    aria-pressed={selectedRecipe.isFavorited}
+                  >
+                    <FontAwesomeIcon 
+                      icon={selectedRecipe.isFavorited ? faHeart : faHeartRegular} 
+                      className="stat-icon" 
+                    />
+                    <div className="stat-text">
+                      <div className="stat-number">
+                        {selectedRecipe.isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+                      </div>
+                    </div>
                   </button>
                 </div>
-              </div>
-              
+            </div>
+
               {/* Center Column - Instructions */}
               <div className="modal-center">
                 <div className="instructions-section">
@@ -966,17 +1146,15 @@ const RecipePage = () => {
                   </div>
                 )}
                 
-                {/* Health Benefits */}
-                {selectedRecipe.healthTags && selectedRecipe.healthTags.length > 0 && (
+                {/* Meal Type */}
+                {selectedRecipe.mealType && (
                   <div className="modal-section">
-                    <h3 className="section-title">Health Benefits</h3>
+                    <h3 className="section-title">Meal Type</h3>
                     <div className="modal-tags">
-                      {selectedRecipe.healthTags.map((tag, index) => (
-                        <span key={index} className="modal-tag health">
-                          <FontAwesomeIcon icon={faAward} />
-                          {tag}
-                        </span>
-                      ))}
+                      <span className="modal-tag meal-type">
+                        <FontAwesomeIcon icon={faUtensils} />
+                        {selectedRecipe.mealType}
+                      </span>
                     </div>
                   </div>
                 )}

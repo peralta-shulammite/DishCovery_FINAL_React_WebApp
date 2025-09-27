@@ -223,20 +223,6 @@
   color: #B71C1C;
 }
 
-.hamburger-btn {
-  display: none;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-}
-
-.hamburger-icon {
-  width: 24px;
-  height: 24px;
-  fill: #2E7D32;
-}
-
 .mobile-menu {
   position: fixed;
   top: 0;
@@ -398,10 +384,6 @@
   .nav-links,
   .nav-actions {
     display: none;
-  }
-
-  .hamburger-btn {
-    display: block;
   }
 
   .header {
