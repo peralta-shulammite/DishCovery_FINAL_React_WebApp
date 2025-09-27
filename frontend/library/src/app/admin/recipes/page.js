@@ -13,7 +13,7 @@ const RecipeManagement = () => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [searchTerm, setSearchTerm] = useState('');
   const [mealTypeFilter, setMealTypeFilter] = useState('All');
-  const [healthFilter, setHealthFilter] = useState('All'); // New state for health filter
+  const [servingsFilter, setServingsFilter] = useState('All'); // New state for servings filter
   const [editingRecipeId, setEditingRecipeId] = useState(null); // Track recipe being edited
   
   // Database connection states
@@ -22,7 +22,7 @@ const RecipeManagement = () => {
   const [recipes, setRecipes] = useState([]); // Now connected to database
 
   // Form state for adding/editing recipes - UPDATED with alternative ingredients
-  const [formData, setFormData] = useState({
+const [formData, setFormData] = useState({
     title: '',
     description: '',
     images: [],
@@ -34,7 +34,7 @@ const RecipeManagement = () => {
       optional: [{ ingredient: '', alternative: '' }]
     },
     dietaryTags: [],
-    healthTags: [],
+    servings: '2',
     verificationStatus: 'AI-generated',
     verifierName: '',
     verifierCredentials: ''
@@ -42,8 +42,7 @@ const RecipeManagement = () => {
 
   const mealTypes = ['Breakfast', 'Dessert', 'Dinner', 'Heavy Meal', 'Light Meal', 'Lunch', 'Smoothie', 'Snack'].sort();
   const dietaryOptions = ['Dairy-free', 'Gluten-free', 'Halal', 'Keto', 'Mediterranean', 'Paleo', 'Vegan', 'Vegetarian'].sort();
-  const healthOptions = ['Antioxidant-rich', 'Diabetic-safe', 'Heart-healthy', 'High-protein', 'Low-carb', 'Low-sodium', 'Peanut-free'].sort();
-
+  const servingsOptions = ['1', '2', '3', '4', '5', '6', '7', '8+'].sort();
   // Fetch recipes from database
   const fetchRecipes = async () => {
     try {
@@ -159,7 +158,6 @@ const RecipeManagement = () => {
     }
   };
 
-  // UPDATED resetForm function
   const resetForm = () => {
     setFormData({
       title: '',
@@ -173,7 +171,7 @@ const RecipeManagement = () => {
         optional: [{ ingredient: '', alternative: '' }]
       },
       dietaryTags: [],
-      healthTags: [],
+      servings: '2',
       verificationStatus: 'AI-generated',
       verifierName: '',
       verifierCredentials: ''
@@ -259,9 +257,9 @@ const RecipeManagement = () => {
     const matchesStatus = statusFilter === 'All' || 
                          (statusFilter === 'AI-generated' && recipe.verificationStatus === 'AI-generated') ||
                          (statusFilter === 'Verified' && recipe.verificationStatus.includes('Checked by'));
-    const matchesHealth = healthFilter === 'All' || recipe.healthTags.includes(healthFilter);
+    const matchesServings = servingsFilter === 'All' || recipe.servings === servingsFilter;
     
-    return matchesSearch && matchesMealType && matchesStatus && matchesHealth;
+    return matchesSearch && matchesMealType && matchesStatus && matchesServings;
   });
 
   const handleImageUpload = (e) => {
@@ -377,21 +375,21 @@ const RecipeManagement = () => {
           </div>
           
           <div className="date-range">
-            <span className="filter-label">Meal Type:</span>
-            <select value={mealTypeFilter} onChange={(e) => setMealTypeFilter(e.target.value)} className="date-select">
-              <option value="All">All Types</option>
-              {mealTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
+            <span className="filter-label">Servings:</span>
+            <select value={servingsFilter} onChange={(e) => setServingsFilter(e.target.value)} className="date-select">
+              <option value="All">All Servings</option>
+              {servingsOptions.map(serving => (
+                <option key={serving} value={serving}>{serving} {serving === '8+' ? 'servings' : serving === '1' ? 'serving' : 'servings'}</option>
               ))}
             </select>
           </div>
 
           <div className="date-range">
             <span className="filter-label">Health Filter:</span>
-            <select value={healthFilter} onChange={(e) => setHealthFilter(e.target.value)} className="date-select">
-              <option value="All">All Health Tags</option>
-              {healthOptions.map(tag => (
-                <option key={tag} value={tag}>{tag}</option>
+            <select value={servingsFilter} onChange={(e) => setServingsFilter(e.target.value)} className="date-select">
+              <option value="All">All Servings</option>
+              {servingsOptions.map(serving => (
+                <option key={serving} value={serving}>{serving} {serving === '8+' ? 'servings' : serving === '1' ? 'serving' : 'servings'}</option>
               ))}
             </select>
           </div>
@@ -622,21 +620,19 @@ const RecipeManagement = () => {
                     ))}
                   </div>
                 </div>
-
+                
                 <div className="form-section">
-                  <label className="form-label">Health Filter Tags</label>
-                  <div className="tag-grid">
-                    {healthOptions.map(tag => (
-                      <button
-                        key={tag}
-                        type="button"
-                        className={`tag-btn ${formData.healthTags.includes(tag) ? 'active' : ''}`}
-                        onClick={() => toggleTag('healthTags', tag)}
-                      >
-                        {tag}
-                      </button>
+                  <label className="form-label">Number of Servings *</label>
+                  <select
+                    className="form-select"
+                    value={formData.servings}
+                    onChange={(e) => setFormData({...formData, servings: e.target.value})}
+                    required
+                  >
+                    {servingsOptions.map(serving => (
+                      <option key={serving} value={serving}>{serving} {serving === '8+' ? 'servings' : serving === '1' ? 'serving' : 'servings'}</option>
                     ))}
-                  </div>
+                  </select>
                 </div>
 
                 <div className="form-section">
@@ -735,11 +731,9 @@ const RecipeManagement = () => {
                     </div>
                   </div>
                   <div className="tag-group">
-                    <h4>Health Tags:</h4>
+                    <h4>Servings:</h4>
                     <div className="tags">
-                      {selectedRecipe.healthTags.map(tag => (
-                        <span key={tag} className="tag health">{tag}</span>
-                      ))}
+                      <span className="tag servings">{selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}</span>
                     </div>
                   </div>
                 </div>

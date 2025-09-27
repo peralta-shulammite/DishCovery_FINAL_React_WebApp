@@ -321,9 +321,10 @@ body {
   color: #1565c0;
 }
 
-.tag.health {
-  background: #f3e5f5;
-  color: #7b1fa2;
+.tag.servings {
+  background: #e1f5fe;
+  color: #0277bd;
+  font-weight: 600;
 }
 
 .tag-more {
