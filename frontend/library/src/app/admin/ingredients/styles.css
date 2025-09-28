@@ -165,7 +165,21 @@ body {
   min-width: 110px;
   transition: all 0.3s;
   position: relative;
-  z-index: 1000;
+  z-index: 1;
+}
+
+/* Mobile navigation fix */
+@media screen and (max-width: 768px) {
+  .date-select {
+    z-index: 1;
+  }
+  
+  /* Ensure mobile navigation has higher z-index */
+  .sidebar,
+  .mobile-nav,
+  .navigation {
+    z-index: 1001 !important;
+  }
 }
 
 .date-select:hover {

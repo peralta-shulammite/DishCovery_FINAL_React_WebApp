@@ -10,11 +10,12 @@ const RecipeManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid'); 
   const [searchTerm, setSearchTerm] = useState('');
   const [mealTypeFilter, setMealTypeFilter] = useState('All');
-  const [servingsFilter, setServingsFilter] = useState('All'); // New state for servings filter
-  const [editingRecipeId, setEditingRecipeId] = useState(null); // Track recipe being edited
+  const [servingsFilter, setServingsFilter] = useState('All'); 
+  const [dietaryFilter, setDietaryFilter] = useState('All');
+  const [editingRecipeId, setEditingRecipeId] = useState(null); 
   
   // Database connection states
   const [loading, setLoading] = useState(true);
@@ -385,12 +386,17 @@ const [formData, setFormData] = useState({
           </div>
 
           <div className="date-range">
-            <span className="filter-label">Health Filter:</span>
-            <select value={servingsFilter} onChange={(e) => setServingsFilter(e.target.value)} className="date-select">
-              <option value="All">All Servings</option>
-              {servingsOptions.map(serving => (
-                <option key={serving} value={serving}>{serving} {serving === '8+' ? 'servings' : serving === '1' ? 'serving' : 'servings'}</option>
-              ))}
+            <span className="filter-label">Dietary Restriction:</span>
+            <select value={dietaryFilter} onChange={(e) => setDietaryFilter(e.target.value)} className="date-select">
+              <option value="All">All Restrictions</option>
+              <option value="Gluten-Free">Gluten-Free</option>
+              <option value="Dairy-Free">Dairy-Free</option>
+              <option value="Vegan">Vegan</option>
+              <option value="Vegetarian">Vegetarian</option>
+              <option value="Keto">Keto</option>
+              <option value="Low-Carb">Low-Carb</option>
+              <option value="Diabetic-Friendly">Diabetic-Friendly</option>
+              <option value="Heart-Healthy">Heart-Healthy</option>
             </select>
           </div>
 
