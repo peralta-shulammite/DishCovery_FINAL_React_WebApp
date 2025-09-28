@@ -399,9 +399,6 @@ export default function FavoritesPage() {
           onLogout={dishCoveryHandleLogout}
     >
     <div ref={dishCoveryTopRef} className="favorites-container">
-      <div className="decorative-circle circle1"></div>
-      <div className="decorative-circle circle2"></div>
-      <div className="decorative-circle circle3"></div>
 
       {/* Favorites Content */}
       <main className="favorites-main-content">
