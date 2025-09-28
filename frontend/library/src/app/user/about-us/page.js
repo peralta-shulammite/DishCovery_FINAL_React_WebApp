@@ -64,8 +64,8 @@ export default function AboutWebApp() {
     },
     {
       name: "Askia Islance Pesa",
-      role: "Backend Developer & Machine Learning Engineer",
-      image: "/images/team/askia-islance-pesa.jpeg",
+      role: "Machine Learning Engineer & Backend Developer",
+      image: "/images/team/askia-islance-pesa.png",
       bio: "Responsible for backend development and implementing machine learning to enhance application functionality."
     },
     {
@@ -253,12 +253,12 @@ export default function AboutWebApp() {
 
               <div className="problem-solution">
                 <h3>The Problem We Solve</h3>
-                <p>The main problem DishCovery solves is the repetitive struggle of thinking about what to cook every day. Instead of spending too much time and effort planning meals, users can simply scan what they have at home, and the app will do the work of suggesting dishes that fit their needs. This makes meal preparation not only easier but also healthier and more efficient.</p>
+                <p>The main problem DishCovery solves is the difficulty of meal planning, especially for those in charge of household cooking or dealing with dietary restrictions. Dishes often become repetitive and uninspiring, making daily meals feel like a chore. With DishCovery, users can simply scan what they already have at home, and the app will suggest fresh and suitable recipes. This makes meal preparation not only easier but also healthier, more enjoyable, and more efficient.</p>
               </div>
 
               <div className="cultural-focus">
-                <h3>Filipino-Focused Approach</h3>
-                <p>We chose to focus on Filipino recipes and dietary restrictions to make the app more accessible and relatable to our local users. Since the flavors are already familiar and the ingredients are commonly found in Filipino households, users can enjoy meals that fit their lifestyle while staying connected to their cultural tastes. This ensures that healthy eating feels natural and convenient rather than foreign or hard to follow.</p>
+                <h3>Personalized Approach</h3>
+                <p>We chose to focus on recipes and dietary needs that match users’ everyday lifestyles. By working with flavors that feel familiar and ingredients that are easy to find at home, the app makes healthy eating more accessible and convenient. This way, users can enjoy meals that suit their preferences while making healthier choices feel natural rather than complicated or out of reach.</p>
               </div>
 
               <div className="unique-value">
@@ -282,7 +282,7 @@ export default function AboutWebApp() {
                   <div className="timeline-marker"></div>
                   <div className="timeline-content">
                     <h4>The Beginning (January 2025)</h4>
-                    <p>Our team came together with a shared vision: to solve the daily struggle of meal planning while reducing food waste. We identified the opportunity to combine AI technology with Filipino culinary culture to create something truly meaningful.</p>
+                    <p>Our team came together with a shared vision: to solve the daily struggle of meal planning while reducing food waste. We identified the opportunity to combine AI technology with personalized dietary needs to create something truly meaningful.</p>
                   </div>
                 </div>
                 
@@ -314,7 +314,7 @@ export default function AboutWebApp() {
                   <div className="timeline-marker"></div>
                   <div className="timeline-content">
                     <h4>Launch (October 2025)</h4>
-                    <p>DishCovery officially launches to serve Filipino families across the country. We're excited to help users discover new recipes, reduce food waste, and embrace healthier eating habits through our innovative platform.</p>
+                    <p>DishCovery officially launches to serve households everywhere. We're excited to help users discover new recipes, reduce food waste, and embrace healthier eating habits through our innovative platform.</p>
                   </div>
                 </div>
               </div>
@@ -355,7 +355,7 @@ export default function AboutWebApp() {
               <div className="mission-statement">
                 <h3>Our Mission</h3>
                 <p className="mission-text">
-                  To empower Filipino families to eat healthier, reduce food waste, and discover the joy of cooking by providing personalized, culturally-relevant recipe recommendations that work with what they already have at home.
+                  To empower families and individuals to eat healthier, reduce food waste, and discover the joy of cooking by providing personalized, culturally relevant recipe recommendations that work with what they already have at home.
                 </p>
               </div>
               
@@ -377,7 +377,7 @@ export default function AboutWebApp() {
                     </svg>
                   </div>
                   <h4>Cultural Relevance</h4>
-                  <p>We celebrate Filipino cuisine and make healthy eating feel familiar and accessible.</p>
+                  <p>We celebrate diverse cuisines and make healthy eating feel familiar and accessible.</p>
                 </div>
                 
                 <div className="value-card">
