@@ -23,6 +23,63 @@ const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
     }
   };
 
+  const handleLogout = async () => {
+    console.log('Logout clicked - initiating logout process');
+    
+    try {
+      // Show loading state (optional)
+      // You can add a loading spinner here if needed
+      
+      // Clear all client-side storage
+      if (typeof window !== 'undefined') {
+        // Clear localStorage
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userData');
+        localStorage.removeItem('userSession');
+        localStorage.clear(); // Clear everything from localStorage
+        
+        // Clear sessionStorage
+        sessionStorage.clear();
+        
+        // Clear any cookies (if you're using them)
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c
+            .replace(/^ +/, "")
+            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+      }
+      
+      // Optional: Call logout API endpoint to invalidate session on server
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+        if (token) {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+      } catch (apiError) {
+        console.log('API logout call failed, but continuing with client logout:', apiError);
+        // Continue with logout even if API call fails
+      }
+      
+      console.log('Logout successful - redirecting to login page');
+      
+      // Force reload and redirect to login page
+      window.location.replace('/login'); // Use replace to prevent back button issues
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if there's an error, still try to redirect
+      window.location.replace('/login');
+    }
+  };
+
   // Clean, Reliable SVG Icons
   const DashboardIcon = () => (
     <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
@@ -61,9 +118,9 @@ const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
     </svg>
   );
 
-  const SettingsIcon = () => (
+  const LogoutIcon = () => (
     <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+      <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
     </svg>
   );
 
@@ -134,18 +191,6 @@ const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
             <span className="nav-icon"><UsersIcon /></span>
             <span className="nav-text">Users</span>
           </div>
-          <div 
-            className={`nav-item ${currentPage === 'Admins' ? 'active' : ''}`}
-            onClick={(e) => {
-              e.preventDefault();
-              console.log('Admins clicked');
-              handleNavigation('/admin/admins');
-            }}
-            style={{ cursor: 'pointer' }}
-          >
-            <span className="nav-icon"><UsersIcon /></span>
-            <span className="nav-text">Admins</span>
-          </div>
           
           <div className="nav-section-header">Content Management</div>
           <div 
@@ -199,18 +244,17 @@ const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
             <span className="nav-text">Feedback</span>
           </div>
           
-          <div className="nav-section-header">System</div>
+          <div className="nav-section-header">Account</div>
           <div 
-            className={`nav-item ${currentPage === 'Settings' ? 'active' : ''}`}
+            className="nav-item"
             onClick={(e) => {
               e.preventDefault();
-              console.log('Settings clicked');
-              handleNavigation('/admin/settings');
+              handleLogout();
             }}
             style={{ cursor: 'pointer' }}
           >
-            <span className="nav-icon"><SettingsIcon /></span>
-            <span className="nav-text">Settings</span>
+            <span className="nav-icon"><LogoutIcon /></span>
+            <span className="nav-text">Logout</span>
           </div>
         </nav>
       </div>

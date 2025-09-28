@@ -138,7 +138,7 @@ body {
   min-width: 110px;
   transition: all 0.3s;
   position: relative;
-  z-index: 1000;
+  z-index: 1;
 }
 
 .date-select:hover {
@@ -965,6 +965,8 @@ body {
     border-radius: 8px !important;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
     max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
 
   .search-container {
@@ -987,15 +989,35 @@ body {
   }
 
   .status-filters {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important;
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+      width: 100% !important;
+      justify-content: flex-start !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .status-filters .filter-btn {
+      flex: unset !important; /* keep natural size, not stretched */
+      text-align: center !important;
+      margin: 0 !important;
   }
+
+  .status-filters .filter-label {
+      margin: 0 0 6px 0 !important;
+      padding: 0 !important;
+      text-align: left !important;
+  }
+
+
 
   .filter-label {
     font-size: 12px !important;
     width: 100% !important;
     margin-bottom: 6px !important;
+    padding-left: 0 !important;
+    margin-left: 0 !important;
   }
 
   .filter-btn {
@@ -1360,3 +1382,4 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
