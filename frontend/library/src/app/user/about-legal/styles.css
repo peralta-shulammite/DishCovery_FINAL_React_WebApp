@@ -55,7 +55,7 @@
   position: fixed;
   opacity: 0.15;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 
 .circle1 {

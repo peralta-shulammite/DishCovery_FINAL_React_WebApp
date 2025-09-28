@@ -59,28 +59,27 @@ export default function AboutWebApp() {
     {
       name: "Shulammite Peralta",
       role: "Project Leader & Frontend Developer",
-      image: "https://images.unsplash.com/photo-1494790108755-2616b612b789?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80",
+      image: "/images/team/shulammite-peralta.png",
       bio: "Oversees project management and coordinates team activities, while providing support in frontend development."
     },
     {
       name: "Askia Islance Pesa",
       role: "Backend Developer & Machine Learning Engineer",
-      image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80",
+      image: "/images/team/askia-islance-pesa.jpeg",
       bio: "Responsible for backend development and implementing machine learning to enhance application functionality."
     },
     {
       name: "Fatimah Sta. Romana",
       role: "Frontend Developer & UX/UI Designer",
-      image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80",
+      image: "/images/team/fatimah-sta-romana.jpeg",
       bio: "Plays a central role in frontend development and contributes to interface design to ensure clarity and a user-centered experience."
     },
     {
       name: "Samantha Nicole Boado",
       role: "Backend Developer",
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80",
+      image: "/images/team/samantha-nicole-boado.png",
       bio: "Focuses on backend systems and connectivity, maintaining reliable performance and efficient data flow."
-    }
-  ];
+    }]
 
   return (
     <div ref={aboutTopRef} className="about-container">
@@ -124,16 +123,58 @@ export default function AboutWebApp() {
               </svg>
             </button>
           </div>
-          <div className="mobile-menu-content">
-            {navigationItems.map((item) => (
-              <button
-                key={item.id}
-                className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
-                onClick={() => scrollToSection(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
+<div className="mobile-menu-content">
+  <div className="mobile-nav-category">
+    <h3 className="mobile-nav-category-title">About Us</h3>
+    {navigationItems.filter(item => item.category === 'about').map((item) => (
+      <button
+        key={item.id}
+        className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+        onClick={() => scrollToSection(item.id)}
+      >
+        {item.label}
+      </button>
+    ))}
+  </div>
+  
+            <div className="mobile-nav-category">
+              <h3 className="mobile-nav-category-title">Support</h3>
+              {navigationItems.filter(item => item.category === 'support').map((item) => (
+                <button
+                  key={item.id}
+                  className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                  onClick={() => scrollToSection(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mobile-nav-category">
+              <h3 className="mobile-nav-category-title">Company</h3>
+              {navigationItems.filter(item => item.category === 'company').map((item) => (
+                <button
+                  key={item.id}
+                  className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                  onClick={() => scrollToSection(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mobile-nav-category">
+              <h3 className="mobile-nav-category-title">Legal</h3>
+              {navigationItems.filter(item => item.category === 'legal').map((item) => (
+                <button
+                  key={item.id}
+                  className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                  onClick={() => scrollToSection(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
