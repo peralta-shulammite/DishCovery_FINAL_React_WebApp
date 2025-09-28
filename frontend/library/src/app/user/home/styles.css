@@ -1400,7 +1400,7 @@
   }
 
   .footer {
-    padding: 50px 16px 80px;
+    padding: 50px 16px 100px; 
     text-align: left;
     display: flex;
     flex-direction: column;
@@ -1563,7 +1563,7 @@
   }
 
   .footer {
-    padding: 40px 12px 25px;
+    padding: 40px 12px 90px; 
   }
 
   .footer-section {
@@ -1650,7 +1650,7 @@
 
 @media (max-width: 360px) {
   .footer {
-    padding: 30px 8px 20px;
+    padding: 30px 8px 80px;
   }
 
   .footer-logo {
