@@ -9,6 +9,7 @@ export default function AboutWebApp() {
   const [activeSection, setActiveSection] = useState('help-center');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [expandedFaq, setExpandedFaq] = useState(null);
 
   const scrollToTop = () => {
     aboutTopRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -21,6 +22,10 @@ export default function AboutWebApp() {
       setActiveSection(sectionId);
     }
     setShowMobileMenu(false);
+  };
+
+  const toggleFaq = (index) => {
+  setExpandedFaq(expandedFaq === index ? null : index);
   };
 
   useEffect(() => {
@@ -225,16 +230,59 @@ export default function AboutWebApp() {
                 </div>
               </div>
 
-              <div className="feature-highlight">
-                <h3>Frequently Asked Questions (FAQs)</h3>
-                <ul>
-                  <li><strong>How do I scan ingredients?</strong> Use the "Scan Now" feature to take a photo or manually input ingredients from your pantry.</li>
-                  <li><strong>Can I customize recipes?</strong> Yes, adjust recipes based on dietary preferences or available ingredients in the customization menu.</li>
-                  <li><strong>What if the app doesn’t recognize an ingredient?</strong> Try re-scanning or manually entering the ingredient name for better accuracy.</li>
-                  <li><strong>Are the recipes verified?</strong> All recipes are reviewed by dietitians and nutritionists for safety and nutritional value.</li>
-                  <li><strong>How do I contact support?</strong> Reach out via <a href="mailto:support@dishcovery.com">support@dishcovery.com</a> or use the contact form below.</li>
-                </ul>
+              <div className="faq-section">
+              <h3>Frequently Asked Questions</h3>
+              <div className="faq-list">
+                {[
+                  {
+                    question: "How do I scan ingredients?",
+                    answer: "Use the \"Scan Now\" feature to take a photo or manually input ingredients from your pantry. Our AI will recognize most common ingredients automatically."
+                  },
+                  {
+                    question: "Can I customize recipes?",
+                    answer: "Yes, adjust recipes based on dietary preferences or available ingredients in the customization menu. You can filter by allergens, dietary restrictions, and cooking time."
+                  },
+                  {
+                    question: "What if the app doesn't recognize an ingredient?",
+                    answer: "Try re-scanning with better lighting or manually entering the ingredient name for better accuracy. You can also browse our ingredient database."
+                  },
+                  {
+                    question: "Are the recipes verified?",
+                    answer: "All recipes are reviewed by dietitians and nutritionists for safety and nutritional value. We ensure every recipe meets our quality standards."
+                  },
+                  {
+                    question: "How do I contact support?",
+                    answer: (
+                      <>
+                        Reach out via <a href="mailto:support@dishcovery.com">support@dishcovery.com</a> or use the contact form below. We typically respond within 24 hours.
+                      </>
+                    )
+                  }
+                ].map((faq, index) => (
+                  <div key={index} className="faq-item">
+                    <button 
+                      className="faq-question"
+                      onClick={() => toggleFaq(index)}
+                      aria-expanded={expandedFaq === index}
+                    >
+                      <span>{faq.question}</span>
+                      <svg 
+                        className={`faq-chevron ${expandedFaq === index ? 'expanded' : ''}`}
+                        viewBox="0 0 24 24" 
+                        fill="currentColor"
+                      >
+                        <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                      </svg>
+                    </button>
+                    {expandedFaq === index && (
+                      <div className="faq-answer">
+                        {faq.answer}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
+            </div>
 
               <div className="contact-support">
                 <h3>Still Need Help?</h3>
