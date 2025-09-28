@@ -729,7 +729,7 @@ const UserManagementContent = () => {
       {/* Bulk Action Confirmation Modal */}
       {showBulkActionModal && (
         <div className="modal-overlay">
-          <div className="message-modal">
+          <div className="bulk-action-modal">
             <button 
               className="modal-close-btn"
               onClick={() => setShowBulkActionModal(false)}
@@ -737,22 +737,74 @@ const UserManagementContent = () => {
               <CloseIcon />
             </button>
             
-            <h3>🛠️ Confirm Bulk Actions</h3>
-            <p>Are you sure you want to perform bulk actions on the selected users?</p>
-            
-            <div className="message-modal-actions">
-              <button className="action-btn" onClick={handleBulkActionConfirm}>
+            <div className="bulk-modal-header">
+              <div className="bulk-modal-icon">
                 <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
-                ✅ Confirm
-              </button>
+              </div>
+              <h3>Bulk Actions</h3>
+              <p>Select an action to perform on multiple users at once</p>
+            </div>
+
+            <div className="bulk-action-options">
+              <div className="bulk-option-group">
+                <h4>Communication</h4>
+                <button className="bulk-option-btn">
+                  <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                  </svg>
+                  <span>Send Message</span>
+                  <span className="option-description">Send notification to selected users</span>
+                </button>
+                <button className="bulk-option-btn">
+                  <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  <span>Send Reminder</span>
+                  <span className="option-description">Send activity reminder to inactive users</span>
+                </button>
+              </div>
+
+              <div className="bulk-option-group">
+                <h4>Account Management</h4>
+                <button className="bulk-option-btn warning">
+                  <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17h2v-2h-2v2zm1-4c.55 0 1-.45 1-1V8c0-.55-.45-1-1-1s-1 .45-1 1v6c0 .55.45 1 1 1z"/>
+                  </svg>
+                  <span>Deactivate Users</span>
+                  <span className="option-description">Temporarily disable selected accounts</span>
+                </button>
+                <button className="bulk-option-btn danger">
+                  <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                  </svg>
+                  <span>Delete Users</span>
+                  <span className="option-description">Permanently remove selected accounts</span>
+                </button>
+              </div>
+
+              <div className="bulk-option-group">
+                <h4>Data Export</h4>
+                <button className="bulk-option-btn">
+                  <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+                  </svg>
+                  <span>Export Data</span>
+                  <span className="option-description">Download selected user data</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="bulk-modal-footer">
+              <div className="selected-count">
+                <span>0 users selected</span>
+              </div>
               <button 
-                className="action-btn" 
-                style={{background: '#64748b'}}
+                className="cancel-btn"
                 onClick={() => setShowBulkActionModal(false)}
               >
-                ❌ Cancel
+                Cancel
               </button>
             </div>
           </div>
