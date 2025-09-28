@@ -67,8 +67,8 @@ export default function CareersWebApp() {
   },
   {
     name: "Askia Islance Pesa",
-    role: "Backend Developer & Machine Learning Engineer",
-    image: "/images/team/askia-islance-pesa.jpeg",
+    role: "Machine Learning Engineer & Backend Developer",
+    image: "/images/team/askia-islance-pesa.png",
     social: {
       instagram: "#",
       linkedin: "#",
