@@ -202,7 +202,7 @@ const RecipePage = () => {
       },
       instructions: [
         'Cook quinoa according to package directions. Fluff with a fork and set aside.',
-        'Preheat oven to 400Ãƒâ€šÃ‚Â°F (200Ãƒâ€šÃ‚Â°C). Toss sweet potato and broccoli with olive oil, salt, and pepper.',
+        'Preheat oven to 400°F (200°C). Toss sweet potato and broccoli with olive oil, salt, and pepper.',
         'Roast vegetables for 25 minutes until tender and slightly caramelized.',
         'Prepare tahini dressing by whisking tahini, lemon juice, water, and minced garlic until smooth.',
         'Drain and rinse chickpeas. Season with salt, pepper, and a drizzle of olive oil.',
