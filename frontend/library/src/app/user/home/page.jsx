@@ -429,7 +429,7 @@ const dishCoveryBottomRecipes = [
               </svg>
             </div>
             <h3 className="confidence-card-title">Recipe Generator</h3>
-            <p className="confidence-card-desc">Get smart ideas based on your ingredients and dietary needs.</p>
+            <p className="confidence-card-desc">Get ideas based on your ingredients and dietary needs.</p>
           </div>
           <div className="confidence-card">
             <div className="confidence-icon">
