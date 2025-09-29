@@ -213,25 +213,25 @@ const dishCoveryHandleForgotPasswordSubmit = async (e) => {
 };
 
 const dishCoveryTopRecipes = [
-    { name: "Adobong Manok", time: "50 min", difficulty: "Easy", img: "/adobong-manok.jpg" },
-    { name: "Ginisang Talbos ng Sayote", time: "20 min", difficulty: "Easy", img: "/ginisang-talbos.jpg" },
-    { name: "Sarsiadong Isda", time: "35 min", difficulty: "Medium", img: "/sarsiadong-isda.jpg" },
-    { name: "Sinabawang Hipon", time: "40 min", difficulty: "Medium", img: "/sinabawang-hipon.jpg" },
-    { name: "Kinilaw", time: "25 min", difficulty: "Easy", img: "/kinilaw.jpg" },
-    { name: "Chop Suey", time: "40 min", difficulty: "Medium", img: "/chop-suey.jpg" },
-    { name: "Pancit Guisado", time: "45 min", difficulty: "Medium", img: "/pancit-guisado.jpg" },
-    { name: "Laing", time: "90 min", difficulty: "Medium", img: "/laing.jpg" },
+    { name: "Chicken Adobo", time: "50 min", difficulty: "Easy", img: "/images/food-carousel/adobong-manok.jpg" },
+    { name: "Sauteed Chayote Greens", time: "20 min", difficulty: "Easy", img: "/images/food-carousel/ginisang-talbos.jpg" },
+    { name: "Vegetable Chop Suey", time: "40 min", difficulty: "Medium", img: "/images/food-carousel/chop-suey.jpg" },
+    { name: "Grilled Veggie Bowl", time: "30 min", difficulty: "Easy", img: "/images/food-carousel/grilled-veggies.jpg" },
+    { name: "Quinoa Mango Salad", time: "25 min", difficulty: "Easy", img: "/images/food-carousel/quinoa-mango-salad.jpg" },
+    { name: "Tofu Stir-Fry", time: "25 min", difficulty: "Easy", img: "/images/food-carousel/tofu-stirfry.jpg" },
+    { name: "Lentil Coconut Soup", time: "35 min", difficulty: "Easy", img: "/images/food-carousel/lentil-coconut-soup.jpg" },
+    { name: "Avocado Cucumber Salad", time: "20 min", difficulty: "Easy", img: "/images/food-carousel/avocado-cucumber-salad.jpg" },
 ];
 
 const dishCoveryBottomRecipes = [
-    { name: "Puto Bumbong", time: "60 min", difficulty: "Hard", img: "/puto-bumbong.jpg" },
-    { name: "Ginataang Bilo-Bilo", time: "60 min", difficulty: "Medium", img: "/ginataang-bilo-bilo.jpg" },
-    { name: "Biko", time: "90 min", difficulty: "Medium", img: "/biko.jpg" },
-    { name: "Maja Blanca", time: "60 min", difficulty: "Easy", img: "/maja-blanca.jpg" },
-    { name: "Turon", time: "25 min", difficulty: "Easy", img: "/turon.png" },
-    { name: "Kutsinta", time: "45 min", difficulty: "Medium", img: "/kutsinta.jpg" },
-    { name: "Suman", time: "90 min", difficulty: "Medium", img: "/suman.jpg" },
-    { name: "Banana Cue", time: "20 min", difficulty: "Easy", img: "/banana-cue.jpg" },
+    { name: "Chia Mango Pudding", time: "15 min", difficulty: "Easy", img: "/images/food-carousel/chia-mango-pudding.jpg" },
+    { name: "Tropical Oatmeal", time: "20 min", difficulty: "Easy", img: "/images/food-carousel/tropical-oatmeal.jpg" },
+    { name: "Coconut Yogurt Parfait", time: "10 min", difficulty: "Easy", img: "/images/food-carousel/coconut-yogurt-parfait.jpg" },
+    { name: "Chickpea Avocado Salad", time: "15 min", difficulty: "Easy", img: "/images/food-carousel/chickpea-avocado-salad.jpg" },
+    { name: "Roasted Sweet Potatoes", time: "35 min", difficulty: "Easy", img: "/images/food-carousel/roasted-sweetpotato.jpg" },
+    { name: "Berry Smoothie Bowl", time: "10 min", difficulty: "Easy", img: "/images/food-carousel/berry-smoothie-bowl.jpg" },
+    { name: "Veggie Hummus Platter", time: "15 min", difficulty: "Easy", img: "/images/food-carousel/veggie-hummus-platter.jpg" },
+    { name: "Date Energy Bites", time: "20 min", difficulty: "Easy", img: "/images/food-carousel/date-energy-bites.jpg" },
 ];
 
   return (
@@ -242,9 +242,6 @@ const dishCoveryBottomRecipes = [
       onLogout={dishCoveryHandleLogout}
     >
     <div ref={dishCoveryTopRef} className="container">
-      <div className="decorative-circle circle1"></div>
-      <div className="decorative-circle circle2"></div>
-      <div className="decorative-circle circle3"></div>
 
       <main className="main-content">
         <div className="left-section">
@@ -536,10 +533,13 @@ const dishCoveryBottomRecipes = [
           <button type="submit" className="newsletter-btn">Subscribe</button>
         </form>
         <p className="newsletter-privacy">We respect your privacy. Unsubscribe anytime.</p>
-      </div>
-    </div>
-  </footer>
-
+          </div>
+        </div>
+        
+        <div className="footer-bottom">
+          <p className="footer-copyright">© 2025 DishCovery. All rights reserved.</p>
+        </div>
+      </footer>
       {dishCoveryShowSignInModal && (
         <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>

@@ -172,9 +172,7 @@ export default function UserProfilePage() {
       onLogout={dishCoveryHandleLogout}
     >
       <div ref={dishCoveryTopRef} className="user-profile-container">
-        <div className="decorative-circle circle1"></div>
-        <div className="decorative-circle circle2"></div>
-        <div className="decorative-circle circle3"></div>
+
 
         <main className="profile-main-content">
           <div className="profile-layout">
@@ -185,9 +183,9 @@ export default function UserProfilePage() {
               </div>
 
               <section className="activity-section">
-                <h2 className="activity-section-title">
+                  <h2 className="activity-section-title">
                   <svg className="activity-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.2 14.2L11 13V7h1.5v5.2l4.5 2.7-.8 1.3z" />
                   </svg>
                   Last Opened Recipe
                 </h2>
