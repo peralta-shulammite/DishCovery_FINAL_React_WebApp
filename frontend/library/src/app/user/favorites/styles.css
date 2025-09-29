@@ -443,43 +443,6 @@
   fill: white;
 }
 
-/* Decorative elements */
-.decorative-circle {
-  position: absolute;
-  opacity: 0.15;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.circle1 {
-  top: 15%;
-  left: 10%;
-  width: 50px;
-  height: 50px;
-  background: #2E7D32;
-  border-radius: 50%;
-  animation: float 10s ease-in-out infinite;
-}
-
-.circle2 {
-  bottom: 25%;
-  right: 12%;
-  width: 40px;
-  height: 40px;
-  background: #2E7D32;
-  border-radius: 50%;
-  animation: float 12s ease-in-out infinite reverse;
-}
-
-.circle3 {
-  top: 50%;
-  left: 18%;
-  width: 30px;
-  height: 30px;
-  background: #2E7D32;
-  border-radius: 50%;
-  animation: float 8s ease-in-out infinite;
-}
 
 /* Main favorites content */
 .favorites-main-content {

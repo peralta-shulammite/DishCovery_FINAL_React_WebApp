@@ -477,9 +477,6 @@ export default function DishCoveryPantry() {
       onLogout={dishCoveryHandleLogout}
     >
     <div ref={dishCoveryTopRef} className="pantry-container">
-      <div className="decorative-circle circle1"></div>
-      <div className="decorative-circle circle2"></div>
-      <div className="decorative-circle circle3"></div>
 
       <main className="pantry-main-content">
         <div className="pantry-hero">
