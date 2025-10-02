@@ -1,10 +1,11 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './styles.css';
-import UserLayout from '../../components/user/userlayout'
+import UserLayout from '../../components/user/userlayout';
 
 export default function FavoritesPage() {
   const dishCoveryTopRef = useRef(null);
+  const modalBodyRef = useRef(null);
   const [dishCoveryIsLoggedIn, setDishCoveryIsLoggedIn] = useState(true);
   const [dishCoveryShowAvatarDropdown, setDishCoveryShowAvatarDropdown] = useState(false);
   const [dishCoveryShowMobileMenu, setDishCoveryShowMobileMenu] = useState(false);
@@ -19,22 +20,22 @@ export default function FavoritesPage() {
   // Search and filter states
   const [dishCoverySearchQuery, setDishCoverySearchQuery] = useState('');
   const [dishCoverySortBy, setDishCoverySortBy] = useState('dateSaved');
-  const [dishCoveryViewMode, setDishCoveryViewMode] = useState('grid'); // 'grid' or 'list'
+  const [dishCoveryViewMode, setDishCoveryViewMode] = useState('grid');
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAlternatives, setShowAlternatives] = useState({});
-  const [userRating, setUserRating] = useState(0);
-  const [hasRated, setHasRated] = useState(false);
+  const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+  const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
+  const [recipeToRemove, setRecipeToRemove] = useState(null);
 
-  // Enhanced mock favorites data with full recipe details
+  // Enhanced mock favorites data
   const [dishCoveryFavoriteRecipes, setDishCoveryFavoriteRecipes] = useState([
     {
       id: 1,
       title: 'Mediterranean Quinoa Bowl',
-      name: 'Mediterranean Quinoa Bowl', // Keep for backward compatibility
       description: 'Nutritious bowl packed with quinoa, roasted vegetables, and creamy tahini dressing. Perfect for a healthy lunch or dinner.',
       images: [
         'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
@@ -78,17 +79,11 @@ export default function FavoritesPage() {
       engagement: { tried: 245, saved: 189 },
       rating: 4.8,
       cookTime: '25 min',
-      servings: 4,
-      prepTime: '25 mins',
-      savedOn: 'July 28, 2025',
-      difficulty: 'Easy',
-      tags: ['Vegan', 'Low-Sodium', 'High-Protein'],
-      image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop'
+      servings: 4
     },
     {
       id: 2,
       title: 'Grilled Salmon with Herbs',
-      name: 'Grilled Salmon with Herbs',
       description: 'Heart-healthy grilled salmon with fresh herbs and a side of roasted vegetables.',
       images: [
         'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&h=300&fit=crop',
@@ -129,17 +124,11 @@ export default function FavoritesPage() {
       engagement: { tried: 156, saved: 98 },
       rating: 4.6,
       cookTime: '30 min',
-      servings: 4,
-      prepTime: '30 mins',
-      savedOn: 'July 27, 2025',
-      difficulty: 'Medium',
-      tags: ['Heart-Healthy', 'High-Protein', 'Gluten-Free'],
-      image: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&h=300&fit=crop'
+      servings: 4
     },
     {
       id: 3,
       title: 'Vegetable Stir Fry',
-      name: 'Vegetable Stir Fry',
       description: 'Colorful and nutritious vegetable stir fry with a savory sauce.',
       images: [
         'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&h=300&fit=crop'
@@ -180,29 +169,9 @@ export default function FavoritesPage() {
       engagement: { tried: 89, saved: 67 },
       rating: 4.4,
       cookTime: '20 min',
-      servings: 3,
-      prepTime: '20 mins',
-      savedOn: 'July 26, 2025',
-      difficulty: 'Easy',
-      tags: ['Diabetic-Friendly', 'Low-Carb', 'Vegetarian'],
-      image: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&h=300&fit=crop'
+      servings: 3
     }
   ]);
-
-  const [dishCoveryHoverStates, setDishCoveryHoverStates] = useState({
-    logo: false,
-    avatar: false,
-    signIn: false,
-    scanNav: false,
-  });
-
-  const dishCoveryHandleHover = (element, isHover) => {
-    setDishCoveryHoverStates((prev) => ({ ...prev, [element]: isHover }));
-  };
-
-  const dishCoveryScrollToTop = useCallback(() => {
-    dishCoveryTopRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
 
   useEffect(() => {
     const dishCoveryHandleClickOutside = (event) => {
@@ -211,7 +180,10 @@ export default function FavoritesPage() {
       }
     };
     const handleEscape = (event) => {
-      if (event.key === 'Escape' && isModalOpen) closeModal();
+      if (event.key === 'Escape') {
+        if (isModalOpen) closeModal();
+        if (showRemoveConfirmation) cancelRemove();
+      }
     };
     document.addEventListener('mousedown', dishCoveryHandleClickOutside);
     document.addEventListener('keydown', handleEscape);
@@ -219,17 +191,7 @@ export default function FavoritesPage() {
       document.removeEventListener('mousedown', dishCoveryHandleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isModalOpen]);
-
-  const dishCoveryNavLinks = [
-    { name: "Home", href: "/user/home" },
-    { name: "My Pantry", href: "/user/pantry" },
-    { name: "Favorites", href: "/user/favorites", active: true },
-  ];
-
-  const dishCoveryToggleMobileMenu = () => {
-    setDishCoveryShowMobileMenu((prev) => !prev);
-  };
+  }, [isModalOpen, showRemoveConfirmation]);
 
   const dishCoveryHandleLogout = () => {
     setDishCoveryIsLoggedIn(false);
@@ -256,32 +218,26 @@ export default function FavoritesPage() {
     setDishCoveryFavoriteRecipes(prev => prev.filter(recipe => recipe.id !== recipeId));
   };
 
-  const dishCoveryHandleViewRecipe = (recipeId) => {
-    // Navigate to recipe detail page
-    window.location.href = `/recipe/${recipeId}`;
-  };
-
   // Filter and sort recipes
   const dishCoveryFilteredAndSortedRecipes = dishCoveryFavoriteRecipes
     .filter(recipe => 
-      recipe.name.toLowerCase().includes(dishCoverySearchQuery.toLowerCase()) ||
-      recipe.description.toLowerCase().includes(dishCoverySearchQuery.toLowerCase()) ||
-      recipe.tags.some(tag => tag.toLowerCase().includes(dishCoverySearchQuery.toLowerCase()))
+      recipe.title.toLowerCase().includes(dishCoverySearchQuery.toLowerCase()) ||
+      recipe.description.toLowerCase().includes(dishCoverySearchQuery.toLowerCase())
     )
     .sort((a, b) => {
       switch (dishCoverySortBy) {
         case 'dateSaved':
-          return new Date(b.savedOn) - new Date(a.savedOn);
+          return b.id - a.id;
         case 'prepTime':
-          return parseInt(a.prepTime) - parseInt(b.prepTime);
+          return parseInt(a.cookTime) - parseInt(b.cookTime);
         case 'alphabetical':
-          return a.name.localeCompare(b.name);
+          return a.title.localeCompare(b.title);
         default:
           return 0;
       }
     });
 
-  // Helper functions for enhanced recipe cards
+  // Helper functions from recipe page
   const renderStars = (rating) => {
     const stars = [];
     const fullStars = Math.floor(rating);
@@ -343,6 +299,7 @@ export default function FavoritesPage() {
     setIsModalOpen(true);
     setCurrentImageIndex(0);
     setShowAlternatives({});
+    setShowScrollIndicator(true);
     document.body.style.overflow = 'hidden';
   };
 
@@ -352,6 +309,12 @@ export default function FavoritesPage() {
     setCurrentImageIndex(0);
     setShowAlternatives({});
     document.body.style.overflow = 'unset';
+  };
+
+  const handleModalScroll = (e) => {
+    const element = e.target;
+    const scrolledToBottom = element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
+    setShowScrollIndicator(!scrolledToBottom);
   };
 
   const nextImage = () => {
@@ -378,489 +341,505 @@ export default function FavoritesPage() {
     }));
   };
 
-  const handleRateRecipe = (rating) => {
-    setUserRating(rating);
-    setHasRated(true);
-    
-    // In a real app, you would save this rating to your backend
-    console.log(`User rated recipe ${selectedRecipe.id} with ${rating} stars`);
-    
-    // Optional: Show a confirmation message
-    setTimeout(() => {
-      setHasRated(false);
-    }, 2000);
+  const handleRemoveConfirmation = (recipeId) => {
+    setRecipeToRemove(recipeId);
+    setShowRemoveConfirmation(true);
+  };
+
+  const confirmRemove = () => {
+    if (recipeToRemove) {
+      dishCoveryHandleRemoveFromFavorites(recipeToRemove);
+      setShowRemoveConfirmation(false);
+      setRecipeToRemove(null);
+      if (isModalOpen) closeModal();
+    }
+  };
+
+  const cancelRemove = () => {
+    setShowRemoveConfirmation(false);
+    setRecipeToRemove(null);
   };
 
   return (
     <UserLayout 
-          isLoggedIn={dishCoveryIsLoggedIn}
-          user={dishCoveryUser}
-          onSignInClick={dishCoveryHandleSignInClick}
-          onLogout={dishCoveryHandleLogout}
+      isLoggedIn={dishCoveryIsLoggedIn}
+      user={dishCoveryUser}
+      onSignInClick={dishCoveryHandleSignInClick}
+      onLogout={dishCoveryHandleLogout}
     >
-    <div ref={dishCoveryTopRef} className="favorites-container">
-
-      {/* Favorites Content */}
-      <main className="favorites-main-content">
-        {/* Favorites Header */}
-        <div className="favorites-header">
+      <div ref={dishCoveryTopRef} className="available-recipes-container">
+        {/* Page Header */}
+        <div className="page-header">
           <div className="page-title-section">
             <h1 className="page-title">Your Favorite Recipes</h1>
-            <p className="page-subtitle">Discover and manage your saved healthy meals</p>
-          </div>
-
-          {/* Controls */}
-          <div className="favorites-controls">
-            <div className="search-section">
-              <div className="search-container">
-                <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search favorites..."
-                  value={dishCoverySearchQuery}
-                  onChange={(e) => setDishCoverySearchQuery(e.target.value)}
-                  className="search-input"
-                />
-              </div>
-            </div>
-
-            <div className="filter-section">
-              <select
-                value={dishCoverySortBy}
-                onChange={(e) => setDishCoverySortBy(e.target.value)}
-                className="sort-dropdown"
-              >
-                <option value="dateSaved">Recently Saved</option>
-                <option value="prepTime">Prep Time</option>
-                <option value="alphabetical">A-Z</option>
-              </select>
-
-              <div className="view-toggle">
-                <button
-                  className={`view-btn ${dishCoveryViewMode === 'grid' ? 'view-btn-active' : ''}`}
-                  onClick={() => setDishCoveryViewMode('grid')}
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>
-                  </svg>
-                </button>
-                <button
-                  className={`view-btn ${dishCoveryViewMode === 'list' ? 'view-btn-active' : ''}`}
-                  onClick={() => setDishCoveryViewMode('list')}
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
+            <p className="page-subtitle">
+              Discover and manage your saved healthy meals
+            </p>
           </div>
         </div>
 
-        {dishCoveryFilteredAndSortedRecipes.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-              </svg>
-            </div>
-            <h2 className="empty-state-title">
-              {dishCoveryFavoriteRecipes.length === 0 ? 
-                "You haven't saved any recipes yet" : 
-                "No recipes match your search"
-              }
-            </h2>
-            <p className="empty-state-description">
-              {dishCoveryFavoriteRecipes.length === 0 ? 
-                "Start exploring meals that match your dietary needs and save your favorites here!" :
-                "Try adjusting your search terms or filters to find what you're looking for."
-              }
-            </p>
-            {dishCoveryFavoriteRecipes.length === 0 && (
-              <button className="explore-recipes-btn">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                </svg>
-                Explore Recipes
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className={`recipes-container ${dishCoveryViewMode === 'list' ? 'list-view' : 'grid-view'}`}>
-            {dishCoveryFilteredAndSortedRecipes.map((recipe) => (
-              <div
-                key={recipe.id}
-                className={`recipe-card ${dishCoveryViewMode === 'list' ? 'list-view' : ''}`}
-                onClick={() => openModal(recipe)}
-              >
-                {/* Recipe Image */}
-                <div className="recipe-image-container">
-                  <img
-                    src={Array.isArray(recipe.images) ? recipe.images[0] : recipe.image || recipe.images}
-                    alt={recipe.title || recipe.name}
-                    className="recipe-image"
-                    onError={(e) => { 
-                      e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
-                    }}
+        <div className="content-wrapper-favorites">
+          {/* Main Content */}
+          <main className="main-content">
+            {/* Controls Container */}
+            <div className="controls-container">
+              {/* Search Section */}
+              <div className="search-section">
+                <div className="search-container">
+                  <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search favorites..."
+                    value={dishCoverySearchQuery}
+                    onChange={(e) => setDishCoverySearchQuery(e.target.value)}
+                    className="search-input"
                   />
-                  
-                  {/* Verification Badge */}
-                  <div className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai-generated' : 'verified'}`}>
-                    {getVerificationIcon(recipe.verificationStatus)}
-                  </div>
-
-                  {/* Health Badge */}
-                  {recipe.healthTags && recipe.healthTags.length > 0 && (
-                    <div className="health-badge">
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M5 16L3 14l5.5-5.5L12 12l8.5-8.5L22 5l-10 10L5 16z"/>
-                      </svg>
-                    </div>
-                  )}
-                </div>
-
-                {/* Recipe Content */}
-                <div className="recipe-content">
-                  {/* Rating */}
-                  <div className="recipe-rating">
-                    {renderStars(recipe.rating || 4.5)}
-                    <span className="rating-value">({recipe.rating || 4.5})</span>
-                  </div>
-
-                  {/* Title */}
-                  <h3 className="recipe-title">{recipe.title || recipe.name}</h3>
-
-                  {/* Description */}
-                  <p className="recipe-description">{recipe.description}</p>
-
-                  {/* Meta Info */}
-                  <div className="recipe-meta">
-                    <div className="recipe-meta-info">
-                      <div className="meta-item">
-                        <svg className="meta-icon" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M15,1H9V3H15M11,14H13V8H11M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20Z"/>
-                        </svg>
-                        {recipe.cookTime || recipe.prepTime}
-                      </div>
-                      <div className="meta-item">
-                        <svg className="meta-icon" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2c0 .5-.2.95-.5 1.31L17 7.5V13h-2V7.5L12.5 5.31C12.2 4.95 12 4.5 12 4c0-1.11.89-2 2-2s2 .89 2 2zM10.5 4C11.33 4 12 4.67 12 5.5v7c0 .83-.67 1.5-1.5 1.5S9 13.33 9 12.5v-7C9 4.67 9.67 4 10.5 4z"/>
-                        </svg>
-                        {recipe.servings || 4} servings
-                      </div>
-                    </div>
-                    
-                    <span className="meal-type-badge">
-                      {recipe.mealType || 'Main Dish'}
-                    </span>
-                  </div>
-
-                  {/* Tags */}
-                  <div className="recipe-tags">
-                    <div className="tags-container">
-                      {recipe.dietaryTags && recipe.dietaryTags.slice(0, 2).map(tag => (
-                        <span key={tag} className="recipe-tag dietary">
-                          {tag}
-                        </span>
-                      ))}
-                      {recipe.healthTags && recipe.healthTags.slice(0, 1).map(tag => (
-                        <span key={tag} className="recipe-tag health">
-                          {tag}
-                        </span>
-                      ))}
-                      {((recipe.dietaryTags?.length || 0) + (recipe.healthTags?.length || 0)) > 3 && (
-                        <span className="tags-more">
-                          +{((recipe.dietaryTags?.length || 0) + (recipe.healthTags?.length || 0)) - 3} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Engagement */}
-                  <div className="recipe-engagement">
-                    <div className="engagement-item">
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                      </svg>
-                      {recipe.engagement?.tried || 0} tried
-                    </div>
-                    <div className="engagement-item">
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                      </svg>
-                      {recipe.engagement?.saved || 0} saved
-                    </div>
-                  </div>
-
-                  {/* Actions (only show remove button in favorites) */}
-                  <div className="recipe-actions">
-                    <button
-                      className="view-recipe-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openModal(recipe);
-                      }}
-                    >
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                      </svg>
-                      View Recipe
-                    </button>
-                    <button
-                      className="remove-favorite-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        dishCoveryHandleRemoveFromFavorites(recipe.id);
-                      }}
-                    >
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                      </svg>
-                    </button>
-                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
 
-        {dishCoveryFilteredAndSortedRecipes.length > 0 && (
-          <div className="favorites-footer">
-            <p className="favorites-count">
-              Showing {dishCoveryFilteredAndSortedRecipes.length} of {dishCoveryFavoriteRecipes.length} favorite recipes
-            </p>
-          </div>
-        )}
-      </main>
+              <div className="filter-section">
+                <select
+                  value={dishCoverySortBy}
+                  onChange={(e) => setDishCoverySortBy(e.target.value)}
+                  className="sort-dropdown"
+                >
+                  <option value="dateSaved">Recently Saved</option>
+                  <option value="prepTime">Prep Time</option>
+                  <option value="alphabetical">A-Z</option>
+                </select>
 
-      {/* Enhanced Recipe Modal */}
-      {isModalOpen && selectedRecipe && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeModal}>
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
-            
-            {/* Modal Header */}
-            <div className="modal-header">
-              <h1 className="modal-title">{selectedRecipe.title || selectedRecipe.name}</h1>
-              <p className="modal-subtitle">{selectedRecipe.description}</p>
+                {/* View Toggle */}
+                <div className="view-toggle">
+                  <button
+                    className={`view-btn ${dishCoveryViewMode === 'grid' ? 'view-btn-active' : ''}`}
+                    onClick={() => setDishCoveryViewMode('grid')}
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>
+                    </svg>
+                  </button>
+                  <button
+                    className={`view-btn ${dishCoveryViewMode === 'list' ? 'view-btn-active' : ''}`}
+                    onClick={() => setDishCoveryViewMode('list')}
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
-            
-            {/* Modal Body */}
-            <div className="modal-body">
-              {/* Left Column - Image and Verification */}
-              <div className="modal-left">
-                {/* Image Gallery */}
-                <div className="modal-image-container">
-                  <img 
-                    src={Array.isArray(selectedRecipe.images) ? selectedRecipe.images[currentImageIndex] : selectedRecipe.image || selectedRecipe.images} 
-                    alt={selectedRecipe.title || selectedRecipe.name} 
-                    className="modal-image" 
-                    onError={(e) => { 
-                      e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
-                    }}
-                  />
-                  {Array.isArray(selectedRecipe.images) && selectedRecipe.images.length > 1 && (
-                    <>
-                      <button className="image-nav prev" onClick={prevImage}>
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-                        </svg>
-                      </button>
-                      <button className="image-nav next" onClick={nextImage}>
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                        </svg>
-                      </button>
-                      <div className="image-indicators">
-                        {selectedRecipe.images.map((_, index) => (
-                          <button
-                            key={index}
-                            className={`indicator ${index === currentImageIndex ? 'active' : ''}`}
-                            onClick={() => setCurrentImageIndex(index)}
-                          />
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                {/* Verification Section */}
-                <div className="verification-section">
-                  <div className="verification-main">
-                    {getVerificationIcon(selectedRecipe.verificationStatus)}
-                    <span className="verification-status">
-                      {selectedRecipe.verificationStatus === 'AI-generated' 
-                        ? 'AI Generated Recipe' 
-                        : 'Professionally Verified'
-                      }
-                    </span>
-                  </div>
-                  {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
-                    <div className="verifier-details">
-                      <span className="verifier-name">
-                        Verified by: {selectedRecipe.verifierName}
-                      </span>
-                      {selectedRecipe.verifierCredentials && (
-                        <span className="verifier-credentials">
-                          {selectedRecipe.verifierCredentials}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
 
-                <div className="rating-section">
-                  <h3 className="section-title">Rate this Recipe</h3>
-                  <div className="star-rating">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        className={`star-btn ${star <= userRating ? 'active' : ''}`}
-                        onClick={() => handleRateRecipe(star)}
-                        disabled={hasRated}
-                      >
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
-                        </svg>
-                      </button>
-                    ))}
-                  </div>
-                  {hasRated && (
-                    <div className="rating-feedback">
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                      </svg>
-                      Thanks for your rating!
-                    </div>
-                  )}
-                </div>
-                
-                {/* Recipe Statistics */}
-                <div className="modal-stats">
-                  <div className="stat-item">
-                    <svg className="stat-icon" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                    </svg>
-                    <span className="stat-value">{selectedRecipe.engagement?.tried || 0} people tried this</span>
-                  </div>
-                  <div className="stat-item">
-                    <svg className="stat-icon" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
-                    </svg>
-                    <span className="stat-value">{selectedRecipe.engagement?.saved || 0} people saved this</span>
-                  </div>
-                </div>
+            {/* Empty State or Recipes */}
+            {dishCoveryFilteredAndSortedRecipes.length === 0 ? (
+              <div className="empty-container">
+                {dishCoveryFavoriteRecipes.length === 0 ? 
+                  "You haven't saved any recipes yet. Start exploring meals that match your dietary needs!" :
+                  "No recipes match your search. Try adjusting your search terms."
+                }
               </div>
-              
-              {/* Center Column - Instructions */}
-              <div className="modal-center">
-                <div className="instructions-section">
-                  <h3 className="section-title">Step-by-Step Instructions</h3>
-                  <div className="instructions-list">
-                    {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
-                      <div key={index} className="instruction-step">
-                        <span className="step-number">{index + 1}</span>
-                        <span className="step-text">{step}</span>
+            ) : (
+              <div className={`recipes-container ${dishCoveryViewMode === 'grid' ? 'recipes-grid' : 'recipes-list'}`}>
+                {dishCoveryFilteredAndSortedRecipes.map((recipe) => (
+                  <div
+                    key={recipe.id}
+                    className={`recipe-card ${dishCoveryViewMode === 'list' ? 'list-view' : ''}`}
+                    onClick={() => openModal(recipe)}
+                  >
+                    {/* Recipe Image */}
+                    <div className="recipe-image-container">
+                      <img
+                        src={Array.isArray(recipe.images) ? recipe.images[0] : recipe.images}
+                        alt={recipe.title}
+                        className="recipe-image"
+                        onError={(e) => { 
+                          e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
+                        }}
+                      />
+                      
+                      {/* Verification Badge */}
+                      <div className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai-generated' : 'verified'}`}>
+                        {getVerificationIcon(recipe.verificationStatus)}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Right Column - Tags and Ingredients */}
-              <div className="modal-right">
-                {/* Dietary Information */}
-                {selectedRecipe.dietaryTags && selectedRecipe.dietaryTags.length > 0 && (
-                  <div className="modal-section">
-                    <h3 className="section-title">Dietary Tags</h3>
-                    <div className="modal-tags">
-                      {selectedRecipe.dietaryTags.map((tag, index) => (
-                        <span key={index} className="modal-tag dietary">{tag}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Health Benefits */}
-                {selectedRecipe.healthTags && selectedRecipe.healthTags.length > 0 && (
-                  <div className="modal-section">
-                    <h3 className="section-title">Health Benefits</h3>
-                    <div className="modal-tags">
-                      {selectedRecipe.healthTags.map((tag, index) => (
-                        <span key={index} className="modal-tag health">
+
+                      {/* Health Badge */}
+                      {recipe.healthTags && recipe.healthTags.length > 0 && (
+                        <div className="health-badge">
                           <svg viewBox="0 0 24 24" fill="currentColor">
                             <path d="M5 16L3 14l5.5-5.5L12 12l8.5-8.5L22 5l-10 10L5 16z"/>
                           </svg>
-                          {tag}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Recipe Content */}
+                    <div className="recipe-content">
+                      {/* Rating */}
+                      <div className="recipe-rating">
+                        {renderStars(recipe.rating)}
+                        <span className="rating-value">({recipe.rating})</span>
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="recipe-title">{recipe.title}</h3>
+
+                      {/* Description */}
+                      <p className="recipe-description">{recipe.description}</p>
+
+                      {/* Meta Info */}
+                      <div className="recipe-meta">
+                        <div className="recipe-meta-info">
+                          <div className="meta-item">
+                            <svg className="meta-icon" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M15,1H9V3H15M11,14H13V8H11M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20Z"/>
+                            </svg>
+                            {recipe.cookTime}
+                          </div>
+                          <div className="meta-item">
+                            <svg className="meta-icon" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2c0 .5-.2.95-.5 1.31L17 7.5V13h-2V7.5L12.5 5.31C12.2 4.95 12 4.5 12 4c0-1.11.89-2 2-2s2 .89 2 2zM10.5 4C11.33 4 12 4.67 12 5.5v7c0 .83-.67 1.5-1.5 1.5S9 13.33 9 12.5v-7C9 4.67 9.67 4 10.5 4z"/>
+                            </svg>
+                            {recipe.servings} servings
+                          </div>
+                        </div>
+                        
+                        <span className="meal-type-badge">
+                          {recipe.mealType}
                         </span>
+                      </div>
+
+                      {/* Tags */}
+                      <div className="recipe-tags">
+                        <div className="tags-container">
+                          {recipe.dietaryTags && recipe.dietaryTags.slice(0, 3).map(tag => (
+                            <span key={tag} className="recipe-tag dietary">
+                              {tag}
+                            </span>
+                          ))}
+                          {recipe.dietaryTags && recipe.dietaryTags.length > 3 && (
+                            <span className="tags-more">
+                              +{recipe.dietaryTags.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Engagement */}
+                      <div className="recipe-engagement">
+                        <div className="engagement-item">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                          </svg>
+                          {recipe.engagement.tried} tried
+                        </div>
+                        <div className="engagement-item">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                          </svg>
+                          {recipe.engagement.saved} saved
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </main>
+        </div>
+
+        {/* Recipe Modal */}
+        {isModalOpen && selectedRecipe && (
+          <div className="modal-overlay" onClick={closeModal}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-close" onClick={closeModal}>
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+              
+              {/* Modal Header */}
+              <div className="modal-header">
+                <h1 className="modal-title">{selectedRecipe.title}</h1>
+                <p className="modal-subtitle">{selectedRecipe.description}</p>
+              </div>
+              
+              {/* Modal Body */}
+              <div className="modal-body" ref={modalBodyRef} onScroll={handleModalScroll}>
+                {/* Left Column */}
+                <div className="modal-left">
+                  {/* Image Gallery */}
+                  <div className="modal-image-container">
+                    <img 
+                      src={Array.isArray(selectedRecipe.images) ? selectedRecipe.images[currentImageIndex] : selectedRecipe.images} 
+                      alt={selectedRecipe.title} 
+                      className="modal-image" 
+                      onError={(e) => { 
+                        e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
+                      }}
+                    />
+                    {Array.isArray(selectedRecipe.images) && selectedRecipe.images.length > 1 && (
+                      <>
+                        <button className="image-nav prev" onClick={prevImage}>
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                          </svg>
+                        </button>
+                        <button className="image-nav next" onClick={nextImage}>
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                          </svg>
+                        </button>
+                        <div className="image-indicators">
+                          {selectedRecipe.images.map((_, index) => (
+                            <button
+                              key={index}
+                              className={`indicator ${index === currentImageIndex ? 'active' : ''}`}
+                              onClick={() => setCurrentImageIndex(index)}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Verification Section */}
+                  <div className="verification-section">
+                    <div className="verification-main">
+                      {getVerificationIcon(selectedRecipe.verificationStatus)}
+                      <span className="verification-status">
+                        {selectedRecipe.verificationStatus === 'AI-generated' 
+                          ? 'AI Generated Recipe' 
+                          : 'Professionally Verified'
+                        }
+                      </span>
+                    </div>
+                    {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
+                      <div className="verifier-details">
+                        <span className="verifier-name">
+                          Verified by: {selectedRecipe.verifierName}
+                        </span>
+                        {selectedRecipe.verifierCredentials && (
+                          <span className="verifier-credentials">
+                            {selectedRecipe.verifierCredentials}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Recipe Statistics */}
+                  <div className="modal-stats">
+                    <div className="stat-item-display">
+                      <svg className="stat-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                      </svg>
+                      <div className="stat-text">
+                        <div className="stat-number">{selectedRecipe.engagement.tried} people tried this</div>
+                      </div>
+                    </div>
+                    <button 
+                      className="stat-item-button favorite-button-compact"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveConfirmation(selectedRecipe.id);
+                      }}
+                      aria-label="Remove from favorites"
+                    >
+                      <svg className="stat-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                      </svg>
+                      <div className="stat-text">
+                        <div className="stat-number">
+                          <span>Remove from</span>
+                          <span>Favorites</span>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Center Column - Instructions */}
+                <div className="modal-center">
+                  <div className="instructions-section">
+                    <h3 className="section-title">Step-by-Step Instructions</h3>
+                    <div className="instructions-list">
+                      {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
+                        <div key={index} className="instruction-step">
+                          <span className="step-number">{index + 1}</span>
+                          <span className="step-text">{step}</span>
+                        </div>
                       ))}
                     </div>
                   </div>
-                )}
+                </div>
                 
-                {/* Ingredients Section */}
-                <div className="modal-section">
-                  <h3 className="section-title">Ingredients</h3>
-                  <div className="ingredients-grid">
-                    {['main', 'condiments', 'optional'].map((category, categoryIndex) => {
-                      const ingredients = selectedRecipe.ingredients?.[category];
-                      if (!ingredients || ingredients.length === 0) return null;
-                      
-                      return (
-                        <div key={category} className="ingredient-category">
-                          <h4 className="ingredient-category-title">
-                            {category === 'main' ? 'Main Ingredients' : 
-                             category === 'condiments' ? 'Condiments & Seasonings' : 'Optional Ingredients'}
-                          </h4>
-                          <div className="ingredient-list">
-                            {ingredients.map((item, index) => {
-                              const ingredient = typeof item === 'string' ? item : item.ingredient;
-                              const alternative = typeof item === 'object' ? item.alternative : '';
-                              const showAltKey = `${categoryIndex}-${index}`;
-                              
-                              return (
-                                <div key={index} className="ingredient-item">
-                                  <div className="ingredient-main">
-                                    <span>{ingredient}</span>
-                                    {alternative && (
-                                      <button 
-                                        className="alternative-button"
-                                        onClick={() => toggleAlternative(categoryIndex, index)}
-                                        title="Show alternative ingredient"
-                                      >
-                                        <svg viewBox="0 0 24 24" fill="currentColor">
-                                          <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
-                                        </svg>
-                                      </button>
+                {/* Right Column - Tags and Ingredients */}
+                <div className="modal-right">
+                  {/* Dietary Information */}
+                  {selectedRecipe.dietaryTags && selectedRecipe.dietaryTags.length > 0 && (
+                    <div className="modal-section">
+                      <h3 className="section-title">Dietary Tags</h3>
+                      <div className="modal-tags">
+                        {selectedRecipe.dietaryTags.map((tag, index) => (
+                          <span key={index} className="modal-tag dietary">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Meal Type */}
+                  {selectedRecipe.mealType && (
+                    <div className="modal-section">
+                      <h3 className="section-title">Meal Type</h3>
+                      <div className="modal-tags">
+                        <span className="modal-tag meal-type">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M11,9H9V2H7V9H5V2H3V9C3,11.12 4.66,12.84 6.75,12.97V22H9.25V12.97C11.34,12.84 13,11.12 13,9V2H11V9M16,6V14H18.5V22H21V2C18.24,2 16,4.24 16,6Z"/>
+                          </svg>
+                          {selectedRecipe.mealType}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Ingredients Section */}
+                  <div className="modal-section">
+                    <h3 className="section-title">Ingredients</h3>
+                    <div className="ingredients-grid">
+                      {['main', 'condiments', 'optional'].map((category, categoryIndex) => {
+                        const ingredients = selectedRecipe.ingredients?.[category];
+                        if (!ingredients || ingredients.length === 0) return null;
+                        
+                        return (
+                          <div key={category} className="ingredient-category">
+                            <h4 className="ingredient-category-title">
+                              {category === 'main' ? 'Main Ingredients' : 
+                               category === 'condiments' ? 'Condiments & Seasonings' : 'Optional Ingredients'}
+                            </h4>
+                            <div className="ingredient-list">
+                              {ingredients.map((item, index) => {
+                                const ingredient = typeof item === 'string' ? item : item.ingredient;
+                                const alternative = typeof item === 'object' ? item.alternative : '';
+                                const showAltKey = `${categoryIndex}-${index}`;
+                                
+                                return (
+                                  <div key={index} className="ingredient-item">
+                                    <div className="ingredient-main">
+                                      <span>{ingredient}</span>
+                                      {alternative && (
+                                        <button 
+                                          className="alternative-button"
+                                          onClick={() => toggleAlternative(categoryIndex, index)}
+                                          title="Show alternative ingredient"
+                                        >
+                                          <svg viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                    {alternative && showAlternatives[showAltKey] && (
+                                      <div className="alternative-content">
+                                        <span className="alternative-label">Alternative:</span>
+                                        <span className="alternative-text">{alternative}</span>
+                                      </div>
                                     )}
                                   </div>
-                                  {alternative && showAlternatives[showAltKey] && (
-                                    <div className="alternative-content">
-                                      <span className="alternative-label">Alternative:</span>
-                                      <span className="alternative-text">{alternative}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
+              
+              {showScrollIndicator && (
+                <div className="scroll-indicator">
+                  <svg className="scroll-indicator-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  </UserLayout>
+        )}
+
+        {/* Remove Confirmation Modal */}
+        {showRemoveConfirmation && (
+          <div className="modal-overlay" onClick={cancelRemove}>
+            <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="confirmation-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+              </div>
+              <h3 className="confirmation-title">Remove from Favorites?</h3>
+              <p className="confirmation-message">
+                Are you sure you want to remove this recipe from your favorites? You can always add it back later.
+              </p>
+              <div className="confirmation-actions">
+                <button className="confirmation-btn cancel-btn" onClick={cancelRemove}>
+                  Cancel
+                </button>
+                <button className="confirmation-btn confirm-btn" onClick={confirmRemove}>
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="mobile-bottom-nav">
+          <a href="/user/home" className="bottom-nav-link">
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+            </svg>
+            Home
+          </a>
+          
+          <a href="/user/pantry" className="bottom-nav-link">
+            <svg 
+              ref={iconRef}
+              className="nav-icon" 
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24" 
+              fill="currentColor"
+            >
+              <rect x="6" y="2" width="12" height="20" rx="2" ry="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+              <line x1="6" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="2"/>
+              <line x1="8" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="2"/>
+              <line x1="8" y1="14" x2="10" y2="14" stroke="currentColor" strokeWidth="2"/>
+            </svg>
+            My Pantry
+          </a>
+
+          <button className="bottom-nav-scan" onClick={dishCoveryHandleScanClick}>
+            <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+          </button>
+          
+          <a href="/user/favorites" className="bottom-nav-link bottom-nav-active">
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+            Favorites
+          </a>
+          
+          <a href="/user/user-profile" className="bottom-nav-link">
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+            </svg>
+            User
+          </a>
+        </nav>
+      </div>
+    </UserLayout>
   );
 }

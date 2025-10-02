@@ -1730,6 +1730,39 @@ body {
   width: 6px;
 }
 
+/* Scroll indicator */
+.scroll-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.95), transparent);
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12px;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  z-index: 5;
+}
+
+.scroll-indicator.hidden {
+  opacity: 0;
+}
+
+.scroll-indicator-icon {
+  animation: scrollBounce 2s ease-in-out infinite;
+  color: var(--primary-color);
+  font-size: 20px;
+}
+
+@keyframes scrollBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
 .modal-body::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
@@ -1744,15 +1777,26 @@ body {
   background: #a8a8a8;
 }
 
-/* Styles for Tablet (max-width: 1024px) */
-@media (max-width: 1024px) {
+/* Styles for Tablet Portrait and Landscape (max-width: 1024px) */
+@media (max-width: 1024px) and (orientation: landscape) {
   .content-wrapper {
-    flex-direction: column;
+    display: flex;
+    flex-direction: row;
+    gap: 24px;
+    padding: 20px 30px;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
   .filters-sidebar {
-    width: 100%;
-    position: static;
+    width: 260px;
+    position: sticky;
+    top: 90px;
+    margin-bottom: 0;
+  }
+
+  .mobile-filter-toggle {
+    display: none;
   }
 
   .recipes-container.recipes-grid {
@@ -1761,21 +1805,297 @@ body {
   }
 
   .modal-content {
-    width: 95vw;
-    height: 90vh;
+    width: 92vw;
+    max-height: 88vh;
+    margin: 0 auto;
+  }
+
+  .modal-header {
+    padding: 20px 24px 16px 24px;
+  }
+
+  .modal-title {
+    font-size: 22px;
+    padding-right: 45px;
   }
 
   .modal-body {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 24px;
     padding: 24px;
+    max-height: calc(88vh - 120px);
+  }
+
+  .modal-left {
+    order: 1;
+  }
+
+  .modal-image-container {
+    height: 300px;
+  }
+
+  .modal-stats {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .modal-right {
+    order: 2;
   }
 
   .modal-center {
-    grid-column: span 2;
-    max-height: 300px;
+    order: 3;
+    max-height: none;
+  }
+
+  .instructions-section {
+    padding: 24px;
+  }
+
+  .recipe-card.list-view {
+    min-height: 200px;
+    max-height: 240px;
+  }
+
+  .recipe-card.list-view .recipe-image-container {
+    width: 200px;
+  }
+
+  .recipe-card.list-view .recipe-content {
+    padding: 16px;
+  }
+
+  /* Better touch targets for tablets */
+  .nav-link {
+    padding: 8px 4px;
+  }
+
+  .scan-nav-btn,
+  .sign-in-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .avatar-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Controls optimization */
+  .controls-container {
+    padding: 18px;
+    gap: 16px;
+  }
+
+  .search-input {
+    padding: 12px 12px 12px 42px;
+  }
+
+  /* Recipe cards in grid view */
+  .recipe-content {
+    padding: 18px;
+  }
+
+  .recipe-title {
+    font-size: 1.15rem;
+  }
+
+  .recipe-description {
+    font-size: 13.5px;
   }
 }
+
+/* Tablet Landscape Specific (min-width: 769px and max-width: 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) and (orientation: landscape) {
+  .modal-body {
+    grid-template-columns: 400px 1fr;
+    gap: 28px;
+  }
+
+  .modal-left {
+    order: 1;
+  }
+
+  .modal-right {
+    order: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .modal-center {
+    order: 3;
+    grid-column: span 2;
+    max-height: none;
+  }
+
+  .modal-image-container {
+    height: 320px;
+  }
+
+  .recipes-container.recipes-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .page-header {
+    padding: 110px 24px 36px;
+  }
+
+  .page-title {
+    font-size: 2.2rem;
+  }
+}
+
+/* Tablet Portrait Specific (max-width: 768px and min-width: 481px) in portrait */
+@media (min-width: 481px) and (max-width: 768px) and (orientation: portrait) {
+  /* Add side padding to prevent edge-to-edge stretch */
+  .content-wrapper {
+    padding: 20px 40px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* Hide filters by default, show via modal */
+  .filters-sidebar {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 320px;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+  }
+
+  .filters-sidebar.mobile-visible {
+    left: 0;
+  }
+
+  .filters-title {
+    display: none;
+  }
+
+  .mobile-filter-toggle {
+    display: flex;
+  }
+
+  .mobile-filter-header {
+    display: flex;
+  }
+
+  .mobile-filter-overlay {
+    display: block;
+  }
+
+  .page-header {
+    padding: 100px 40px 32px;
+  }
+
+  .page-title {
+    font-size: 2rem;
+  }
+
+  /* Two column grid with spacing */
+  .recipes-container.recipes-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  /* Controls with better spacing */
+  .controls-container {
+    padding: 18px;
+    margin-bottom: 24px;
+  }
+
+  .search-section {
+    max-width: 100%;
+  }
+
+  /* Modal adjustments */
+  .modal-content {
+    width: calc(100% - 60px);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .modal-image-container {
+    height: 280px;
+  }
+
+  .modal-stats {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .stat-item-display,
+  .favorite-button-compact {
+    min-width: 75px;
+    padding: 12px 6px !important;
+  }
+
+  .stat-item-display .stat-icon,
+  .favorite-button-compact .stat-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  .instructions-section {
+    padding: 20px;
+  }
+
+  .instruction-step {
+    padding: 16px;
+  }
+
+  /* Recipe cards with better proportions */
+  .recipe-card {
+    border-radius: 14px;
+  }
+
+  .recipe-content {
+    padding: 18px;
+  }
+
+  .recipe-title {
+    font-size: 1.1rem;
+  }
+}
+
+/* Tablet Portrait - Mobile-style filter behavior */
+@media (min-width: 481px) and (max-width: 768px) and (orientation: portrait) {
+  .main-content {
+    width: 100%;
+  }
+
+  .filter-section {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  /* Ensure view toggle stays visible */
+  .view-toggle {
+    display: flex;
+  }
+
+  /* Recipe list view adjustments for tablet portrait */
+  .recipe-card.list-view {
+    min-height: 220px;
+    max-height: 260px;
+  }
+
+  .recipe-card.list-view .recipe-image-container {
+    width: 180px;
+  }
+
+  .recipe-card.list-view .recipe-content {
+    padding: 18px;
+  }
+}
+
 /* Mobile Filter Styles */
 .mobile-filter-toggle {
   display: none;
@@ -1957,39 +2277,43 @@ body {
   .recipe-card.list-view {
     flex-direction: row;
     align-items: stretch;
-    max-height: 140px;
-    min-height: 140px;
+    min-height: 280px;
+    max-height: none;
   }
 
   .recipe-card.list-view .recipe-image-container {
-    width: 120px;
-    height: 140px;
+    width: 130px;
+    height: 280px;
+    align-self: stretch;
     flex-shrink: 0;
   }
 
   .recipe-card.list-view .recipe-content {
-    padding: 12px;
+    padding: 14px;
     flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    gap: 6px;
   }
 
   .recipe-card.list-view .recipe-title {
-    font-size: 1rem;
-    -webkit-line-clamp: 1;
-    margin-bottom: 4px;
+    font-size: 0.95rem;
+    -webkit-line-clamp: 2;
+    margin-bottom: 2px;
   }
 
   .recipe-card.list-view .recipe-description {
-    font-size: 12px;
+    font-size: 11.5px;
     -webkit-line-clamp: 2;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
+    line-height: 1.4;
   }
 
   .recipe-card.list-view .recipe-meta {
-    flex-wrap: nowrap;
-    margin-bottom: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+    gap: 6px;
   }
 
   .recipe-card.list-view .recipe-meta-info {
