@@ -78,7 +78,8 @@ const RecipePage = () => {
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAlternatives, setShowAlternatives] = useState({});
-  
+  const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+  const modalBodyRef = useRef(null);
   // API-related state
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -511,35 +512,42 @@ const RecipePage = () => {
     return faShieldAlt;
   };
 
-  const openModal = async (recipe) => {
-    const recipeWithFavoriteStatus = {
-      ...recipe,
-      isFavorited: favoritedRecipes.has(recipe.id)
-    };
-    setSelectedRecipe(recipeWithFavoriteStatus);
-    setIsModalOpen(true);
-    setCurrentImageIndex(0);
-    setShowAlternatives({});
-    document.body.style.overflow = 'hidden';
-    
-    // Fetch detailed recipe data if needed
-    if (recipe.id && (!recipe.instructions || recipe.instructions.length === 0)) {
-      const detailedRecipe = await fetchRecipeDetails(recipe.id);
-      if (detailedRecipe) {
-        setSelectedRecipe({
-          ...detailedRecipe,
-          isFavorited: favoritedRecipes.has(recipe.id)
-        });
+    const openModal = async (recipe) => {
+      const recipeWithFavoriteStatus = {
+        ...recipe,
+        isFavorited: favoritedRecipes.has(recipe.id)
+      };
+      setSelectedRecipe(recipeWithFavoriteStatus);
+      setIsModalOpen(true);
+      setCurrentImageIndex(0);
+      setShowAlternatives({});
+      setShowScrollIndicator(true);
+      document.body.style.overflow = 'hidden';
+      
+      // Fetch detailed recipe data if needed
+      if (recipe.id && (!recipe.instructions || recipe.instructions.length === 0)) {
+        const detailedRecipe = await fetchRecipeDetails(recipe.id);
+        if (detailedRecipe) {
+          setSelectedRecipe({
+            ...detailedRecipe,
+            isFavorited: favoritedRecipes.has(recipe.id)
+          });
+        }
       }
-    }
-  };
-
+    };
+    
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedRecipe(null);
     setCurrentImageIndex(0);
     setShowAlternatives({});
     document.body.style.overflow = 'unset';
+  };
+
+  const handleModalScroll = (e) => {
+  const element = e.target;
+  const scrolledToBottom = element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
+  setShowScrollIndicator(!scrolledToBottom);
   };
 
   const nextImage = () => {
@@ -689,7 +697,7 @@ const RecipePage = () => {
                   values.map(value => (
                     <span key={`${category}-${value}`} className="active-filter-tag">
                       {value}
-                      <button onClick={() => handleFilterChange(category, value)}>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â</button>
+                    <button onClick={() => handleFilterChange(category, value)}>×</button>
                     </span>
                   ))
                 )}
@@ -1008,211 +1016,215 @@ const RecipePage = () => {
           </div>
         </div>
       )}
-
-      {/* Modal */}
-      {isModalOpen && selectedRecipe && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeModal}>
-              <FontAwesomeIcon icon={faTimes} />
+{/* Modal */}
+{isModalOpen && selectedRecipe && (
+  <div className="modal-overlay" onClick={closeModal}>
+    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <button className="modal-close" onClick={closeModal}>
+        <FontAwesomeIcon icon={faTimes} />
+      </button>
+      
+      
+      {/* Modal Header */}
+      <div className="modal-header">
+        <h1 className="modal-title">{selectedRecipe.title}</h1>
+        <p className="modal-subtitle">{selectedRecipe.description}</p>
+      </div>
+      
+      {/* Modal Body */}
+      <div className="modal-body" ref={modalBodyRef} onScroll={handleModalScroll}>
+        {/* Left Column - Image and Verification */}
+        <div className="modal-left">
+          {/* Image Gallery */}
+          <div className="modal-image-container">
+            <img 
+              src={Array.isArray(selectedRecipe.images) ? selectedRecipe.images[currentImageIndex] : selectedRecipe.images} 
+              alt={selectedRecipe.title} 
+              className="modal-image" 
+              onError={(e) => { 
+                e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
+              }}
+            />
+            {Array.isArray(selectedRecipe.images) && selectedRecipe.images.length > 1 && (
+              <>
+                <button className="image-nav prev" onClick={prevImage}>
+                  <FontAwesomeIcon icon={faChevronLeft} />
+                </button>
+                <button className="image-nav next" onClick={nextImage}>
+                  <FontAwesomeIcon icon={faChevronRight} />
+                </button>
+                <div className="image-indicators">
+                  {selectedRecipe.images.map((_, index) => (
+                    <button
+                      key={index}
+                      className={`indicator ${index === currentImageIndex ? 'active' : ''}`}
+                      onClick={() => setCurrentImageIndex(index)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          
+          {/* Verification Section */}
+          <div className="verification-section">
+            <div className="verification-main">
+              <FontAwesomeIcon 
+                className="verification-icon"
+                icon={getVerificationIcon(selectedRecipe.verificationStatus)}
+              />
+              <span className="verification-status">
+                {selectedRecipe.verificationStatus === 'AI-generated' 
+                  ? 'AI Generated Recipe' 
+                  : 'Professionally Verified'
+                }
+              </span>
+            </div>
+            {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
+              <div className="verifier-details">
+                <span className="verifier-name">
+                  Verified by: {selectedRecipe.verifierName}
+                </span>
+                {selectedRecipe.verifierCredentials && (
+                  <span className="verifier-credentials">
+                    {selectedRecipe.verifierCredentials}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {/* Recipe Statistics */}
+          <div className="modal-stats">
+            <div className="stat-item-display">
+              <FontAwesomeIcon icon={faEye} className="stat-icon" />
+              <div className="stat-text">
+                <div className="stat-number">{selectedRecipe.engagement.tried} people tried this</div>
+              </div>
+            </div>
+            <button 
+              className={`stat-item-button favorite-button-compact stat-button-ripple ${selectedRecipe.isFavorited ? 'favorited' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleFavorite(selectedRecipe.id);
+              }}
+              aria-label={selectedRecipe.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+              aria-pressed={selectedRecipe.isFavorited}
+            >
+              <FontAwesomeIcon 
+                icon={selectedRecipe.isFavorited ? faHeart : faHeartRegular} 
+                className="stat-icon" 
+              />
+              <div className="stat-text">
+                <div className="stat-number">
+                  {selectedRecipe.isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+                </div>
+              </div>
             </button>
-            
-            
-            {/* Modal Header */}
-            <div className="modal-header">
-              <h1 className="modal-title">{selectedRecipe.title}</h1>
-              <p className="modal-subtitle">{selectedRecipe.description}</p>
-            </div>
-            
-            {/* Modal Body */}
-            <div className="modal-body">
-              {/* Left Column - Image and Verification */}
-              <div className="modal-left">
-                {/* Image Gallery */}
-                <div className="modal-image-container">
-                  <img 
-                    src={Array.isArray(selectedRecipe.images) ? selectedRecipe.images[currentImageIndex] : selectedRecipe.images} 
-                    alt={selectedRecipe.title} 
-                    className="modal-image" 
-                    onError={(e) => { 
-                      e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
-                    }}
-                  />
-                  {Array.isArray(selectedRecipe.images) && selectedRecipe.images.length > 1 && (
-                    <>
-                      <button className="image-nav prev" onClick={prevImage}>
-                        <FontAwesomeIcon icon={faChevronLeft} />
-                      </button>
-                      <button className="image-nav next" onClick={nextImage}>
-                        <FontAwesomeIcon icon={faChevronRight} />
-                      </button>
-                      <div className="image-indicators">
-                        {selectedRecipe.images.map((_, index) => (
-                          <button
-                            key={index}
-                            className={`indicator ${index === currentImageIndex ? 'active' : ''}`}
-                            onClick={() => setCurrentImageIndex(index)}
-                          />
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                {/* Verification Section */}
-                <div className="verification-section">
-                  <div className="verification-main">
-                    <FontAwesomeIcon 
-                      className="verification-icon"
-                      icon={getVerificationIcon(selectedRecipe.verificationStatus)}
-                    />
-                    <span className="verification-status">
-                      {selectedRecipe.verificationStatus === 'AI-generated' 
-                        ? 'AI Generated Recipe' 
-                        : 'Professionally Verified'
-                      }
-                    </span>
-                  </div>
-                  {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
-                    <div className="verifier-details">
-                      <span className="verifier-name">
-                        Verified by: {selectedRecipe.verifierName}
-                      </span>
-                      {selectedRecipe.verifierCredentials && (
-                        <span className="verifier-credentials">
-                          {selectedRecipe.verifierCredentials}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Recipe Statistics */}
-                <div className="modal-stats">
-                  <div className="stat-item-display">
-                    <FontAwesomeIcon icon={faEye} className="stat-icon" />
-                    <div className="stat-text">
-                      <div className="stat-number">{selectedRecipe.engagement.tried} people tried this</div>
-                    </div>
-                  </div>
-                  <button 
-                    className={`stat-item-button favorite-button-compact stat-button-ripple ${selectedRecipe.isFavorited ? 'favorited' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleFavorite(selectedRecipe.id);
-                    }}
-                    aria-label={selectedRecipe.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-                    aria-pressed={selectedRecipe.isFavorited}
-                  >
-                    <FontAwesomeIcon 
-                      icon={selectedRecipe.isFavorited ? faHeart : faHeartRegular} 
-                      className="stat-icon" 
-                    />
-                    <div className="stat-text">
-                      <div className="stat-number">
-                        {selectedRecipe.isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
-                      </div>
-                    </div>
-                  </button>
-                </div>
-            </div>
+          </div>
+        </div>
 
-              {/* Center Column - Instructions */}
-              <div className="modal-center">
-                <div className="instructions-section">
-                  <h3 className="section-title">Step-by-Step Instructions</h3>
-                  <div className="instructions-list">
-                    {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
-                      <div key={index} className="instruction-step">
-                        <span className="step-number">{index + 1}</span>
-                        <span className="step-text">{step}</span>
-                      </div>
-                    ))}
-                  </div>
+        {/* Center Column - Instructions */}
+        <div className="modal-center">
+          <div className="instructions-section">
+            <h3 className="section-title">Step-by-Step Instructions</h3>
+            <div className="instructions-list">
+              {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
+                <div key={index} className="instruction-step">
+                  <span className="step-number">{index + 1}</span>
+                  <span className="step-text">{step}</span>
                 </div>
-              </div>
-              
-              {/* Right Column - Tags and Ingredients */}
-              <div className="modal-right">
-                {/* Dietary Information */}
-                {selectedRecipe.dietaryTags && selectedRecipe.dietaryTags.length > 0 && (
-                  <div className="modal-section">
-                    <h3 className="section-title">Dietary Tags</h3>
-                    <div className="modal-tags">
-                      {selectedRecipe.dietaryTags.map((tag, index) => (
-                        <span key={index} className="modal-tag dietary">{tag}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Meal Type */}
-                {selectedRecipe.mealType && (
-                  <div className="modal-section">
-                    <h3 className="section-title">Meal Type</h3>
-                    <div className="modal-tags">
-                      <span className="modal-tag meal-type">
-                        <FontAwesomeIcon icon={faUtensils} />
-                        {selectedRecipe.mealType}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Ingredients Section */}
-                <div className="modal-section">
-                  <h3 className="section-title">Ingredients</h3>
-                  <div className="ingredients-grid">
-                    {['main', 'condiments', 'optional'].map((category, categoryIndex) => {
-                      const ingredients = selectedRecipe.ingredients[category];
-                      if (!ingredients || ingredients.length === 0) return null;
-                      
-                      return (
-                        <div key={category} className="ingredient-category">
-                          <h4 className="ingredient-category-title">
-                            {category === 'main' ? 'Main Ingredients' : 
-                             category === 'condiments' ? 'Condiments & Seasonings' : 'Optional Ingredients'}
-                          </h4>
-                          <div className="ingredient-list">
-                            {ingredients.map((item, index) => {
-                              const ingredient = typeof item === 'string' ? item : item.ingredient;
-                              const alternative = typeof item === 'object' ? item.alternative : '';
-                              const showAltKey = `${categoryIndex}-${index}`;
-                              
-                              return (
-                                <div key={index} className="ingredient-item">
-                                  <div className="ingredient-main">
-                                    <span>{ingredient}</span>
-                                    {alternative && (
-                                      <button 
-                                        className="alternative-button"
-                                        onClick={() => toggleAlternative(categoryIndex, index)}
-                                        title="Show alternative ingredient"
-                                      >
-                                        <FontAwesomeIcon icon={faExchangeAlt} />
-                                      </button>
-                                    )}
-                                  </div>
-                                  {alternative && showAlternatives[showAltKey] && (
-                                    <div className="alternative-content">
-                                      <span className="alternative-label">Alternative:</span>
-                                      <span className="alternative-text">{alternative}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
+        
+        {/* Right Column - Tags and Ingredients */}
+        <div className="modal-right">
+          {/* Dietary Information */}
+          {selectedRecipe.dietaryTags && selectedRecipe.dietaryTags.length > 0 && (
+            <div className="modal-section">
+              <h3 className="section-title">Dietary Tags</h3>
+              <div className="modal-tags">
+                {selectedRecipe.dietaryTags.map((tag, index) => (
+                  <span key={index} className="modal-tag dietary">{tag}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Meal Type */}
+          {selectedRecipe.mealType && (
+            <div className="modal-section">
+              <h3 className="section-title">Meal Type</h3>
+              <div className="modal-tags">
+                <span className="modal-tag meal-type">
+                  <FontAwesomeIcon icon={faUtensils} />
+                  {selectedRecipe.mealType}
+                </span>
+              </div>
+            </div>
+          )}
+          
+          {/* Ingredients Section */}
+          <div className="modal-section">
+            <h3 className="section-title">Ingredients</h3>
+            <div className="ingredients-grid">
+              {['main', 'condiments', 'optional'].map((category, categoryIndex) => {
+                const ingredients = selectedRecipe.ingredients[category];
+                if (!ingredients || ingredients.length === 0) return null;
+                
+                return (
+                  <div key={category} className="ingredient-category">
+                    <h4 className="ingredient-category-title">
+                      {category === 'main' ? 'Main Ingredients' : 
+                       category === 'condiments' ? 'Condiments & Seasonings' : 'Optional Ingredients'}
+                    </h4>
+                    <div className="ingredient-list">
+                      {ingredients.map((item, index) => {
+                        const ingredient = typeof item === 'string' ? item : item.ingredient;
+                        const alternative = typeof item === 'object' ? item.alternative : '';
+                        const showAltKey = `${categoryIndex}-${index}`;
+                        
+                        return (
+                          <div key={index} className="ingredient-item">
+                            <div className="ingredient-main">
+                              <span>{ingredient}</span>
+                              {alternative && (
+                                <button 
+                                  className="alternative-button"
+                                  onClick={() => toggleAlternative(categoryIndex, index)}
+                                  title="Show alternative ingredient"
+                                >
+                                  <FontAwesomeIcon icon={faExchangeAlt} />
+                                </button>
+                              )}
+                            </div>
+                            {alternative && showAlternatives[showAltKey] && (
+                              <div className="alternative-content">
+                                <span className="alternative-label">Alternative:</span>
+                                <span className="alternative-text">{alternative}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+      {showScrollIndicator && (
+        <div className="scroll-indicator">
+          <FontAwesomeIcon icon={faChevronDown} className="scroll-indicator-icon" />
+        </div>
       )}
+    </div>
+  </div>
+)}
 
       {/* Mobile Bottom Navigation */}
       <nav className="mobile-bottom-nav">
