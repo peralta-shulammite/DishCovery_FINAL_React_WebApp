@@ -1,5 +1,30 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faStar,
+  faStarHalfStroke,
+  faClock,
+  faUsers,
+  faEye,
+  faShieldAlt,
+  faUserMd,
+  faRobot,
+  faExchangeAlt,
+  faChevronLeft,
+  faChevronRight,
+  faChevronDown,
+  faTimes,
+  faUtensils,
+  faHeart,
+  faSearch,
+  faExclamationCircle,
+  faAward
+} from '@fortawesome/free-solid-svg-icons';
+import { 
+  faStar as faStarRegular,
+  faHeart as faHeartRegular
+} from '@fortawesome/free-regular-svg-icons';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
 
@@ -244,53 +269,25 @@ export default function FavoritesPage() {
     const hasHalfStar = rating % 1 !== 0;
     
     for (let i = 0; i < fullStars; i++) {
-      stars.push(
-        <svg key={i} className="star filled" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-      );
+      stars.push(<FontAwesomeIcon key={i} icon={faStar} className="star filled" />);
     }
     
     if (hasHalfStar) {
-      stars.push(
-        <svg key="half" className="star half" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4V6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/>
-        </svg>
-      );
+      stars.push(<FontAwesomeIcon key="half" icon={faStarHalfStroke} className="star half" />);
     }
     
     const emptyStars = 5 - Math.ceil(rating);
     for (let i = 0; i < emptyStars; i++) {
-      stars.push(
-        <svg key={`empty-${i}`} className="star empty" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/>
-        </svg>
-      );
+      stars.push(<FontAwesomeIcon key={`empty-${i}`} icon={faStarRegular} className="star empty" />);
     }
     
     return stars;
   };
 
   const getVerificationIcon = (status) => {
-    if (status === 'AI-generated') {
-      return (
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M20,2H4A2,2 0 0,0 2,4V22L6,18H20A2,2 0 0,0 22,16V4C22,2.89 21.1,2 20,2Z"/>
-        </svg>
-      );
-    }
-    if (status.includes('Doctor')) {
-      return (
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"/>
-        </svg>
-      );
-    }
-    return (
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z"/>
-      </svg>
-    );
+    if (status === 'AI-generated') return faRobot;
+    if (status.includes('Doctor')) return faUserMd;
+    return faShieldAlt;
   };
 
   // Modal functions
@@ -461,15 +458,13 @@ export default function FavoritesPage() {
                       
                       {/* Verification Badge */}
                       <div className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai-generated' : 'verified'}`}>
-                        {getVerificationIcon(recipe.verificationStatus)}
+                        <FontAwesomeIcon icon={getVerificationIcon(recipe.verificationStatus)} />
                       </div>
 
                       {/* Health Badge */}
                       {recipe.healthTags && recipe.healthTags.length > 0 && (
                         <div className="health-badge">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M5 16L3 14l5.5-5.5L12 12l8.5-8.5L22 5l-10 10L5 16z"/>
-                          </svg>
+                          <FontAwesomeIcon icon={faAward} />
                         </div>
                       )}
                     </div>
@@ -491,18 +486,14 @@ export default function FavoritesPage() {
                       {/* Meta Info */}
                       <div className="recipe-meta">
                         <div className="recipe-meta-info">
-                          <div className="meta-item">
-                            <svg className="meta-icon" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M15,1H9V3H15M11,14H13V8H11M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20Z"/>
-                            </svg>
-                            {recipe.cookTime}
-                          </div>
-                          <div className="meta-item">
-                            <svg className="meta-icon" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2c0 .5-.2.95-.5 1.31L17 7.5V13h-2V7.5L12.5 5.31C12.2 4.95 12 4.5 12 4c0-1.11.89-2 2-2s2 .89 2 2zM10.5 4C11.33 4 12 4.67 12 5.5v7c0 .83-.67 1.5-1.5 1.5S9 13.33 9 12.5v-7C9 4.67 9.67 4 10.5 4z"/>
-                            </svg>
-                            {recipe.servings} servings
-                          </div>
+                        <div className="meta-item">
+                          <FontAwesomeIcon icon={faClock} />
+                          {recipe.cookTime}
+                        </div>
+                        <div className="meta-item">
+                          <FontAwesomeIcon icon={faUsers} />
+                          {recipe.servings} servings
+                        </div>
                         </div>
                         
                         <span className="meal-type-badge">
@@ -528,18 +519,14 @@ export default function FavoritesPage() {
 
                       {/* Engagement */}
                       <div className="recipe-engagement">
-                        <div className="engagement-item">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                          </svg>
-                          {recipe.engagement.tried} tried
-                        </div>
-                        <div className="engagement-item">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                          </svg>
-                          {recipe.engagement.saved} saved
-                        </div>
+                      <div className="engagement-item">
+                        <FontAwesomeIcon icon={faEye} />
+                        {recipe.engagement.tried} tried
+                      </div>
+                      <div className="engagement-item">
+                        <FontAwesomeIcon icon={faHeartRegular} />
+                        {recipe.engagement.saved} saved
+                      </div>
                       </div>
                     </div>
                   </div>
@@ -553,11 +540,9 @@ export default function FavoritesPage() {
         {isModalOpen && selectedRecipe && (
           <div className="modal-overlay" onClick={closeModal}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <button className="modal-close" onClick={closeModal}>
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-              </button>
+            <button className="modal-close" onClick={closeModal}>
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
               
               {/* Modal Header */}
               <div className="modal-header">
@@ -582,14 +567,10 @@ export default function FavoritesPage() {
                     {Array.isArray(selectedRecipe.images) && selectedRecipe.images.length > 1 && (
                       <>
                         <button className="image-nav prev" onClick={prevImage}>
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-                          </svg>
+                          <FontAwesomeIcon icon={faChevronLeft} />
                         </button>
                         <button className="image-nav next" onClick={nextImage}>
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                          </svg>
+                          <FontAwesomeIcon icon={faChevronRight} />
                         </button>
                         <div className="image-indicators">
                           {selectedRecipe.images.map((_, index) => (
@@ -606,15 +587,18 @@ export default function FavoritesPage() {
                   
                   {/* Verification Section */}
                   <div className="verification-section">
-                    <div className="verification-main">
-                      {getVerificationIcon(selectedRecipe.verificationStatus)}
-                      <span className="verification-status">
-                        {selectedRecipe.verificationStatus === 'AI-generated' 
-                          ? 'AI Generated Recipe' 
-                          : 'Professionally Verified'
-                        }
-                      </span>
-                    </div>
+                  <div className="verification-main">
+                    <FontAwesomeIcon 
+                      className="verification-icon"
+                      icon={getVerificationIcon(selectedRecipe.verificationStatus)}
+                    />
+                    <span className="verification-status">
+                      {selectedRecipe.verificationStatus === 'AI-generated' 
+                        ? 'AI Generated Recipe' 
+                        : 'Professionally Verified'
+                      }
+                    </span>
+                  </div>
                     {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
                       <div className="verifier-details">
                         <span className="verifier-name">
@@ -631,32 +615,29 @@ export default function FavoritesPage() {
                   
                   {/* Recipe Statistics */}
                   <div className="modal-stats">
-                    <div className="stat-item-display">
-                      <svg className="stat-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                      </svg>
-                      <div className="stat-text">
-                        <div className="stat-number">{selectedRecipe.engagement.tried} people tried this</div>
+                  <div className="stat-item-display">
+                    <FontAwesomeIcon icon={faEye} className="stat-icon" />
+                    <div className="stat-text">
+                      <div className="stat-number">{selectedRecipe.engagement.tried} people tried this</div>
+                    </div>
+                  </div>
+                  <button 
+                    className="stat-item-button favorite-button-compact"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveConfirmation(selectedRecipe.id);
+                    }}
+                    aria-label="Remove from favorites"
+                    aria-pressed="false"
+                  >
+                    <FontAwesomeIcon icon={faHeart} className="stat-icon" />
+                    <div className="stat-text">
+                      <div className="stat-number">
+                        <span>Remove from</span>
+                        <span>Favorites</span>
                       </div>
                     </div>
-                    <button 
-                      className="stat-item-button favorite-button-compact"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveConfirmation(selectedRecipe.id);
-                      }}
-                      aria-label="Remove from favorites"
-                    >
-                      <svg className="stat-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                      </svg>
-                      <div className="stat-text">
-                        <div className="stat-number">
-                          <span>Remove from</span>
-                          <span>Favorites</span>
-                        </div>
-                      </div>
-                    </button>
+                  </button>
                   </div>
                 </div>
 
@@ -694,12 +675,10 @@ export default function FavoritesPage() {
                     <div className="modal-section">
                       <h3 className="section-title">Meal Type</h3>
                       <div className="modal-tags">
-                        <span className="modal-tag meal-type">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M11,9H9V2H7V9H5V2H3V9C3,11.12 4.66,12.84 6.75,12.97V22H9.25V12.97C11.34,12.84 13,11.12 13,9V2H11V9M16,6V14H18.5V22H21V2C18.24,2 16,4.24 16,6Z"/>
-                          </svg>
-                          {selectedRecipe.mealType}
-                        </span>
+                      <span className="modal-tag meal-type">
+                        <FontAwesomeIcon icon={faUtensils} />
+                        {selectedRecipe.mealType}
+                      </span>
                       </div>
                     </div>
                   )}
@@ -729,15 +708,13 @@ export default function FavoritesPage() {
                                     <div className="ingredient-main">
                                       <span>{ingredient}</span>
                                       {alternative && (
-                                        <button 
-                                          className="alternative-button"
-                                          onClick={() => toggleAlternative(categoryIndex, index)}
-                                          title="Show alternative ingredient"
-                                        >
-                                          <svg viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
-                                          </svg>
-                                        </button>
+                                      <button 
+                                        className="alternative-button"
+                                        onClick={() => toggleAlternative(categoryIndex, index)}
+                                        title="Show alternative ingredient"
+                                      >
+                                        <FontAwesomeIcon icon={faExchangeAlt} />
+                                      </button>
                                       )}
                                     </div>
                                     {alternative && showAlternatives[showAltKey] && (
@@ -760,9 +737,7 @@ export default function FavoritesPage() {
               
               {showScrollIndicator && (
                 <div className="scroll-indicator">
-                  <svg className="scroll-indicator-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
-                  </svg>
+                  <FontAwesomeIcon icon={faChevronDown} className="scroll-indicator-icon" />
                 </div>
               )}
             </div>
