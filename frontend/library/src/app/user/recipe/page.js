@@ -1116,9 +1116,19 @@ const RecipePage = () => {
                 className="stat-icon" 
               />
               <div className="stat-text">
-                <div className="stat-number">
-                  {selectedRecipe.isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
-                </div>
+                <span className="stat-number">
+                  {selectedRecipe.isFavorited ? (
+                    <>
+                      <span>Remove from</span>
+                      <span>Favorites</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Add to</span>
+                      <span>Favorites</span>
+                    </>
+                  )}
+                </span>
               </div>
             </button>
           </div>
