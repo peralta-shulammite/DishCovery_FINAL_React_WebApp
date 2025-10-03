@@ -44,15 +44,15 @@ export default function AboutWebApp() {
   }, []);
 
   const navigationItems = [
-    { id: 'what-is-dishcovery', label: 'What is DishCovery', category: 'about' },
-    { id: 'our-story', label: 'Our Story', category: 'about' },
-    { id: 'meet-developers', label: 'Meet the Developers', category: 'about' },
-    { id: 'mission-values', label: 'Mission & Values', category: 'about' },
-    { id: 'help-center', label: 'Help Center', category: 'support' },
-    { id: 'careers', label: 'Careers', category: 'company' },
-    { id: 'contact', label: 'Contact Us', category: 'support' },
-    { id: 'privacy-policy', label: 'Privacy Policy', category: 'legal' },
-    { id: 'terms-service', label: 'Terms of Service', category: 'legal' }
+    { id: 'what-is-dishcovery', label: 'What is DishCovery', category: 'about', href: '/user/about-us' },
+    { id: 'our-story', label: 'Our Story', category: 'about', href: '/user/about-us' },
+    { id: 'meet-developers', label: 'Meet the Developers', category: 'about', href: '/user/about-us' },
+    { id: 'mission-values', label: 'Mission & Values', category: 'about', href: '/user/about-us' },
+    { id: 'help-center', label: 'Help Center', category: 'support', href: '/user/about-support' },
+    { id: 'careers', label: 'Careers', category: 'company', href: '/user/about-company' },
+    { id: 'contact', label: 'Contact Us', category: 'support', href: '/user/about-support' },
+    { id: 'privacy-policy', label: 'Privacy Policy', category: 'legal', href: '/user/about-legal' },
+    { id: 'terms-service', label: 'Terms of Service', category: 'legal', href: '/user/about-legal' }
   ];
 
   const developers = [
@@ -123,23 +123,21 @@ export default function AboutWebApp() {
               </svg>
             </button>
           </div>
-<div className="mobile-menu-content">
-  <div className="mobile-nav-category">
-    <h3 className="mobile-nav-category-title">About Us</h3>
-    {navigationItems.filter(item => item.category === 'about').map((item) => (
-      <button
-        key={item.id}
-        className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
-        onClick={() => scrollToSection(item.id)}
-      >
-        {item.label}
-      </button>
-    ))}
-  </div>
-  
-            <div className="mobile-nav-category">
-              <h3 className="mobile-nav-category-title">Support</h3>
-              {navigationItems.filter(item => item.category === 'support').map((item) => (
+
+          <div className="mobile-menu-content">
+          <div className="mobile-nav-category">
+            <h3 className="mobile-nav-category-title">About Us</h3>
+            {navigationItems.filter(item => item.category === 'about').map((item) => (
+              item.href ? (
+                <Link
+                  key={item.id}
+                  href={`${item.href}#${item.id}`}
+                  className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                  onClick={() => setShowMobileMenu(false)}
+                >
+                  {item.label}
+                </Link>
+              ) : (
                 <button
                   key={item.id}
                   className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
@@ -147,32 +145,79 @@ export default function AboutWebApp() {
                 >
                   {item.label}
                 </button>
+              )
+            ))}
+          </div>
+  
+            <div className="mobile-nav-category">
+              <h3 className="mobile-nav-category-title">Support</h3>
+              {navigationItems.filter(item => item.category === 'support').map((item) => (
+                item.href ? (
+                  <Link
+                    key={item.id}
+                    href={`${item.href}#${item.id}`}
+                    className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <button
+                    key={item.id}
+                    className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                )
               ))}
             </div>
 
             <div className="mobile-nav-category">
               <h3 className="mobile-nav-category-title">Company</h3>
               {navigationItems.filter(item => item.category === 'company').map((item) => (
-                <button
-                  key={item.id}
-                  className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
-                  onClick={() => scrollToSection(item.id)}
-                >
-                  {item.label}
-                </button>
+                item.href ? (
+                  <Link
+                    key={item.id}
+                    href={`${item.href}#${item.id}`}
+                    className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <button
+                    key={item.id}
+                    className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                )
               ))}
             </div>
-
+            
             <div className="mobile-nav-category">
               <h3 className="mobile-nav-category-title">Legal</h3>
               {navigationItems.filter(item => item.category === 'legal').map((item) => (
-                <button
-                  key={item.id}
-                  className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
-                  onClick={() => scrollToSection(item.id)}
-                >
-                  {item.label}
-                </button>
+                item.href ? (
+                  <Link
+                    key={item.id}
+                    href={`${item.href}#${item.id}`}
+                    className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => setShowMobileMenu(false)}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <button
+                    key={item.id}
+                    className={`mobile-nav-link ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                )
               ))}
             </div>
           </div>
@@ -183,8 +228,17 @@ export default function AboutWebApp() {
         <aside className="about-sidebar">
           <nav className="about-navigation">
             <div className="nav-category">
-              <h3 className="nav-category-title">About Us</h3>
-              {navigationItems.filter(item => item.category === 'about').map((item) => (
+            <h3 className="nav-category-title">About Us</h3>
+            {navigationItems.filter(item => item.category === 'about').map((item) => (
+              item.href ? (
+                <Link
+                  key={item.id}
+                  href={`${item.href}#${item.id}`}
+                  className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                >
+                  {item.label}
+                </Link>
+              ) : (
                 <button
                   key={item.id}
                   className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
@@ -192,45 +246,76 @@ export default function AboutWebApp() {
                 >
                   {item.label}
                 </button>
-              ))}
-            </div>
-            
+              )
+            ))}
+          </div>
+                        
             <div className="nav-category">
               <h3 className="nav-category-title">Support</h3>
               {navigationItems.filter(item => item.category === 'support').map((item) => (
-                <button
-                  key={item.id}
-                  className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
-                  onClick={() => scrollToSection(item.id)}
-                >
-                  {item.label}
-                </button>
+                item.href ? (
+                  <Link
+                    key={item.id}
+                    href={`${item.href}#${item.id}`}
+                    className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <button
+                    key={item.id}
+                    className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                )
               ))}
             </div>
 
             <div className="nav-category">
               <h3 className="nav-category-title">Company</h3>
               {navigationItems.filter(item => item.category === 'company').map((item) => (
-                <button
-                  key={item.id}
-                  className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
-                  onClick={() => scrollToSection(item.id)}
-                >
-                  {item.label}
-                </button>
+                item.href ? (
+                  <Link
+                    key={item.id}
+                    href={`${item.href}#${item.id}`}
+                    className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <button
+                    key={item.id}
+                    className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                )
               ))}
             </div>
 
             <div className="nav-category">
               <h3 className="nav-category-title">Legal</h3>
               {navigationItems.filter(item => item.category === 'legal').map((item) => (
-                <button
-                  key={item.id}
-                  className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
-                  onClick={() => scrollToSection(item.id)}
-                >
-                  {item.label}
-                </button>
+                item.href ? (
+                  <Link
+                    key={item.id}
+                    href={`${item.href}#${item.id}`}
+                    className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <button
+                    key={item.id}
+                    className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                    onClick={() => scrollToSection(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                )
               ))}
             </div>
           </nav>
@@ -441,6 +526,9 @@ export default function AboutWebApp() {
               <li><button onClick={() => scrollToSection('terms-service')}>Terms of Service</button></li>
             </ul>
           </div>
+        </div>
+        <div className="footer-bottom">
+          <p>© {new Date().getFullYear()} DishCovery. All rights reserved.</p>
         </div>
       </footer>
     </div>
