@@ -16,8 +16,12 @@ import * as ort from 'onnxruntime-web';
 import './style.css';
 
 const INPUT_SIZE = 640;
+const MOBILE_INPUT_SIZE = 320; // Smaller size for mobile real-time detection
 const MODEL_URL = "/assets/yolov8s-model.onnx";
 const LABELS_URL = "/assets/labels.txt";
+
+// Detect if running on mobile device
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 // Calculate Intersection over Union
 function calculateIoU(boxA, boxB) {
@@ -70,6 +74,10 @@ const IngredientScanner = () => {
   const offscreenCtx = useRef(null);
   const animationFrameRef = useRef(null);
   
+  // Mobile performance optimization refs
+  const adaptiveThrottleRef = useRef(isMobile ? 1000 : 500);
+  const performanceMetricsRef = useRef({ count: 0, totalTime: 0 });
+  
   const [cameraState, setCameraState] = useState('not-started');
   const [isScanning, setIsScanning] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -92,28 +100,38 @@ const IngredientScanner = () => {
 
   // Initialize offscreen canvas for better performance
   useEffect(() => {
+    const inputSize = isMobile ? MOBILE_INPUT_SIZE : INPUT_SIZE;
+    
     if (typeof OffscreenCanvas !== 'undefined') {
-      offscreenCanvas.current = new OffscreenCanvas(INPUT_SIZE, INPUT_SIZE);
-      offscreenCtx.current = offscreenCanvas.current.getContext('2d');
+      offscreenCanvas.current = new OffscreenCanvas(inputSize, inputSize);
+      offscreenCtx.current = offscreenCanvas.current.getContext('2d', {
+        willReadFrequently: true,
+        alpha: false // Disable alpha for better performance
+      });
     } else {
       // Fallback for browsers that don't support OffscreenCanvas
       offscreenCanvas.current = document.createElement('canvas');
-      offscreenCanvas.current.width = INPUT_SIZE;
-      offscreenCanvas.current.height = INPUT_SIZE;
-      offscreenCtx.current = offscreenCanvas.current.getContext('2d');
+      offscreenCanvas.current.width = inputSize;
+      offscreenCanvas.current.height = inputSize;
+      offscreenCtx.current = offscreenCanvas.current.getContext('2d', {
+        willReadFrequently: true,
+        alpha: false
+      });
     }
   }, []);
 
   const startCamera = useCallback(async () => {
     setCameraState('loading');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const constraints = {
         video: { 
           facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      });
+          width: { ideal: isMobile ? 640 : 1280 },
+          height: { ideal: isMobile ? 480 : 720 }
+        }
+      };
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -289,10 +307,25 @@ const IngredientScanner = () => {
         // Set WASM paths for ONNX runtime
         ort.env.wasm.wasmPaths = '/assets/';
         
-        // Create inference session
-        const inferenceSession = await ort.InferenceSession.create(MODEL_URL);
+        // Mobile-specific optimizations
+        if (isMobile) {
+          ort.env.wasm.numThreads = 2; // Limit threads on mobile
+          ort.env.wasm.simd = true; // Enable SIMD if available
+        }
+        
+        // Session options for better performance
+        const sessionOptions = {
+          executionProviders: ['wasm'],
+          graphOptimizationLevel: 'all',
+          enableCpuMemArena: true,
+          enableMemPattern: true,
+          executionMode: 'sequential'
+        };
+        
+        // Create inference session with options
+        const inferenceSession = await ort.InferenceSession.create(MODEL_URL, sessionOptions);
         setSession(inferenceSession);
-        console.log('Model loaded successfully');
+        console.log('Model loaded successfully', isMobile ? '(Mobile optimized)' : '');
       } catch (error) {
         console.error('Error loading model:', error);
         setModelError(`Model load error: ${error.message}`);
@@ -331,18 +364,24 @@ const IngredientScanner = () => {
   // Optimized preprocessing with reduced operations
   function preprocessImageOptimized(canvas) {
     const ctx = canvas.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+    const size = canvas.width; // Will be MOBILE_INPUT_SIZE on mobile, INPUT_SIZE on desktop
+    const imageData = ctx.getImageData(0, 0, size, size);
     const { data } = imageData;
-    const input = new Float32Array(3 * INPUT_SIZE * INPUT_SIZE);
+    const input = new Float32Array(3 * size * size);
     
-    const pixelCount = INPUT_SIZE * INPUT_SIZE;
+    const pixelCount = size * size;
     
-    // Single loop with direct indexing - much faster
+    // Ultra-fast single loop with direct indexing and multiplication
+    let pixelIndex = 0;
+    let rIndex = 0;
+    let gIndex = pixelCount;
+    let bIndex = 2 * pixelCount;
+    
     for (let i = 0; i < pixelCount; i++) {
-      const pixelIndex = i * 4;
-      input[i] = data[pixelIndex] / 255.0;                    // R
-      input[pixelCount + i] = data[pixelIndex + 1] / 255.0;   // G  
-      input[2 * pixelCount + i] = data[pixelIndex + 2] / 255.0; // B
+      input[rIndex++] = data[pixelIndex++] * 0.00392156862745098; // R (1/255)
+      input[gIndex++] = data[pixelIndex++] * 0.00392156862745098; // G
+      input[bIndex++] = data[pixelIndex++] * 0.00392156862745098; // B
+      pixelIndex++; // Skip alpha
     }
     
     return input;
@@ -367,7 +406,7 @@ const IngredientScanner = () => {
     return input;
   }
 
-  // Optimized detection parsing for real-time (higher threshold)
+  // Optimized detection parsing for real-time (higher threshold, mobile-aware)
   function parseDetectionsOptimized(results, labels, confidenceThreshold = 0.75) {
     if (!results || !session?.outputNames?.length) return [];
 
@@ -380,9 +419,13 @@ const IngredientScanner = () => {
     const numDetections = 8400;
     const numClasses = labels.length;
     const detections = [];
+    
+    // Process fewer detections on mobile for speed
+    const step = isMobile ? 2 : 1; // Skip every other detection on mobile
+    const mobileConfidenceThreshold = isMobile ? 0.85 : confidenceThreshold;
 
     // Process detections with early confidence filtering
-    for (let i = 0; i < numDetections; i++) {
+    for (let i = 0; i < numDetections; i += step) {
       const centerX = outputData[i];
       const centerY = outputData[numDetections + i];
       const width = outputData[2 * numDetections + i];
@@ -406,7 +449,7 @@ const IngredientScanner = () => {
       }
 
       // Early exit if confidence too low
-      if (maxScore < confidenceThreshold) continue;
+      if (maxScore < mobileConfidenceThreshold) continue;
 
       // Convert coordinates
       const x_min = Math.max(0, (centerX - width / 2) / INPUT_SIZE);
@@ -414,14 +457,18 @@ const IngredientScanner = () => {
       const x_max = Math.min(1, (centerX + width / 2) / INPUT_SIZE);
       const y_max = Math.min(1, (centerY + height / 2) / INPUT_SIZE);
 
-      // Validate bbox size (minimum size threshold)
-      if (x_max > x_min && y_max > y_min && (x_max - x_min) > 0.02 && (y_max - y_min) > 0.02) {
+      // Validate bbox size (stricter on mobile)
+      const minSize = isMobile ? 0.03 : 0.02;
+      if (x_max > x_min && y_max > y_min && (x_max - x_min) > minSize && (y_max - y_min) > minSize) {
         detections.push({
           name: labels[classIndex],
           confidence: maxScore,
           bbox: { x_min, y_min, x_max, y_max }
         });
       }
+      
+      // Early exit if we have enough detections on mobile
+      if (isMobile && detections.length >= 5) break;
     }
 
     return detections;
@@ -543,6 +590,7 @@ const IngredientScanner = () => {
   async function runDetection(imageDataUrl) {
     return runDetectionHighQuality(imageDataUrl);
   }
+
   async function runDetectionWithProgress(imageDataUrl) {
     if (!session || !labels.length) return [];
 
@@ -595,9 +643,10 @@ const IngredientScanner = () => {
     }
   }
 
-  // Optimized real-time detection with frame skipping and throttling
+  // Optimized real-time detection with frame skipping, throttling, and adaptive performance
   useEffect(() => {
     let isProcessing = false;
+    const inputSize = isMobile ? MOBILE_INPUT_SIZE : INPUT_SIZE;
     
     const runRealtimeDetection = async () => {
       if (isProcessing || !session || !labels.length || cameraState !== 'available' || showModal) {
@@ -606,14 +655,15 @@ const IngredientScanner = () => {
       }
 
       const now = performance.now();
-      // Throttle to max 2 FPS for real-time detection
-      if (now - lastInferenceTime.current < 500) {
+      
+      // Adaptive throttling based on device performance
+      if (now - lastInferenceTime.current < adaptiveThrottleRef.current) {
         animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
         return;
       }
 
       isProcessing = true;
-      lastInferenceTime.current = now;
+      const inferenceStart = performance.now();
 
       try {
         if (!videoRef.current || videoRef.current.readyState < 2) {
@@ -632,40 +682,71 @@ const IngredientScanner = () => {
           return;
         }
 
-        // Draw video frame to offscreen canvas
-        ctx.drawImage(videoRef.current, 0, 0, INPUT_SIZE, INPUT_SIZE);
+        // Draw video frame to offscreen canvas at appropriate size
+        ctx.drawImage(videoRef.current, 0, 0, inputSize, inputSize);
         
         // Preprocess image
         const input = preprocessImageOptimized(canvas);
         
         // Create tensor and run inference
-        const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+        const tensor = new ort.Tensor("float32", input, [1, 3, inputSize, inputSize]);
         const feeds = { [session.inputNames[0]]: tensor };
         
         const results = await session.run(feeds);
-        const rawDetections = parseDetectionsOptimized(results, labels, 0.8); // High threshold for real-time
+        
+        // Higher threshold for mobile
+        const confidenceThreshold = isMobile ? 0.85 : 0.8;
+        const rawDetections = parseDetectionsOptimized(results, labels, confidenceThreshold);
         
         // Apply lighter NMS for real-time (higher threshold = faster)
-        const finalDetections = nms(rawDetections, 0.6);
+        const nmsThreshold = isMobile ? 0.7 : 0.6;
+        const finalDetections = nms(rawDetections, nmsThreshold);
         
-        // Only show high-confidence detections in real-time
+        // Only show high-confidence detections in real-time (fewer on mobile)
+        const maxDetections = isMobile ? 2 : 3;
         const topDetections = finalDetections
           .sort((a, b) => b.confidence - a.confidence)
-          .slice(0, 3); // Limit to 3 detections for better performance
+          .slice(0, maxDetections);
         
         setDetections(topDetections);
         
-        // Clear detections after shorter timeout
+        // Clear detections after timeout
         if (detectionTimeoutRef.current) {
           clearTimeout(detectionTimeoutRef.current);
         }
         
         detectionTimeoutRef.current = setTimeout(() => {
           setDetections([]);
-        }, 1500); // Reduced timeout
+        }, isMobile ? 2000 : 1500);
+        
+        // Adaptive performance tuning
+        const inferenceTime = performance.now() - inferenceStart;
+        performanceMetricsRef.current.count++;
+        performanceMetricsRef.current.totalTime += inferenceTime;
+        
+        // Adjust throttle based on average inference time
+        if (performanceMetricsRef.current.count >= 5) {
+          const avgTime = performanceMetricsRef.current.totalTime / performanceMetricsRef.current.count;
+          
+          if (avgTime > 800) {
+            // Slow device - increase throttle
+            adaptiveThrottleRef.current = Math.min(2000, adaptiveThrottleRef.current + 200);
+          } else if (avgTime < 400) {
+            // Fast device - decrease throttle
+            adaptiveThrottleRef.current = Math.max(isMobile ? 500 : 300, adaptiveThrottleRef.current - 100);
+          }
+          
+          // Reset metrics
+          performanceMetricsRef.current = { count: 0, totalTime: 0 };
+          console.log(`Adaptive throttle: ${adaptiveThrottleRef.current}ms, Avg inference: ${avgTime.toFixed(0)}ms`);
+        }
+        
+        lastInferenceTime.current = now;
         
       } catch (error) {
         console.error("Real-time detection error:", error);
+        // On error, increase throttle to reduce load
+        adaptiveThrottleRef.current = Math.min(2000, adaptiveThrottleRef.current + 300);
       } finally {
         isProcessing = false;
       }
@@ -1108,7 +1189,7 @@ const IngredientScanner = () => {
           fontSize: '0.9rem',
           zIndex: 1000
         }}>
-          Loading AI model for ingredient detection...
+          Loading AI model{isMobile ? ' (Mobile optimized)' : ''}...
         </div>
       )}
       {modelError && (
