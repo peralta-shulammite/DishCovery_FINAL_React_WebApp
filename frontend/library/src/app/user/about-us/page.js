@@ -113,17 +113,10 @@ export default function AboutWebApp() {
         </div>
       </header>
 
-      {showMobileMenu && (
+    {showMobileMenu && (
+      <>
+        <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}></div>
         <div className="mobile-menu">
-          <div className="mobile-menu-header">
-            <span className="mobile-menu-logo">DishCovery</span>
-            <button className="close-mobile-menu" onClick={() => setShowMobileMenu(false)}>
-              <svg viewBox="0 0 24 24" fill="currentColor" className="close-icon">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
-          </div>
-
           <div className="mobile-menu-content">
           <div className="mobile-nav-category">
             <h3 className="mobile-nav-category-title">About Us</h3>
@@ -219,10 +212,11 @@ export default function AboutWebApp() {
                   </button>
                 )
               ))}
-            </div>
           </div>
         </div>
-      )}
+      </div>
+    </>
+  )}
 
       <div className="about-layout">
         <aside className="about-sidebar">
