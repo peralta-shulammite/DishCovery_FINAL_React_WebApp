@@ -345,7 +345,7 @@ body {
   width: 100%;
   max-width: 900px;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden; /* ✅ prevents entire modal from scrolling */
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
@@ -383,7 +383,9 @@ body {
 
 .modal-content {
   display: flex;
+  flex-direction: column;
   flex: 1;
+  overflow: hidden; /* allow inner sections to handle scroll */
   min-height: 0;
 }
 
@@ -554,14 +556,13 @@ body {
 
 /* Ingredients Section */
 .ingredients-section {
-  flex: 1;
-  padding: 1rem;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  overflow: hidden;
   min-height: 0;
-  min-width: 300px;
+  gap: 1rem;
 }
-
 /* Ingredients Header */
 .ingredients-header {
   display: flex;
@@ -633,12 +634,12 @@ body {
 
 /* Ingredients List */
 .ingredients-list {
-  max-height: 150px;
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   overflow-y: auto;
-  margin-bottom: 1rem;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  padding: 0.5rem;
+  padding-right: 0.5rem;
 }
 
 /* Custom scrollbar for ingredients list */
