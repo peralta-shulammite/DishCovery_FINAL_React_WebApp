@@ -59,14 +59,14 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
   return (
     <>
       <header className="header">
-        <Link
-          href="/"
-          className={`logo ${hoverStates.logo ? 'logo-hover' : ''}`}
-          onMouseEnter={() => handleHover('logo', true)}
-          onMouseLeave={() => handleHover('logo', false)}
-        >
-          <span className="logo-text">DishCovery</span>
-        </Link>
+      <Link
+        href="/user/home"
+        className={`logo ${hoverStates.logo ? 'logo-hover' : ''}`}
+        onMouseEnter={() => handleHover('logo', true)}
+        onMouseLeave={() => handleHover('logo', false)}
+      >
+        <span className="logo-text">DishCovery</span>
+      </Link>
 
         <nav className="nav-links">
           {navLinks.map((link) => (
