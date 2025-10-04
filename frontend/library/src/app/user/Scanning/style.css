@@ -52,6 +52,37 @@ body {
   text-align: center;
 }
 
+.header-left {
+  position: absolute;
+  left: 10px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.back-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background-color: #4CAF50;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-button:hover {
+  background-color: #45a049;
+  transform: scale(1.05);
+}
+
+.back-button .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
 .header-right {
   position: absolute;
   right: 10px;
@@ -541,8 +572,9 @@ body {
 
 .image-container {
   width: 100%;
-  height: 400px;
-  max-height: 500px;
+  height: 300px;
+  max-width: 100%;
+  max-height: 300px;
   background-color: #ffffff;
   border-radius: 12px;
   overflow: hidden;
@@ -554,13 +586,13 @@ body {
 }
 
 .image-container img {
-  position: absolute;
-  top: 0;
-  left: 0;
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .no-image {
@@ -819,6 +851,16 @@ body {
     font-size: 1rem;
   }
   
+  .back-button {
+    width: 2rem;
+    height: 2rem;
+  }
+  
+  .back-button .icon {
+    width: 1rem;
+    height: 1rem;
+  }
+  
   .help-button {
     width: 2rem;
     height: 2rem;
@@ -882,29 +924,30 @@ body {
     max-width: 100%;
     height: 200px;
     min-height: 200px;
+    max-height: 200px;
     padding: 0.75rem;
     order: 1;
     overflow: hidden;
   }
   
   .image-container {
+    width: 100%;
     height: 100%;
+    max-width: 100%;
+    max-height: 100%;
     min-height: auto;
-    max-height: none;
     position: relative;
+    flex-shrink: 0;
   }
   
   .image-container img {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
     max-width: 100%;
     max-height: 100%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    object-position: center;
   }
   
   .ingredients-section {
@@ -1058,29 +1101,30 @@ body {
     max-width: 100%;
     height: 250px;
     min-height: 250px;
-    padding: 1rem;
+    max-height: 250px;
+    padding: 0.75rem;
     order: 1;
     overflow: hidden;
   }
   
   .image-container {
+    width: 100%;
     height: 100%;
+    max-width: 100%;
+    max-height: 100%;
     min-height: auto;
-    max-height: none;
     position: relative;
+    flex-shrink: 0;
   }
   
   .image-container img {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
     max-width: 100%;
     max-height: 100%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    object-position: center;
   }
   
   .ingredients-section {
@@ -1286,7 +1330,9 @@ body {
 .fa-trash,
 .fa-check,
 .fa-question,
-.fa-times {
+.fa-times,
+.fa-arrow-left,
+.fa-chevron-left {
   font-family: "Font Awesome 6 Free";
   font-weight: 900;
 }
@@ -1344,7 +1390,8 @@ body {
 .generate-recipe-button:focus,
 .select-button:focus,
 .delete-button:focus,
-.help-close-button:focus {
+.help-close-button:focus,
+.back-button:focus {
   outline: 2px solid #4CAF50;
   outline-offset: 2px;
 }
