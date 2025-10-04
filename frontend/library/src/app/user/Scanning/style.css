@@ -8,6 +8,9 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
 }
 
 .app-container {
@@ -15,9 +18,13 @@ body {
   max-width: 100%;
   margin: 0;
   padding: 0;
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
   background: #ffffff;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
   overflow: hidden;
 }
 
@@ -522,16 +529,19 @@ body {
 .image-section {
   flex: 0 0 50%;
   max-width: 50%;
+  width: 50%;
   padding: 2rem;
   background-color: #f9f9f9;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 300px;
+  overflow: hidden;
 }
 
 .image-container {
   width: 100%;
+  height: 400px;
   max-height: 500px;
   background-color: #e0e0e0;
   border-radius: 12px;
@@ -539,14 +549,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 250px;
 }
 
 .image-container img {
-  width: 100%;
-  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
-  max-height: 500px;
 }
 
 .no-image {
@@ -558,11 +568,11 @@ body {
 .ingredients-section {
   flex: 0 0 50%;
   max-width: 50%;
-  padding: 1rem;
+  width: 50%;
+  padding: 1rem 2rem;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  min-width: 300px;
   overflow-y: auto;
 }
 
@@ -859,27 +869,41 @@ body {
   
   .modal-content {
     flex-direction: column;
+    overflow-y: auto;
   }
   
   .image-section {
     flex: none;
+    width: 100%;
     max-width: 100%;
-    height: 180px;
+    height: 200px;
+    min-height: 200px;
     padding: 0.75rem;
-    min-height: 150px;
     order: 1;
+    overflow: hidden;
   }
   
   .image-container {
-    min-height: 140px;
+    height: 100%;
+    min-height: auto;
+    max-height: none;
+  }
+  
+  .image-container img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
   }
   
   .ingredients-section {
-    flex: none;
+    flex: 1;
+    width: 100%;
     max-width: 100%;
     padding: 0.75rem;
-    min-width: auto;
     order: 2;
+    overflow-y: auto;
   }
   
   .ingredients-header h3 {
@@ -1015,21 +1039,41 @@ body {
   
   .modal-content {
     flex-direction: column;
+    overflow-y: auto;
   }
   
   .image-section {
     flex: none;
+    width: 100%;
     max-width: 100%;
-    height: 200px;
+    height: 250px;
+    min-height: 250px;
     padding: 1rem;
     order: 1;
+    overflow: hidden;
+  }
+  
+  .image-container {
+    height: 100%;
+    min-height: auto;
+    max-height: none;
+  }
+  
+  .image-container img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
   }
   
   .ingredients-section {
-    flex: none;
+    flex: 1;
+    width: 100%;
     max-width: 100%;
     padding: 1rem 1.25rem;
     order: 2;
+    overflow-y: auto;
   }
   
   .ingredients-list {
