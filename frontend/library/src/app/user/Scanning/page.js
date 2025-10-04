@@ -10,20 +10,19 @@ import {
   faPlus,
   faCheck,
   faTrash,
-  faExclamationTriangle
+  faExclamationTriangle,
+  faArrowLeft
 } from '@fortawesome/free-solid-svg-icons';
 import * as ort from 'onnxruntime-web';
 import './style.css';
 
 const INPUT_SIZE = 640;
-const MOBILE_INPUT_SIZE = 320; // Smaller size for mobile real-time detection
+const MOBILE_INPUT_SIZE = 320;
 const MODEL_URL = "/assets/yolov8s-model.onnx";
 const LABELS_URL = "/assets/labels.txt";
 
-// Detect if running on mobile device
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-// Calculate Intersection over Union
 function calculateIoU(boxA, boxB) {
   const x1 = Math.max(boxA.x_min, boxB.x_min);
   const y1 = Math.max(boxA.y_min, boxB.y_min);
@@ -38,7 +37,6 @@ function calculateIoU(boxA, boxB) {
   return interArea / (boxAArea + boxBArea - interArea);
 }
 
-// Non-Maximum Suppression
 function nms(detections, iouThreshold = 0.5) {
   if (detections.length === 0) return [];
   
@@ -67,14 +65,12 @@ const IngredientScanner = () => {
   const ingredientsListRef = useRef(null);
   const detectionTimeoutRef = useRef(null);
   
-  // Performance optimization refs
   const lastInferenceTime = useRef(0);
   const processingRef = useRef(false);
   const offscreenCanvas = useRef(null);
   const offscreenCtx = useRef(null);
   const animationFrameRef = useRef(null);
   
-  // Mobile performance optimization refs
   const adaptiveThrottleRef = useRef(isMobile ? 1000 : 500);
   const performanceMetricsRef = useRef({ count: 0, totalTime: 0 });
   
@@ -87,18 +83,25 @@ const IngredientScanner = () => {
   const [newIngredient, setNewIngredient] = useState('');
   const newIngredientRef = useRef(null);
 
-  // ONNX model and labels state
   const [session, setSession] = useState(null);
   const [labels, setLabels] = useState([]);
   const [modelError, setModelError] = useState(null);
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [detections, setDetections] = useState([]);
 
-  // State for scanning detections
   const [scanningDetections, setScanningDetections] = useState([]);
   const [showScanningBounds, setShowScanningBounds] = useState(false);
 
-  // Initialize offscreen canvas for better performance
+  // Handle back button click
+  const handleGoBack = () => {
+    // You can customize this based on your routing needs
+    window.history.back();
+    // Or use Next.js router:
+    // import { useRouter } from 'next/navigation';
+    // const router = useRouter();
+    // router.back();
+  };
+
   useEffect(() => {
     const inputSize = isMobile ? MOBILE_INPUT_SIZE : INPUT_SIZE;
     
@@ -106,10 +109,9 @@ const IngredientScanner = () => {
       offscreenCanvas.current = new OffscreenCanvas(inputSize, inputSize);
       offscreenCtx.current = offscreenCanvas.current.getContext('2d', {
         willReadFrequently: true,
-        alpha: false // Disable alpha for better performance
+        alpha: false
       });
     } else {
-      // Fallback for browsers that don't support OffscreenCanvas
       offscreenCanvas.current = document.createElement('canvas');
       offscreenCanvas.current.width = inputSize;
       offscreenCanvas.current.height = inputSize;
@@ -170,12 +172,10 @@ const IngredientScanner = () => {
         const imageDataUrl = e.target.result;
         setCapturedImage(imageDataUrl);
         
-        // Run detection on uploaded image
         setIsScanning(true);
         try {
           const detections = await runDetectionHighQuality(imageDataUrl);
           
-          // Convert detections to ingredients format
           const ingredients = detections.map((det, idx) => ({
             id: idx + 1,
             name: capitalizeWords(det.name),
@@ -207,13 +207,10 @@ const IngredientScanner = () => {
       if (canvasRef.current) {
         const imageDataUrl = canvasRef.current.toDataURL('image/jpeg', 0.9);
         
-        // Show scanning bounds animation
         setShowScanningBounds(true);
         
-        // Run detection and get intermediate results
         const detections = await runDetectionWithProgress(imageDataUrl);
         
-        // Convert detections to ingredients format
         const ingredients = detections.map((det, idx) => ({
           id: idx + 1,
           name: capitalizeWords(det.name),
@@ -223,7 +220,6 @@ const IngredientScanner = () => {
         
         setScannedIngredients(ingredients);
         
-        // Hide scanning bounds and show modal
         setTimeout(() => {
           setShowScanningBounds(false);
           setScanningDetections([]);
@@ -234,7 +230,6 @@ const IngredientScanner = () => {
     }, 800);
   };
 
-  // Utility function to capitalize words
   const capitalizeWords = (str) => {
     return str.replace(/\b\w/g, l => l.toUpperCase());
   };
@@ -284,12 +279,10 @@ const IngredientScanner = () => {
   const generateRecipe = () => {
     const selectedIngredients = scannedIngredients.filter(i => i.selected);
     
-    // Create URL parameters with selected ingredients
     const ingredientNames = selectedIngredients.map(ingredient => ingredient.name);
     const params = new URLSearchParams();
     params.set('ingredients', ingredientNames.join(','));
     
-    // Navigate to recipe page with ingredients
     window.location.href = `/user/recipe?${params.toString()}`;
   };
 
@@ -297,23 +290,19 @@ const IngredientScanner = () => {
     return scannedIngredients.filter(i => i.selected).length;
   };
 
-  // Load ONNX model
   useEffect(() => {
     const loadModel = async () => {
       setIsModelLoading(true);
       setModelError(null);
       
       try {
-        // Set WASM paths for ONNX runtime
         ort.env.wasm.wasmPaths = '/assets/';
         
-        // Mobile-specific optimizations
         if (isMobile) {
-          ort.env.wasm.numThreads = 2; // Limit threads on mobile
-          ort.env.wasm.simd = true; // Enable SIMD if available
+          ort.env.wasm.numThreads = 2;
+          ort.env.wasm.simd = true;
         }
         
-        // Session options for better performance
         const sessionOptions = {
           executionProviders: ['wasm'],
           graphOptimizationLevel: 'all',
@@ -322,7 +311,6 @@ const IngredientScanner = () => {
           executionMode: 'sequential'
         };
         
-        // Create inference session with options
         const inferenceSession = await ort.InferenceSession.create(MODEL_URL, sessionOptions);
         setSession(inferenceSession);
         console.log('Model loaded successfully', isMobile ? '(Mobile optimized)' : '');
@@ -337,7 +325,6 @@ const IngredientScanner = () => {
     loadModel();
   }, []);
 
-  // Load labels from labels.txt
   useEffect(() => {
     const loadLabels = async () => {
       try {
@@ -361,33 +348,30 @@ const IngredientScanner = () => {
     loadLabels();
   }, []);
 
-  // Optimized preprocessing with reduced operations
   function preprocessImageOptimized(canvas) {
     const ctx = canvas.getContext('2d');
-    const size = canvas.width; // Will be MOBILE_INPUT_SIZE on mobile, INPUT_SIZE on desktop
+    const size = canvas.width;
     const imageData = ctx.getImageData(0, 0, size, size);
     const { data } = imageData;
     const input = new Float32Array(3 * size * size);
     
     const pixelCount = size * size;
     
-    // Ultra-fast single loop with direct indexing and multiplication
     let pixelIndex = 0;
     let rIndex = 0;
     let gIndex = pixelCount;
     let bIndex = 2 * pixelCount;
     
     for (let i = 0; i < pixelCount; i++) {
-      input[rIndex++] = data[pixelIndex++] * 0.00392156862745098; // R (1/255)
-      input[gIndex++] = data[pixelIndex++] * 0.00392156862745098; // G
-      input[bIndex++] = data[pixelIndex++] * 0.00392156862745098; // B
-      pixelIndex++; // Skip alpha
+      input[rIndex++] = data[pixelIndex++] * 0.00392156862745098;
+      input[gIndex++] = data[pixelIndex++] * 0.00392156862745098;
+      input[bIndex++] = data[pixelIndex++] * 0.00392156862745098;
+      pixelIndex++;
     }
     
     return input;
   }
 
-  // Original preprocess image for backward compatibility
   function preprocessImage(imageData) {
     const { data, width, height } = imageData;
     const input = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
@@ -397,16 +381,14 @@ const IngredientScanner = () => {
         const idx = (y * INPUT_SIZE + x) * 4;
         const outIdx = y * INPUT_SIZE + x;
         
-        // Normalize to [0, 1] and arrange in CHW format (YOLOv8 expects CHW)
-        input[outIdx] = data[idx] / 255.0; // R channel
-        input[INPUT_SIZE * INPUT_SIZE + outIdx] = data[idx + 1] / 255.0; // G channel
-        input[2 * INPUT_SIZE * INPUT_SIZE + outIdx] = data[idx + 2] / 255.0; // B channel
+        input[outIdx] = data[idx] / 255.0;
+        input[INPUT_SIZE * INPUT_SIZE + outIdx] = data[idx + 1] / 255.0;
+        input[2 * INPUT_SIZE * INPUT_SIZE + outIdx] = data[idx + 2] / 255.0;
       }
     }
     return input;
   }
 
-  // Optimized detection parsing for real-time (higher threshold, mobile-aware)
   function parseDetectionsOptimized(results, labels, confidenceThreshold = 0.75) {
     if (!results || !session?.outputNames?.length) return [];
 
@@ -420,23 +402,19 @@ const IngredientScanner = () => {
     const numClasses = labels.length;
     const detections = [];
     
-    // Process fewer detections on mobile for speed
-    const step = isMobile ? 2 : 1; // Skip every other detection on mobile
+    const step = isMobile ? 2 : 1;
     const mobileConfidenceThreshold = isMobile ? 0.85 : confidenceThreshold;
 
-    // Process detections with early confidence filtering
     for (let i = 0; i < numDetections; i += step) {
       const centerX = outputData[i];
       const centerY = outputData[numDetections + i];
       const width = outputData[2 * numDetections + i];
       const height = outputData[3 * numDetections + i];
 
-      // Quick bounds check before processing classes
       if (centerX < 0 || centerX > INPUT_SIZE || centerY < 0 || centerY > INPUT_SIZE) {
         continue;
       }
 
-      // Find max class score efficiently
       let maxScore = 0;
       let classIndex = -1;
       
@@ -448,16 +426,13 @@ const IngredientScanner = () => {
         }
       }
 
-      // Early exit if confidence too low
       if (maxScore < mobileConfidenceThreshold) continue;
 
-      // Convert coordinates
       const x_min = Math.max(0, (centerX - width / 2) / INPUT_SIZE);
       const y_min = Math.max(0, (centerY - height / 2) / INPUT_SIZE);
       const x_max = Math.min(1, (centerX + width / 2) / INPUT_SIZE);
       const y_max = Math.min(1, (centerY + height / 2) / INPUT_SIZE);
 
-      // Validate bbox size (stricter on mobile)
       const minSize = isMobile ? 0.03 : 0.02;
       if (x_max > x_min && y_max > y_min && (x_max - x_min) > minSize && (y_max - y_min) > minSize) {
         detections.push({
@@ -467,14 +442,12 @@ const IngredientScanner = () => {
         });
       }
       
-      // Early exit if we have enough detections on mobile
       if (isMobile && detections.length >= 5) break;
     }
 
     return detections;
   }
 
-  // Parse YOLOv8 detection output (original for high quality scans)
   function parseDetections(results, labels) {
     if (!results || !session || !session.outputNames || session.outputNames.length === 0) {
       console.error('Invalid results or session');
@@ -492,38 +465,30 @@ const IngredientScanner = () => {
     const outputData = Array.from(output.data);
     const detections = [];
     
-    // YOLOv8 output format: [batch, 84, 8400] where 84 = 4 (bbox) + 80 (classes)
-    // We need to transpose this to [8400, 84]
     const numDetections = 8400;
     const numClasses = labels.length;
-    const outputSize = 4 + numClasses; // 4 for bbox + num_classes for class scores
+    const outputSize = 4 + numClasses;
 
     for (let i = 0; i < numDetections; i++) {
-      // Extract bbox coordinates (center_x, center_y, width, height)
       const centerX = outputData[i];
       const centerY = outputData[numDetections + i];
       const width = outputData[2 * numDetections + i];
       const height = outputData[3 * numDetections + i];
 
-      // Extract class scores
       const classScores = [];
       for (let j = 0; j < numClasses; j++) {
         classScores.push(outputData[(4 + j) * numDetections + i]);
       }
 
-      // Find the class with highest score
       const maxScore = Math.max(...classScores);
       const classIndex = classScores.indexOf(maxScore);
       
-      // Apply confidence threshold (lower for high quality scans)
       if (maxScore > 0.4 && classIndex < labels.length) {
-        // Convert center coordinates to corner coordinates
         const x_min = Math.max(0, (centerX - width / 2) / INPUT_SIZE);
         const y_min = Math.max(0, (centerY - height / 2) / INPUT_SIZE);
         const x_max = Math.min(1, (centerX + width / 2) / INPUT_SIZE);
         const y_max = Math.min(1, (centerY + height / 2) / INPUT_SIZE);
 
-        // Validate bbox
         if (x_max > x_min && y_max > y_min) {
           detections.push({
             name: labels[classIndex],
@@ -537,7 +502,6 @@ const IngredientScanner = () => {
     return detections;
   }
 
-  // High quality detection for scan button (lower threshold)
   async function runDetectionHighQuality(imageDataUrl) {
     if (!session || !labels.length) {
       console.log('Model or labels not ready');
@@ -545,40 +509,32 @@ const IngredientScanner = () => {
     }
 
     try {
-      // Create image element
       const img = new window.Image();
       img.src = imageDataUrl;
       await new Promise(resolve => { img.onload = resolve; });
 
-      // Create canvas and resize image
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = INPUT_SIZE;
       tempCanvas.height = INPUT_SIZE;
       const ctx = tempCanvas.getContext('2d');
       ctx.drawImage(img, 0, 0, INPUT_SIZE, INPUT_SIZE);
 
-      // Get image data and preprocess
       const imageData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
       const input = preprocessImage(imageData);
       
-      // Create tensor
       const tensor = new ort.Tensor("float32", input, [1, 3, INPUT_SIZE, INPUT_SIZE]);
       
-      // Run inference
       const feeds = {};
       feeds[session.inputNames[0]] = tensor;
       const results = await session.run(feeds);
 
-      // Parse results with original function (lower threshold)
       const rawDetections = parseDetections(results, labels);
       
-      // Apply NMS to remove duplicate detections
       const finalDetections = nms(rawDetections, 0.4);
       
-      // Return top detections sorted by confidence
       return finalDetections
         .sort((a, b) => b.confidence - a.confidence)
-        .slice(0, 15); // More detections for scan button
+        .slice(0, 15);
 
     } catch (error) {
       console.error("Detection error:", error);
@@ -586,7 +542,6 @@ const IngredientScanner = () => {
     }
   }
 
-  // Run detection on image (original for compatibility)
   async function runDetection(imageDataUrl) {
     return runDetectionHighQuality(imageDataUrl);
   }
@@ -612,7 +567,6 @@ const IngredientScanner = () => {
       const feeds = {};
       feeds[session.inputNames[0]] = tensor;
       
-      // Show progress by simulating detection steps
       setTimeout(() => {
         if (showScanningBounds) {
           setScanningDetections([
@@ -626,7 +580,6 @@ const IngredientScanner = () => {
       const rawDetections = parseDetections(results, labels);
       const finalDetections = nms(rawDetections, 0.4);
       
-      // Update with actual detections
       const topDetections = finalDetections
         .sort((a, b) => b.confidence - a.confidence)
         .slice(0, 15);
@@ -643,7 +596,6 @@ const IngredientScanner = () => {
     }
   }
 
-  // Optimized real-time detection with frame skipping, throttling, and adaptive performance
   useEffect(() => {
     let isProcessing = false;
     const inputSize = isMobile ? MOBILE_INPUT_SIZE : INPUT_SIZE;
@@ -656,7 +608,6 @@ const IngredientScanner = () => {
 
       const now = performance.now();
       
-      // Adaptive throttling based on device performance
       if (now - lastInferenceTime.current < adaptiveThrottleRef.current) {
         animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
         return;
@@ -672,7 +623,6 @@ const IngredientScanner = () => {
           return;
         }
 
-        // Use offscreen canvas for better performance
         const canvas = offscreenCanvas.current;
         const ctx = offscreenCtx.current;
         
@@ -682,27 +632,21 @@ const IngredientScanner = () => {
           return;
         }
 
-        // Draw video frame to offscreen canvas at appropriate size
         ctx.drawImage(videoRef.current, 0, 0, inputSize, inputSize);
         
-        // Preprocess image
         const input = preprocessImageOptimized(canvas);
         
-        // Create tensor and run inference
         const tensor = new ort.Tensor("float32", input, [1, 3, inputSize, inputSize]);
         const feeds = { [session.inputNames[0]]: tensor };
         
         const results = await session.run(feeds);
         
-        // Higher threshold for mobile
         const confidenceThreshold = isMobile ? 0.85 : 0.8;
         const rawDetections = parseDetectionsOptimized(results, labels, confidenceThreshold);
         
-        // Apply lighter NMS for real-time (higher threshold = faster)
         const nmsThreshold = isMobile ? 0.7 : 0.6;
         const finalDetections = nms(rawDetections, nmsThreshold);
         
-        // Only show high-confidence detections in real-time (fewer on mobile)
         const maxDetections = isMobile ? 2 : 3;
         const topDetections = finalDetections
           .sort((a, b) => b.confidence - a.confidence)
@@ -710,7 +654,6 @@ const IngredientScanner = () => {
         
         setDetections(topDetections);
         
-        // Clear detections after timeout
         if (detectionTimeoutRef.current) {
           clearTimeout(detectionTimeoutRef.current);
         }
@@ -719,24 +662,19 @@ const IngredientScanner = () => {
           setDetections([]);
         }, isMobile ? 2000 : 1500);
         
-        // Adaptive performance tuning
         const inferenceTime = performance.now() - inferenceStart;
         performanceMetricsRef.current.count++;
         performanceMetricsRef.current.totalTime += inferenceTime;
         
-        // Adjust throttle based on average inference time
         if (performanceMetricsRef.current.count >= 5) {
           const avgTime = performanceMetricsRef.current.totalTime / performanceMetricsRef.current.count;
           
           if (avgTime > 800) {
-            // Slow device - increase throttle
             adaptiveThrottleRef.current = Math.min(2000, adaptiveThrottleRef.current + 200);
           } else if (avgTime < 400) {
-            // Fast device - decrease throttle
             adaptiveThrottleRef.current = Math.max(isMobile ? 500 : 300, adaptiveThrottleRef.current - 100);
           }
           
-          // Reset metrics
           performanceMetricsRef.current = { count: 0, totalTime: 0 };
           console.log(`Adaptive throttle: ${adaptiveThrottleRef.current}ms, Avg inference: ${avgTime.toFixed(0)}ms`);
         }
@@ -745,17 +683,14 @@ const IngredientScanner = () => {
         
       } catch (error) {
         console.error("Real-time detection error:", error);
-        // On error, increase throttle to reduce load
         adaptiveThrottleRef.current = Math.min(2000, adaptiveThrottleRef.current + 300);
       } finally {
         isProcessing = false;
       }
 
-      // Continue the loop
       animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
     };
 
-    // Start the detection loop
     animationFrameRef.current = requestAnimationFrame(runRealtimeDetection);
     
     return () => {
@@ -768,12 +703,10 @@ const IngredientScanner = () => {
     };
   }, [session, labels, cameraState, showModal]);
 
-  // Start camera on mount
   useEffect(() => {
     startCamera();
   }, [startCamera]);
 
-  // Clear detections when modal opens or camera state changes
   useEffect(() => {
     if (showModal || cameraState !== 'available') {
       setDetections([]);
@@ -792,7 +725,14 @@ const IngredientScanner = () => {
       />
 
       <div className="header">
+        <div className="header-left">
+          <button className="back-button" onClick={handleGoBack}>
+            <FontAwesomeIcon icon={faArrowLeft} className="icon" />
+          </button>
+        </div>
+        
         <h1 className="title">Ingredient Scanner</h1>
+        
         <div className="header-right">
           <button className="help-button" onClick={() => setShowHelpModal(true)}>
             <FontAwesomeIcon icon={faQuestionCircle} className="icon" />
@@ -855,7 +795,6 @@ const IngredientScanner = () => {
           </div>
         )}
 
-        {/* Real-time detection overlay */}
         {cameraState === 'available' && detections.length > 0 && !showModal && (
           <div 
             className="detection-overlay" 
@@ -917,7 +856,6 @@ const IngredientScanner = () => {
           </div>
         )}
 
-        {/* Scanning detection overlay with bounding boxes */}
         {isScanning && showScanningBounds && scanningDetections.length > 0 && (
           <div 
             className="scanning-detection-overlay" 
