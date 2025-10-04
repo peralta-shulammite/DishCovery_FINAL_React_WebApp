@@ -42,7 +42,6 @@
   overflow-x: hidden;
 }
 
-
 /* Main profile content - Two Panel Layout */
 .profile-main-content {
   padding: 80px 0 60px;
@@ -545,6 +544,17 @@ input:checked + .toggle-slider-minimal:before {
   background: #B71C1C;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(211, 47, 47, 0.15);
+}
+
+.logout-btn-minimal {
+  background: transparent;
+  color: #D32F2F;
+  border: 1px solid #D32F2F;
+}
+
+.logout-btn-minimal:hover {
+  background: #D32F2F;
+  color: white;
 }
 
 /* Right Panel - Fixed Profile Details */
@@ -1101,6 +1111,16 @@ input:checked + .toggle-slider-minimal:before {
 
   .profile-details-card {
     position: static;
+  }
+
+  .mobile-logout {
+    display: flex;
+  }
+}
+
+@media (min-width: 1201px) {
+  .mobile-logout {
+    display: none;
   }
 }
 

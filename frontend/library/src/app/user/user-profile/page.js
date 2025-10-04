@@ -94,7 +94,7 @@ export default function UserProfilePage() {
     window.location.href = '/';
   };
 
-    const dishCoveryHandleSignInClick = () => {
+  const dishCoveryHandleSignInClick = () => {
     setDishCoveryShowSignInModal(true);
     setDishCoveryShowMobileMenu(false);
     setDishCoveryError('');
@@ -172,8 +172,6 @@ export default function UserProfilePage() {
       onLogout={dishCoveryHandleLogout}
     >
       <div ref={dishCoveryTopRef} className="user-profile-container">
-
-
         <main className="profile-main-content">
           <div className="profile-layout">
             <div className="left-panel">
@@ -183,7 +181,7 @@ export default function UserProfilePage() {
               </div>
 
               <section className="activity-section">
-                  <h2 className="activity-section-title">
+                <h2 className="activity-section-title">
                   <svg className="activity-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.2 14.2L11 13V7h1.5v5.2l4.5 2.7-.8 1.3z" />
                   </svg>
@@ -308,6 +306,15 @@ export default function UserProfilePage() {
                       onClick={() => setDishCoveryShowDeactivateModal(true)}
                     >
                       Deactivate
+                    </button>
+                  </div>
+                  <div className="danger-item-minimal mobile-logout">
+                    <span className="danger-label">Log Out</span>
+                    <button
+                      className="danger-btn-minimal logout-btn-minimal"
+                      onClick={dishCoveryHandleLogout}
+                    >
+                      Log Out
                     </button>
                   </div>
                 </div>
