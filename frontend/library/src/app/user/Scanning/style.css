@@ -518,9 +518,10 @@ body {
   flex: 1;
 }
 
-/* Image Section */
+/* Image Section - FIXED */
 .image-section {
-  flex: 1;
+  flex: 0 0 50%;
+  max-width: 50%;
   padding: 2rem;
   background-color: #f9f9f9;
   display: flex;
@@ -531,7 +532,7 @@ body {
 
 .image-container {
   width: 100%;
-  height: 100%;
+  max-height: 500px;
   background-color: #e0e0e0;
   border-radius: 12px;
   overflow: hidden;
@@ -544,7 +545,8 @@ body {
 .image-container img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  max-height: 500px;
 }
 
 .no-image {
@@ -552,14 +554,16 @@ body {
   text-align: center;
 }
 
-/* Ingredients Section */
+/* Ingredients Section - FIXED */
 .ingredients-section {
-  flex: 1;
+  flex: 0 0 50%;
+  max-width: 50%;
   padding: 1rem;
   display: flex;
   flex-direction: column;
   min-height: 0;
   min-width: 300px;
+  overflow-y: auto;
 }
 
 /* Ingredients Header */
@@ -858,6 +862,8 @@ body {
   }
   
   .image-section {
+    flex: none;
+    max-width: 100%;
     height: 180px;
     padding: 0.75rem;
     min-height: 150px;
@@ -869,6 +875,8 @@ body {
   }
   
   .ingredients-section {
+    flex: none;
+    max-width: 100%;
     padding: 0.75rem;
     min-width: auto;
     order: 2;
@@ -1010,12 +1018,16 @@ body {
   }
   
   .image-section {
+    flex: none;
+    max-width: 100%;
     height: 200px;
     padding: 1rem;
     order: 1;
   }
   
   .ingredients-section {
+    flex: none;
+    max-width: 100%;
     padding: 1rem 1.25rem;
     order: 2;
   }
@@ -1080,12 +1092,16 @@ body {
   }
   
   .image-section {
+    flex: 0 0 50%;
+    max-width: 50%;
     height: auto;
     min-height: 350px;
     padding: 1.5rem;
   }
   
   .ingredients-section {
+    flex: 0 0 50%;
+    max-width: 50%;
     padding: 1.5rem 2rem;
     min-width: 320px;
   }
@@ -1127,10 +1143,14 @@ body {
   }
   
   .image-section {
+    flex: 0 0 50%;
+    max-width: 50%;
     min-height: 400px;
   }
   
   .ingredients-section {
+    flex: 0 0 50%;
+    max-width: 50%;
     min-width: 350px;
   }
   
@@ -1171,10 +1191,14 @@ body {
   }
   
   .image-section {
+    flex: 0 0 50%;
+    max-width: 50%;
     min-height: 500px;
   }
   
   .ingredients-section {
+    flex: 0 0 50%;
+    max-width: 50%;
     min-width: 400px;
   }
   
