@@ -1,12 +1,13 @@
 import express from 'express';
 import db from '../db.js';
 import auth from '../middleware/auth.js';
+import { transformRecipeForFrontend } from '../utils/recipeTransformer.js';
 
 const router = express.Router();
 
-// Add this simple test route RIGHT after router creation
+// Simple test route
 router.get('/simple-test', (req, res) => {
-  console.log('✅ Simple test route hit!');
+  console.log('Simple test route hit!');
   res.json({ 
     success: true, 
     message: 'Server is working!', 
@@ -22,38 +23,33 @@ router.use((req, res, next) => {
   next();
 });
 
-// Enhanced test route with comprehensive debugging
+// Enhanced test route
 router.get('/test', async (req, res) => {
   try {
     console.log('=== Testing database connection and data ===');
     
-    // Test 1: Basic connection
     const testQuery = 'SELECT 1 as test';
     await db.query(testQuery);
-    console.log('✅ Database connection working');
+    console.log('Database connection working');
     
-    // Test 2: Check if recipes table exists
     const tableExistsQuery = "SHOW TABLES LIKE 'recipes'";
     const tableExists = await db.query(tableExistsQuery);
-    console.log('✅ Recipes table exists:', tableExists.length > 0);
+    console.log('Recipes table exists:', tableExists.length > 0);
     
-    // Test 3: Count recipes
     const countQuery = 'SELECT COUNT(*) as count FROM recipes';
     const countResult = await db.query(countQuery);
-    console.log('✅ Recipe count:', countResult[0].count);
+    console.log('Recipe count:', countResult[0].count);
     
-    // Test 4: Get sample data
     let sampleRecipes = [];
     if (countResult[0].count > 0) {
       const sampleQuery = 'SELECT recipe_id, recipe_name, prep_time, cook_time, created_at FROM recipes LIMIT 3';
       sampleRecipes = await db.query(sampleQuery);
-      console.log('✅ Sample recipes:', sampleRecipes);
+      console.log('Sample recipes:', sampleRecipes);
     }
     
-    // Test 5: Check table structure
     const structureQuery = 'DESCRIBE recipes';
     const structure = await db.query(structureQuery);
-    console.log('✅ Table structure:', structure);
+    console.log('Table structure:', structure);
     
     res.json({ 
       success: true, 
@@ -69,7 +65,7 @@ router.get('/test', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Database test failed:', error);
+    console.error('Database test failed:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Database test failed',
@@ -84,10 +80,8 @@ router.get('/debug/raw', async (req, res) => {
   try {
     console.log('=== DEBUG: Raw database query ===');
     
-    // Get total count
     const countResult = await db.query('SELECT COUNT(*) as total FROM recipes');
     
-    // Get first 10 recipes with all basic fields
     const simpleQuery = `
       SELECT 
         recipe_id, recipe_name, description, prep_time, cook_time, 
@@ -115,57 +109,148 @@ router.get('/debug/raw', async (req, res) => {
   }
 });
 
-// GET /api/recipes - Get all recipes with optional filters
+// Get all available dietary tags
+router.get('/tags/all', async (req, res) => {
+  try {
+    console.log('Getting all dietary tags');
+    
+    const query = `
+      SELECT 
+        tag_id as id,
+        tag_name as name,
+        tag_category as category,
+        description
+      FROM dietary_tags
+      ORDER BY tag_category, tag_name
+    `;
+
+    const tags = await db.query(query);
+    
+    const grouped = {
+      dietary: tags.filter(tag => tag.category === 'dietary'),
+      health: tags.filter(tag => tag.category === 'health')
+    };
+
+    res.json({ 
+      success: true, 
+      data: {
+        all: tags,
+        grouped: grouped
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dietary tags:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Helper function to parse instructions
+const parseInstructions = (instructionsData) => {
+  let instructions = [];
+  
+  if (!instructionsData) {
+    return instructions;
+  }
+
+  try {
+    if (typeof instructionsData === 'string') {
+      instructions = JSON.parse(instructionsData);
+    } else if (Array.isArray(instructionsData)) {
+      instructions = instructionsData;
+    } else {
+      instructions = [String(instructionsData)];
+    }
+  } catch (e) {
+    console.error('Error parsing instructions:', e);
+    instructions = [String(instructionsData)];
+  }
+
+  if (!Array.isArray(instructions)) {
+    instructions = [instructions];
+  }
+
+  instructions = instructions.filter(inst => {
+    if (!inst) return false;
+    const str = String(inst).trim();
+    return str.length > 0;
+  });
+
+  return instructions;
+};
+
+// FIXED: Get all recipes with optional filters
 router.get('/', async (req, res) => {
   try {
     console.log('=== GET /api/recipes ===');
     console.log('Query params received:', req.query);
 
-    const { search, mealType, dishType, limit = 12, offset = 0 } = req.query;
+    const { search, mealType, dishType, dietaryTags, limit = 12, offset = 0 } = req.query;
 
-    // Build the base query
     let query = `
-      SELECT 
+      SELECT DISTINCT
         r.recipe_id as id,
         r.recipe_name as title,
         r.description,
+        r.instructions,
         r.prep_time,
         r.cook_time,
         r.total_time,
         r.servings,
         r.difficulty_level as difficulty,
         r.image_url,
+        r.meal_type,
+        r.dish_type,
+        r.is_active,
         r.created_at,
+        r.updated_at,
         COALESCE(AVG(uri.rating), 4.5) as rating,
-        COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as likes,
-        COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried,
-        COUNT(DISTINCT uri.user_id) as comments
+        COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
+        COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
       FROM recipes r
       LEFT JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
-      WHERE r.is_active = 1
     `;
 
     const params = [];
+    const whereClauses = ['r.is_active = 1'];
 
-    // Add filters
-    if (search) {
-      query += ' AND (r.recipe_name LIKE ? OR r.description LIKE ?)';
-      const searchPattern = `%${search}%`;
+    if (search && search.trim()) {
+      whereClauses.push('(r.recipe_name LIKE ? OR r.description LIKE ?)');
+      const searchPattern = `%${search.trim()}%`;
       params.push(searchPattern, searchPattern);
     }
 
-    if (mealType) {
-      query += ' AND r.meal_type = ?';
-      params.push(mealType);
+    if (mealType && mealType.trim() && mealType !== 'All') {
+      whereClauses.push('r.meal_type = ?');
+      params.push(mealType.trim());
     }
 
-    if (dishType) {
-      query += ' AND r.dish_type = ?';
-      params.push(dishType);
+    if (dishType && dishType.trim() && dishType !== 'All') {
+      whereClauses.push('r.dish_type = ?');
+      params.push(dishType.trim());
     }
 
-    query += ' GROUP BY r.recipe_id ORDER BY r.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), parseInt(offset));
+    if (dietaryTags) {
+      const tags = Array.isArray(dietaryTags) ? dietaryTags : [dietaryTags];
+      const validTags = tags.filter(tag => tag && tag.trim());
+      
+      if (validTags.length > 0) {
+        query += `
+          INNER JOIN recipe_dietary_tags rdt ON r.recipe_id = rdt.recipe_id
+          INNER JOIN dietary_tags dt ON rdt.tag_id = dt.tag_id
+        `;
+        const placeholders = validTags.map(() => '?').join(',');
+        whereClauses.push(`dt.tag_name IN (${placeholders})`);
+        params.push(...validTags);
+      }
+    }
+
+    query += ` WHERE ${whereClauses.join(' AND ')}`;
+    query += ' GROUP BY r.recipe_id ORDER BY r.updated_at DESC, r.created_at DESC';
+    
+    const finalLimit = parseInt(limit) || 12;
+    const finalOffset = parseInt(offset) || 0;
+    
+    query += ` LIMIT ${finalLimit} OFFSET ${finalOffset}`;
 
     console.log('Final query:', query);
     console.log('Query params:', params);
@@ -173,34 +258,81 @@ router.get('/', async (req, res) => {
     const recipes = await db.query(query, params);
     console.log('Fetched recipes count:', recipes.length);
 
-    // Transform the data to match what the frontend expects
-    const transformedRecipes = recipes.map(recipe => ({
-      id: recipe.id,
-      title: recipe.title,
-      description: recipe.description,
-      time: recipe.prep_time && recipe.cook_time ? 
-        `${recipe.prep_time + recipe.cook_time} min` : 
-        recipe.total_time ? `${recipe.total_time} min` : '30 min',
-      likes: recipe.likes || 0,
-      comments: recipe.comments || 0,
-      image: recipe.image_url || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=300&h=200&fit=crop',
-      rating: recipe.rating || 4.5,
-      prep_time: recipe.prep_time,
-      cook_time: recipe.cook_time,
-      total_time: recipe.total_time,
-      servings: recipe.servings,
-      difficulty: recipe.difficulty,
-      tried: recipe.tried || 0,
-      created_at: recipe.created_at
+    const enrichedRecipes = await Promise.all(recipes.map(async (recipe) => {
+      try {
+        recipe.instructions = parseInstructions(recipe.instructions);
+
+        const images = await db.query(
+          'SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC',
+          [recipe.id]
+        );
+
+        const ingredients = await db.query(
+          'SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order',
+          [recipe.id]
+        );
+
+        const tags = await db.query(
+          `SELECT dt.tag_name, dt.tag_category 
+           FROM dietary_tags dt
+           INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id
+           WHERE rdt.recipe_id = ?`,
+          [recipe.id]
+        );
+
+        const verification = await db.query(
+          'SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?',
+          [recipe.id]
+        );
+
+        const transformed = transformRecipeForFrontend(
+          recipe,
+          images,
+          ingredients,
+          tags,
+          verification[0],
+          {
+            tried_count: recipe.tried_count || 0,
+            save_count: recipe.save_count || 0,
+            average_rating: recipe.rating || 4.5
+          }
+        );
+
+        transformed.instructions = recipe.instructions;
+
+        return transformed;
+      } catch (err) {
+        console.error(`Error enriching recipe ${recipe.id}:`, err);
+        return {
+          id: recipe.id,
+          title: recipe.title,
+          description: recipe.description,
+          instructions: parseInstructions(recipe.instructions),
+          images: recipe.image_url ? [recipe.image_url] : ['https://via.placeholder.com/400x300?text=No+Image'],
+          mealType: recipe.meal_type,
+          rating: recipe.rating || 4.5,
+          engagement: {
+            tried: recipe.tried_count || 0,
+            saved: recipe.save_count || 0
+          },
+          ingredients: { main: [], condiments: [], optional: [] },
+          dietaryTags: [],
+          healthTags: [],
+          verificationStatus: 'AI-generated',
+          cookTime: recipe.total_time ? `${recipe.total_time} min` : '30 min',
+          servings: recipe.servings || 4
+        };
+      }
     }));
 
     res.json({ 
       success: true, 
-      data: transformedRecipes,
+      data: enrichedRecipes,
       pagination: {
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        total: transformedRecipes.length
+        limit: finalLimit,
+        offset: finalOffset,
+        total: enrichedRecipes.length,
+        hasMore: enrichedRecipes.length === finalLimit
       }
     });
     
@@ -209,13 +341,12 @@ router.get('/', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Server error', 
-      error: error.message,
-      stack: error.stack
+      error: error.message
     });
   }
 });
 
-// GET /api/recipes/search - Search recipes
+// Search recipes
 router.get('/search', async (req, res) => {
   try {
     const { q: searchTerm, limit = 12, offset = 0 } = req.query;
@@ -224,39 +355,63 @@ router.get('/search', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Search term is required' });
     }
 
+    const finalLimit = parseInt(limit) || 12;
+    const finalOffset = parseInt(offset) || 0;
+
     const query = `
       SELECT 
         r.recipe_id as id,
         r.recipe_name as title,
         r.description,
+        r.instructions,
         r.prep_time,
         r.cook_time,
         r.total_time,
         r.image_url,
         r.servings,
         r.difficulty_level as difficulty,
+        r.meal_type,
+        r.dish_type,
         COALESCE(AVG(uri.rating), 4.5) as average_rating,
-        COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count
+        COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
+        COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
       FROM recipes r
       LEFT JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
-      WHERE (
+      WHERE r.is_active = 1 AND (
         r.recipe_name LIKE ? OR 
         r.description LIKE ?
       )
       GROUP BY r.recipe_id
-      ORDER BY r.created_at DESC
-      LIMIT ? OFFSET ?
+      ORDER BY r.updated_at DESC, r.created_at DESC
+      LIMIT ${finalLimit} OFFSET ${finalOffset}
     `;
 
     const searchPattern = `%${searchTerm}%`;
-    const recipes = await db.query(query, [
-      searchPattern, searchPattern,
-      parseInt(limit), parseInt(offset)
-    ]);
+    const recipes = await db.query(query, [searchPattern, searchPattern]);
+
+    const enrichedRecipes = await Promise.all(recipes.map(async (recipe) => {
+      recipe.instructions = parseInstructions(recipe.instructions);
+
+      const [images, ingredients, tags, verification] = await Promise.all([
+        db.query('SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC', [recipe.id]),
+        db.query('SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order', [recipe.id]),
+        db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [recipe.id]),
+        db.query('SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?', [recipe.id])
+      ]);
+
+      const transformed = transformRecipeForFrontend(recipe, images, ingredients, tags, verification[0], {
+        tried_count: recipe.tried_count,
+        save_count: recipe.save_count,
+        average_rating: recipe.average_rating
+      });
+
+      transformed.instructions = recipe.instructions;
+      return transformed;
+    }));
 
     res.json({
       success: true,
-      data: recipes,
+      data: enrichedRecipes,
       searchTerm
     });
   } catch (error) {
@@ -265,7 +420,7 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// GET /api/recipes/recommended - Get recommended recipes
+// Get recommended recipes
 router.get('/recommended', async (req, res) => {
   try {
     const { userId, limit = 12 } = req.query;
@@ -275,24 +430,28 @@ router.get('/recommended', async (req, res) => {
         r.recipe_id as id,
         r.recipe_name as title,
         r.description,
+        r.instructions,
         r.prep_time,
         r.cook_time,
         r.total_time,
         r.image_url,
         r.servings,
         r.difficulty_level as difficulty,
+        r.meal_type,
+        r.dish_type,
         COALESCE(AVG(uri.rating), 4.5) as average_rating,
         COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
         COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
       FROM recipes r
       LEFT JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
+      WHERE r.is_active = 1
     `;
 
     const params = [];
 
     if (userId) {
       query += `
-        WHERE r.recipe_id NOT IN (
+        AND r.recipe_id NOT IN (
           SELECT recipe_id FROM user_recipe_interactions 
           WHERE user_id = ? AND is_tried = 1
         )
@@ -300,23 +459,43 @@ router.get('/recommended', async (req, res) => {
       params.push(userId);
     }
 
+    const finalLimit = parseInt(limit) || 12;
     query += `
       GROUP BY r.recipe_id
       ORDER BY average_rating DESC, save_count DESC
-      LIMIT ?
+      LIMIT ${finalLimit}
     `;
-    
-    params.push(parseInt(limit));
 
     const recipes = await db.query(query, params);
-    res.json({ success: true, data: recipes });
+
+    const enrichedRecipes = await Promise.all(recipes.map(async (recipe) => {
+      recipe.instructions = parseInstructions(recipe.instructions);
+
+      const [images, ingredients, tags, verification] = await Promise.all([
+        db.query('SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC', [recipe.id]),
+        db.query('SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order', [recipe.id]),
+        db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [recipe.id]),
+        db.query('SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?', [recipe.id])
+      ]);
+
+      const transformed = transformRecipeForFrontend(recipe, images, ingredients, tags, verification[0], {
+        tried_count: recipe.tried_count,
+        save_count: recipe.save_count,
+        average_rating: recipe.average_rating
+      });
+
+      transformed.instructions = recipe.instructions;
+      return transformed;
+    }));
+
+    res.json({ success: true, data: enrichedRecipes });
   } catch (error) {
     console.error('Error fetching recommended recipes:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// GET /api/recipes/:id - Get specific recipe
+// Get specific recipe
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -330,7 +509,7 @@ router.get('/:id', async (req, res) => {
         COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
       FROM recipes r
       LEFT JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
-      WHERE r.recipe_id = ?
+      WHERE r.recipe_id = ? AND r.is_active = 1
       GROUP BY r.recipe_id
     `;
 
@@ -340,19 +519,44 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
 
-    res.json({ success: true, data: recipes[0] });
+    const recipe = recipes[0];
+    recipe.instructions = parseInstructions(recipe.instructions);
+
+    const [images, ingredients, tags, verification] = await Promise.all([
+      db.query('SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC', [id]),
+      db.query('SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order', [id]),
+      db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [id]),
+      db.query('SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?', [id])
+    ]);
+
+    const transformedRecipe = transformRecipeForFrontend(
+      recipe,
+      images,
+      ingredients,
+      tags,
+      verification[0],
+      {
+        tried_count: recipe.tried_count,
+        save_count: recipe.save_count,
+        average_rating: recipe.average_rating
+      }
+    );
+
+    transformedRecipe.instructions = recipe.instructions;
+
+    res.json({ success: true, data: transformedRecipe });
   } catch (error) {
     console.error('Error fetching recipe:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// GET /api/recipes/:id/details - Get recipe with full details (for modal)
+// Get recipe with full details (for modal)
 router.get('/:id/details', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log('Getting full recipe details for user:', id);
 
-    // Get recipe basic info
     const recipeQuery = `
       SELECT 
         r.*,
@@ -363,7 +567,7 @@ router.get('/:id/details', async (req, res) => {
         COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
       FROM recipes r
       LEFT JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
-      WHERE r.recipe_id = ?
+      WHERE r.recipe_id = ? AND r.is_active = 1
       GROUP BY r.recipe_id
     `;
 
@@ -373,59 +577,73 @@ router.get('/:id/details', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
 
-    // Parse instructions if it's stored as JSON string
-    let instructions = [];
-    if (recipes[0].instructions) {
-      try {
-        instructions = JSON.parse(recipes[0].instructions);
-      } catch (e) {
-        // If it's not JSON, treat as plain text
-        instructions = [recipes[0].instructions];
+    const recipe = recipes[0];
+
+    const instructions = parseInstructions(recipe.instructions);
+    console.log('Parsed instructions:', instructions);
+
+    const [images, ingredients, tags, verification] = await Promise.all([
+      db.query(
+        'SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC',
+        [id]
+      ),
+      db.query(
+        'SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order',
+        [id]
+      ),
+      db.query(
+        `SELECT dt.tag_name, dt.tag_category 
+         FROM dietary_tags dt
+         INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id
+         WHERE rdt.recipe_id = ?`,
+        [id]
+      ),
+      db.query(
+        'SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?',
+        [id]
+      )
+    ]);
+
+    recipe.instructions = instructions;
+
+    const transformedRecipe = transformRecipeForFrontend(
+      recipe,
+      images,
+      ingredients,
+      tags,
+      verification[0],
+      {
+        tried_count: recipe.tried_count,
+        save_count: recipe.save_count,
+        average_rating: recipe.average_rating
       }
-    }
+    );
 
-    const recipe = {
-      ...recipes[0],
-      id: recipes[0].recipe_id,
-      title: recipes[0].recipe_name,
-      image: recipes[0].image_url,
-      rating: recipes[0].average_rating,
-      likes: recipes[0].save_count,
-      tried: recipes[0].tried_count,
-      time: recipes[0].total_time ? `${recipes[0].total_time} min` : '30 min',
-      instructions: instructions,
-      ingredients: {
-        main: [],
-        condiments: [],
-        optional: []
-      },
-      dietaryTags: [],
-      healthTags: []
-    };
+    transformedRecipe.instructions = instructions;
 
-    res.json({ success: true, data: recipe });
+    console.log('Final instructions being sent:', transformedRecipe.instructions);
+
+    res.json({ success: true, data: transformedRecipe });
   } catch (error) {
     console.error('Error fetching recipe details:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// GET /api/recipes/:id/ingredients - Get recipe ingredients
+// Get recipe ingredients
 router.get('/:id/ingredients', async (req, res) => {
   try {
     const { id } = req.params;
 
     const query = `
       SELECT 
-       i.ingredient_id as id,
-        i.ingredient_name as name,
-        ri.quantity,
-        ri.unit,
-        ri.ingredient_type
-      FROM recipe_ingredients ri
-      JOIN ingredients i ON ri.ingredient_id = i.ingredient_id
-      WHERE ri.recipe_id = ?
-      ORDER BY ri.ingredient_type, i.ingredient_name
+        category,
+        ingredient_name,
+        alternative_name,
+        display_order
+      FROM recipe_ingredients_detailed
+      WHERE recipe_id = ?
+      ORDER BY category, display_order
     `;
 
     const ingredients = await db.query(query, [id]);
@@ -436,7 +654,7 @@ router.get('/:id/ingredients', async (req, res) => {
   }
 });
 
-// GET /api/recipes/:id/stats - Get recipe statistics
+// Get recipe statistics
 router.get('/:id/stats', async (req, res) => {
   try {
     const { id } = req.params;
@@ -459,7 +677,7 @@ router.get('/:id/stats', async (req, res) => {
   }
 });
 
-// POST /api/recipes - Create new recipe (protected)
+// Create new recipe (protected)
 router.post('/', auth, async (req, res) => {
   try {
     console.log('=== Creating new recipe ===');
@@ -482,7 +700,6 @@ router.post('/', auth, async (req, res) => {
 
     const userId = req.user.id;
 
-    // Validate required fields
     if (!title || !description) {
       return res.status(400).json({
         success: false,
@@ -490,7 +707,6 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
-    // Insert recipe using your actual column names
     const recipeQuery = `
       INSERT INTO recipes (
         recipe_name, description, instructions, prep_time, cook_time, 
@@ -520,16 +736,13 @@ router.post('/', auth, async (req, res) => {
     const recipeId = result.insertId;
     console.log('Recipe created with ID:', recipeId);
 
-    console.log('✅ Recipe creation completed successfully');
-
     res.status(201).json({ 
       success: true, 
       message: 'Recipe created successfully',
       data: { id: recipeId }
     });
   } catch (error) {
-    console.error('❌ Error creating recipe:', error);
-    console.error('Error stack:', error.stack);
+    console.error('Error creating recipe:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error', 
@@ -538,14 +751,13 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// PUT /api/recipes/:id - Update recipe (protected)
+// Update recipe (protected)
 router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
     const updateData = req.body;
 
-    // Check if user owns the recipe or is admin
     const ownershipQuery = `
       SELECT created_by_admin FROM recipes WHERE recipe_id = ?
     `;
@@ -559,7 +771,6 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized to update this recipe' });
     }
 
-    // Update recipe
     const updateQuery = `
       UPDATE recipes SET 
         recipe_name = ?, description = ?, instructions = ?, prep_time = ?, 
@@ -588,13 +799,12 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/recipes/:id - Delete recipe (protected)
+// Delete recipe (protected)
 router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Check if user owns the recipe or is admin
     const ownershipQuery = `
       SELECT created_by_admin FROM recipes WHERE recipe_id = ?
     `;
@@ -608,16 +818,6 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized to delete this recipe' });
     }
 
-    // Delete related data first (if tables exist)
-    try {
-      await db.query('DELETE FROM recipe_ingredients WHERE recipe_id = ?', [id]);
-      await db.query('DELETE FROM recipe_restrictions WHERE recipe_id = ?', [id]);
-      await db.query('DELETE FROM user_recipe_interactions WHERE recipe_id = ?', [id]);
-    } catch (e) {
-      console.log('Some related tables may not exist yet:', e.message);
-    }
-    
-    // Delete recipe
     await db.query('DELETE FROM recipes WHERE recipe_id = ?', [id]);
 
     res.json({ success: true, message: 'Recipe deleted successfully' });

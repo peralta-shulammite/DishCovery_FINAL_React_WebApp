@@ -1,26 +1,29 @@
+
+
 import express from 'express';
 import pool from '../db.js';
 import authenticateToken from '../middleware/auth.js';
+import { transformRecipeForDatabase, transformRecipeForFrontend } from '../utils/recipeTransformer.js';
 
 const router = express.Router();
 
 // Simple auth check for admin routes
 const adminAuth = (req, res, next) => {
-  console.log('🔐 Admin auth check:', {
+  console.log('Admin auth check:', {
     user: req.user,
     path: req.path,
     method: req.method
   });
   
   if (!req.user) {
-    console.log('❌ No user found');
+    console.log('No user found');
     return res.status(401).json({ 
       success: false, 
       message: 'Authentication required' 
     });
   }
   
-  console.log('✅ Auth passed');
+  console.log('Auth passed');
   next();
 };
 
@@ -31,7 +34,7 @@ router.use(adminAuth);
 // Test endpoint
 router.get('/test', async (req, res) => {
   try {
-    console.log('🧪 Testing admin recipes endpoint');
+    console.log('Testing admin recipes endpoint');
     
     const testQuery = 'SELECT COUNT(*) as count FROM recipes';
     const result = await pool.query(testQuery);
@@ -44,7 +47,7 @@ router.get('/test', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('❌ Test failed:', error);
+    console.error('Test failed:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Test failed', 
@@ -53,10 +56,10 @@ router.get('/test', async (req, res) => {
   }
 });
 
-// FIXED: Get all recipes - MySQL 8.0.22+ compatible
+// Get all recipes (basic list view without full related data)
 router.get('/', async (req, res) => {
   try {
-    console.log('📄 Admin: Getting all recipes');
+    console.log('Admin: Getting all recipes');
     console.log('Query params:', req.query);
 
     const { 
@@ -67,13 +70,11 @@ router.get('/', async (req, res) => {
       offset = 0 
     } = req.query;
 
-    // Convert and validate parameters
     const limitNum = Math.min(Math.max(parseInt(limit) || 50, 1), 100);
     const offsetNum = Math.max(parseInt(offset) || 0, 0);
 
     console.log('Processed params:', { search, status, mealType, limitNum, offsetNum });
 
-    // Build query parts
     let whereClause = 'WHERE 1=1';
     const queryParams = [];
 
@@ -94,7 +95,6 @@ router.get('/', async (req, res) => {
       queryParams.push(mealType.trim());
     }
 
-    // Use string interpolation for LIMIT/OFFSET to avoid MySQL 8.0.22+ bug
     const mainQuery = `
       SELECT 
         r.recipe_id as id,
@@ -123,14 +123,38 @@ router.get('/', async (req, res) => {
       LIMIT ${limitNum} OFFSET ${offsetNum}
     `;
 
-    console.log('🔍 Executing query:', mainQuery);
-    console.log('📝 Query parameters:', queryParams);
+    console.log('Executing query:', mainQuery);
+    console.log('Query parameters:', queryParams);
 
-    // Execute with pool.query to avoid prepared statement issues
     const recipes = await pool.query(mainQuery, queryParams);
-    console.log('✅ Fetched recipes:', recipes.length);
+    console.log('Fetched recipes:', recipes.length);
 
-    // Get total count
+    console.log('Fetched recipes:', recipes.length);
+
+    // Transform list rows into frontend format using transformer to ensure 'images' array exists
+    const transformedList = recipes.map(r => {
+      try {
+        return transformRecipeForFrontend(
+          r,
+          [], // no images loaded in list endpoint
+          [], // no ingredients
+          [], // no tags
+          null,
+          { tried_count: r.tried_count || 0, save_count: r.save_count || 0, average_rating: r.average_rating || 0 }
+        );
+      } catch (e) {
+        return {
+          id: r.id || r.recipe_id,
+          title: r.title || r.recipe_name,
+          description: r.description || '',
+          images: r.image_url ? [r.image_url] : ['https://via.placeholder.com/400x300?text=No+Image'],
+          engagement: { tried: r.tried_count || 0, saved: r.save_count || 0 },
+          mealType: r.meal_type || ''
+        };
+      }
+    });
+    
+
     const countQuery = `
       SELECT COUNT(*) as total 
       FROM recipes r
@@ -140,11 +164,11 @@ router.get('/', async (req, res) => {
     const countResult = await pool.query(countQuery, queryParams);
     const total = countResult[0]?.total || 0;
 
-    console.log('📊 Total recipes:', total);
+    console.log('Total recipes:', total);
 
     res.json({ 
       success: true, 
-      data: recipes,
+      data: transformedList,
       pagination: {
         limit: limitNum,
         offset: offsetNum,
@@ -154,7 +178,7 @@ router.get('/', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error fetching admin recipes:', error);
+    console.error('Error fetching admin recipes:', error);
     console.error('Error stack:', error.stack);
     res.status(500).json({ 
       success: false, 
@@ -164,11 +188,11 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get recipe by ID
+// Get recipe by ID with all related data
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('📄 Getting recipe by ID:', id);
+    console.log('Getting recipe by ID with full data:', id);
 
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({
@@ -179,7 +203,8 @@ router.get('/:id', async (req, res) => {
 
     const recipeId = parseInt(id);
 
-    const query = `
+    // Get base recipe with engagement stats
+    const recipeQuery = `
       SELECT 
         r.*,
         r.recipe_id as id,
@@ -192,7 +217,7 @@ router.get('/:id', async (req, res) => {
       GROUP BY r.recipe_id
     `;
 
-    const recipes = await pool.query(query, [recipeId]);
+    const recipes = await pool.query(recipeQuery, [recipeId]);
     
     if (recipes.length === 0) {
       return res.status(404).json({ 
@@ -201,14 +226,57 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    console.log('✅ Recipe found:', recipes[0].title);
+    const recipe = recipes[0];
+
+    // Get images
+    const images = await pool.query(
+      'SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC',
+      [recipeId]
+    );
+
+    // Get ingredients
+    const ingredients = await pool.query(
+      'SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order',
+      [recipeId]
+    );
+
+    // Get dietary tags
+    const tags = await pool.query(
+      `SELECT dt.tag_name, dt.tag_category 
+       FROM dietary_tags dt
+       INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id
+       WHERE rdt.recipe_id = ?`,
+      [recipeId]
+    );
+
+    // Get verification info
+    const verification = await pool.query(
+      'SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?',
+      [recipeId]
+    );
+
+    // Transform to frontend format
+    const transformedRecipe = transformRecipeForFrontend(
+      recipe,
+      images,
+      ingredients,
+      tags,
+      verification[0],
+      { 
+        tried_count: recipe.tried_count, 
+        save_count: recipe.save_count,
+        average_rating: recipe.average_rating 
+      }
+    );
+
+    console.log('Recipe found and transformed:', transformedRecipe.title);
     res.json({ 
       success: true, 
-      data: recipes[0] 
+      data: transformedRecipe 
     });
     
   } catch (error) {
-    console.error('❌ Error fetching recipe:', error);
+    console.error('Error fetching recipe:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error', 
@@ -217,39 +285,24 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new recipe
+// Create new recipe with all related data
 router.post('/', async (req, res) => {
+  const connection = await pool.getConnection();
+  
   try {
-    console.log('➕ Creating new recipe');
+    console.log('Creating new recipe with extended data');
     console.log('Request body:', req.body);
 
-    const {
-      title,
-      description,
-      instructions,
-      prep_time,
-      cook_time,
-      total_time,
-      servings,
-      difficulty,
-      image_url,
-      meal_type,
-      dish_type,
-      is_active = 1
-    } = req.body;
+    await connection.beginTransaction();
 
-    // Validation
-    if (!title || !description) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title and description are required'
-      });
-    }
+    // Transform frontend data to database format
+    const { baseRecipe, images, ingredients, tags, verification } = transformRecipeForDatabase(req.body);
+    
+    // Add admin user ID
+    baseRecipe.created_by_admin = req.user.userId || req.user.adminId || null;
 
-    // Calculate total_time if not provided
-    const calculatedTotalTime = total_time || (prep_time && cook_time ? prep_time + cook_time : null);
-
-    const query = `
+    // Insert base recipe
+    const recipeQuery = `
       INSERT INTO recipes (
         recipe_name, description, instructions, prep_time, cook_time, 
         total_time, servings, difficulty_level, image_url, meal_type,
@@ -257,47 +310,125 @@ router.post('/', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
-    const params = [
-      title.trim(),
-      description.trim(),
-      typeof instructions === 'object' ? JSON.stringify(instructions) : instructions,
-      prep_time || null,
-      cook_time || null,
-      calculatedTotalTime,
-      servings || null,
-      difficulty || 'Easy',
-      image_url || null,
-      meal_type || 'Light Meal',
-      dish_type || '',
-      is_active ? 1 : 0,
-      req.user.userId || req.user.adminId || null
+    const recipeParams = [
+      baseRecipe.recipe_name,
+      baseRecipe.description,
+      baseRecipe.instructions,
+      baseRecipe.prep_time,
+      baseRecipe.cook_time,
+      baseRecipe.total_time,
+      baseRecipe.servings,
+      baseRecipe.difficulty_level,
+      baseRecipe.image_url,
+      baseRecipe.meal_type,
+      baseRecipe.dish_type,
+      baseRecipe.is_active,
+      baseRecipe.created_by_admin
     ];
 
-    const result = await pool.query(query, params);
+    const [recipeResult] = await connection.execute(recipeQuery, recipeParams);
+    const recipeId = recipeResult.insertId;
     
-    console.log('✅ Recipe created with ID:', result.insertId);
+    console.log('Recipe created with ID:', recipeId);
+
+    // Insert images
+    if (images.length > 0) {
+      const imageQuery = `
+        INSERT INTO recipe_images (recipe_id, image_url, display_order, is_primary)
+        VALUES (?, ?, ?, ?)
+      `;
+      
+      for (const image of images) {
+        await connection.execute(imageQuery, [
+          recipeId,
+          image.image_url,
+          image.display_order,
+          image.is_primary
+        ]);
+      }
+      console.log(`Inserted ${images.length} images`);
+    }
+
+    // Insert ingredients
+    if (ingredients.length > 0) {
+      const ingredientQuery = `
+        INSERT INTO recipe_ingredients_detailed (recipe_id, category, ingredient_name, alternative_name, display_order)
+        VALUES (?, ?, ?, ?, ?)
+      `;
+      
+      for (const ingredient of ingredients) {
+        await connection.execute(ingredientQuery, [
+          recipeId,
+          ingredient.category,
+          ingredient.ingredient_name,
+          ingredient.alternative_name,
+          ingredient.display_order
+        ]);
+      }
+      console.log(`Inserted ${ingredients.length} ingredients`);
+    }
+
+    // Insert dietary tags
+    if (tags.length > 0) {
+      const placeholders = tags.map(() => '?').join(',');
+      const [tagResults] = await connection.execute(
+        `SELECT tag_id FROM dietary_tags WHERE tag_name IN (${placeholders})`,
+        tags
+      );
+
+      if (tagResults.length > 0) {
+        const tagQuery = `INSERT INTO recipe_dietary_tags (recipe_id, tag_id) VALUES (?, ?)`;
+        
+        for (const tag of tagResults) {
+          await connection.execute(tagQuery, [recipeId, tag.tag_id]);
+        }
+        console.log(`Inserted ${tagResults.length} dietary tags`);
+      }
+    }
+
+    // Insert verification info
+    const verificationQuery = `
+      INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials, verified_at)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    
+    await connection.execute(verificationQuery, [
+      recipeId,
+      verification.verification_status,
+      verification.verifier_name,
+      verification.verifier_credentials,
+      verification.verified_at
+    ]);
+    console.log('Verification info inserted');
+
+    await connection.commit();
 
     res.status(201).json({ 
       success: true, 
-      message: 'Recipe created successfully',
-      data: { id: result.insertId }
+      message: 'Recipe created successfully with all related data',
+      data: { id: recipeId }
     });
     
   } catch (error) {
-    console.error('❌ Error creating recipe:', error);
+    await connection.rollback();
+    console.error('Error creating recipe:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error', 
       error: error.message 
     });
+  } finally {
+    connection.release();
   }
 });
 
-// Update recipe
+// Update recipe with all related data
 router.put('/:id', async (req, res) => {
+  const connection = await pool.getConnection();
+  
   try {
     const { id } = req.params;
-    console.log('✏️ Updating recipe:', id);
+    console.log('Updating recipe:', id);
 
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({
@@ -308,24 +439,11 @@ router.put('/:id', async (req, res) => {
 
     const recipeId = parseInt(id);
 
-    const {
-      title,
-      description,
-      instructions,
-      prep_time,
-      cook_time,
-      total_time,
-      servings,
-      difficulty,
-      image_url,
-      meal_type,
-      dish_type,
-      is_active
-    } = req.body;
-
     // Check if recipe exists
-    const checkQuery = 'SELECT recipe_id FROM recipes WHERE recipe_id = ?';
-    const existingRecipe = await pool.query(checkQuery, [recipeId]);
+    const [existingRecipe] = await connection.execute(
+      'SELECT recipe_id FROM recipes WHERE recipe_id = ?',
+      [recipeId]
+    );
     
     if (existingRecipe.length === 0) {
       return res.status(404).json({
@@ -334,10 +452,13 @@ router.put('/:id', async (req, res) => {
       });
     }
 
-    // Calculate total_time if not provided
-    const calculatedTotalTime = total_time || (prep_time && cook_time ? prep_time + cook_time : null);
+    await connection.beginTransaction();
 
-    const query = `
+    // Transform frontend data
+    const { baseRecipe, images, ingredients, tags, verification } = transformRecipeForDatabase(req.body);
+
+    // Update base recipe
+    const recipeQuery = `
       UPDATE recipes SET 
         recipe_name = ?, description = ?, instructions = ?, prep_time = ?, 
         cook_time = ?, total_time = ?, servings = ?, difficulty_level = ?, 
@@ -346,37 +467,114 @@ router.put('/:id', async (req, res) => {
       WHERE recipe_id = ?
     `;
 
-    const params = [
-      title?.trim() || '',
-      description?.trim() || '',
-      typeof instructions === 'object' ? JSON.stringify(instructions) : instructions,
-      prep_time || null,
-      cook_time || null,
-      calculatedTotalTime,
-      servings || null,
-      difficulty || 'Easy',
-      image_url || null,
-      meal_type || 'Light Meal',
-      dish_type || '',
-      is_active ? 1 : 0,
+    await connection.execute(recipeQuery, [
+      baseRecipe.recipe_name,
+      baseRecipe.description,
+      baseRecipe.instructions,
+      baseRecipe.prep_time,
+      baseRecipe.cook_time,
+      baseRecipe.total_time,
+      baseRecipe.servings,
+      baseRecipe.difficulty_level,
+      baseRecipe.image_url,
+      baseRecipe.meal_type,
+      baseRecipe.dish_type,
+      baseRecipe.is_active,
       recipeId
-    ];
+    ]);
 
-    await pool.query(query, params);
+    // Delete and re-insert images
+    await connection.execute('DELETE FROM recipe_images WHERE recipe_id = ?', [recipeId]);
+    
+    if (images.length > 0) {
+      const imageQuery = `
+        INSERT INTO recipe_images (recipe_id, image_url, display_order, is_primary)
+        VALUES (?, ?, ?, ?)
+      `;
+      
+      for (const image of images) {
+        await connection.execute(imageQuery, [
+          recipeId,
+          image.image_url,
+          image.display_order,
+          image.is_primary
+        ]);
+      }
+    }
 
-    console.log('✅ Recipe updated successfully');
+    // Delete and re-insert ingredients
+    await connection.execute('DELETE FROM recipe_ingredients_detailed WHERE recipe_id = ?', [recipeId]);
+    
+    if (ingredients.length > 0) {
+      const ingredientQuery = `
+        INSERT INTO recipe_ingredients_detailed (recipe_id, category, ingredient_name, alternative_name, display_order)
+        VALUES (?, ?, ?, ?, ?)
+      `;
+      
+      for (const ingredient of ingredients) {
+        await connection.execute(ingredientQuery, [
+          recipeId,
+          ingredient.category,
+          ingredient.ingredient_name,
+          ingredient.alternative_name,
+          ingredient.display_order
+        ]);
+      }
+    }
+
+    // Delete and re-insert dietary tags
+    await connection.execute('DELETE FROM recipe_dietary_tags WHERE recipe_id = ?', [recipeId]);
+    
+    if (tags.length > 0) {
+      const placeholders = tags.map(() => '?').join(',');
+      const [tagResults] = await connection.execute(
+        `SELECT tag_id FROM dietary_tags WHERE tag_name IN (${placeholders})`,
+        tags
+      );
+
+      if (tagResults.length > 0) {
+        const tagQuery = `INSERT INTO recipe_dietary_tags (recipe_id, tag_id) VALUES (?, ?)`;
+        
+        for (const tag of tagResults) {
+          await connection.execute(tagQuery, [recipeId, tag.tag_id]);
+        }
+      }
+    }
+
+    // Update verification info
+    await connection.execute('DELETE FROM recipe_verification WHERE recipe_id = ?', [recipeId]);
+    
+    const verificationQuery = `
+      INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials, verified_at)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    
+    await connection.execute(verificationQuery, [
+      recipeId,
+      verification.verification_status,
+      verification.verifier_name,
+      verification.verifier_credentials,
+      verification.verified_at
+    ]);
+
+    await connection.commit();
+
+    console.log('Recipe updated successfully');
     res.json({ 
       success: true, 
       message: 'Recipe updated successfully' 
     });
     
   } catch (error) {
-    console.error('❌ Error updating recipe:', error);
+    await connection.rollback();
+    console.error('Error updating recipe:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error', 
       error: error.message 
     });
+  } finally {
+    connection.release();
   }
 });
 
@@ -384,7 +582,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('🗑️ Deleting recipe:', id);
+    console.log('Deleting recipe:', id);
 
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({
@@ -395,7 +593,6 @@ router.delete('/:id', async (req, res) => {
 
     const recipeId = parseInt(id);
 
-    // Check if recipe exists
     const checkQuery = 'SELECT recipe_id, recipe_name FROM recipes WHERE recipe_id = ?';
     const existingRecipe = await pool.query(checkQuery, [recipeId]);
     
@@ -408,32 +605,17 @@ router.delete('/:id', async (req, res) => {
 
     const recipeName = existingRecipe[0].recipe_name;
 
-    // Delete related data first
-    try {
-      await pool.query('DELETE FROM user_recipe_interactions WHERE recipe_id = ?', [recipeId]);
-      console.log('✅ Deleted user interactions');
-    } catch (e) {
-      console.log('⚠️ user_recipe_interactions table may not exist:', e.message);
-    }
-
-    try {
-      await pool.query('DELETE FROM recipe_ingredients WHERE recipe_id = ?', [recipeId]);
-      console.log('✅ Deleted recipe ingredients');
-    } catch (e) {
-      console.log('⚠️ recipe_ingredients table may not exist:', e.message);
-    }
-
-    // Delete recipe
+    // Delete related data (cascade will handle most of this)
     await pool.query('DELETE FROM recipes WHERE recipe_id = ?', [recipeId]);
 
-    console.log(`✅ Recipe "${recipeName}" deleted successfully`);
+    console.log(`Recipe "${recipeName}" deleted successfully`);
     res.json({ 
       success: true, 
       message: `Recipe "${recipeName}" deleted successfully` 
     });
     
   } catch (error) {
-    console.error('❌ Error deleting recipe:', error);
+    console.error('Error deleting recipe:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error', 
@@ -446,7 +628,7 @@ router.delete('/:id', async (req, res) => {
 router.patch('/:id/toggle-status', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`🔄 Toggling status for recipe ${id}`);
+    console.log(`Toggling status for recipe ${id}`);
 
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({
@@ -457,7 +639,6 @@ router.patch('/:id/toggle-status', async (req, res) => {
 
     const recipeId = parseInt(id);
 
-    // Get current status
     const currentRecipe = await pool.query(
       'SELECT is_active, recipe_name FROM recipes WHERE recipe_id = ?',
       [recipeId]
@@ -473,13 +654,12 @@ router.patch('/:id/toggle-status', async (req, res) => {
     const newStatus = currentRecipe[0].is_active ? 0 : 1;
     const recipeName = currentRecipe[0].recipe_name;
 
-    // Update status
     await pool.query(
       'UPDATE recipes SET is_active = ?, updated_at = NOW() WHERE recipe_id = ?',
       [newStatus, recipeId]
     );
 
-    console.log(`✅ Recipe "${recipeName}" status changed to ${newStatus ? 'active' : 'inactive'}`);
+    console.log(`Recipe "${recipeName}" status changed to ${newStatus ? 'active' : 'inactive'}`);
     res.json({
       success: true,
       message: `Recipe "${recipeName}" ${newStatus ? 'activated' : 'deactivated'} successfully`,
@@ -487,7 +667,7 @@ router.patch('/:id/toggle-status', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Error toggling recipe status:', error);
+    console.error('Error toggling recipe status:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -499,7 +679,7 @@ router.patch('/:id/toggle-status', async (req, res) => {
 // Get recipe statistics
 router.get('/stats/overview', async (req, res) => {
   try {
-    console.log('📊 Fetching recipe statistics');
+    console.log('Fetching recipe statistics');
 
     const statsQuery = `
       SELECT 
@@ -516,12 +696,12 @@ router.get('/stats/overview', async (req, res) => {
       success: true,
       data: {
         overview: stats[0],
-        popular_recipes: [] // You can add this later if needed
+        popular_recipes: []
       }
     });
 
   } catch (error) {
-    console.error('❌ Error fetching recipe stats:', error);
+    console.error('Error fetching recipe stats:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',

@@ -11,9 +11,9 @@ const getAuthToken = () => {
 const apiCall = async (endpoint, options = {}) => {
   const token = getAuthToken();
   
-  console.log('🔍 Making API call to:', `${API_BASE_URL}${endpoint}`);
-  console.log('📝 With options:', options);
-  console.log('🔑 Using token:', token);
+  console.log('Making API call to:', `${API_BASE_URL}${endpoint}`);
+  console.log('With options:', options);
+  console.log('Using token:', token);
   
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -25,18 +25,17 @@ const apiCall = async (endpoint, options = {}) => {
       },
     });
 
-    console.log('📊 Response status:', response.status);
-    console.log('✅ Response ok:', response.ok);
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Error response text:', errorText);
+      console.error('Error response text:', errorText);
       
       let errorData;
       try {
         errorData = JSON.parse(errorText);
       } catch (e) {
-        // If response isn't JSON, it might be HTML error page
         if (errorText.includes('<!DOCTYPE')) {
           errorData = { message: `Server returned HTML instead of JSON. Check if the endpoint ${endpoint} exists.` };
         } else {
@@ -48,26 +47,26 @@ const apiCall = async (endpoint, options = {}) => {
     }
 
     const result = await response.json();
-    console.log('✅ Success response:', result);
+    console.log('Success response:', result);
     return result;
   } catch (error) {
-    console.error('💥 API call failed:', error);
+    console.error('API call failed:', error);
     throw error;
   }
 };
 
 // Recipe API functions
 export const recipeAPI = {
-  // Test API connection first
+  // Test API connection
   test: async () => {
-    console.log('🧪 Testing API connection...');
+    console.log('Testing API connection...');
     const response = await apiCall('/api/admin/recipes/test');
     return response;
   },
 
   // Get all recipes with optional filters
   getAll: async (filters = {}) => {
-    console.log('📄 Getting all recipes with filters:', filters);
+    console.log('Getting all recipes with filters:', filters);
     
     const params = new URLSearchParams();
     
@@ -83,81 +82,60 @@ export const recipeAPI = {
     const queryString = params.toString();
     const endpoint = `/api/admin/recipes${queryString ? `?${queryString}` : ''}`;
     
-    console.log('🔍 Fetching recipes from endpoint:', endpoint);
+    console.log('Fetching recipes from endpoint:', endpoint);
     
     const response = await apiCall(endpoint);
     
     if (response.success && response.data) {
-      // Transform database data to match your component's expected format
-      const transformedRecipes = response.data.map(recipe => ({
-        id: recipe.id,
-        title: recipe.title,
-        description: recipe.description,
-        images: [recipe.image_url || "/api/placeholder/300/200"],
-        mealType: recipe.meal_type || recipe.mealType || 'Light Meal',
-        instructions: typeof recipe.instructions === 'string' ? 
-          (recipe.instructions.includes('\n') ? recipe.instructions.split('\n') : [recipe.instructions]) :
-          (Array.isArray(recipe.instructions) ? recipe.instructions : [recipe.instructions || '']),
-        ingredients: {
-          main: ["Quinoa", "Sweet potato", "Broccoli", "Chickpeas"],
-          condiments: ["Tahini", "Lemon juice", "Olive oil"],
-          optional: ["Avocado", "Pumpkin seeds", "Fresh herbs"]
-        },
-        dietaryTags: ["Vegan", "Gluten-free", "High-protein"],
-        healthTags: ["Diabetic-safe", "Heart-healthy"],
-        verificationStatus: recipe.is_active ? "Checked by: Admin, Nutritionist" : "AI-generated",
-        engagement: { 
-          tried: recipe.tried_count || recipe.tried || Math.floor(Math.random() * 300), 
-          saved: recipe.save_count || recipe.likes || Math.floor(Math.random() * 200)
-        },
-        dateAdded: recipe.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-        prep_time: recipe.prep_time,
-        cook_time: recipe.cook_time,
-        total_time: recipe.total_time,
-        servings: recipe.servings,
-        difficulty: recipe.difficulty,
-        image_url: recipe.image_url,
-        dish_type: recipe.dish_type,
-        is_active: recipe.is_active
-      }));
-      
-      console.log('✅ Transformed recipes:', transformedRecipes.length, 'recipes');
-      return transformedRecipes;
+      console.log('Transformed recipes:', response.data.length, 'recipes');
+      return response.data;
     }
     
-    console.log('⚠️ No recipes found or response format unexpected');
+    console.log('No recipes found or response format unexpected');
     return [];
   },
 
-  // Get specific recipe by ID
+  // Get specific recipe by ID with full data
   getById: async (id) => {
-    console.log('📄 Getting recipe by ID:', id);
+    console.log('Getting recipe by ID:', id);
     const response = await apiCall(`/api/admin/recipes/${id}`);
     return response.data;
   },
 
-  // Create new recipe
+  // Create new recipe with all related data
   create: async (recipeData) => {
-    console.log('➕ Creating new recipe with data:', recipeData);
+    console.log('Creating new recipe with data:', recipeData);
     
-    // Transform your component data to match API expectations
+    // Transform data to match backend expectations
     const apiData = {
       title: recipeData.title,
       description: recipeData.description,
       instructions: Array.isArray(recipeData.instructions) ? 
-        recipeData.instructions.join('\n') : 
-        recipeData.instructions,
+        recipeData.instructions : 
+        [recipeData.instructions],
       prep_time: parseInt(recipeData.prep_time) || null,
       cook_time: parseInt(recipeData.cook_time) || null,
       servings: parseInt(recipeData.servings) || null,
       difficulty: recipeData.difficulty || 'Easy',
-      image_url: recipeData.images?.length > 0 ? recipeData.images[0] : recipeData.image_url,
-      meal_type: recipeData.mealType,
-      dish_type: recipeData.dish_type || '',
-      is_active: recipeData.verificationStatus !== 'AI-generated' ? 1 : 0
+      images: Array.isArray(recipeData.images) ? recipeData.images : [recipeData.images[0] || recipeData.image_url],
+      image_url: Array.isArray(recipeData.images) && recipeData.images.length > 0 ? 
+        recipeData.images[0] : 
+        recipeData.image_url,
+      mealType: recipeData.mealType || 'Light Meal',
+      dishType: recipeData.dish_type || recipeData.dishType || '',
+      ingredients: recipeData.ingredients || {
+        main: [],
+        condiments: [],
+        optional: []
+      },
+      dietaryTags: recipeData.dietaryTags || [],
+      healthTags: recipeData.healthTags || [],
+      verificationStatus: recipeData.verificationStatus || 'AI-generated',
+      verifierName: recipeData.verifierName || '',
+      verifierCredentials: recipeData.verifierCredentials || ''
     };
 
-    console.log('📝 Sending API data:', apiData);
+    console.log('Sending API data:', apiData);
 
     const response = await apiCall('/api/admin/recipes', {
       method: 'POST',
@@ -167,28 +145,40 @@ export const recipeAPI = {
     return response;
   },
 
-  // Update existing recipe
+  // Update existing recipe with all related data
   update: async (id, recipeData) => {
-    console.log('✏️ Updating recipe:', id, 'with data:', recipeData);
+    console.log('Updating recipe:', id, 'with data:', recipeData);
     
-    // Transform your component data to match API expectations
+    // Transform data to match backend expectations
     const apiData = {
       title: recipeData.title,
       description: recipeData.description,
       instructions: Array.isArray(recipeData.instructions) ? 
-        recipeData.instructions.join('\n') : 
-        recipeData.instructions,
+        recipeData.instructions : 
+        [recipeData.instructions],
       prep_time: parseInt(recipeData.prep_time) || null,
       cook_time: parseInt(recipeData.cook_time) || null,
       servings: parseInt(recipeData.servings) || null,
       difficulty: recipeData.difficulty || 'Easy',
-      image_url: recipeData.images?.length > 0 ? recipeData.images[0] : recipeData.image_url,
-      meal_type: recipeData.mealType,
-      dish_type: recipeData.dish_type || '',
-      is_active: recipeData.verificationStatus !== 'AI-generated' ? 1 : 0
+      images: Array.isArray(recipeData.images) ? recipeData.images : [recipeData.images[0] || recipeData.image_url],
+      image_url: Array.isArray(recipeData.images) && recipeData.images.length > 0 ? 
+        recipeData.images[0] : 
+        recipeData.image_url,
+      mealType: recipeData.mealType || 'Light Meal',
+      dishType: recipeData.dish_type || recipeData.dishType || '',
+      ingredients: recipeData.ingredients || {
+        main: [],
+        condiments: [],
+        optional: []
+      },
+      dietaryTags: recipeData.dietaryTags || [],
+      healthTags: recipeData.healthTags || [],
+      verificationStatus: recipeData.verificationStatus || 'AI-generated',
+      verifierName: recipeData.verifierName || '',
+      verifierCredentials: recipeData.verifierCredentials || ''
     };
 
-    console.log('📝 Sending update data:', apiData);
+    console.log('Sending update data:', apiData);
 
     const response = await apiCall(`/api/admin/recipes/${id}`, {
       method: 'PUT',
@@ -200,7 +190,7 @@ export const recipeAPI = {
 
   // Delete recipe
   delete: async (id) => {
-    console.log('🗑️ Deleting recipe:', id);
+    console.log('Deleting recipe:', id);
 
     const response = await apiCall(`/api/admin/recipes/${id}`, {
       method: 'DELETE'
@@ -211,7 +201,7 @@ export const recipeAPI = {
 
   // Toggle recipe status (active/inactive)
   toggleStatus: async (id) => {
-    console.log('🔄 Toggling status for recipe:', id);
+    console.log('Toggling status for recipe:', id);
 
     const response = await apiCall(`/api/admin/recipes/${id}/toggle-status`, {
       method: 'PATCH'
@@ -222,7 +212,7 @@ export const recipeAPI = {
 
   // Get recipe statistics
   getStats: async () => {
-    console.log('📊 Getting recipe statistics');
+    console.log('Getting recipe statistics');
     const response = await apiCall('/api/admin/recipes/stats/overview');
     return response.data;
   }
@@ -230,7 +220,7 @@ export const recipeAPI = {
 
 // Helper function to handle API errors with user-friendly messages
 export const handleAPIError = (error) => {
-  console.error('💥 API Error:', error);
+  console.error('API Error:', error);
   
   if (error.message.includes('fetch')) {
     return 'Network error. Please check your internet connection and try again.';
