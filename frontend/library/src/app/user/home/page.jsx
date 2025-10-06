@@ -3,7 +3,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import api from './api'; 
 import './styles.css';
 import Link from 'next/link';
-import UserLayout from '../../components/user/userlayout'
+import UserLayout from '../../components/user/userlayout';
+import toast, { Toaster } from 'react-hot-toast';
+
 
 export default function DishCoveryLanding() {
   const dishCoveryTopRef = useRef(null);
@@ -52,6 +54,33 @@ export default function DishCoveryLanding() {
       setDishCoveryAnimatedTextIndex((prev) => (prev + 1) % dishCoveryAnimatedWords.length);
     }, 2000);
     return () => clearInterval(interval);
+  }, []);
+
+// Check if user just logged in
+  useEffect(() => {
+    const justLoggedIn = sessionStorage.getItem('userJustLoggedIn');
+    if (justLoggedIn === 'true') {
+      toast.success('Welcome back! Ready to cook something amazing?', {
+        duration: 4000,
+        position: 'top-center',
+        style: {
+          background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+          color: '#fff',
+          fontFamily: 'Poppins, sans-serif',
+          fontWeight: '600',
+          fontSize: '15px',
+          padding: '16px 24px',
+          borderRadius: '16px',
+          boxShadow: '0 8px 24px rgba(46, 125, 50, 0.35)',
+        },
+        iconTheme: {
+          primary: '#fff',
+          secondary: '#2E7D32',
+        },
+      });
+      // Clear the flag
+      sessionStorage.removeItem('userJustLoggedIn');
+    }
   }, []);
 
   useEffect(() => {
@@ -137,7 +166,7 @@ export default function DishCoveryLanding() {
     console.log("User logged out");
   };
 
-  const dishCoveryHandleSignInSubmit = async (e) => {
+const dishCoveryHandleSignInSubmit = async (e) => {
     e.preventDefault();
     try {
       console.log('🔐 Processing login for:', dishCoveryEmail);
@@ -149,6 +178,9 @@ export default function DishCoveryLanding() {
         setDishCoveryIsLoggedIn(true);
         dishCoveryCloseModal();
         
+        // Set the flag for admin login toast
+        sessionStorage.setItem('adminJustLoggedIn', 'true');
+        
         // Redirect to your existing admin dashboard
         window.location.href = '/admin/dashboard';
       } else {
@@ -157,8 +189,11 @@ export default function DishCoveryLanding() {
         setDishCoveryIsLoggedIn(true);
         dishCoveryCloseModal();
         
-        // Optional: redirect to user area or stay on current page
-        // window.location.href = '/user/get-started';
+        // Set the flag for user login toast
+        sessionStorage.setItem('userJustLoggedIn', 'true');
+        
+        // Reload page to trigger toast
+        window.location.reload();
       }
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -242,6 +277,7 @@ const dishCoveryBottomRecipes = [
       onLogout={dishCoveryHandleLogout}
     >
     <div ref={dishCoveryTopRef} className="container">
+   <Toaster />
 
       <main className="main-content">
         <div className="left-section">
