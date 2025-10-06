@@ -1,13 +1,32 @@
 'use client';
-import React, { useState } from 'react';
-// IMPORTANT: Import with capital A, use with capital A
+import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
+import toast, { Toaster } from 'react-hot-toast';
 
 const DashboardContent = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This Week');
   const [statusFilter, setStatusFilter] = useState('All');
 
+// Check if user just logged in
+  useEffect(() => {
+    const justLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
+    if (justLoggedIn === 'true') {
+      toast.success('Welcome back, Admin!', {
+        duration: 3000,
+        position: 'top-right',
+        style: {
+          background: '#2E7D32',
+          color: '#fff',
+          fontFamily: 'Poppins, sans-serif',
+          fontWeight: '500',
+        },
+      });
+      // Clear the flag
+      sessionStorage.removeItem('adminJustLoggedIn');
+    }
+  }, []);
+  
   const dashboardStats = {
     newUsers: 324,
     activeUsers: 1876,
@@ -78,8 +97,10 @@ const DashboardContent = () => {
     </svg>
   );
 
-  return (
+
+return (
     <div className="dashboard-content">
+      <Toaster />
       {/* Stats Cards - 3 cards */}
       <div className="stats-container">
         <div className="stat-card new-users">
