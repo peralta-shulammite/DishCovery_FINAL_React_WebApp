@@ -27,6 +27,7 @@ import {
 } from '@fortawesome/free-regular-svg-icons';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
+import { favoritesAPI } from '../recipe/api';
 
 export default function FavoritesPage() {
   const dishCoveryTopRef = useRef(null);
@@ -56,147 +57,35 @@ export default function FavoritesPage() {
   const [showRemoveConfirmation, setShowRemoveConfirmation] = useState(false);
   const [recipeToRemove, setRecipeToRemove] = useState(null);
 
-  // Enhanced mock favorites data
-  const [dishCoveryFavoriteRecipes, setDishCoveryFavoriteRecipes] = useState([
-    {
-      id: 1,
-      title: 'Mediterranean Quinoa Bowl',
-      description: 'Nutritious bowl packed with quinoa, roasted vegetables, and creamy tahini dressing. Perfect for a healthy lunch or dinner.',
-      images: [
-        'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=300&fit=crop'
-      ],
-      mealType: 'Lunch',
-      ingredients: {
-        main: [
-          { ingredient: 'Quinoa (1 cup)', alternative: 'Brown rice or bulgur wheat' },
-          { ingredient: 'Sweet potato, cubed', alternative: 'Butternut squash or regular potato' },
-          { ingredient: 'Broccoli florets', alternative: 'Cauliflower or Brussels sprouts' },
-          { ingredient: 'Chickpeas (1 can)', alternative: 'Black beans or lentils' }
-        ],
-        condiments: [
-          { ingredient: 'Tahini (3 tbsp)', alternative: 'Almond butter or cashew cream' },
-          { ingredient: 'Lemon juice', alternative: 'Lime juice or apple cider vinegar' },
-          { ingredient: 'Olive oil', alternative: 'Avocado oil' },
-          { ingredient: 'Garlic, minced', alternative: 'Garlic powder' }
-        ],
-        optional: [
-          { ingredient: 'Avocado slices', alternative: 'Cucumber slices' },
-          { ingredient: 'Pumpkin seeds', alternative: 'Sunflower seeds or chopped nuts' },
-          { ingredient: 'Fresh herbs (parsley, cilantro)', alternative: 'Dried herbs' }
-        ]
-      },
-      instructions: [
-        'Cook quinoa according to package directions. Fluff with a fork and set aside.',
-        'Preheat oven to 400°F (200°C). Toss sweet potato and broccoli with olive oil, salt, and pepper.',
-        'Roast vegetables for 25 minutes until tender and slightly caramelized.',
-        'Prepare tahini dressing by whisking tahini, lemon juice, water, and minced garlic until smooth.',
-        'Drain and rinse chickpeas. Season with salt, pepper, and a drizzle of olive oil.',
-        'Assemble bowls with quinoa as the base, top with roasted vegetables and chickpeas.',
-        'Drizzle with tahini dressing and garnish with avocado, pumpkin seeds, and fresh herbs.'
-      ],
-      dietaryTags: ['Vegan', 'Gluten-free', 'Mediterranean'],
-      healthTags: ['Heart-healthy', 'High-protein', 'Diabetic-safe'],
-      verificationStatus: 'Checked by: Nutritionist',
-      verifierName: 'Dr. Sarah Johnson',
-      verifierCredentials: 'RD, PhD in Nutritional Science',
-      engagement: { tried: 245, saved: 189 },
-      rating: 4.8,
-      cookTime: '25 min',
-      servings: 4
-    },
-    {
-      id: 2,
-      title: 'Grilled Salmon with Herbs',
-      description: 'Heart-healthy grilled salmon with fresh herbs and a side of roasted vegetables.',
-      images: [
-        'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&h=300&fit=crop'
-      ],
-      mealType: 'Dinner',
-      ingredients: {
-        main: [
-          { ingredient: 'Salmon fillets (4 pieces)', alternative: 'Arctic char or trout' },
-          { ingredient: 'Fresh dill', alternative: 'Dried dill or parsley' },
-          { ingredient: 'Lemon', alternative: 'Lime' },
-          { ingredient: 'Asparagus', alternative: 'Green beans or broccoli' }
-        ],
-        condiments: [
-          { ingredient: 'Olive oil', alternative: 'Avocado oil' },
-          { ingredient: 'Salt and pepper', alternative: 'Herb seasoning' },
-          { ingredient: 'Garlic powder', alternative: 'Fresh garlic' }
-        ],
-        optional: [
-          { ingredient: 'Capers', alternative: 'Olives' },
-          { ingredient: 'Cherry tomatoes', alternative: 'Sun-dried tomatoes' }
-        ]
-      },
-      instructions: [
-        'Preheat grill to medium-high heat.',
-        'Season salmon fillets with salt, pepper, and garlic powder.',
-        'Brush salmon and asparagus with olive oil.',
-        'Grill salmon for 4-5 minutes per side until cooked through.',
-        'Grill asparagus for 3-4 minutes until tender-crisp.',
-        'Garnish with fresh dill and lemon wedges.',
-        'Serve immediately while hot.'
-      ],
-      dietaryTags: ['High-protein', 'Gluten-free'],
-      healthTags: ['Heart-healthy', 'Omega-3 rich'],
-      verificationStatus: 'Checked by: Dietitian',
-      verifierName: 'Maria Rodriguez',
-      verifierCredentials: 'RD, MS in Clinical Nutrition',
-      engagement: { tried: 156, saved: 98 },
-      rating: 4.6,
-      cookTime: '30 min',
-      servings: 4
-    },
-    {
-      id: 3,
-      title: 'Vegetable Stir Fry',
-      description: 'Colorful and nutritious vegetable stir fry with a savory sauce.',
-      images: [
-        'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&h=300&fit=crop'
-      ],
-      mealType: 'Lunch',
-      ingredients: {
-        main: [
-          { ingredient: 'Mixed vegetables (2 cups)', alternative: 'Any seasonal vegetables' },
-          { ingredient: 'Bell peppers', alternative: 'Snow peas' },
-          { ingredient: 'Broccoli', alternative: 'Cauliflower' },
-          { ingredient: 'Carrots', alternative: 'Snap peas' }
-        ],
-        condiments: [
-          { ingredient: 'Soy sauce', alternative: 'Tamari or coconut aminos' },
-          { ingredient: 'Sesame oil', alternative: 'Vegetable oil' },
-          { ingredient: 'Ginger', alternative: 'Ground ginger' },
-          { ingredient: 'Garlic', alternative: 'Garlic powder' }
-        ],
-        optional: [
-          { ingredient: 'Sesame seeds', alternative: 'Crushed peanuts' },
-          { ingredient: 'Green onions', alternative: 'Chives' }
-        ]
-      },
-      instructions: [
-        'Heat oil in a large wok or skillet over high heat.',
-        'Add garlic and ginger, stir-fry for 30 seconds.',
-        'Add harder vegetables first (carrots, broccoli) and cook for 2-3 minutes.',
-        'Add softer vegetables (bell peppers) and cook for another 2 minutes.',
-        'Mix soy sauce and sesame oil, pour over vegetables.',
-        'Stir-fry for 1-2 minutes until vegetables are crisp-tender.',
-        'Garnish with sesame seeds and green onions.'
-      ],
-      dietaryTags: ['Vegan', 'Gluten-free'],
-      healthTags: ['Low-carb', 'Diabetic-safe'],
-      verificationStatus: 'AI-generated',
-      verifierName: '',
-      verifierCredentials: '',
-      engagement: { tried: 89, saved: 67 },
-      rating: 4.4,
-      cookTime: '20 min',
-      servings: 3
-    }
-  ]);
+  // Favorites state
+  const [dishCoveryFavoriteRecipes, setDishCoveryFavoriteRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await favoritesAPI.getFavorites();
+        
+        if (response && response.success && response.data) {
+          setDishCoveryFavoriteRecipes(response.data);
+        } else {
+          setDishCoveryFavoriteRecipes([]);
+        }
+      } catch (err) {
+        console.error('Error loading favorites:', err);
+        setError('Failed to load favorites. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadFavorites();
+  }, []);
 
   useEffect(() => {
     const dishCoveryHandleClickOutside = (event) => {
@@ -239,8 +128,16 @@ export default function FavoritesPage() {
     // Handle sign in modal
   };
 
-  const dishCoveryHandleRemoveFromFavorites = (recipeId) => {
-    setDishCoveryFavoriteRecipes(prev => prev.filter(recipe => recipe.id !== recipeId));
+  const dishCoveryHandleRemoveFromFavorites = async (recipeId) => {
+    try {
+      await favoritesAPI.removeFromFavorites(recipeId);
+      
+      // Update state
+      setDishCoveryFavoriteRecipes(prev => prev.filter(recipe => recipe.id !== recipeId));
+    } catch (error) {
+      console.error('Error removing from favorites:', error);
+      alert('Failed to remove from favorites. Please try again.');
+    }
   };
 
   // Filter and sort recipes
@@ -429,15 +326,31 @@ export default function FavoritesPage() {
               </div>
             </div>
 
+            {/* Loading State */}
+            {loading && (
+              <div className="loading-container">
+                Loading your favorites...
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && !loading && (
+              <div className="error-container">
+                {error}
+              </div>
+            )}
+
             {/* Empty State or Recipes */}
-            {dishCoveryFilteredAndSortedRecipes.length === 0 ? (
+            {!loading && !error && dishCoveryFilteredAndSortedRecipes.length === 0 && (
               <div className="empty-container">
                 {dishCoveryFavoriteRecipes.length === 0 ? 
                   "You haven't saved any recipes yet. Start exploring meals that match your dietary needs!" :
                   "No recipes match your search. Try adjusting your search terms."
                 }
               </div>
-            ) : (
+            )}
+
+            {!loading && !error && dishCoveryFilteredAndSortedRecipes.length > 0 && (
               <div className={`recipes-container ${dishCoveryViewMode === 'grid' ? 'recipes-grid' : 'recipes-list'}`}>
                 {dishCoveryFilteredAndSortedRecipes.map((recipe) => (
                   <div
