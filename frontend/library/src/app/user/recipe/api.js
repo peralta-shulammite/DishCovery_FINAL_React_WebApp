@@ -135,6 +135,84 @@ export const recipeAPI = {
   }
 };
 
+// Favorites API functions - Using localStorage instead of backend API
+export const favoritesAPI = {
+  // Add recipe to favorites
+  addToFavorites: async (recipe) => {
+    try {
+      console.log('Adding recipe to favorites:', recipe.id);
+      
+      // Get current favorites from localStorage
+      const favoritesData = localStorage.getItem('favoriteRecipes');
+      let currentFavorites = favoritesData ? JSON.parse(favoritesData) : [];
+      
+      // Check if already favorited
+      const alreadyFavorited = currentFavorites.some(fav => fav.id === recipe.id);
+      
+      if (!alreadyFavorited) {
+        // Add to favorites
+        currentFavorites.push(recipe);
+        localStorage.setItem('favoriteRecipes', JSON.stringify(currentFavorites));
+      }
+      
+      return { success: true, message: 'Recipe added to favorites' };
+    } catch (error) {
+      console.error('Error adding to favorites:', error);
+      throw error;
+    }
+  },
+
+  // Remove recipe from favorites
+  removeFromFavorites: async (recipeId) => {
+    try {
+      console.log('Removing recipe from favorites:', recipeId);
+      
+      // Get current favorites from localStorage
+      const favoritesData = localStorage.getItem('favoriteRecipes');
+      let currentFavorites = favoritesData ? JSON.parse(favoritesData) : [];
+      
+      // Remove from favorites
+      currentFavorites = currentFavorites.filter(recipe => recipe.id !== recipeId);
+      localStorage.setItem('favoriteRecipes', JSON.stringify(currentFavorites));
+      
+      return { success: true, message: 'Recipe removed from favorites' };
+    } catch (error) {
+      console.error('Error removing from favorites:', error);
+      throw error;
+    }
+  },
+
+  // Get all favorites
+  getFavorites: async () => {
+    try {
+      console.log('Getting all favorites');
+      
+      const favoritesData = localStorage.getItem('favoriteRecipes');
+      const favorites = favoritesData ? JSON.parse(favoritesData) : [];
+      
+      return { success: true, data: favorites };
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+      throw error;
+    }
+  },
+
+  // Check if recipe is favorited
+  isFavorited: async (recipeId) => {
+    try {
+      console.log('Checking if recipe is favorited:', recipeId);
+      
+      const favoritesData = localStorage.getItem('favoriteRecipes');
+      const favorites = favoritesData ? JSON.parse(favoritesData) : [];
+      
+      return favorites.some(recipe => recipe.id === recipeId);
+    } catch (error) {
+      console.error('Error checking favorite status:', error);
+      return false;
+    }
+  }
+};
+
 // Helper function for error handling
 export const handleAPIError = (error) => {
   console.error('API Error:', error);
