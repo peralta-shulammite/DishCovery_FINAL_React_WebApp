@@ -36,7 +36,7 @@ import {
   faStar as faStarRegular,
   faHeart as faHeartRegular
 } from '@fortawesome/free-regular-svg-icons';
-import { recipeAPI } from './api';
+import { recipeAPI, favoritesAPI } from './api';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
 
@@ -141,6 +141,23 @@ const RecipePage = () => {
   const handleHover = (element, isHover) => {
     setHoverStates((prev) => ({ ...prev, [element]: isHover }));
   };
+
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        const response = await favoritesAPI.getFavorites();
+        if (response && response.success && response.data) {
+          const favoriteIds = new Set(response.data.map(recipe => recipe.id));
+          setFavoritedRecipes(favoriteIds);
+        }
+      } catch (error) {
+        console.error('Error loading favorites:', error);
+      }
+    };
+    
+    loadFavorites();
+  }, []);
 
   // Close dropdown when clicking outside or pressing Escape
   useEffect(() => {
@@ -426,22 +443,47 @@ const RecipePage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleToggleFavorite = (recipeId) => {
-    setFavoritedRecipes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(recipeId)) {
-        newSet.delete(recipeId);
-      } else {
-        newSet.add(recipeId);
-      }
-      return newSet;
-    });
+  const handleToggleFavorite = async (recipeId) => {
+    const isFavorited = favoritedRecipes.has(recipeId);
     
-    if (selectedRecipe && selectedRecipe.id === recipeId) {
-      setSelectedRecipe(prev => ({
-        ...prev,
-        isFavorited: !prev.isFavorited
-      }));
+    try {
+      if (isFavorited) {
+        // Remove from favorites
+        await favoritesAPI.removeFromFavorites(recipeId);
+        setFavoritedRecipes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(recipeId);
+          return newSet;
+        });
+      } else {
+        // Add to favorites - find the recipe from current recipes list or selected recipe
+        let recipeToAdd = recipes.find(r => r.id === recipeId);
+        
+        // If not found in recipes list, use selectedRecipe (from modal)
+        if (!recipeToAdd && selectedRecipe && selectedRecipe.id === recipeId) {
+          recipeToAdd = selectedRecipe;
+        }
+        
+        if (recipeToAdd) {
+          console.log('Adding recipe to favorites:', recipeToAdd);
+          await favoritesAPI.addToFavorites(recipeToAdd);
+          setFavoritedRecipes(prev => new Set([...prev, recipeId]));
+          console.log('Recipe added successfully!');
+        } else {
+          console.error('Recipe not found:', recipeId);
+        }
+      }
+      
+      // Update selected recipe if modal is open
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        setSelectedRecipe(prev => ({
+          ...prev,
+          isFavorited: !isFavorited
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      alert('Failed to update favorites. Please try again.');
     }
   };
 
