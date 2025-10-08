@@ -10,20 +10,23 @@ const DashboardContent = () => {
 
 // Check if user just logged in
   useEffect(() => {
-    const justLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
-    if (justLoggedIn === 'true') {
-      toast.success('Welcome back, Admin!', {
-        duration: 3000,
-        position: 'top-right',
-        style: {
-          background: '#2E7D32',
-          color: '#fff',
-          fontFamily: 'Poppins, sans-serif',
-          fontWeight: '500',
-        },
-      });
-      // Clear the flag
-      sessionStorage.removeItem('adminJustLoggedIn');
+    // Only access sessionStorage in the browser
+    if (typeof window !== 'undefined') {
+      const justLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
+      if (justLoggedIn === 'true') {
+        toast.success('Welcome back, Admin!', {
+          duration: 3000,
+          position: 'top-right',
+          style: {
+            background: '#2E7D32',
+            color: '#fff',
+            fontFamily: 'Poppins, sans-serif',
+            fontWeight: '500',
+          },
+        });
+        // Clear the flag
+        sessionStorage.removeItem('adminJustLoggedIn');
+      }
     }
   }, []);
   

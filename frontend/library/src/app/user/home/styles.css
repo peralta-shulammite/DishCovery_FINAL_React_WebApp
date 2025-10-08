@@ -1664,3 +1664,44 @@
     height: 16px;
   }
 }
+
+/* Welcome Toast Notification - Exact replica of react-hot-toast styling */
+.welcome-notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 16px 24px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(46, 125, 50, 0.35);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: toastSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (max-width: 768px) {
+  .welcome-notification {
+    font-size: 13px;
+    padding: 12px 20px;
+    max-width: 90%;
+    top: 16px;
+  }
+}
