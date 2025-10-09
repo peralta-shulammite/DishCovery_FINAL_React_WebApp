@@ -4,7 +4,7 @@ import api from './api';
 import './styles.css';
 import Link from 'next/link';
 import UserLayout from '../../components/user/userlayout';
-import toast, { Toaster } from 'react-hot-toast';
+
 
 
 export default function DishCoveryLanding() {
@@ -56,30 +56,20 @@ export default function DishCoveryLanding() {
     return () => clearInterval(interval);
   }, []);
 
-// Check if user just logged in
+const [dishCoveryShowWelcomeMessage, setDishCoveryShowWelcomeMessage] = useState(false);
+
+  // Check if user just logged in
   useEffect(() => {
     const justLoggedIn = sessionStorage.getItem('userJustLoggedIn');
     if (justLoggedIn === 'true') {
-      toast.success('Welcome back! Ready to cook something amazing?', {
-        duration: 4000,
-        position: 'top-center',
-        style: {
-          background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
-          color: '#fff',
-          fontFamily: 'Poppins, sans-serif',
-          fontWeight: '600',
-          fontSize: '15px',
-          padding: '16px 24px',
-          borderRadius: '16px',
-          boxShadow: '0 8px 24px rgba(46, 125, 50, 0.35)',
-        },
-        iconTheme: {
-          primary: '#fff',
-          secondary: '#2E7D32',
-        },
-      });
+      setDishCoveryShowWelcomeMessage(true);
       // Clear the flag
       sessionStorage.removeItem('userJustLoggedIn');
+      
+      // Auto-hide after 4 seconds
+      setTimeout(() => {
+        setDishCoveryShowWelcomeMessage(false);
+      }, 4000);
     }
   }, []);
 
@@ -276,10 +266,17 @@ const dishCoveryBottomRecipes = [
       onSignInClick={dishCoveryHandleSignInClick}
       onLogout={dishCoveryHandleLogout}
     >
-    <div ref={dishCoveryTopRef} className="container">
-   <Toaster />
+      <div ref={dishCoveryTopRef} className="container">
+        {dishCoveryShowWelcomeMessage && (
+          <div className="welcome-notification">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style={{ marginRight: '8px' }}>
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+            Welcome back! Ready to cook something amazing?
+          </div>
+        )}
 
-      <main className="main-content">
+    <main className="main-content">
         <div className="left-section">
           <div className="trust-badge">
             <svg className="trust-icon" viewBox="0 0 24 24" fill="currentColor">
