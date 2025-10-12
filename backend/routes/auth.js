@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pool from '../db.js';
+import authenticateToken from '../middleware/auth.js'; // Import middleware
 
 const router = express.Router();
 
@@ -153,6 +154,38 @@ router.post('/verify', async (req, res) => {
   } catch (error) {
     console.error('Verification error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ========================================
+// ✅ NEW: USER LOGOUT ENDPOINT
+// ========================================
+router.post('/logout', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const email = req.user.email;
+    
+    console.log('🚪 User logout initiated:', { userId, email });
+    
+    // Optional: Update last activity in database
+    await pool.query(
+      'UPDATE users SET last_activity = NOW() WHERE user_id = ?', 
+      [userId]
+    );
+    
+    console.log('✅ User logout successful:', email);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Logout successful' 
+    });
+  } catch (error) {
+    console.error('❌ Logout error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Logout failed',
+      error: error.message 
+    });
   }
 });
 
