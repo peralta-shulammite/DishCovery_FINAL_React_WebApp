@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import './adminlayout.css';
 
-const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
+const AdminLayout = ({ children, currentPage = 'Dashboard', onLogout }) => {
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const router = useRouter();
 
@@ -18,32 +18,27 @@ const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
       console.log(`Navigation successful to: ${path}`);
     } catch (error) {
       console.error('Navigation error:', error);
-      // Fallback to window.location
       window.location.href = path;
     }
   };
 
   const handleLogout = async () => {
-    console.log('Logout clicked - initiating logout process');
+    console.log('🔴 AdminLayout: Logout clicked');
     
+    // ✅ FIXED: Use the onLogout prop if provided (from Dashboard)
+    if (onLogout && typeof onLogout === 'function') {
+      console.log('✅ Using onLogout prop from parent component');
+      await onLogout();
+      return; // The onLogout function will handle the redirect
+    }
+    
+    // ✅ Fallback logout logic if no onLogout prop provided
+    console.log('⚠️ No onLogout prop - using fallback logout');
     try {
-      // Show loading state (optional)
-      // You can add a loading spinner here if needed
-      
-      // Clear all client-side storage
       if (typeof window !== 'undefined') {
-        // Clear localStorage
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('userData');
-        localStorage.removeItem('userSession');
-        localStorage.clear(); // Clear everything from localStorage
-        
-        // Clear sessionStorage
+        localStorage.clear();
         sessionStorage.clear();
         
-        // Clear any cookies (if you're using them)
         document.cookie.split(";").forEach((c) => {
           document.cookie = c
             .replace(/^ +/, "")
@@ -51,9 +46,8 @@ const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
         });
       }
       
-      // Optional: Call logout API endpoint to invalidate session on server
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         if (token) {
           await fetch('/api/auth/logout', {
             method: 'POST',
@@ -64,19 +58,18 @@ const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
           });
         }
       } catch (apiError) {
-        console.log('API logout call failed, but continuing with client logout:', apiError);
-        // Continue with logout even if API call fails
+        console.log('API logout call failed, but continuing:', apiError);
       }
       
-      console.log('Logout successful - redirecting to login page');
+      console.log('✅ Logout successful - redirecting to /user/home');
       
-      // Force reload and redirect to login page
-      window.location.replace('/login'); // Use replace to prevent back button issues
+      // ✅ FIXED: Redirect to /user/home instead of /login
+      window.location.replace('/user/home');
       
     } catch (error) {
-      console.error('Logout error:', error);
-      // Even if there's an error, still try to redirect
-      window.location.replace('/login');
+      console.error('❌ Logout error:', error);
+      // ✅ FIXED: Still redirect to /user/home even on error
+      window.location.replace('/user/home');
     }
   };
 
@@ -136,6 +129,13 @@ const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
     </svg>
   );
 
+  const AdminsIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      <path d="M20 10V7h-2v3h-3v2h3v3h2v-3h3v-2z"/>
+    </svg>
+  );
+
   return (
     <div className={`admin-layout-container ${!sidebarVisible ? 'sidebar-hidden' : ''}`}>
       {/* Header */}
@@ -190,6 +190,19 @@ const AdminLayout = ({ children, currentPage = 'Dashboard' }) => {
           >
             <span className="nav-icon"><UsersIcon /></span>
             <span className="nav-text">Users</span>
+          </div>
+
+          <div 
+            className={`nav-item ${currentPage === 'Admins' ? 'active' : ''}`}
+            onClick={(e) => {
+              e.preventDefault();
+              console.log('Admins clicked');
+              handleNavigation('/admin/admins');
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            <span className="nav-icon"><AdminsIcon /></span>
+            <span className="nav-text">Admins</span>
           </div>
           
           <div className="nav-section-header">Content Management</div>

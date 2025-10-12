@@ -124,7 +124,7 @@ const [dishCoveryShowWelcomeMessage, setDishCoveryShowWelcomeMessage] = useState
     if (!dishCoveryIsLoggedIn) {
       setDishCoveryShowSignInModal(true);
     } else {
-      console.log("Navigate to recipe detail page");
+      window.location.href = '/user/recipe';
     }
   };
 

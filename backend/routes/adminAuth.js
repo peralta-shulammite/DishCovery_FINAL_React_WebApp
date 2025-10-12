@@ -14,6 +14,30 @@ if (!JWT_SECRET || JWT_SECRET.length < 12) {
   );
 }
 
+// Middleware to authenticate admin token
+const authenticateAdminToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Admin token required' });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    if (!decoded?.isAdmin) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    req.admin = decoded;
+    next();
+  } catch (err) {
+    console.error('Admin token verification error:', err);
+    return res.status(403).json({ success: false, message: 'Invalid or expired admin token' });
+  }
+};
+
 // POST /api/admin-auth/login
 router.post('/login', async (req, res) => {
   try {
@@ -56,43 +80,43 @@ router.post('/login', async (req, res) => {
     
     if (Array.isArray(result) && result.length >= 1) {
       const firstElement = result[0];
-      console.log('📝 First element type:', typeof firstElement, 'isArray:', Array.isArray(firstElement));
-      console.log('📝 First element keys:', firstElement ? Object.keys(firstElement) : 'none');
+      console.log('🔍 First element type:', typeof firstElement, 'isArray:', Array.isArray(firstElement));
+      console.log('🔍 First element keys:', firstElement ? Object.keys(firstElement) : 'none');
       
       // Check if it's the format: [{ '0': actualRowsArray }]
       if (firstElement && typeof firstElement === 'object' && !Array.isArray(firstElement) && firstElement.hasOwnProperty('0')) {
         rows = firstElement['0'];
-        console.log('📝 Using result[0]["0"] path, extracted rows:', rows);
+        console.log('🔍 Using result[0]["0"] path, extracted rows:', rows);
       } 
       // Check if it's the format: [actualRowsArray, fields]
       else if (Array.isArray(firstElement)) {
         rows = firstElement;
-        console.log('📝 Using result[0] path (direct array)');
+        console.log('🔍 Using result[0] path (direct array)');
       }
       // Check if first element has numeric keys (another variation)
       else if (firstElement && typeof firstElement === 'object') {
         const keys = Object.keys(firstElement);
         if (keys.length > 0 && keys[0] === '0') {
           rows = Object.values(firstElement);
-          console.log('📝 Using Object.values() path');
+          console.log('🔍 Using Object.values() path');
         } else {
           rows = [firstElement]; // Single row result
-          console.log('📝 Treating as single row result');
+          console.log('🔍 Treating as single row result');
         }
       }
       else {
         rows = result[0];
-        console.log('📝 Using fallback result[0] path');
+        console.log('🔍 Using fallback result[0] path');
       }
     } else if (result && result.rows) {
       rows = result.rows;
-      console.log('📝 Using result.rows path');
+      console.log('🔍 Using result.rows path');
     } else {
       rows = result;
-      console.log('📝 Using direct result path');
+      console.log('🔍 Using direct result path');
     }
 
-    console.log('📝 Processed rows:', { 
+    console.log('🔍 Processed rows:', { 
       rowsType: typeof rows, 
       isArray: Array.isArray(rows),
       rowsLength: rows?.length,
@@ -266,6 +290,38 @@ router.get('/profile', async (req, res) => {
   } catch (err) {
     console.error('❌ Admin profile error:', err);
     return res.status(500).json({ success: false, message: 'Failed to get admin profile' });
+  }
+});
+
+// ========================================
+// ✅ NEW: ADMIN LOGOUT ENDPOINT
+// ========================================
+router.post('/logout', authenticateAdminToken, async (req, res) => {
+  try {
+    const adminId = req.admin.adminId;
+    const email = req.admin.email;
+    
+    console.log('🚪 Admin logout initiated:', { adminId, email });
+    
+    // Optional: Update last activity in database
+    await pool.query(
+      'UPDATE admin_users SET last_login = NOW() WHERE admin_id = ?', 
+      [adminId]
+    );
+    
+    console.log('✅ Admin logout successful:', email);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Admin logout successful' 
+    });
+  } catch (error) {
+    console.error('❌ Admin logout error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Admin logout failed',
+      error: error.message 
+    });
   }
 });
 
