@@ -15,15 +15,16 @@ const RecipeManagement = () => {
   const [mealTypeFilter, setMealTypeFilter] = useState('All');
   const [servingsFilter, setServingsFilter] = useState('All'); 
   const [dietaryFilter, setDietaryFilter] = useState('All');
+  const [healthFilter, setHealthFilter] = useState('All');
   const [editingRecipeId, setEditingRecipeId] = useState(null); 
   
   // Database connection states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [recipes, setRecipes] = useState([]); // Now connected to database
+  const [recipes, setRecipes] = useState([]);
 
-  // Form state for adding/editing recipes - UPDATED with alternative ingredients
-const [formData, setFormData] = useState({
+  // Form state for adding/editing recipes
+  const [formData, setFormData] = useState({
     title: '',
     description: '',
     images: [],
@@ -44,6 +45,7 @@ const [formData, setFormData] = useState({
   const mealTypes = ['Breakfast', 'Dessert', 'Dinner', 'Heavy Meal', 'Light Meal', 'Lunch', 'Smoothie', 'Snack'].sort();
   const dietaryOptions = ['Dairy-free', 'Gluten-free', 'Halal', 'Keto', 'Mediterranean', 'Paleo', 'Vegan', 'Vegetarian'].sort();
   const servingsOptions = ['1', '2', '3', '4', '5', '6', '7', '8+'].sort();
+
   // Fetch recipes from database
   const fetchRecipes = async () => {
     try {
@@ -75,6 +77,45 @@ const [formData, setFormData] = useState({
     fetchRecipes();
   }, [searchTerm, statusFilter, mealTypeFilter]);
 
+  // Auto-refresh when tab becomes visible (detects changes from other tabs)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Tab became visible, refreshing recipes...');
+        fetchRecipes();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Listen for recipe changes from localStorage (cross-tab sync)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'lastRecipeChange' && e.newValue) {
+        try {
+          const change = JSON.parse(e.newValue);
+          console.log('Storage change detected:', change);
+          
+          // Refresh recipes to get latest data
+          fetchRecipes();
+        } catch (error) {
+          console.error('Error handling storage change:', error);
+        }
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   const handleAddRecipe = () => {
     setEditingRecipeId(null);
     resetForm();
@@ -86,11 +127,9 @@ const [formData, setFormData] = useState({
     setShowViewModal(true);
   };
 
-  // UPDATED handleEditRecipe function to handle new ingredient structure
   const handleEditRecipe = (recipe) => {
     setEditingRecipeId(recipe.id);
     
-    // Convert old array format to new object format if needed
     const convertIngredients = (ingredients) => {
       if (Array.isArray(ingredients)) {
         return ingredients.map(item => 
@@ -121,7 +160,6 @@ const [formData, setFormData] = useState({
       try {
         await recipeAPI.delete(recipeId);
         
-        // Remove from local state
         setRecipes(recipes.filter(recipe => recipe.id !== recipeId));
         setShowViewModal(false);
         alert('Recipe deleted successfully!');
@@ -139,18 +177,16 @@ const [formData, setFormData] = useState({
       setLoading(true);
       
       if (editingRecipeId) {
-        // Update existing recipe
         await recipeAPI.update(editingRecipeId, formData);
         alert('Recipe updated successfully!');
       } else {
-        // Create new recipe
         await recipeAPI.create(formData);
         alert('Recipe added successfully!');
       }
 
       setShowAddModal(false);
       resetForm();
-      fetchRecipes(); // Refresh the list
+      fetchRecipes();
     } catch (err) {
       const errorMessage = handleAPIError(err);
       alert(`Error saving recipe: ${errorMessage}`);
@@ -206,7 +242,6 @@ const [formData, setFormData] = useState({
     }
   };
 
-  // UPDATED addIngredient function
   const addIngredient = (category) => {
     setFormData({
       ...formData,
@@ -217,7 +252,6 @@ const [formData, setFormData] = useState({
     });
   };
 
-  // UPDATED updateIngredient function to handle both ingredient and alternative
   const updateIngredient = (category, index, field, value) => {
     const newIngredients = { ...formData.ingredients };
     newIngredients[category][index][field] = value;
@@ -227,7 +261,6 @@ const [formData, setFormData] = useState({
     });
   };
 
-  // UPDATED removeIngredient function
   const removeIngredient = (category, index) => {
     if (formData.ingredients[category].length > 1) {
       const newIngredients = { ...formData.ingredients };
@@ -252,15 +285,15 @@ const [formData, setFormData] = useState({
   };
 
   const filteredRecipes = recipes.filter(recipe => {
-    const matchesSearch = recipe.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         recipe.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesMealType = mealTypeFilter === 'All' || recipe.mealType === mealTypeFilter;
+    const matchesSearch = (recipe?.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (recipe?.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesMealType = mealTypeFilter === 'All' || recipe?.mealType === mealTypeFilter;
     const matchesStatus = statusFilter === 'All' || 
-                         (statusFilter === 'AI-generated' && recipe.verificationStatus === 'AI-generated') ||
-                         (statusFilter === 'Verified' && recipe.verificationStatus.includes('Checked by'));
-    const matchesServings = servingsFilter === 'All' || recipe.servings === servingsFilter;
+                         (statusFilter === 'AI-generated' && recipe?.verificationStatus === 'AI-generated') ||
+                         (statusFilter === 'Verified' && (recipe?.verificationStatus || '').includes('Checked by'));
+    const matchesHealth = healthFilter === 'All' || (recipe?.healthTags || []).includes(healthFilter);
     
-    return matchesSearch && matchesMealType && matchesStatus && matchesServings;
+    return matchesSearch && matchesMealType && matchesStatus && matchesHealth;
   });
 
   const handleImageUpload = (e) => {
@@ -272,7 +305,6 @@ const [formData, setFormData] = useState({
     });
   };
 
-  // Show loading state
   if (loading && recipes.length === 0) {
     return (
       <AdminLayout currentPage="Recipes">
@@ -286,7 +318,6 @@ const [formData, setFormData] = useState({
     );
   }
 
-  // Show error state
   if (error && recipes.length === 0) {
     return (
       <AdminLayout currentPage="Recipes">
@@ -314,7 +345,6 @@ const [formData, setFormData] = useState({
     );
   }
 
-  // Icons Components
   const PlusIcon = () => (
     <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
       <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
@@ -366,7 +396,6 @@ const [formData, setFormData] = useState({
   return (
     <AdminLayout currentPage="Recipes">
       <div className="dashboard-content">
-        {/* Recipe Management Controls */}
         <div className="controls-container">
           <div className="status-filters">
             <span className="filter-label">Status:</span>
@@ -416,7 +445,6 @@ const [formData, setFormData] = useState({
           </button>
         </div>
 
-        {/* Recipe Display */}
         <div className={`recipe-display ${viewMode}`}>
           {filteredRecipes.length === 0 ? (
             <div className="no-recipes">
@@ -478,7 +506,6 @@ const [formData, setFormData] = useState({
           )}
         </div>
 
-        {/* Add/Edit Recipe Modal */}
         {showAddModal && (
           <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
             <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
@@ -566,7 +593,6 @@ const [formData, setFormData] = useState({
                   </button>
                 </div>
 
-                {/* UPDATED Ingredients Section with Alternatives */}
                 <div className="form-section">
                   <label className="form-label">Ingredients</label>
                   {['main', 'condiments', 'optional'].map(category => (
@@ -693,7 +719,6 @@ const [formData, setFormData] = useState({
           </div>
         )}
 
-        {/* View Recipe Modal */}
         {showViewModal && selectedRecipe && (
           <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
             <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
@@ -702,7 +727,7 @@ const [formData, setFormData] = useState({
                 <button className="modal-close" onClick={() => setShowViewModal(false)}>×</button>
               </div>
               <div className="recipe-details">
-                <div className="recipe-images">
+              <div className="recipe-images">
                   <img src={selectedRecipe.images[0]} alt={selectedRecipe.title} className="main-image" />
                 </div>
                 
@@ -744,7 +769,6 @@ const [formData, setFormData] = useState({
                   </div>
                 </div>
 
-                {/* UPDATED Ingredients Display with Alternatives */}
                 <div className="recipe-ingredients-display">
                   <h4>Ingredients:</h4>
                   <div className="ingredients-grid">
