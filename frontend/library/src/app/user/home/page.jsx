@@ -4,7 +4,7 @@ import api from './api';
 import './styles.css';
 import Link from 'next/link';
 import UserLayout from '../../components/user/userlayout';
-import toast, { Toaster } from 'react-hot-toast';
+
 
 
 export default function DishCoveryLanding() {
@@ -56,30 +56,20 @@ export default function DishCoveryLanding() {
     return () => clearInterval(interval);
   }, []);
 
-// Check if user just logged in
+const [dishCoveryShowWelcomeMessage, setDishCoveryShowWelcomeMessage] = useState(false);
+
+  // Check if user just logged in
   useEffect(() => {
     const justLoggedIn = sessionStorage.getItem('userJustLoggedIn');
     if (justLoggedIn === 'true') {
-      toast.success('Welcome back! Ready to cook something amazing?', {
-        duration: 4000,
-        position: 'top-center',
-        style: {
-          background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
-          color: '#fff',
-          fontFamily: 'Poppins, sans-serif',
-          fontWeight: '600',
-          fontSize: '15px',
-          padding: '16px 24px',
-          borderRadius: '16px',
-          boxShadow: '0 8px 24px rgba(46, 125, 50, 0.35)',
-        },
-        iconTheme: {
-          primary: '#fff',
-          secondary: '#2E7D32',
-        },
-      });
+      setDishCoveryShowWelcomeMessage(true);
       // Clear the flag
       sessionStorage.removeItem('userJustLoggedIn');
+      
+      // Auto-hide after 4 seconds
+      setTimeout(() => {
+        setDishCoveryShowWelcomeMessage(false);
+      }, 4000);
     }
   }, []);
 
@@ -134,7 +124,7 @@ export default function DishCoveryLanding() {
     if (!dishCoveryIsLoggedIn) {
       setDishCoveryShowSignInModal(true);
     } else {
-      console.log("Navigate to recipe detail page");
+      window.location.href = '/user/recipe';
     }
   };
 
@@ -277,9 +267,9 @@ const dishCoveryBottomRecipes = [
       onLogout={dishCoveryHandleLogout}
     >
     <div ref={dishCoveryTopRef} className="container">
-   {/* <Toaster /> */}
+   <Toaster />
 
-      <main className="main-content">
+    <main className="main-content">
         <div className="left-section">
           <div className="trust-badge">
             <svg className="trust-icon" viewBox="0 0 24 24" fill="currentColor">

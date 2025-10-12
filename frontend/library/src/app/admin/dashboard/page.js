@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
 import toast, { Toaster } from 'react-hot-toast';
+import api from '../../user/home/api'; // ✅ CORRECT: Import api for logout
 
 const DashboardContent = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This Week');
@@ -10,20 +11,23 @@ const DashboardContent = () => {
 
   // Check if user just logged in
   useEffect(() => {
-    const justLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
-    if (justLoggedIn === 'true') {
-      toast.success('Welcome back, Admin!', {
-        duration: 3000,
-        position: 'top-right',
-        style: {
-          background: '#2E7D32',
-          color: '#fff',
-          fontFamily: 'Poppins, sans-serif',
-          fontWeight: '500',
-        },
-      });
-      // Clear the flag
-      sessionStorage.removeItem('adminJustLoggedIn');
+    // Only access sessionStorage in the browser
+    if (typeof window !== 'undefined') {
+      const justLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
+      if (justLoggedIn === 'true') {
+        toast.success('Welcome back, Admin!', {
+          duration: 3000,
+          position: 'top-right',
+          style: {
+            background: '#2E7D32',
+            color: '#fff',
+            fontFamily: 'Poppins, sans-serif',
+            fontWeight: '500',
+          },
+        });
+        // Clear the flag
+        sessionStorage.removeItem('adminJustLoggedIn');
+      }
     }
   }, []);
   
@@ -97,8 +101,7 @@ const DashboardContent = () => {
     </svg>
   );
 
-
-return (
+  return (
     <div className="dashboard-content">
       {/* <Toaster /> */}
       {/* Stats Cards - 3 cards */}
@@ -234,8 +237,44 @@ return (
 
 // FIXED: Use AdminLayout (capital A) not adminlayout (lowercase)
 const Dashboard = () => {
+  // ✅ ADDED: Logout handler function
+  const handleLogout = async () => {
+    try {
+      console.log('🔴 Admin logout initiated...');
+      
+      // Show loading toast
+      const loadingToast = toast.loading('Logging out...', {
+        style: {
+          fontFamily: 'Poppins, sans-serif',
+        },
+      });
+
+      // Call the logout API
+      await api.logout();
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
+      // The api.logout() will handle the redirect
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      toast.error('Logout failed. Redirecting...', {
+        style: {
+          fontFamily: 'Poppins, sans-serif',
+        },
+      });
+      
+      // ✅ FIXED: Force cleanup and redirect to correct route
+      localStorage.clear();
+      sessionStorage.clear();
+      setTimeout(() => {
+        window.location.href = '/user/home'; // ✅ FIXED: Changed from /user/ph to /user/home
+      }, 1000);
+    }
+  };
+
   return (
-    <AdminLayout currentPage="Dashboard">
+    <AdminLayout currentPage="Dashboard" onLogout={handleLogout}>
       <DashboardContent />
     </AdminLayout>
   );
