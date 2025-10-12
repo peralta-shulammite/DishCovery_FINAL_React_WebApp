@@ -250,6 +250,8 @@ router.get('/', async (req, res) => {
     const finalLimit = parseInt(limit) || 12;
     const finalOffset = parseInt(offset) || 0;
     
+    // Use string interpolation for LIMIT/OFFSET to avoid MySQL 8.0.22+ prepared statement bug
+    // This is safe because we're using parseInt() which ensures the values are numbers
     query += ` LIMIT ${finalLimit} OFFSET ${finalOffset}`;
 
     console.log('Final query:', query);

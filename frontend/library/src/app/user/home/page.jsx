@@ -277,7 +277,7 @@ const dishCoveryBottomRecipes = [
       onLogout={dishCoveryHandleLogout}
     >
     <div ref={dishCoveryTopRef} className="container">
-   <Toaster />
+   {/* <Toaster /> */}
 
       <main className="main-content">
         <div className="left-section">

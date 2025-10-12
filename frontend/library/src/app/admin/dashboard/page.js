@@ -8,7 +8,7 @@ const DashboardContent = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This Week');
   const [statusFilter, setStatusFilter] = useState('All');
 
-// Check if user just logged in
+  // Check if user just logged in
   useEffect(() => {
     const justLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
     if (justLoggedIn === 'true') {
@@ -100,7 +100,7 @@ const DashboardContent = () => {
 
 return (
     <div className="dashboard-content">
-      <Toaster />
+      {/* <Toaster /> */}
       {/* Stats Cards - 3 cards */}
       <div className="stats-container">
         <div className="stat-card new-users">
