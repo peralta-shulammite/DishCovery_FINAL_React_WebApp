@@ -103,7 +103,7 @@ const DashboardContent = () => {
 
   return (
     <div className="dashboard-content">
-      <Toaster />
+      {/* <Toaster /> */}
       {/* Stats Cards - 3 cards */}
       <div className="stats-container">
         <div className="stat-card new-users">

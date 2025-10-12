@@ -1,13 +1,9 @@
-// api.js - API functions for user recipes page
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
 
-// Get auth token
 const getAuthToken = () => {
   return localStorage.getItem('authToken') || localStorage.getItem('token');
 };
 
-// Generic API call
 const apiCall = async (endpoint, options = {}) => {
   const token = getAuthToken();
   
@@ -33,6 +29,12 @@ const apiCall = async (endpoint, options = {}) => {
 
     const result = await response.json();
     console.log('Success response:', result);
+    
+    // Store last sync timestamp
+    if (result.success && result.timestamp) {
+      localStorage.setItem('lastRecipeSync', result.timestamp);
+    }
+    
     return result;
   } catch (error) {
     console.error('API call failed:', error);
@@ -40,9 +42,51 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-// Recipe API functions
+const syncLocalRecipes = (recipes) => {
+  try {
+    const timestamp = new Date().toISOString();
+    localStorage.setItem('cachedRecipes', JSON.stringify(recipes));
+    localStorage.setItem('recipeCacheTimestamp', timestamp);
+    console.log('Local recipes synced:', recipes.length, 'recipes');
+  } catch (error) {
+    console.error('Error syncing local recipes:', error);
+  }
+};
+
+const getLocalRecipes = () => {
+  try {
+    const cached = localStorage.getItem('cachedRecipes');
+    return cached ? JSON.parse(cached) : [];
+  } catch (error) {
+    console.error('Error getting local recipes:', error);
+    return [];
+  }
+};
+
+const updateLocalRecipe = (recipeId, updatedRecipe, action = 'update') => {
+  try {
+    let recipes = getLocalRecipes();
+    
+    if (action === 'delete') {
+      recipes = recipes.filter(r => r.id !== recipeId);
+    } else if (action === 'update') {
+      const index = recipes.findIndex(r => r.id === recipeId);
+      if (index !== -1) {
+        recipes[index] = { ...recipes[index], ...updatedRecipe };
+      }
+    } else if (action === 'create') {
+      recipes.unshift(updatedRecipe);
+    }
+    
+    syncLocalRecipes(recipes);
+    return recipes;
+  } catch (error) {
+    console.error('Error updating local recipe:', error);
+    return getLocalRecipes();
+  }
+};
+
 export const recipeAPI = {
-  // Get all recipes with filters
   getAllRecipes: async (filters = {}) => {
     try {
       console.log('Getting all recipes with filters:', filters);
@@ -70,19 +114,26 @@ export const recipeAPI = {
       
       const response = await apiCall(endpoint);
       
-      // Return the full API response object so callers can inspect pagination and success flags
       if (response && (response.success || response.data)) {
+        if (response.data && response.data.length > 0) {
+          syncLocalRecipes(response.data);
+        }
         return response;
       }
       
       return { success: false, data: [] };
     } catch (error) {
       console.error('Error fetching recipes:', error);
+      // Fallback to cached recipes if network fails
+      const localRecipes = getLocalRecipes();
+      if (localRecipes.length > 0) {
+        console.log('Using cached recipes:', localRecipes.length);
+        return { success: true, data: localRecipes, fromCache: true };
+      }
       throw error;
     }
   },
 
-  // Get recipe by ID with full details
   getRecipeDetails: async (recipeId) => {
     try {
       console.log('Getting recipe details for ID:', recipeId);
@@ -94,11 +145,16 @@ export const recipeAPI = {
       return { success: false, data: null };
     } catch (error) {
       console.error('Error fetching recipe details:', error);
+      // Fallback to cached recipe if network fails
+      const localRecipes = getLocalRecipes();
+      const localRecipe = localRecipes.find(r => r.id === recipeId);
+      if (localRecipe) {
+        return { success: true, data: localRecipe, fromCache: true };
+      }
       throw error;
     }
   },
 
-  // Get all dietary tags
   getDietaryTags: async () => {
     try {
       console.log('Getting all dietary tags');
@@ -114,7 +170,6 @@ export const recipeAPI = {
     }
   },
 
-  // Search recipes
   searchRecipes: async (searchTerm, filters = {}) => {
     try {
       const params = new URLSearchParams();
@@ -132,25 +187,37 @@ export const recipeAPI = {
       console.error('Error searching recipes:', error);
       throw error;
     }
+  },
+
+  checkForUpdates: async () => {
+    try {
+      const lastSync = localStorage.getItem('lastRecipeSync');
+      const response = await apiCall(`/api/recipes?limit=1`);
+      
+      if (response && response.timestamp) {
+        const needsUpdate = !lastSync || new Date(response.timestamp) > new Date(lastSync);
+        return { needsUpdate, timestamp: response.timestamp };
+      }
+      
+      return { needsUpdate: false };
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      return { needsUpdate: false };
+    }
   }
 };
 
-// Favorites API functions - Using localStorage instead of backend API
 export const favoritesAPI = {
-  // Add recipe to favorites
   addToFavorites: async (recipe) => {
     try {
       console.log('Adding recipe to favorites:', recipe.id);
       
-      // Get current favorites from localStorage
       const favoritesData = localStorage.getItem('favoriteRecipes');
       let currentFavorites = favoritesData ? JSON.parse(favoritesData) : [];
       
-      // Check if already favorited
       const alreadyFavorited = currentFavorites.some(fav => fav.id === recipe.id);
       
       if (!alreadyFavorited) {
-        // Add to favorites
         currentFavorites.push(recipe);
         localStorage.setItem('favoriteRecipes', JSON.stringify(currentFavorites));
       }
@@ -162,16 +229,13 @@ export const favoritesAPI = {
     }
   },
 
-  // Remove recipe from favorites
   removeFromFavorites: async (recipeId) => {
     try {
       console.log('Removing recipe from favorites:', recipeId);
       
-      // Get current favorites from localStorage
       const favoritesData = localStorage.getItem('favoriteRecipes');
       let currentFavorites = favoritesData ? JSON.parse(favoritesData) : [];
       
-      // Remove from favorites
       currentFavorites = currentFavorites.filter(recipe => recipe.id !== recipeId);
       localStorage.setItem('favoriteRecipes', JSON.stringify(currentFavorites));
       
@@ -182,7 +246,6 @@ export const favoritesAPI = {
     }
   },
 
-  // Get all favorites
   getFavorites: async () => {
     try {
       console.log('Getting all favorites');
@@ -197,7 +260,6 @@ export const favoritesAPI = {
     }
   },
 
-  // Check if recipe is favorited
   isFavorited: async (recipeId) => {
     try {
       console.log('Checking if recipe is favorited:', recipeId);
@@ -210,10 +272,31 @@ export const favoritesAPI = {
       console.error('Error checking favorite status:', error);
       return false;
     }
+  },
+
+  syncFavoritesWithUpdates: async (updatedRecipeId, updatedData, action) => {
+    try {
+      const favoritesData = localStorage.getItem('favoriteRecipes');
+      let favorites = favoritesData ? JSON.parse(favoritesData) : [];
+      
+      if (action === 'delete') {
+        favorites = favorites.filter(recipe => recipe.id !== updatedRecipeId);
+      } else if (action === 'update') {
+        const index = favorites.findIndex(r => r.id === updatedRecipeId);
+        if (index !== -1) {
+          favorites[index] = { ...favorites[index], ...updatedData };
+        }
+      }
+      
+      localStorage.setItem('favoriteRecipes', JSON.stringify(favorites));
+      return { success: true };
+    } catch (error) {
+      console.error('Error syncing favorites:', error);
+      return { success: false };
+    }
   }
 };
 
-// Helper function for error handling
 export const handleAPIError = (error) => {
   console.error('API Error:', error);
   

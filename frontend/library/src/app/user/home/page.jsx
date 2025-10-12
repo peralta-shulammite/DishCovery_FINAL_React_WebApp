@@ -266,15 +266,8 @@ const dishCoveryBottomRecipes = [
       onSignInClick={dishCoveryHandleSignInClick}
       onLogout={dishCoveryHandleLogout}
     >
-      <div ref={dishCoveryTopRef} className="container">
-        {dishCoveryShowWelcomeMessage && (
-          <div className="welcome-notification">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style={{ marginRight: '8px' }}>
-              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-            </svg>
-            Welcome back! Ready to cook something amazing?
-          </div>
-        )}
+    <div ref={dishCoveryTopRef} className="container">
+   <Toaster />
 
     <main className="main-content">
         <div className="left-section">
