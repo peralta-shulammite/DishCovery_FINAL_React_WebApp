@@ -1,5 +1,6 @@
 // api.js - Fixed Authentication API for landing page
-// File: /app/user/ph/api.js
+// File: /app/user/home/api.js
+// ✅ FIXED: This file redirects to /user/home (your landing page)
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
@@ -13,13 +14,11 @@ const handleResponse = async (response) => {
 
 const api = {
   signIn: async (email, password) => {
-    console.log('🔐 Smart login attempt for:', email);
+    console.log('🔍 Smart login attempt for:', email);
     
-    // SMART LOGIN: Check if email looks like admin first
     const isLikelyAdmin = email.includes('admin') || email.endsWith('@dishcovery.com') || email.includes('test.com');
     
     if (isLikelyAdmin) {
-      // Try admin login first for admin-like emails
       try {
         console.log('👑 Trying admin login first (admin-like email)...');
         console.log('🌐 Admin endpoint: /api/admin-auth/login');
@@ -54,7 +53,6 @@ const api = {
       }
     }
 
-    // Try regular user login (either as fallback or primary for non-admin emails)
     try {
       console.log('👤 Trying user login...');
       console.log('🌐 User endpoint: /api/auth/login');
@@ -82,7 +80,6 @@ const api = {
     } catch (userError) {
       console.log('❌ User login failed:', userError.message);
       
-      // If user login fails and we haven't tried admin yet, try admin as last resort
       if (!isLikelyAdmin) {
         try {
           console.log('🔄 Last resort: trying admin login...');
@@ -159,13 +156,35 @@ const api = {
     return handleResponse(response);
   },
 
-  logout: async (redirectToHome = true) => {
+  logout: async () => {
     const token = localStorage.getItem('token');
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
     const userId = localStorage.getItem('userId');
     const userType = localStorage.getItem('userType');
     
     console.log('🚪 Logging out user...', { isAdmin, userId, userType });
+
+    // Call backend logout endpoint
+    try {
+      const endpoint = isAdmin ? '/api/admin-auth/logout' : '/api/auth/logout';
+      
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        console.log('✅ Server logout successful');
+      } else {
+        console.warn('⚠️ Server logout failed, continuing with client cleanup');
+      }
+    } catch (error) {
+      console.warn('⚠️ Server logout error:', error.message);
+      // Continue with client-side cleanup even if server logout fails
+    }
 
     // Clear all localStorage data
     const itemsToRemove = [
@@ -182,13 +201,15 @@ const api = {
       localStorage.removeItem(item);
     });
 
+    // Also clear sessionStorage
+    sessionStorage.clear();
+
     console.log('✅ Client-side cleanup completed');
 
-    if (redirectToPH && typeof window !== 'undefined') {
-      setTimeout(() => {
-        console.log('Redirecting to home page...');
-        window.location.href = '/user/home';
-      }, 100);
+    // ✅✅✅ FIXED: REDIRECT TO /user/home (YOUR LANDING PAGE) ✅✅✅
+    if (typeof window !== 'undefined') {
+      console.log('🏠 Redirecting to home page (/user/home)...');
+      window.location.href = '/user/home'; // ✅ CORRECT ROUTE
     }
 
     return { success: true, message: 'Logout successful' };
