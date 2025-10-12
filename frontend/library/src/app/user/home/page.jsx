@@ -4,7 +4,7 @@ import api from './api';
 import './styles.css';
 import Link from 'next/link';
 import UserLayout from '../../components/user/userlayout';
-
+import { Toaster, toast } from 'react-hot-toast';
 
 
 export default function DishCoveryLanding() {
