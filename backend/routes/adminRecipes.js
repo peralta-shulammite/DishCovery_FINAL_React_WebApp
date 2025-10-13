@@ -15,7 +15,6 @@ const adminAuth = (req, res, next) => {
 router.use(authenticateToken);
 router.use(adminAuth);
 
-// Helper function to get tag IDs - FIXED VERSION
 const getTagIdsFromNames = async (connection, tagNames) => {
   if (!tagNames || tagNames.length === 0) return [];
   
@@ -43,7 +42,6 @@ const getTagIdsFromNames = async (connection, tagNames) => {
   }
 };
 
-// GET all recipes with full data
 router.get('/', async (req, res) => {
   try {
     const { search = '', status = '', mealType = '', limit = 50, offset = 0 } = req.query;
@@ -129,7 +127,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET single recipe with full details
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -202,7 +199,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// CREATE recipe with all relations (transaction-based)
 router.post('/', async (req, res) => {
   let connection;
   try {
@@ -240,7 +236,6 @@ router.post('/', async (req, res) => {
 
     const recipeId = recipeResult.insertId;
 
-    // Insert images
     if (transformed.images.length > 0) {
       const imageValues = transformed.images.map((url, index) => 
         [recipeId, url, index, index === 0 ? 1 : 0]
@@ -251,7 +246,6 @@ router.post('/', async (req, res) => {
       );
     }
 
-    // Insert dietary tags - FIXED
     const allTags = [...transformed.dietaryTags, ...transformed.healthTags];
     if (allTags.length > 0) {
       const tagIds = await getTagIdsFromNames(connection, allTags);
@@ -263,12 +257,9 @@ router.post('/', async (req, res) => {
           [tagValues]
         );
         console.log(`Inserted ${tagIds.length} tags for recipe ${recipeId}`);
-      } else {
-        console.warn('No valid tags found to insert');
       }
     }
 
-    // Insert ingredients
     const ingredientValues = [];
     ['main', 'condiments', 'optional'].forEach(category => {
       if (transformed.ingredients[category] && Array.isArray(transformed.ingredients[category])) {
@@ -290,7 +281,6 @@ router.post('/', async (req, res) => {
       );
     }
 
-    // Insert verification
     await connection.query(
       'INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials) VALUES (?, ?, ?, ?)',
       [recipeId, transformed.verification.status, transformed.verification.verifierName, transformed.verification.verifierCredentials]
@@ -318,7 +308,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// UPDATE recipe with all relations (transaction-based)
+// FIXED UPDATE ROUTE
 router.put('/:id', async (req, res) => {
   let connection;
   try {
@@ -330,12 +320,28 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: validation.errors.join(', ') });
     }
 
-    const transformed = transformRecipeForDB(req.body);
-    
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // Update recipe
+    // FIXED: Get existing is_active status
+    const existingRecipe = await connection.query(
+      'SELECT is_active FROM recipes WHERE recipe_id = ?',
+      [recipeId]
+    );
+
+    if (existingRecipe.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: 'Recipe not found' });
+    }
+
+    // FIXED: Preserve is_active unless explicitly changed
+    const dataToTransform = {
+      ...req.body,
+      is_active: req.body.is_active !== undefined ? req.body.is_active : existingRecipe[0].is_active
+    };
+
+    const transformed = transformRecipeForDB(dataToTransform);
+    
     await connection.query(
       `UPDATE recipes SET 
         recipe_name = ?, description = ?, instructions = ?, prep_time = ?, 
@@ -358,7 +364,6 @@ router.put('/:id', async (req, res) => {
       ]
     );
 
-    // Update images
     await connection.query('DELETE FROM recipe_images WHERE recipe_id = ?', [recipeId]);
     if (transformed.images.length > 0) {
       const imageValues = transformed.images.map((url, index) => 
@@ -370,7 +375,6 @@ router.put('/:id', async (req, res) => {
       );
     }
 
-    // Update dietary tags - FIXED
     await connection.query('DELETE FROM recipe_dietary_tags WHERE recipe_id = ?', [recipeId]);
     const allTags = [...transformed.dietaryTags, ...transformed.healthTags];
     
@@ -383,13 +387,9 @@ router.put('/:id', async (req, res) => {
           'INSERT INTO recipe_dietary_tags (recipe_id, tag_id) VALUES ?',
           [tagValues]
         );
-        console.log(`Updated ${tagIds.length} tags for recipe ${recipeId}`);
-      } else {
-        console.warn('No valid tags found to insert');
       }
     }
 
-    // Update ingredients
     await connection.query('DELETE FROM recipe_ingredients_detailed WHERE recipe_id = ?', [recipeId]);
     const ingredientValues = [];
     
@@ -413,7 +413,6 @@ router.put('/:id', async (req, res) => {
       );
     }
 
-    // Update verification
     await connection.query('DELETE FROM recipe_verification WHERE recipe_id = ?', [recipeId]);
     await connection.query(
       'INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials) VALUES (?, ?, ?, ?)',
@@ -427,7 +426,8 @@ router.put('/:id', async (req, res) => {
       message: 'Recipe updated successfully',
       data: {
         id: recipeId,
-        ...req.body
+        ...req.body,
+        is_active: transformed.recipe.is_active
       },
       timestamp: new Date().toISOString(),
       action: 'update'
@@ -442,7 +442,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE recipe (cascade handled by foreign keys)
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
