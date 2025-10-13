@@ -19,7 +19,7 @@ if (useSSL) {
       console.log('🔒 Using SSL with CA certificate for cloud DB');
     } else {
       sslConfig = { rejectUnauthorized: false };
-      console.warn('⚠ CA certificate not found. SSL will be used but unverified.');
+      console.warn('⚠️ CA certificate not found. SSL will be used but unverified.');
     }
   } catch (err) {
     console.error('❌ Error loading CA certificate. SSL disabled.');
@@ -57,26 +57,37 @@ const testConnection = async () => {
   }
 };
 
-// Enhanced query method
-const query = async (sql, params = []) => {
-  try {
-    console.log('🔍 Executing query:', sql.length > 100 ? sql.substring(0, 100) + '...' : sql);
-    if (params.length) console.log('📝 Parameters:', params);
-    const [results] = await pool.execute(sql, params);
-    console.log(`✅ Query executed successfully. Rows affected/returned: ${results.length || results.affectedRows || 0}`);
-    return results;
-  } catch (error) {
-    console.error('❌ Database query error:', error.message);
-    console.error('🔍 Failed query:', sql);
-    if (params.length) console.error('📝 Parameters:', params);
-    throw error;
-  }
+// ✅ FIXED: Create a custom db object with all necessary methods
+const db = {
+  // Custom query method that wraps pool.query
+  query: async (sql, params = []) => {
+    try {
+      console.log('🔍 Executing query:', sql.length > 100 ? sql.substring(0, 100) + '...' : sql);
+      if (params.length) console.log('📝 Parameters:', params);
+      
+      // Use the original pool.query method directly
+      const [results] = await pool.query(sql, params);
+      
+      console.log(`✅ Query executed successfully. Rows affected/returned: ${results.length || results.affectedRows || 0}`);
+      return results;
+    } catch (error) {
+      console.error('❌ Database query error:', error.message);
+      console.error('🔍 Failed query:', sql);
+      if (params.length) console.error('📝 Parameters:', params);
+      throw error;
+    }
+  },
+  
+  // ✅ Add getConnection method for transactions
+  getConnection: async () => {
+    return await pool.getConnection();
+  },
+  
+  // Keep reference to original pool (for compatibility)
+  pool: pool
 };
-
-// Attach query method to pool
-pool.query = query;
 
 // Run test connection on startup
 testConnection();
 
-export default pool;
+export default db;
