@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
+import { favoritesAPI } from '../recipe/api';
 
 export default function UserProfilePage() {
   const dishCoveryTopRef = useRef(null);
@@ -39,7 +40,7 @@ export default function UserProfilePage() {
   const [dishCoveryAllergens, setDishCoveryAllergens] = useState(['Peanuts', 'Shellfish']);
   const [dishCoveryPreferredDiet, setDishCoveryPreferredDiet] = useState(['Vegan', 'Low-Sodium']);
 
-  // Mock data
+  // Mock data for last opened recipe
   const [dishCoveryLastOpenedRecipe] = useState({
     id: 1,
     name: 'Mediterranean Quinoa Bowl',
@@ -57,11 +58,38 @@ export default function UserProfilePage() {
     { id: 5, name: 'Avocado', date: '2025-01-24' },
   ]);
 
-  const [dishCoverySavedRecipesPreview] = useState([
-    { id: 1, name: 'Mediterranean Quinoa Bowl', time: '25 min', difficulty: 'Easy', image: 'https://via.placeholder.com/80x60?text=🥗' },
-    { id: 2, name: 'Grilled Salmon with Herbs', time: '30 min', difficulty: 'Medium', image: 'https://via.placeholder.com/80x60?text=🐟' },
-    { id: 3, name: 'Vegetable Stir Fry', time: '20 min', difficulty: 'Easy', image: 'https://via.placeholder.com/80x60?text=🥘' },
-  ]);
+  // CONNECTED: Load actual saved recipes from favorites API
+  const [dishCoverySavedRecipesPreview, setDishCoverySavedRecipesPreview] = useState([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(true);
+
+  // Load favorites from API on mount
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        setLoadingFavorites(true);
+        const response = await favoritesAPI.getFavorites();
+        
+        if (response && response.success && response.data) {
+          // Take only the first 3 recipes for preview
+          const preview = response.data.slice(0, 3).map(recipe => ({
+            id: recipe.id,
+            name: recipe.title,
+            time: recipe.cookTime,
+            difficulty: recipe.servings ? `${recipe.servings} servings` : 'Easy',
+            image: Array.isArray(recipe.images) ? recipe.images[0] : recipe.images
+          }));
+          setDishCoverySavedRecipesPreview(preview);
+        }
+      } catch (error) {
+        console.error('Error loading favorites preview:', error);
+        setDishCoverySavedRecipesPreview([]);
+      } finally {
+        setLoadingFavorites(false);
+      }
+    };
+    
+    loadFavorites();
+  }, []);
 
   const [dishCoveryHoverStates, setDishCoveryHoverStates] = useState({
     logo: false,
@@ -214,7 +242,7 @@ export default function UserProfilePage() {
                     </svg>
                     Saved Recipes
                   </h2>
-                  <a href="/favorites" className="view-all-btn">
+                  <a href="/user/favorites" className="view-all-btn">
                     View All
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M8.59 16.59L13.17 12L8.59 7.41L10 6l6 6-6 6-1.41-1.41z" />
@@ -222,19 +250,36 @@ export default function UserProfilePage() {
                   </a>
                 </div>
                 <div className="saved-recipes-preview">
-                  {dishCoverySavedRecipesPreview.map((recipe) => (
-                    <div key={recipe.id} className="preview-recipe-card">
-                      <img src={recipe.image} alt={recipe.name} className="preview-recipe-image" />
-                      <div className="preview-recipe-info">
-                        <h4 className="preview-recipe-name">{recipe.name}</h4>
-                        <div className="preview-recipe-meta">
-                          <span>{recipe.time}</span>
-                          <span>•</span>
-                          <span>{recipe.difficulty}</span>
+                  {loadingFavorites ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '14px' }}>
+                      Loading saved recipes...
+                    </div>
+                  ) : dishCoverySavedRecipesPreview.length > 0 ? (
+                    dishCoverySavedRecipesPreview.map((recipe) => (
+                      <div key={recipe.id} className="preview-recipe-card">
+                        <img 
+                          src={recipe.image} 
+                          alt={recipe.name} 
+                          className="preview-recipe-image"
+                          onError={(e) => { 
+                            e.target.src = 'https://via.placeholder.com/80x60?text=Recipe';
+                          }}
+                        />
+                        <div className="preview-recipe-info">
+                          <h4 className="preview-recipe-name">{recipe.name}</h4>
+                          <div className="preview-recipe-meta">
+                            <span>{recipe.time}</span>
+                            <span>•</span>
+                            <span>{recipe.difficulty}</span>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '14px' }}>
+                      No saved recipes yet. Start adding your favorites!
                     </div>
-                  ))}
+                  )}
                 </div>
               </section>
 
