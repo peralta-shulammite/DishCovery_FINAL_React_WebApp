@@ -127,30 +127,46 @@ const RecipeManagement = () => {
     setShowViewModal(true);
   };
 
-  const handleEditRecipe = (recipe) => {
+  // ✅ REPLACED: Fetch full recipe before editing
+  const handleEditRecipe = async (recipe) => {
     setEditingRecipeId(recipe.id);
     
-    const convertIngredients = (ingredients) => {
-      if (Array.isArray(ingredients)) {
-        return ingredients.map(item => 
-          typeof item === 'string' 
-            ? { ingredient: item, alternative: '' }
-            : item
-        );
-      }
-      return ingredients || [{ ingredient: '', alternative: '' }];
-    };
+    try {
+      // Fetch full recipe with ingredients
+      const fullRecipe = await recipeAPI.getById(recipe.id);
+      
+      const convertIngredients = (ingredients) => {
+        if (Array.isArray(ingredients)) {
+          return ingredients.map(item => 
+            typeof item === 'string' 
+              ? { ingredient: item, alternative: '' }
+              : item
+          );
+        }
+        return ingredients || [{ ingredient: '', alternative: '' }];
+      };
 
-    setFormData({
-      ...recipe,
-      ingredients: {
-        main: convertIngredients(recipe.ingredients.main),
-        condiments: convertIngredients(recipe.ingredients.condiments),
-        optional: convertIngredients(recipe.ingredients.optional)
-      },
-      verifierName: recipe.verificationStatus.includes('Checked by') ? recipe.verificationStatus.split(': ')[1].split(', ')[0] : '',
-      verifierCredentials: recipe.verificationStatus.includes('Checked by') ? recipe.verificationStatus.split(', ')[1] || '' : ''
-    });
+      setFormData({
+        ...fullRecipe,
+        ingredients: {
+          main: convertIngredients(fullRecipe.ingredients.main),
+          condiments: convertIngredients(fullRecipe.ingredients.condiments),
+          optional: convertIngredients(fullRecipe.ingredients.optional)
+        },
+        verifierName: fullRecipe.verificationStatus.includes('Checked by') 
+          ? fullRecipe.verificationStatus.split(': ')[1].split(', ')[0] 
+          : '',
+        verifierCredentials: fullRecipe.verificationStatus.includes('Checked by') 
+          ? fullRecipe.verificationStatus.split(', ')[1] || '' 
+          : ''
+      });
+      
+    } catch (error) {
+      console.error('Error loading recipe:', error);
+      alert('Failed to load recipe details');
+      return;
+    }
+    
     setShowViewModal(false);
     setShowAddModal(true);
   };

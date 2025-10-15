@@ -152,30 +152,43 @@ const parseInstructions = (instructionsData) => {
     return instructions;
   }
 
-  try {
-    if (typeof instructionsData === 'string') {
-      instructions = JSON.parse(instructionsData);
-    } else if (Array.isArray(instructionsData)) {
-      instructions = instructionsData;
-    } else {
-      instructions = [String(instructionsData)];
+  // If already an array, return it
+  if (Array.isArray(instructionsData)) {
+    return instructionsData.filter(inst => inst && String(inst).trim().length > 0);
+  }
+
+  // Convert to string
+  const instructionsStr = String(instructionsData).trim();
+  
+  if (!instructionsStr) {
+    return instructions;
+  }
+
+  // Try parsing as JSON first
+  if (instructionsStr.startsWith('[') || instructionsStr.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(instructionsStr);
+      instructions = Array.isArray(parsed) ? parsed : [parsed];
+    } catch (e) {
+      console.warn('Failed to parse instructions as JSON, treating as plain text');
+      instructions = [instructionsStr];
     }
-  } catch (e) {
-    console.error('Error parsing instructions:', e);
-    instructions = [String(instructionsData)];
+  } else {
+    // Plain text - split by newlines or numbered steps
+    if (instructionsStr.includes('\n')) {
+      // Split by newlines and clean up
+      instructions = instructionsStr
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(line => line.replace(/^\d+\.\s*/, '')); // Remove leading "1. ", "2. ", etc.
+    } else {
+      // Single instruction or split by periods
+      instructions = [instructionsStr];
+    }
   }
 
-  if (!Array.isArray(instructions)) {
-    instructions = [instructions];
-  }
-
-  instructions = instructions.filter(inst => {
-    if (!inst) return false;
-    const str = String(inst).trim();
-    return str.length > 0;
-  });
-
-  return instructions;
+  return instructions.filter(inst => inst && String(inst).trim().length > 0);
 };
 
 // ✅ FIXED: Get all recipes with optional filters

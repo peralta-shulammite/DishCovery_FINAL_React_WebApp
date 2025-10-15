@@ -15,6 +15,32 @@ const adminAuth = (req, res, next) => {
 router.use(authenticateToken);
 router.use(adminAuth);
 
+// ✅ NEW: Helper function to save ingredients
+const saveRecipeIngredients = async (connection, recipeId, ingredients) => {
+  await connection.query('DELETE FROM recipe_ingredients_detailed WHERE recipe_id = ?', [recipeId]);
+  
+  const ingredientValues = [];
+  ['main', 'condiments', 'optional'].forEach(category => {
+    if (ingredients[category] && Array.isArray(ingredients[category])) {
+      ingredients[category].forEach((item, index) => {
+        const ingredient = typeof item === 'string' ? item : item.ingredient;
+        const alternative = typeof item === 'object' ? item.alternative : '';
+        
+        if (ingredient && ingredient.trim()) {
+          ingredientValues.push([recipeId, category, ingredient.trim(), alternative || null, index]);
+        }
+      });
+    }
+  });
+  
+  if (ingredientValues.length > 0) {
+    await connection.query(
+      'INSERT INTO recipe_ingredients_detailed (recipe_id, category, ingredient_name, alternative_name, display_order) VALUES ?',
+      [ingredientValues]
+    );
+  }
+};
+
 const getTagIdsFromNames = async (connection, tagNames) => {
   if (!tagNames || tagNames.length === 0) return [];
   
@@ -234,7 +260,15 @@ router.post('/', async (req, res) => {
       transformed.recipe.is_active
     ]);
 
-    const recipeId = recipeResult.insertId;
+    // ✅ FIXED: Handle different return formats
+    const recipeId = recipeResult[0]?.insertId || recipeResult.insertId;
+    
+    console.log('Recipe insert result:', recipeResult);
+    console.log('Recipe ID:', recipeId);
+    
+    if (!recipeId) {
+      throw new Error('Failed to get recipe ID after insert');
+    }
 
     if (transformed.images.length > 0) {
       const imageValues = transformed.images.map((url, index) => 
@@ -260,26 +294,7 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const ingredientValues = [];
-    ['main', 'condiments', 'optional'].forEach(category => {
-      if (transformed.ingredients[category] && Array.isArray(transformed.ingredients[category])) {
-        transformed.ingredients[category].forEach((item, index) => {
-          const ingredient = typeof item === 'string' ? item : item.ingredient;
-          const alternative = typeof item === 'object' ? item.alternative : '';
-          
-          if (ingredient && ingredient.trim()) {
-            ingredientValues.push([recipeId, category, ingredient.trim(), alternative || null, index]);
-          }
-        });
-      }
-    });
-    
-    if (ingredientValues.length > 0) {
-      await connection.query(
-        'INSERT INTO recipe_ingredients_detailed (recipe_id, category, ingredient_name, alternative_name, display_order) VALUES ?',
-        [ingredientValues]
-      );
-    }
+    await saveRecipeIngredients(connection, recipeId, transformed.ingredients);
 
     await connection.query(
       'INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials) VALUES (?, ?, ?, ?)',
@@ -308,7 +323,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// FIXED UPDATE ROUTE
 router.put('/:id', async (req, res) => {
   let connection;
   try {
@@ -323,7 +337,6 @@ router.put('/:id', async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // FIXED: Get existing is_active status
     const existingRecipe = await connection.query(
       'SELECT is_active FROM recipes WHERE recipe_id = ?',
       [recipeId]
@@ -334,7 +347,6 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
 
-    // FIXED: Preserve is_active unless explicitly changed
     const dataToTransform = {
       ...req.body,
       is_active: req.body.is_active !== undefined ? req.body.is_active : existingRecipe[0].is_active
@@ -390,28 +402,8 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    await connection.query('DELETE FROM recipe_ingredients_detailed WHERE recipe_id = ?', [recipeId]);
-    const ingredientValues = [];
-    
-    ['main', 'condiments', 'optional'].forEach(category => {
-      if (transformed.ingredients[category] && Array.isArray(transformed.ingredients[category])) {
-        transformed.ingredients[category].forEach((item, index) => {
-          const ingredient = typeof item === 'string' ? item : item.ingredient;
-          const alternative = typeof item === 'object' ? item.alternative : '';
-          
-          if (ingredient && ingredient.trim()) {
-            ingredientValues.push([recipeId, category, ingredient.trim(), alternative || null, index]);
-          }
-        });
-      }
-    });
-    
-    if (ingredientValues.length > 0) {
-      await connection.query(
-        'INSERT INTO recipe_ingredients_detailed (recipe_id, category, ingredient_name, alternative_name, display_order) VALUES ?',
-        [ingredientValues]
-      );
-    }
+    // ✅ NEW: Save ingredients
+    await saveRecipeIngredients(connection, recipeId, transformed.ingredients);
 
     await connection.query('DELETE FROM recipe_verification WHERE recipe_id = ?', [recipeId]);
     await connection.query(
