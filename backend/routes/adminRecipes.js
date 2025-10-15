@@ -125,6 +125,7 @@ router.get('/', async (req, res) => {
         images,
         dietaryTags,
         healthTags: [],
+        ingredients: { main: [], condiments: [], optional: [] },
         engagement: {
           tried: recipe.tried_count || 0,
           saved: recipe.save_count || 0
