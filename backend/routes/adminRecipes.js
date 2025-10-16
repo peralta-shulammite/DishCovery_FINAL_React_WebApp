@@ -15,7 +15,7 @@ const adminAuth = (req, res, next) => {
 router.use(authenticateToken);
 router.use(adminAuth);
 
-// ✅ NEW: Helper function to save ingredients
+// ✅ Helper function to save ingredients
 const saveRecipeIngredients = async (connection, recipeId, ingredients) => {
   await connection.query('DELETE FROM recipe_ingredients_detailed WHERE recipe_id = ?', [recipeId]);
   
@@ -68,6 +68,7 @@ const getTagIdsFromNames = async (connection, tagNames) => {
   }
 };
 
+// ✅ FIXED: GET all recipes with proper JOINs for images and tags
 router.get('/', async (req, res) => {
   try {
     const { search = '', status = '', mealType = '', limit = 50, offset = 0 } = req.query;
@@ -91,9 +92,23 @@ router.get('/', async (req, res) => {
       queryParams.push(mealType.trim());
     }
 
+    // ✅ CRITICAL FIX: Added GROUP_CONCAT for images and dietary_tags
     const mainQuery = `
       SELECT 
-        r.*,
+        r.recipe_id as id,
+        r.recipe_name as title,
+        r.description,
+        r.prep_time,
+        r.cook_time,
+        r.total_time,
+        r.servings,
+        r.difficulty_level as difficulty,
+        r.meal_type,
+        r.dish_type,
+        r.is_active,
+        r.instructions,
+        r.created_at,
+        r.updated_at,
         GROUP_CONCAT(DISTINCT ri.image_url ORDER BY ri.display_order) as images,
         GROUP_CONCAT(DISTINCT dt.tag_name) as dietary_tags,
         rv.verification_status,
@@ -114,19 +129,22 @@ router.get('/', async (req, res) => {
       LIMIT ${limitNum} OFFSET ${offsetNum}
     `;
 
+    console.log('📄 Admin: Executing recipe query with JOINs');
     const recipes = await pool.query(mainQuery, queryParams);
+    console.log(`✅ Fetched ${recipes.length} recipes with images and tags`);
 
-    // ✅ CRITICAL FIX: Add ingredients property to prevent undefined errors
+    // ✅ Transform recipes with proper data structure
     const transformedRecipes = recipes.map(recipe => {
+      // Split comma-separated strings into arrays
       const images = recipe.images ? recipe.images.split(',') : [];
-      const dietaryTags = recipe.dietary_tags ? recipe.dietary_tags.split(',') : [];
+      const dietaryTags = recipe.dietary_tags ? recipe.dietary_tags.split(',').filter(Boolean) : [];
       
       return transformRecipeForFrontend({
         ...recipe,
         images,
         dietaryTags,
         healthTags: [],
-        ingredients: { main: [], condiments: [], optional: [] }, // ✅ ADDED THIS LINE
+        ingredients: { main: [], condiments: [], optional: [] },
         engagement: {
           tried: recipe.tried_count || 0,
           saved: recipe.save_count || 0
@@ -150,11 +168,12 @@ router.get('/', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Error fetching recipes:', error);
+    console.error('❌ Error fetching admin recipes:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
+// ✅ GET single recipe by ID
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -188,6 +207,7 @@ router.get('/:id', async (req, res) => {
     const dietaryTags = recipe.dietary_tags ? recipe.dietary_tags.split(',').filter(Boolean) : [];
     const healthTags = recipe.health_tags ? recipe.health_tags.split(',').filter(Boolean) : [];
 
+    // Fetch ingredients separately
     const ingredientsQuery = `
       SELECT category, ingredient_name, alternative_name, display_order
       FROM recipe_ingredients_detailed
@@ -227,6 +247,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// ✅ POST - Create new recipe
 router.post('/', async (req, res) => {
   let connection;
   try {
@@ -262,7 +283,7 @@ router.post('/', async (req, res) => {
       transformed.recipe.is_active
     ]);
 
-    // ✅ FIXED: Handle different return formats
+    // ✅ Handle different return formats
     const recipeId = recipeResult[0]?.insertId || recipeResult.insertId;
     
     console.log('Recipe insert result:', recipeResult);
@@ -272,6 +293,7 @@ router.post('/', async (req, res) => {
       throw new Error('Failed to get recipe ID after insert');
     }
 
+    // Insert images
     if (transformed.images.length > 0) {
       const imageValues = transformed.images.map((url, index) => 
         [recipeId, url, index, index === 0 ? 1 : 0]
@@ -282,6 +304,7 @@ router.post('/', async (req, res) => {
       );
     }
 
+    // Insert dietary tags
     const allTags = [...transformed.dietaryTags, ...transformed.healthTags];
     if (allTags.length > 0) {
       const tagIds = await getTagIdsFromNames(connection, allTags);
@@ -296,8 +319,10 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Insert ingredients
     await saveRecipeIngredients(connection, recipeId, transformed.ingredients);
 
+    // Insert verification status
     await connection.query(
       'INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials) VALUES (?, ?, ?, ?)',
       [recipeId, transformed.verification.status, transformed.verification.verifierName, transformed.verification.verifierCredentials]
@@ -325,6 +350,7 @@ router.post('/', async (req, res) => {
   }
 });
 
+// ✅ PUT - Update existing recipe
 router.put('/:id', async (req, res) => {
   let connection;
   try {
@@ -356,6 +382,7 @@ router.put('/:id', async (req, res) => {
 
     const transformed = transformRecipeForDB(dataToTransform);
     
+    // Update main recipe
     await connection.query(
       `UPDATE recipes SET 
         recipe_name = ?, description = ?, instructions = ?, prep_time = ?, 
@@ -378,6 +405,7 @@ router.put('/:id', async (req, res) => {
       ]
     );
 
+    // Update images
     await connection.query('DELETE FROM recipe_images WHERE recipe_id = ?', [recipeId]);
     if (transformed.images.length > 0) {
       const imageValues = transformed.images.map((url, index) => 
@@ -389,6 +417,7 @@ router.put('/:id', async (req, res) => {
       );
     }
 
+    // Update dietary tags
     await connection.query('DELETE FROM recipe_dietary_tags WHERE recipe_id = ?', [recipeId]);
     const allTags = [...transformed.dietaryTags, ...transformed.healthTags];
     
@@ -404,9 +433,10 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    // ✅ NEW: Save ingredients
+    // Update ingredients
     await saveRecipeIngredients(connection, recipeId, transformed.ingredients);
 
+    // Update verification
     await connection.query('DELETE FROM recipe_verification WHERE recipe_id = ?', [recipeId]);
     await connection.query(
       'INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials) VALUES (?, ?, ?, ?)',
@@ -436,6 +466,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ✅ DELETE - Remove recipe
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
