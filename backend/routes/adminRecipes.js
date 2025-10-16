@@ -116,6 +116,7 @@ router.get('/', async (req, res) => {
 
     const recipes = await pool.query(mainQuery, queryParams);
 
+    // ✅ CRITICAL FIX: Add ingredients property to prevent undefined errors
     const transformedRecipes = recipes.map(recipe => {
       const images = recipe.images ? recipe.images.split(',') : [];
       const dietaryTags = recipe.dietary_tags ? recipe.dietary_tags.split(',') : [];
@@ -125,7 +126,7 @@ router.get('/', async (req, res) => {
         images,
         dietaryTags,
         healthTags: [],
-        ingredients: { main: [], condiments: [], optional: [] },
+        ingredients: { main: [], condiments: [], optional: [] }, // ✅ ADDED THIS LINE
         engagement: {
           tried: recipe.tried_count || 0,
           saved: recipe.save_count || 0
