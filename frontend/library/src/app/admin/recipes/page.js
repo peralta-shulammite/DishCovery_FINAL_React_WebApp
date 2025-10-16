@@ -473,7 +473,12 @@ const RecipeManagement = () => {
             filteredRecipes.map(recipe => (
               <div key={recipe.id} className="recipe-card" onClick={() => handleViewRecipe(recipe)}>
                 <div className="recipe-image">
-                  <img src={recipe.images[0]} alt={recipe.title} />
+                  {/* ✅ FIXED: Handle both images array and image_url string */}
+                  <img 
+                    src={recipe.images?.[0] || recipe.image_url || 'https://via.placeholder.com/400x300?text=No+Image'} 
+                    alt={recipe.title}
+                    onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=No+Image'; }}
+                  />
                   <div className="recipe-actions">
                     <button className="recipe-action-btn edit" onClick={(e) => { 
                       e.stopPropagation(); 
@@ -495,20 +500,20 @@ const RecipeManagement = () => {
                   <div className="recipe-meta">
                     <span className="meal-type">{recipe.mealType}</span>
                     <div className="recipe-tags">
-                      {recipe.dietaryTags.slice(0, 2).map(tag => (
+                      {(recipe.dietaryTags || []).slice(0, 2).map(tag => (
                         <span key={tag} className="tag dietary">{tag}</span>
                       ))}
-                      {recipe.dietaryTags.length > 2 && <span className="tag-more">+{recipe.dietaryTags.length - 2}</span>}
+                      {(recipe.dietaryTags || []).length > 2 && <span className="tag-more">+{recipe.dietaryTags.length - 2}</span>}
                     </div>
                   </div>
                   <div className="recipe-engagement">
                     <div className="engagement-item">
                       <TryIcon />
-                      <span>{recipe.engagement.tried}</span>
+                      <span>{recipe.engagement?.tried || 0}</span>
                     </div>
                     <div className="engagement-item">
                       <HeartIcon />
-                      <span>{recipe.engagement.saved}</span>
+                      <span>{recipe.engagement?.saved || 0}</span>
                     </div>
                   </div>
                   <div className="recipe-verification">
@@ -743,8 +748,14 @@ const RecipeManagement = () => {
                 <button className="modal-close" onClick={() => setShowViewModal(false)}>×</button>
               </div>
               <div className="recipe-details">
-              <div className="recipe-images">
-                  <img src={selectedRecipe.images[0]} alt={selectedRecipe.title} className="main-image" />
+                <div className="recipe-images">
+                  {/* ✅ FIXED: Handle both images array and image_url string */}
+                  <img 
+                    src={selectedRecipe.images?.[0] || selectedRecipe.image_url || 'https://via.placeholder.com/400x300?text=No+Image'} 
+                    alt={selectedRecipe.title} 
+                    className="main-image"
+                    onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=No+Image'; }}
+                  />
                 </div>
                 
                 <div className="recipe-meta-info">
@@ -760,11 +771,11 @@ const RecipeManagement = () => {
                 <div className="recipe-engagement-stats">
                   <div className="engagement-stat">
                     <TryIcon />
-                    <span>{selectedRecipe.engagement.tried} people tried this</span>
+                    <span>{selectedRecipe.engagement?.tried || 0} people tried this</span>
                   </div>
                   <div className="engagement-stat">
                     <HeartIcon />
-                    <span>{selectedRecipe.engagement.saved} people saved this</span>
+                    <span>{selectedRecipe.engagement?.saved || 0} people saved this</span>
                   </div>
                 </div>
 
@@ -772,7 +783,7 @@ const RecipeManagement = () => {
                   <div className="tag-group">
                     <h4>Dietary Tags:</h4>
                     <div className="tags">
-                      {selectedRecipe.dietaryTags.map(tag => (
+                      {(selectedRecipe.dietaryTags || []).map(tag => (
                         <span key={tag} className="tag dietary">{tag}</span>
                       ))}
                     </div>
@@ -791,7 +802,7 @@ const RecipeManagement = () => {
                     <div className="ingredient-group">
                       <h5>Main Ingredients:</h5>
                       <ul>
-                        {selectedRecipe.ingredients.main.map((item, index) => (
+                        {(selectedRecipe.ingredients?.main || []).map((item, index) => (
                           <li key={index} className="ingredient-with-alternative">
                             <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
                             {typeof item === 'object' && item.alternative && (
@@ -806,7 +817,7 @@ const RecipeManagement = () => {
                     <div className="ingredient-group">
                       <h5>Condiments:</h5>
                       <ul>
-                        {selectedRecipe.ingredients.condiments.map((item, index) => (
+                        {(selectedRecipe.ingredients?.condiments || []).map((item, index) => (
                           <li key={index} className="ingredient-with-alternative">
                             <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
                             {typeof item === 'object' && item.alternative && (
@@ -821,7 +832,7 @@ const RecipeManagement = () => {
                     <div className="ingredient-group">
                       <h5>Optional:</h5>
                       <ul>
-                        {selectedRecipe.ingredients.optional.map((item, index) => (
+                        {(selectedRecipe.ingredients?.optional || []).map((item, index) => (
                           <li key={index} className="ingredient-with-alternative">
                             <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
                             {typeof item === 'object' && item.alternative && (
@@ -839,7 +850,7 @@ const RecipeManagement = () => {
                 <div className="recipe-instructions-display">
                   <h4>Instructions:</h4>
                   <ol className="instructions-list">
-                    {selectedRecipe.instructions.map((instruction, index) => (
+                    {(selectedRecipe.instructions || []).map((instruction, index) => (
                       <li key={index}>{instruction}</li>
                     ))}
                   </ol>
