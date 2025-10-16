@@ -272,8 +272,9 @@ router.get('/', async (req, res) => {
     const finalLimit = parseInt(limit) || 12;
     const finalOffset = parseInt(offset) || 0;
     
-    query += ' LIMIT ? OFFSET ?';
-    params.push(finalLimit, finalOffset);
+    // ✅ CRITICAL FIX: Use template literals instead of placeholders
+    query += ` LIMIT ${finalLimit} OFFSET ${finalOffset}`;
+    // Do NOT push limit/offset to params array
 
     console.log('Final query:', query);
     console.log('Query params:', params);
@@ -290,7 +291,6 @@ router.get('/', async (req, res) => {
           [recipe.id]
         );
 
-        // ✅ FIXED: Ensure ingredients are properly fetched
         const ingredients = await db.query(
           'SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order',
           [recipe.id]
@@ -370,9 +370,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ... rest of the routes remain the same ...
-// (I'll include them for completeness but they don't need changes)
-
 // Search recipes
 router.get('/search', async (req, res) => {
   try {
@@ -410,11 +407,11 @@ router.get('/search', async (req, res) => {
       )
       GROUP BY r.recipe_id
       ORDER BY r.updated_at DESC, r.created_at DESC
-      LIMIT ? OFFSET ?
+      LIMIT ${finalLimit} OFFSET ${finalOffset}
     `;
 
     const searchPattern = `%${searchTerm}%`;
-    const recipes = await db.query(query, [searchPattern, searchPattern, finalLimit, finalOffset]);
+    const recipes = await db.query(query, [searchPattern, searchPattern]);
 
     const enrichedRecipes = await Promise.all(recipes.map(async (recipe) => {
       recipe.instructions = parseInstructions(recipe.instructions);
@@ -490,10 +487,8 @@ router.get('/recommended', async (req, res) => {
     query += `
       GROUP BY r.recipe_id
       ORDER BY average_rating DESC, save_count DESC
-      LIMIT ?
+      LIMIT ${finalLimit}
     `;
-    
-    params.push(finalLimit);
 
     const recipes = await db.query(query, params);
 
@@ -838,7 +833,7 @@ router.delete('/:id', auth, async (req, res) => {
       SELECT created_by_admin FROM recipes WHERE recipe_id = ?
     `;
     const recipe = await db.query(ownershipQuery, [id]);
-
+    
     if (recipe.length === 0) {
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
