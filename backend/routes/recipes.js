@@ -5,6 +5,18 @@ import { transformRecipeForFrontend } from '../utils/recipeTransformer.js';
 
 const router = express.Router();
 
+// ✅ ADDED: Helper function to safely parse pagination parameters
+const getPaginationParams = (limit, offset, maxLimit = 100) => {
+  const parsedLimit = Math.min(Math.max(parseInt(limit) || 12, 1), maxLimit);
+  const parsedOffset = Math.max(parseInt(offset) || 0, 0);
+  
+  if (isNaN(parsedLimit) || isNaN(parsedOffset)) {
+    throw new Error('Invalid pagination parameters');
+  }
+  
+  return { limit: parsedLimit, offset: parsedOffset };
+};
+
 // Simple test route
 router.get('/simple-test', (req, res) => {
   console.log('Simple test route hit!');
@@ -197,7 +209,10 @@ router.get('/', async (req, res) => {
     console.log('=== GET /api/recipes ===');
     console.log('Query params received:', req.query);
 
-    const { search, mealType, dishType, dietaryTags, limit = 12, offset = 0 } = req.query;
+    const { search, mealType, dishType, dietaryTags, limit, offset } = req.query;
+
+    // ✅ CRITICAL: Parse pagination BEFORE building query
+    const { limit: finalLimit, offset: finalOffset } = getPaginationParams(limit, offset);
 
     let query = `
       SELECT DISTINCT
@@ -232,7 +247,7 @@ router.get('/', async (req, res) => {
       params.push(searchPattern, searchPattern);
     }
 
-    // ✅ FIXED: Handle mealType as both string and array
+    // Handle mealType as both string and array
     if (mealType) {
       const mealTypes = Array.isArray(mealType) ? mealType : [mealType];
       const validMealTypes = mealTypes
@@ -269,18 +284,16 @@ router.get('/', async (req, res) => {
     query += ` WHERE ${whereClauses.join(' AND ')}`;
     query += ' GROUP BY r.recipe_id ORDER BY r.updated_at DESC, r.created_at DESC';
     
-    const finalLimit = parseInt(limit) || 12;
-    const finalOffset = parseInt(offset) || 0;
-    
     // ✅ CRITICAL FIX: Use template literals instead of placeholders
     query += ` LIMIT ${finalLimit} OFFSET ${finalOffset}`;
     // Do NOT push limit/offset to params array
 
-    console.log('Final query:', query);
-    console.log('Query params:', params);
+    console.log('📝 Final query:', query);
+    console.log('🔢 Query params:', params);
+    console.log('📊 Pagination:', { finalLimit, finalOffset });
 
     const recipes = await db.query(query, params);
-    console.log('Fetched recipes count:', recipes.length);
+    console.log(`✅ Fetched ${recipes.length} recipes`);
 
     const enrichedRecipes = await Promise.all(recipes.map(async (recipe) => {
       try {
@@ -326,7 +339,7 @@ router.get('/', async (req, res) => {
 
         return transformed;
       } catch (err) {
-        console.error(`Error enriching recipe ${recipe.id}:`, err);
+        console.error(`❌ Error enriching recipe ${recipe.id}:`, err);
         return {
           id: recipe.id,
           title: recipe.title,
@@ -357,30 +370,32 @@ router.get('/', async (req, res) => {
         offset: finalOffset,
         total: enrichedRecipes.length,
         hasMore: enrichedRecipes.length === finalLimit
-      }
+      },
+      timestamp: new Date().toISOString()
     });
     
   } catch (error) {
-    console.error('Error fetching recipes:', error);
+    console.error('❌ Error fetching recipes:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error', 
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
 
-// Search recipes
+// ✅ FIXED: Search recipes
 router.get('/search', async (req, res) => {
   try {
-    const { q: searchTerm, limit = 12, offset = 0 } = req.query;
+    const { q: searchTerm, limit, offset } = req.query;
 
     if (!searchTerm) {
       return res.status(400).json({ success: false, message: 'Search term is required' });
     }
 
-    const finalLimit = parseInt(limit) || 12;
-    const finalOffset = parseInt(offset) || 0;
+    // ✅ CRITICAL: Parse pagination BEFORE building query
+    const { limit: finalLimit, offset: finalOffset } = getPaginationParams(limit, offset);
 
     const query = `
       SELECT 
@@ -440,14 +455,17 @@ router.get('/search', async (req, res) => {
     });
   } catch (error) {
     console.error('Error searching recipes:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
-// Get recommended recipes
+// ✅ FIXED: Get recommended recipes
 router.get('/recommended', async (req, res) => {
   try {
-    const { userId, limit = 12 } = req.query;
+    const { userId, limit } = req.query;
+
+    // ✅ CRITICAL: Parse pagination BEFORE building query
+    const { limit: finalLimit } = getPaginationParams(limit, 0);
 
     let query = `
       SELECT 
@@ -483,7 +501,6 @@ router.get('/recommended', async (req, res) => {
       params.push(userId);
     }
 
-    const finalLimit = parseInt(limit) || 12;
     query += `
       GROUP BY r.recipe_id
       ORDER BY average_rating DESC, save_count DESC
@@ -515,7 +532,7 @@ router.get('/recommended', async (req, res) => {
     res.json({ success: true, data: enrichedRecipes });
   } catch (error) {
     console.error('Error fetching recommended recipes:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
@@ -571,7 +588,7 @@ router.get('/:id', async (req, res) => {
     res.json({ success: true, data: transformedRecipe });
   } catch (error) {
     console.error('Error fetching recipe:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
@@ -650,7 +667,7 @@ router.get('/:id/details', async (req, res) => {
     res.json({ success: true, data: transformedRecipe });
   } catch (error) {
     console.error('Error fetching recipe details:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
