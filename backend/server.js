@@ -8,9 +8,10 @@ import profileRouter from './routes/profile.js';
 import userRecipesRouter from './routes/userRecipes.js';
 import adminRecipesRouter from './routes/adminRecipes.js';
 import adminAuthRouter from './routes/adminAuth.js';
-import adminIngredientsRouter from './routes/adminIngredients.js';  // NEW ROUTE
+import adminIngredientsRouter from './routes/adminIngredients.js';
 import dietaryRestrictionsRouter from './routes/dietaryRestrictions.js';
 import pantryRouter from './routes/pantry.js';
+import scanRouter from './routes/scan.js';  // 🆕 ADD THIS
 import pool from './db.js';
 
 dotenv.config();
@@ -52,10 +53,11 @@ app.use('/api/users', usersRouter);
 app.use('/api/recipes', recipesRouter);
 app.use('/api/user/recipes', userRecipesRouter);
 app.use('/api/admin/recipes', adminRecipesRouter);
-app.use('/api/admin/ingredients', adminIngredientsRouter); // NEW ADMIN INGREDIENTS ROUTE
+app.use('/api/admin/ingredients', adminIngredientsRouter);
 app.use('/api/dietary-restrictions', dietaryRestrictionsRouter);
 app.use('/api/admin-auth', adminAuthRouter);
 app.use('/api/pantry', pantryRouter);
+app.use('/api/scan', scanRouter);  // 🆕 ADD THIS
 
 // ✅ Improved health route (also checks DB)
 app.use('/api/health', async (req, res) => {
@@ -70,7 +72,7 @@ app.use('/api/health', async (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log('🔍 Available routes:');
+  console.log('📍 Available routes:');
   console.log('   - GET  /api/health');
   console.log('   - POST /api/auth/register');
   console.log('   - POST /api/auth/login');
@@ -103,6 +105,9 @@ app.listen(PORT, () => {
   console.log('   - GET  /api/pantry/my-selection (🔒 Get User Previous Selection)');
   console.log('   - POST /api/pantry/generate-recipe (🔒 Generate Recipes from Ingredients)');
   console.log('   - POST /api/pantry/request-ingredient (🔒 Request New Ingredient)');
+  console.log('   🆕 YOLO SCAN ROUTES:');
+  console.log('   - POST /api/scan (📸 Scan Ingredients with YOLO)');
+  console.log('   - GET  /api/scan/health (🏥 Check Detection Service)');
 });
 
 export default app;
