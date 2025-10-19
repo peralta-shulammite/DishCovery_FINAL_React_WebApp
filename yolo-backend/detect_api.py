@@ -86,7 +86,7 @@ async def detect_ingredients(file: UploadFile = File(...)):
         logger.info(f"🖼️ Original image: {image.size}, mode: {image.mode}")
         
         # ✅ Resize to save memory
-        image = resize_image(image, max_size=320)
+        image = resize_image(image, max_size=224)
         logger.info(f"✅ Resized image: {image.size}")
         
         # Run detection
