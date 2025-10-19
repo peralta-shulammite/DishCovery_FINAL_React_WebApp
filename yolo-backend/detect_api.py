@@ -49,6 +49,7 @@ async def root():
     }
 
 @app.get("/health")
+@app.head("/health")  
 async def health_check():
     return {
         "status": "healthy" if model is not None else "unhealthy",
