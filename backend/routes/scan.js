@@ -89,7 +89,7 @@ router.post('/', upload.single('image'), async (req, res) => {
       headers: {
         ...formData.getHeaders()
       },
-      timeout: 30000
+      timeout: 120000
     });
 
     console.log(`✅ Detection complete: ${response.data.num_detections} ingredients found`);

@@ -57,6 +57,23 @@ async def health_check():
         "model_loaded": model is not None
     }
 
+def resize_image(image, max_size=640):
+    """Resize image to fit within max_size while maintaining aspect ratio"""
+    width, height = image.size
+    
+    if width <= max_size and height <= max_size:
+        return image
+    
+    if width > height:
+        new_width = max_size
+        new_height = int((max_size / width) * height)
+    else:
+        new_height = max_size
+        new_width = int((max_size / height) * width)
+    
+    logger.info(f"🔄 Resizing from {width}x{height} to {new_width}x{new_height}")
+    return image.resize((new_width, new_height), Image.LANCZOS)
+
 @app.post("/detect")
 async def detect_ingredients(file: UploadFile = File(...)):
     if model is None:
@@ -66,9 +83,14 @@ async def detect_ingredients(file: UploadFile = File(...)):
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
         
-        logger.info(f"🖼️  Processing image: {image.size}, mode: {image.mode}")
+        logger.info(f"🖼️ Original image: {image.size}, mode: {image.mode}")
         
-        results = model.predict(image, conf=0.25, iou=0.45)
+        # ✅ Resize to save memory
+        image = resize_image(image, max_size=640)
+        logger.info(f"✅ Resized image: {image.size}")
+        
+        # Run detection
+        results = model.predict(image, conf=0.25, iou=0.45, verbose=False)
         
         detections = []
         if len(results) > 0 and results[0].boxes is not None:
