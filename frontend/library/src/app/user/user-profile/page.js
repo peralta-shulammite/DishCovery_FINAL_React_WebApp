@@ -3,15 +3,51 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
 import { favoritesAPI } from '../recipe/api';
+import { profileAPI } from './api';
+
+// Helper function to construct full image URLs
+const getFullImageUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+  return `${API_BASE}${path}`;
+};
+
+// CSS-based placeholder component for recipe images
+const RecipePlaceholder = ({ emoji = '🍽️', size = 'medium' }) => {
+  const sizes = {
+    small: { width: '80px', height: '60px', fontSize: '24px' },
+    medium: { width: '150px', height: '100px', fontSize: '48px' },
+    large: { width: '200px', height: '150px', fontSize: '64px' }
+  };
+  
+  const style = sizes[size] || sizes.medium;
+  
+  return (
+    <div style={{
+      width: style.width,
+      height: style.height,
+      backgroundColor: '#f5f5f5',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: style.fontSize,
+      borderRadius: '8px',
+      border: '1px solid #e0e0e0'
+    }}>
+      {emoji}
+    </div>
+  );
+};
 
 export default function UserProfilePage() {
   const dishCoveryTopRef = useRef(null);
   const [dishCoveryIsLoggedIn, setDishCoveryIsLoggedIn] = useState(true);
   const [dishCoveryShowAvatarDropdown, setDishCoveryShowAvatarDropdown] = useState(false);
   const [dishCoveryUser, setDishCoveryUser] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
+    firstName: 'User',
+    lastName: '',
+    email: '',
     profilePicture: null,
   });
   const dishCoveryAvatarRef = useRef(null);
@@ -25,9 +61,9 @@ export default function UserProfilePage() {
   const [dishCoveryShowDeactivateModal, setDishCoveryShowDeactivateModal] = useState(false);
 
   // Form states
-  const [dishCoveryTempFirstName, setDishCoveryTempFirstName] = useState('John');
-  const [dishCoveryTempLastName, setDishCoveryTempLastName] = useState('Doe');
-  const [dishCoveryTempEmail, setDishCoveryTempEmail] = useState('john.doe@example.com');
+  const [dishCoveryTempFirstName, setDishCoveryTempFirstName] = useState('User');
+  const [dishCoveryTempLastName, setDishCoveryTempLastName] = useState('');
+  const [dishCoveryTempEmail, setDishCoveryTempEmail] = useState('');
   const [dishCoveryCurrentPassword, setDishCoveryCurrentPassword] = useState('');
   const [dishCoveryNewPassword, setDishCoveryNewPassword] = useState('');
   const [dishCoveryConfirmPassword, setDishCoveryConfirmPassword] = useState('');
@@ -35,18 +71,20 @@ export default function UserProfilePage() {
   const [dishCoveryNotificationsEnabled, setDishCoveryNotificationsEnabled] = useState(true);
   const [dishCoveryDarkMode, setDishCoveryDarkMode] = useState(false);
 
-  // Dietary preferences
-  const [dishCoveryMedicalConditions, setDishCoveryMedicalConditions] = useState(['Diabetes', 'Hypertension']);
-  const [dishCoveryAllergens, setDishCoveryAllergens] = useState(['Peanuts', 'Shellfish']);
-  const [dishCoveryPreferredDiet, setDishCoveryPreferredDiet] = useState(['Vegan', 'Low-Sodium']);
+  // Dietary preferences states
+  const [dishCoveryMedicalConditions, setDishCoveryMedicalConditions] = useState([]);
+  const [dishCoveryAllergens, setDishCoveryAllergens] = useState([]);
+  const [dishCoveryPreferredDiet, setDishCoveryPreferredDiet] = useState([]);
+  const [loadingDietaryData, setLoadingDietaryData] = useState(true);
+  const [loadingUserInfo, setLoadingUserInfo] = useState(true);
 
-  // Mock data for last opened recipe
+  // Mock data for last opened recipe - using CSS placeholder instead of external URL
   const [dishCoveryLastOpenedRecipe] = useState({
     id: 1,
     name: 'Mediterranean Quinoa Bowl',
     time: '25 min',
     difficulty: 'Easy',
-    image: 'https://via.placeholder.com/150x100?text=🥗',
+    image: null, // Will use CSS placeholder
     lastOpened: '2025-01-28',
   });
 
@@ -58,9 +96,51 @@ export default function UserProfilePage() {
     { id: 5, name: 'Avocado', date: '2025-01-24' },
   ]);
 
-  // CONNECTED: Load actual saved recipes from favorites API
   const [dishCoverySavedRecipesPreview, setDishCoverySavedRecipesPreview] = useState([]);
   const [loadingFavorites, setLoadingFavorites] = useState(true);
+
+  // Load user basic info from API
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      try {
+        setLoadingUserInfo(true);
+        console.log('📥 Loading user profile info from API...');
+        
+        const response = await profileAPI.getUserInfo();
+        
+        if (response && response.success && response.data) {
+          const { firstName, lastName, email, profilePicture } = response.data;
+          
+          // Update user state with real data
+          setDishCoveryUser({
+            firstName: firstName || 'User',
+            lastName: lastName || '',
+            email: email || '',
+            profilePicture: profilePicture || null
+          });
+          
+          // Also update the temp states for editing
+          setDishCoveryTempFirstName(firstName || 'User');
+          setDishCoveryTempLastName(lastName || '');
+          setDishCoveryTempEmail(email || '');
+          
+          console.log('✅ User info loaded successfully:', {
+            firstName,
+            lastName,
+            email,
+            hasProfilePicture: !!profilePicture
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error loading user info:', error);
+        // Keep placeholder values as fallback
+      } finally {
+        setLoadingUserInfo(false);
+      }
+    };
+    
+    loadUserInfo();
+  }, []);
 
   // Load favorites from API on mount
   useEffect(() => {
@@ -70,7 +150,6 @@ export default function UserProfilePage() {
         const response = await favoritesAPI.getFavorites();
         
         if (response && response.success && response.data) {
-          // Take only the first 3 recipes for preview
           const preview = response.data.slice(0, 3).map(recipe => ({
             id: recipe.id,
             name: recipe.title,
@@ -89,6 +168,40 @@ export default function UserProfilePage() {
     };
     
     loadFavorites();
+  }, []);
+
+  // Load dietary data from API
+  useEffect(() => {
+    const loadDietaryData = async () => {
+      try {
+        setLoadingDietaryData(true);
+        console.log('📥 Loading dietary preferences from API...');
+        
+        const response = await profileAPI.getDietaryPreferences();
+        
+        if (response && response.success && response.data) {
+          const { dietaryRestrictions, medicalConditions, preferredDiets } = response.data;
+          
+          // Map API data to state
+          setDishCoveryAllergens(dietaryRestrictions || []);
+          setDishCoveryMedicalConditions(medicalConditions || []);
+          setDishCoveryPreferredDiet(preferredDiets || []);
+          
+          console.log('✅ Dietary data loaded successfully:', {
+            allergens: dietaryRestrictions?.length || 0,
+            conditions: medicalConditions?.length || 0,
+            diets: preferredDiets?.length || 0
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error loading dietary data:', error);
+        // Keep empty arrays as fallback
+      } finally {
+        setLoadingDietaryData(false);
+      }
+    };
+    
+    loadDietaryData();
   }, []);
 
   const [dishCoveryHoverStates, setDishCoveryHoverStates] = useState({
@@ -115,7 +228,7 @@ export default function UserProfilePage() {
   }, []);
 
   const dishCoveryHandleLogout = () => {
-    // api.logout(); // Commented out as it may not exist in your context
+    localStorage.removeItem('token');
     setDishCoveryIsLoggedIn(false);
     setDishCoveryUser(null);
     setDishCoveryShowAvatarDropdown(false);
@@ -123,30 +236,79 @@ export default function UserProfilePage() {
   };
 
   const dishCoveryHandleSignInClick = () => {
-    setDishCoveryShowSignInModal(true);
-    setDishCoveryShowMobileMenu(false);
-    setDishCoveryError('');
+    window.location.href = '/login';
   };
 
-  const dishCoveryHandleProfilePictureChange = (e) => {
+  const dishCoveryHandleProfilePictureChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setDishCoveryUser((prev) => ({ ...prev, profilePicture: e.target.result }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          alert('File size must be less than 5MB');
+          return;
+        }
+
+        // Show preview immediately
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setDishCoveryUser((prev) => ({ ...prev, profilePicture: e.target.result }));
+        };
+        reader.readAsDataURL(file);
+
+        // Upload to server
+        console.log('📤 Uploading profile picture...');
+        const response = await profileAPI.uploadProfilePicture(file);
+        
+        if (response && response.success) {
+          console.log('✅ Profile picture uploaded successfully');
+          // Update with server URL
+          setDishCoveryUser((prev) => ({ 
+            ...prev, 
+            profilePicture: response.data.profilePicture 
+          }));
+        }
+      } catch (error) {
+        console.error('❌ Error uploading profile picture:', error);
+        alert('Failed to upload profile picture. Please try again.');
+        // Reload user info to revert to previous picture
+        const response = await profileAPI.getUserInfo();
+        if (response && response.success && response.data) {
+          setDishCoveryUser((prev) => ({
+            ...prev,
+            profilePicture: response.data.profilePicture
+          }));
+        }
+      }
     }
   };
 
-  const dishCoveryHandleSaveProfile = () => {
-    setDishCoveryUser((prev) => ({
-      ...prev,
-      firstName: dishCoveryTempFirstName,
-      lastName: dishCoveryTempLastName,
-      email: dishCoveryTempEmail,
-    }));
-    setDishCoveryEditingProfile(false);
+  const dishCoveryHandleSaveProfile = async () => {
+    try {
+      console.log('💾 Saving profile changes...');
+      
+      const response = await profileAPI.updateUserInfo({
+        firstName: dishCoveryTempFirstName,
+        lastName: dishCoveryTempLastName,
+        email: dishCoveryTempEmail
+      });
+
+      if (response && response.success) {
+        // Update main user state
+        setDishCoveryUser((prev) => ({
+          ...prev,
+          firstName: dishCoveryTempFirstName,
+          lastName: dishCoveryTempLastName,
+          email: dishCoveryTempEmail,
+        }));
+        
+        setDishCoveryEditingProfile(false);
+        console.log('✅ Profile updated successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error updating profile:', error);
+      alert(error.message || 'Failed to update profile. Please try again.');
+    }
   };
 
   const dishCoveryHandleCancelProfileEdit = () => {
@@ -176,16 +338,67 @@ export default function UserProfilePage() {
     dishCoveryHandleLogout();
   };
 
-  const dishCoveryRemoveCondition = (condition) => {
-    setDishCoveryMedicalConditions((prev) => prev.filter((c) => c !== condition));
+  const dishCoveryRemoveCondition = async (condition) => {
+    try {
+      // Optimistic update
+      const newConditions = dishCoveryMedicalConditions.filter((c) => c !== condition);
+      setDishCoveryMedicalConditions(newConditions);
+      
+      // Update on server
+      await profileAPI.updateDietaryPreferences({
+        dietaryRestrictions: dishCoveryAllergens,
+        medicalConditions: newConditions,
+        preferredDiets: dishCoveryPreferredDiet,
+        excludedIngredients: []
+      });
+      
+      console.log('✅ Removed condition:', condition);
+    } catch (error) {
+      console.error('❌ Error removing condition:', error);
+      // Revert on error
+      setDishCoveryMedicalConditions((prev) => [...prev, condition]);
+      alert('Failed to remove condition. Please try again.');
+    }
   };
 
-  const dishCoveryRemoveAllergen = (allergen) => {
-    setDishCoveryAllergens((prev) => prev.filter((a) => a !== allergen));
+  const dishCoveryRemoveAllergen = async (allergen) => {
+    try {
+      const newAllergens = dishCoveryAllergens.filter((a) => a !== allergen);
+      setDishCoveryAllergens(newAllergens);
+      
+      await profileAPI.updateDietaryPreferences({
+        dietaryRestrictions: newAllergens,
+        medicalConditions: dishCoveryMedicalConditions,
+        preferredDiets: dishCoveryPreferredDiet,
+        excludedIngredients: []
+      });
+      
+      console.log('✅ Removed allergen:', allergen);
+    } catch (error) {
+      console.error('❌ Error removing allergen:', error);
+      setDishCoveryAllergens((prev) => [...prev, allergen]);
+      alert('Failed to remove allergen. Please try again.');
+    }
   };
 
-  const dishCoveryRemoveDiet = (diet) => {
-    setDishCoveryPreferredDiet((prev) => prev.filter((d) => d !== diet));
+  const dishCoveryRemoveDiet = async (diet) => {
+    try {
+      const newDiets = dishCoveryPreferredDiet.filter((d) => d !== diet);
+      setDishCoveryPreferredDiet(newDiets);
+      
+      await profileAPI.updateDietaryPreferences({
+        dietaryRestrictions: dishCoveryAllergens,
+        medicalConditions: dishCoveryMedicalConditions,
+        preferredDiets: newDiets,
+        excludedIngredients: []
+      });
+      
+      console.log('✅ Removed diet:', diet);
+    } catch (error) {
+      console.error('❌ Error removing diet:', error);
+      setDishCoveryPreferredDiet((prev) => [...prev, diet]);
+      alert('Failed to remove diet. Please try again.');
+    }
   };
 
   const dishCoveryRemoveScanItem = (id) => {
@@ -216,11 +429,20 @@ export default function UserProfilePage() {
                   Last Opened Recipe
                 </h2>
                 <div className="last-recipe-card">
-                  <img
-                    src={dishCoveryLastOpenedRecipe.image}
-                    alt={dishCoveryLastOpenedRecipe.name}
-                    className="last-recipe-image"
-                  />
+                  {dishCoveryLastOpenedRecipe.image ? (
+                    <img
+                      src={dishCoveryLastOpenedRecipe.image}
+                      alt={dishCoveryLastOpenedRecipe.name}
+                      className="last-recipe-image"
+                      onError={(e) => { 
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div style={{ display: dishCoveryLastOpenedRecipe.image ? 'none' : 'flex' }}>
+                    <RecipePlaceholder emoji="🥗" size="medium" />
+                  </div>
                   <div className="last-recipe-info">
                     <h3 className="last-recipe-name">{dishCoveryLastOpenedRecipe.name}</h3>
                     <div className="last-recipe-meta">
@@ -257,14 +479,20 @@ export default function UserProfilePage() {
                   ) : dishCoverySavedRecipesPreview.length > 0 ? (
                     dishCoverySavedRecipesPreview.map((recipe) => (
                       <div key={recipe.id} className="preview-recipe-card">
-                        <img 
-                          src={recipe.image} 
-                          alt={recipe.name} 
-                          className="preview-recipe-image"
-                          onError={(e) => { 
-                            e.target.src = 'https://via.placeholder.com/80x60?text=Recipe';
-                          }}
-                        />
+                        {recipe.image ? (
+                          <img 
+                            src={recipe.image} 
+                            alt={recipe.name} 
+                            className="preview-recipe-image"
+                            onError={(e) => { 
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div style={{ display: recipe.image ? 'none' : 'flex' }}>
+                          <RecipePlaceholder emoji="🍽️" size="small" />
+                        </div>
                         <div className="preview-recipe-info">
                           <h4 className="preview-recipe-name">{recipe.name}</h4>
                           <div className="preview-recipe-meta">
@@ -368,190 +596,225 @@ export default function UserProfilePage() {
 
             <div className="right-panel">
               <div className="profile-details-card">
-                <div className="profile-picture-section-fixed">
-                  <div className="profile-picture-large">
-                    {dishCoveryUser.profilePicture ? (
-                      <img src={dishCoveryUser.profilePicture} alt="Profile" />
-                    ) : (
-                      <div className="profile-picture-placeholder-large">
-                        {dishCoveryUser.firstName?.charAt(0)}
-                        {dishCoveryUser.lastName?.charAt(0)}
-                      </div>
-                    )}
+                {loadingUserInfo ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                    <div style={{ fontSize: '14px' }}>Loading profile...</div>
                   </div>
-                  <button
-                    className="change-picture-btn-fixed"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0-1.8c-1.77 0-3.2-1.43-3.2-3.2 0-1.77 1.43-3.2 3.2-3.2s3.2 1.43 3.2 3.2c0 1.77-1.43 3.2-3.2 3.2z" />
-                    </svg>
-                    Change Photo
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={dishCoveryHandleProfilePictureChange}
-                    style={{ display: 'none' }}
-                  />
-                </div>
-
-                <div className="user-info-fixed">
-                  <div className="user-info-header">
-                    <h2 className="fixed-section-title">Personal Information</h2>
-                    {!dishCoveryEditingProfile && (
+                ) : (
+                  <>
+                    <div className="profile-picture-section-fixed">
+                      <div className="profile-picture-large">
+                        {dishCoveryUser.profilePicture ? (
+                          <img 
+                            src={getFullImageUrl(dishCoveryUser.profilePicture)} 
+                            alt="Profile" 
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className="profile-picture-placeholder-large"
+                          style={{ display: dishCoveryUser.profilePicture ? 'none' : 'flex' }}
+                        >
+                          {dishCoveryUser.firstName?.charAt(0)}
+                          {dishCoveryUser.lastName?.charAt(0)}
+                        </div>
+                      </div>
                       <button
-                        className="edit-btn-fixed"
-                        onClick={() => setDishCoveryEditingProfile(true)}
+                        className="change-picture-btn-fixed"
+                        onClick={() => fileInputRef.current?.click()}
                       >
                         <svg viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                          <path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0-1.8c-1.77 0-3.2-1.43-3.2-3.2 0-1.77 1.43-3.2 3.2-3.2s3.2 1.43 3.2 3.2c0 1.77-1.43 3.2-3.2 3.2z" />
                         </svg>
-                        Edit
+                        Change Photo
                       </button>
-                    )}
-                  </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={dishCoveryHandleProfilePictureChange}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
 
-                  {dishCoveryEditingProfile ? (
-                    <div className="edit-form-fixed">
-                      <div className="form-group-fixed">
-                        <label>First Name</label>
-                        <input
-                          type="text"
-                          value={dishCoveryTempFirstName}
-                          onChange={(e) => setDishCoveryTempFirstName(e.target.value)}
-                          className="form-input-fixed"
-                        />
+                    <div className="user-info-fixed">
+                      <div className="user-info-header">
+                        <h2 className="fixed-section-title">Personal Information</h2>
+                        {!dishCoveryEditingProfile && (
+                          <button
+                            className="edit-btn-fixed"
+                            onClick={() => setDishCoveryEditingProfile(true)}
+                          >
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                            </svg>
+                            Edit
+                          </button>
+                        )}
                       </div>
-                      <div className="form-group-fixed">
-                        <label>Last Name</label>
-                        <input
-                          type="text"
-                          value={dishCoveryTempLastName}
-                          onChange={(e) => setDishCoveryTempLastName(e.target.value)}
-                          className="form-input-fixed"
-                        />
-                      </div>
-                      <div className="form-group-fixed">
-                        <label>Email Address</label>
-                        <input
-                          type="email"
-                          value={dishCoveryTempEmail}
-                          onChange={(e) => setDishCoveryTempEmail(e.target.value)}
-                          className="form-input-fixed"
-                        />
-                      </div>
-                      <div className="form-actions-fixed">
-                        <button className="save-btn-fixed" onClick={dishCoveryHandleSaveProfile}>
-                          Save Changes
-                        </button>
+
+                      {dishCoveryEditingProfile ? (
+                        <div className="edit-form-fixed">
+                          <div className="form-group-fixed">
+                            <label>First Name</label>
+                            <input
+                              type="text"
+                              value={dishCoveryTempFirstName}
+                              onChange={(e) => setDishCoveryTempFirstName(e.target.value)}
+                              className="form-input-fixed"
+                            />
+                          </div>
+                          <div className="form-group-fixed">
+                            <label>Last Name</label>
+                            <input
+                              type="text"
+                              value={dishCoveryTempLastName}
+                              onChange={(e) => setDishCoveryTempLastName(e.target.value)}
+                              className="form-input-fixed"
+                            />
+                          </div>
+                          <div className="form-group-fixed">
+                            <label>Email Address</label>
+                            <input
+                              type="email"
+                              value={dishCoveryTempEmail}
+                              onChange={(e) => setDishCoveryTempEmail(e.target.value)}
+                              className="form-input-fixed"
+                            />
+                          </div>
+                          <div className="form-actions-fixed">
+                            <button className="save-btn-fixed" onClick={dishCoveryHandleSaveProfile}>
+                              Save Changes
+                            </button>
+                            <button
+                              className="cancel-btn-fixed"
+                              onClick={dishCoveryHandleCancelProfileEdit}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="user-info-display-fixed">
+                          <div className="info-item-fixed">
+                            <span className="info-label-fixed">Full Name</span>
+                            <span className="info-value-fixed">
+                              {dishCoveryUser.firstName} {dishCoveryUser.lastName}
+                            </span>
+                          </div>
+                          <div className="info-item-fixed">
+                            <span className="info-label-fixed">Email Address</span>
+                            <span className="info-value-fixed">{dishCoveryUser.email}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="dietary-preferences-fixed">
+                      <div className="preferences-header">
+                        <h2 className="fixed-section-title">Dietary Preferences</h2>
                         <button
-                          className="cancel-btn-fixed"
-                          onClick={dishCoveryHandleCancelProfileEdit}
+                          className="edit-btn-fixed"
+                          onClick={() => setDishCoveryEditingPreferences(!dishCoveryEditingPreferences)}
                         >
-                          Cancel
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                          </svg>
+                          {dishCoveryEditingPreferences ? 'Done' : 'Edit'}
                         </button>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="user-info-display-fixed">
-                      <div className="info-item-fixed">
-                        <span className="info-label-fixed">Full Name</span>
-                        <span className="info-value-fixed">
-                          {dishCoveryUser.firstName} {dishCoveryUser.lastName}
-                        </span>
-                      </div>
-                      <div className="info-item-fixed">
-                        <span className="info-label-fixed">Email Address</span>
-                        <span className="info-value-fixed">{dishCoveryUser.email}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
-                <div className="dietary-preferences-fixed">
-                  <div className="preferences-header">
-                    <h2 className="fixed-section-title">Dietary Preferences</h2>
-                    <button
-                      className="edit-btn-fixed"
-                      onClick={() => setDishCoveryEditingPreferences(!dishCoveryEditingPreferences)}
-                    >
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                      </svg>
-                      {dishCoveryEditingPreferences ? 'Done' : 'Edit'}
-                    </button>
-                  </div>
-
-                  <div className="preferences-content-fixed">
-                    <div className="preference-group-fixed">
-                      <h3 className="preference-group-label">Medical Conditions</h3>
-                      <div className="tags-container-fixed">
-                        {dishCoveryMedicalConditions.map((condition) => (
-                          <div key={condition} className="tag-fixed medical-tag-fixed">
-                            <span>{condition}</span>
-                            {dishCoveryEditingPreferences && (
-                              <button
-                                onClick={() => dishCoveryRemoveCondition(condition)}
-                                className="tag-remove-fixed"
-                              >
-                                ×
-                              </button>
-                            )}
+                      {loadingDietaryData ? (
+                        <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                          Loading dietary preferences...
+                        </div>
+                      ) : (
+                        <div className="preferences-content-fixed">
+                          <div className="preference-group-fixed">
+                            <h3 className="preference-group-label">Medical Conditions</h3>
+                            <div className="tags-container-fixed">
+                              {dishCoveryMedicalConditions.length > 0 ? (
+                                dishCoveryMedicalConditions.map((condition) => (
+                                  <div key={condition} className="tag-fixed medical-tag-fixed">
+                                    <span>{condition}</span>
+                                    {dishCoveryEditingPreferences && (
+                                      <button
+                                        onClick={() => dishCoveryRemoveCondition(condition)}
+                                        className="tag-remove-fixed"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <span style={{ color: '#999', fontSize: '14px' }}>No medical conditions set</span>
+                              )}
+                              {dishCoveryEditingPreferences && (
+                                <button className="add-tag-btn-fixed">+ Add</button>
+                              )}
+                            </div>
                           </div>
-                        ))}
-                        {dishCoveryEditingPreferences && (
-                          <button className="add-tag-btn-fixed">+ Add</button>
-                        )}
-                      </div>
-                    </div>
 
-                    <div className="preference-group-fixed">
-                      <h3 className="preference-group-label">Allergens</h3>
-                      <div className="tags-container-fixed">
-                        {dishCoveryAllergens.map((allergen) => (
-                          <div key={allergen} className="tag-fixed allergen-tag-fixed">
-                            <span>{allergen}</span>
-                            {dishCoveryEditingPreferences && (
-                              <button
-                                onClick={() => dishCoveryRemoveAllergen(allergen)}
-                                className="tag-remove-fixed"
-                              >
-                                ×
-                              </button>
-                            )}
+                          <div className="preference-group-fixed">
+                            <h3 className="preference-group-label">Allergens</h3>
+                            <div className="tags-container-fixed">
+                              {dishCoveryAllergens.length > 0 ? (
+                                dishCoveryAllergens.map((allergen) => (
+                                  <div key={allergen} className="tag-fixed allergen-tag-fixed">
+                                    <span>{allergen}</span>
+                                    {dishCoveryEditingPreferences && (
+                                      <button
+                                        onClick={() => dishCoveryRemoveAllergen(allergen)}
+                                        className="tag-remove-fixed"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <span style={{ color: '#999', fontSize: '14px' }}>No allergens set</span>
+                              )}
+                              {dishCoveryEditingPreferences && (
+                                <button className="add-tag-btn-fixed">+ Add</button>
+                              )}
+                            </div>
                           </div>
-                        ))}
-                        {dishCoveryEditingPreferences && (
-                          <button className="add-tag-btn-fixed">+ Add</button>
-                        )}
-                      </div>
-                    </div>
 
-                    <div className="preference-group-fixed">
-                      <h3 className="preference-group-label">Preferred Diet</h3>
-                      <div className="tags-container-fixed">
-                        {dishCoveryPreferredDiet.map((diet) => (
-                          <div key={diet} className="tag-fixed diet-tag-fixed">
-                            <span>{diet}</span>
-                            {dishCoveryEditingPreferences && (
-                              <button
-                                onClick={() => dishCoveryRemoveDiet(diet)}
-                                className="tag-remove-fixed"
-                              >
-                                ×
-                              </button>
-                            )}
+                          <div className="preference-group-fixed">
+                            <h3 className="preference-group-label">Preferred Diet</h3>
+                            <div className="tags-container-fixed">
+                              {dishCoveryPreferredDiet.length > 0 ? (
+                                dishCoveryPreferredDiet.map((diet) => (
+                                  <div key={diet} className="tag-fixed diet-tag-fixed">
+                                    <span>{diet}</span>
+                                    {dishCoveryEditingPreferences && (
+                                      <button
+                                        onClick={() => dishCoveryRemoveDiet(diet)}
+                                        className="tag-remove-fixed"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <span style={{ color: '#999', fontSize: '14px' }}>No preferred diets set</span>
+                              )}
+                              {dishCoveryEditingPreferences && (
+                                <button className="add-tag-btn-fixed">+ Add</button>
+                              )}
+                            </div>
                           </div>
-                        ))}
-                        {dishCoveryEditingPreferences && (
-                          <button className="add-tag-btn-fixed">+ Add</button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

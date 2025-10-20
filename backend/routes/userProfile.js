@@ -1,0 +1,378 @@
+import express from 'express';
+import db from '../db.js';
+import authenticateToken from '../middleware/auth.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+const router = express.Router();
+
+// Configure multer for profile picture upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/profiles';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `profile-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed (jpeg, jpg, png, gif)'));
+    }
+  }
+});
+
+// GET user's dietary preferences
+router.get('/dietary', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('📥 Fetching dietary data for user:', userId);
+
+    // Get user restrictions with restriction details
+    const restrictions = await db.query(`
+      SELECT 
+        r.restriction_name,
+        rc.category_name,
+        ur.status
+      FROM user_restrictions ur
+      JOIN restrictions r ON ur.restriction_id = r.restriction_id
+      JOIN restriction_categories rc ON r.category_id = rc.category_id
+      WHERE ur.user_id = ? AND ur.member_id IS NULL AND ur.status = 'active'
+    `, [userId]);
+
+    // Get excluded ingredients
+    const excludedIngredients = await db.query(`
+      SELECT ingredient_name
+      FROM user_excluded_ingredients
+      WHERE user_id = ? AND member_id IS NULL
+    `, [userId]);
+
+    // Organize data by category
+    const dietaryRestrictions = [];
+    const medicalConditions = [];
+    const preferredDiets = [];
+
+    restrictions.forEach(item => {
+      if (item.category_name === 'Allergies') {
+        dietaryRestrictions.push(item.restriction_name);
+      } else if (item.category_name === 'Health Conditions') {
+        medicalConditions.push(item.restriction_name);
+      } else if (item.category_name === 'Dietary Lifestyle') {
+        preferredDiets.push(item.restriction_name);
+      }
+    });
+
+    const excludedList = excludedIngredients.map(item => item.ingredient_name);
+
+    console.log('✅ Dietary data fetched successfully:', {
+      dietaryRestrictions: dietaryRestrictions.length,
+      medicalConditions: medicalConditions.length,
+      preferredDiets: preferredDiets.length,
+      excludedIngredients: excludedList.length
+    });
+
+    res.json({
+      success: true,
+      data: {
+        dietaryRestrictions,
+        medicalConditions,
+        preferredDiets,
+        excludedIngredients: excludedList
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching dietary data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dietary preferences',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET user's basic profile info
+router.get('/info', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('📥 Fetching user info for user ID:', userId);
+    
+    const users = await db.query(`
+      SELECT user_id, email, first_name, last_name, profile_picture_url, created_at, last_login
+      FROM users
+      WHERE user_id = ?
+    `, [userId]);
+
+    if (!users || users.length === 0) {
+      console.log('❌ User not found:', userId);
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const user = users[0];
+    console.log('✅ User info fetched:', { 
+      userId: user.user_id, 
+      firstName: user.first_name,
+      lastName: user.last_name,
+      email: user.email,
+      hasProfilePicture: !!user.profile_picture_url
+    });
+
+    res.json({
+      success: true,
+      data: {
+        userId: user.user_id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        profilePicture: user.profile_picture_url,
+        createdAt: user.created_at,
+        lastLogin: user.last_login
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching user info:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user information',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// POST upload/update profile picture
+router.post('/profile-picture', authenticateToken, upload.single('profilePicture'), async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('📤 Uploading profile picture for user:', userId);
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    // Get old profile picture to delete
+    const users = await db.query('SELECT profile_picture_url FROM users WHERE user_id = ?', [userId]);
+    const oldPicture = users[0]?.profile_picture_url;
+
+    // Delete old profile picture if it exists
+    if (oldPicture) {
+      const oldPath = path.join(process.cwd(), oldPicture);
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+        console.log('🗑️ Deleted old profile picture:', oldPath);
+      }
+    }
+
+    // Save new profile picture path (relative path for database)
+    const profilePicturePath = `/uploads/profiles/${req.file.filename}`;
+    
+    await db.query(
+      'UPDATE users SET profile_picture_url = ? WHERE user_id = ?',
+      [profilePicturePath, userId]
+    );
+
+    console.log('✅ Profile picture updated for user:', userId);
+
+    res.json({
+      success: true,
+      message: 'Profile picture updated successfully',
+      data: {
+        profilePicture: profilePicturePath
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating profile picture:', error);
+    
+    // Clean up uploaded file if database update fails
+    if (req.file) {
+      const filePath = path.join(process.cwd(), 'uploads/profiles', req.file.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log('🗑️ Cleaned up failed upload:', filePath);
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile picture',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// PUT update user's basic info
+router.put('/info', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { firstName, lastName, email } = req.body;
+
+    console.log('📝 Updating user info for user:', userId, { firstName, lastName, email });
+
+    // Validate input
+    if (!firstName || !lastName || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'First name, last name, and email are required'
+      });
+    }
+
+    // Check if email is already taken by another user
+    const existingUsers = await db.query(
+      'SELECT user_id FROM users WHERE email = ? AND user_id != ?',
+      [email, userId]
+    );
+
+    if (existingUsers && existingUsers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already in use'
+      });
+    }
+
+    // Update user info
+    await db.query(
+      'UPDATE users SET first_name = ?, last_name = ?, email = ? WHERE user_id = ?',
+      [firstName, lastName, email, userId]
+    );
+
+    console.log('✅ User info updated for user:', userId);
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        firstName,
+        lastName,
+        email
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating user info:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// PUT update dietary preferences
+router.put('/dietary', authenticateToken, async (req, res) => {
+  let connection;
+  
+  try {
+    const userId = req.user.userId;
+    const { dietaryRestrictions, medicalConditions, preferredDiets, excludedIngredients } = req.body;
+
+    console.log('📝 Updating dietary preferences for user:', userId);
+
+    // Get connection for transaction
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Delete existing restrictions for this user (only main profile, not members)
+      await connection.query(
+        'DELETE FROM user_restrictions WHERE user_id = ? AND member_id IS NULL',
+        [userId]
+      );
+
+      // Delete existing excluded ingredients
+      await connection.query(
+        'DELETE FROM user_excluded_ingredients WHERE user_id = ? AND member_id IS NULL',
+        [userId]
+      );
+
+      // Get restriction IDs from restriction_name
+      const allRestrictions = [
+        ...(dietaryRestrictions || []),
+        ...(medicalConditions || []),
+        ...(preferredDiets || [])
+      ];
+
+      if (allRestrictions.length > 0) {
+        const placeholders = allRestrictions.map(() => '?').join(',');
+        const [restrictionData] = await connection.query(
+          `SELECT restriction_id, restriction_name FROM restrictions WHERE restriction_name IN (${placeholders})`,
+          allRestrictions
+        );
+
+        // Insert new restrictions
+        if (restrictionData && restrictionData.length > 0) {
+          for (const restriction of restrictionData) {
+            await connection.query(
+              'INSERT INTO user_restrictions (user_id, member_id, restriction_id, status) VALUES (?, NULL, ?, ?)',
+              [userId, restriction.restriction_id, 'active']
+            );
+          }
+        }
+      }
+
+      // Insert excluded ingredients
+      if (excludedIngredients && excludedIngredients.length > 0) {
+        for (const ingredient of excludedIngredients) {
+          if (ingredient.trim()) {
+            await connection.query(
+              'INSERT INTO user_excluded_ingredients (user_id, member_id, ingredient_name) VALUES (?, NULL, ?)',
+              [userId, ingredient.trim()]
+            );
+          }
+        }
+      }
+
+      // Commit transaction
+      await connection.commit();
+      console.log('✅ Dietary preferences updated successfully');
+
+      res.json({
+        success: true,
+        message: 'Dietary preferences updated successfully'
+      });
+
+    } catch (error) {
+      // Rollback on error
+      await connection.rollback();
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('❌ Error updating dietary preferences:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update dietary preferences',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  } finally {
+    // Release connection back to pool
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
+export default router;
