@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import recipesRouter from './routes/recipes.js';
@@ -11,10 +13,15 @@ import adminAuthRouter from './routes/adminAuth.js';
 import adminIngredientsRouter from './routes/adminIngredients.js';
 import dietaryRestrictionsRouter from './routes/dietaryRestrictions.js';
 import pantryRouter from './routes/pantry.js';
-import scanRouter from './routes/scan.js';  // 🆕 ADD THIS
+import scanRouter from './routes/scan.js';
+import userProfileRouter from './routes/userProfile.js';
 import pool from './db.js';
 
 dotenv.config();
+
+// 🆕 Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,8 +29,8 @@ const PORT = process.env.PORT || 5000;
 // ✅ CORS with regex for Vercel previews
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://dishcovery-frontend-tau.vercel.app", // your production domain
-  /\.vercel\.app$/ // allow all Vercel preview deployments
+  "https://dishcovery-frontend-tau.vercel.app",
+  /\.vercel\.app$/
 ];
 
 const corsOptions = {
@@ -46,6 +53,9 @@ app.options('*', cors(corsOptions));
 
 app.use(express.json());
 
+// 🆕 Serve static files for uploads (profile pictures, etc.)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Routes
 app.use('/api/profile', profileRouter);
 app.use('/api/auth', authRouter);
@@ -57,7 +67,8 @@ app.use('/api/admin/ingredients', adminIngredientsRouter);
 app.use('/api/dietary-restrictions', dietaryRestrictionsRouter);
 app.use('/api/admin-auth', adminAuthRouter);
 app.use('/api/pantry', pantryRouter);
-app.use('/api/scan', scanRouter);  // 🆕 ADD THIS
+app.use('/api/scan', scanRouter);
+app.use('/api/user-profile', userProfileRouter);
 
 // ✅ Improved health route (also checks DB)
 app.use('/api/health', async (req, res) => {
@@ -76,6 +87,7 @@ app.listen(PORT, () => {
   console.log('   - GET  /api/health');
   console.log('   - POST /api/auth/register');
   console.log('   - POST /api/auth/login');
+  console.log('   - POST /api/auth/logout (🔒 Protected)');
   console.log('   - POST /api/admin-auth/login (🔒 ADMIN LOGIN)');
   console.log('   - GET  /api/admin-auth/profile (🔒 ADMIN PROFILE)');
   console.log('   - GET  /api/recipes');
@@ -108,6 +120,12 @@ app.listen(PORT, () => {
   console.log('   🆕 YOLO SCAN ROUTES:');
   console.log('   - POST /api/scan (📸 Scan Ingredients with YOLO)');
   console.log('   - GET  /api/scan/health (🏥 Check Detection Service)');
+  console.log('   🆕 USER PROFILE ROUTES:');
+  console.log('   - GET  /api/user-profile/dietary (🔒 Get User Dietary Preferences)');
+  console.log('   - GET  /api/user-profile/info (🔒 Get User Basic Info)');
+  console.log('   - PUT  /api/user-profile/info (🔒 Update User Basic Info)');
+  console.log('   - POST /api/user-profile/profile-picture (🔒 Upload Profile Picture)');
+  console.log('   - PUT  /api/user-profile/dietary (🔒 Update Dietary Preferences)');
 });
 
 export default app;

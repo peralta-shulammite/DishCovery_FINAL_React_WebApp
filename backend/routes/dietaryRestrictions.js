@@ -1,6 +1,4 @@
-// CREATE THIS FILE: routes/dietaryRestrictions.js
-// This is the complete route file for dietary restrictions
-
+// routes/dietaryRestrictions.js - ENHANCED WITH DEBUGGING
 import express from 'express';
 import pool from '../db.js';
 import authenticateToken from '../middleware/auth.js';
@@ -8,8 +6,8 @@ import authenticateToken from '../middleware/auth.js';
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch((error) => {
     console.error('❌ Route error:', error);
+    console.error('Stack trace:', error.stack);
     
-    // Check if it's an authentication error
     if (error.message.includes('token') || error.message.includes('auth')) {
       return res.status(401).json({
         success: false,
@@ -19,7 +17,6 @@ const asyncHandler = (fn) => (req, res, next) => {
       });
     }
     
-    // Database connection errors
     if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
       return res.status(503).json({
         success: false,
@@ -28,7 +25,6 @@ const asyncHandler = (fn) => (req, res, next) => {
       });
     }
     
-    // Generic server error
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -38,7 +34,6 @@ const asyncHandler = (fn) => (req, res, next) => {
   });
 };
 
-// Enhanced authentication check with detailed logging
 const enhancedAuthCheck = (req, res, next) => {
   console.log('🔐 Enhanced auth check for route:', req.path);
   
@@ -62,10 +57,9 @@ const enhancedAuthCheck = (req, res, next) => {
 const router = express.Router();
 
 // ========================================
-// PUBLIC ENDPOINTS (for get-started page)
+// PUBLIC ENDPOINTS
 // ========================================
 
-// Get all active restrictions with categories
 router.get('/public', async (req, res) => {
   try {
     console.log('🔍 Fetching public dietary restrictions...');
@@ -85,7 +79,6 @@ router.get('/public', async (req, res) => {
     
     const restrictions = await pool.query(query);
     
-    // Group by category to match your existing categoryOptions structure
     const groupedRestrictions = {};
     restrictions.forEach(restriction => {
       const category = restriction.category_name;
@@ -95,7 +88,6 @@ router.get('/public', async (req, res) => {
       groupedRestrictions[category].push(restriction.restriction_name);
     });
     
-    // Transform to match your existing structure
     const result = {
       dietaryRestrictions: groupedRestrictions['Allergies'] || [],
       preferredDiets: groupedRestrictions['Dietary Lifestyle'] || [], 
@@ -118,18 +110,27 @@ router.get('/public', async (req, res) => {
 });
 
 // ========================================
-// USER ENDPOINTS (authenticated)
+// ✅ FIXED: Save user dietary restrictions
 // ========================================
-
-// Save user dietary restrictions and excluded ingredients
 router.post('/user/save', authenticateToken, async (req, res) => {
-  const connection = await pool.getConnection();
+  let connection;
   
   try {
-    console.log('💾 Saving user dietary profile...');
-    console.log('User ID:', req.user.userId);
-    console.log('Request body:', req.body);
+    console.log('\n🔷🔷🔷 === STARTING DIETARY SAVE === 🔷🔷🔷');
+    console.log('👤 User ID:', req.user?.userId);
+    console.log('📧 User Email:', req.user?.email);
+    console.log('📦 Request Body:', JSON.stringify(req.body, null, 2));
     
+    // ✅ Validate user authentication
+    if (!req.user || !req.user.userId) {
+      console.error('❌ No authenticated user found');
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+        errorType: 'NO_USER'
+      });
+    }
+
     const { 
       memberId = null, 
       dietaryRestrictions = [], 
@@ -138,9 +139,24 @@ router.post('/user/save', authenticateToken, async (req, res) => {
       preferredDiets = []
     } = req.body;
 
+    console.log('📊 Parsed Data:', {
+      memberId,
+      dietaryRestrictionsCount: dietaryRestrictions.length,
+      medicalConditionsCount: medicalConditions.length,
+      preferredDietsCount: preferredDiets.length,
+      excludedIngredientsCount: excludedIngredients.length
+    });
+
+    // ✅ Get connection from pool
+    console.log('🔌 Getting database connection...');
+    connection = await pool.getConnection();
+    console.log('✅ Database connection obtained');
+    
     await connection.beginTransaction();
+    console.log('🔄 Transaction started');
 
     // 1. Delete existing user restrictions
+    console.log('🗑️ Deleting existing restrictions...');
     if (memberId) {
       await connection.query(
         'DELETE FROM user_restrictions WHERE user_id = ? AND member_id = ?',
@@ -150,6 +166,7 @@ router.post('/user/save', authenticateToken, async (req, res) => {
         'DELETE FROM user_excluded_ingredients WHERE user_id = ? AND member_id = ?',
         [req.user.userId, memberId]
       );
+      console.log('✅ Deleted existing member restrictions');
     } else {
       await connection.query(
         'DELETE FROM user_restrictions WHERE user_id = ? AND member_id IS NULL',
@@ -159,71 +176,138 @@ router.post('/user/save', authenticateToken, async (req, res) => {
         'DELETE FROM user_excluded_ingredients WHERE user_id = ? AND member_id IS NULL',
         [req.user.userId]
       );
+      console.log('✅ Deleted existing user restrictions');
     }
 
     // 2. Insert dietary restrictions
     const allRestrictions = [...dietaryRestrictions, ...medicalConditions, ...preferredDiets];
+    console.log(`\n📋 Processing ${allRestrictions.length} restrictions...`);
     
-    for (const restrictionName of allRestrictions) {
-      if (!restrictionName || restrictionName.trim() === '') continue;
-      
-      // Find restriction ID
-      const existingRestriction = await connection.query(
-        'SELECT restriction_id FROM restrictions WHERE restriction_name = ? AND is_active = 1',
-        [restrictionName.trim()]
-      );
+    let processedCount = 0;
+    let pendingCount = 0;
 
-      if (existingRestriction.length > 0) {
-        // Insert user restriction
-        await connection.query(
-          'INSERT INTO user_restrictions (user_id, member_id, restriction_id, status, requested_at) VALUES (?, ?, ?, "active", NOW())',
-          [req.user.userId, memberId, existingRestriction[0].restriction_id]
-        );
-        console.log(`✅ Added restriction: ${restrictionName}`);
-      } else {
-        console.log(`⚠️ Restriction not found in database: ${restrictionName}`);
+    for (const restrictionName of allRestrictions) {
+      if (!restrictionName || restrictionName.trim() === '') {
+        console.log('⏭️ Skipping empty restriction');
+        continue;
+      }
+      
+      try {
+        console.log(`\n🔍 Looking up restriction: "${restrictionName}"`);
         
-        // Create a pending request for admin approval
-        await connection.query(
-          'INSERT INTO pending_requests (user_id, request_type, request_data, status, requested_at) VALUES (?, "custom_restriction", ?, "pending", NOW())',
-          [req.user.userId, JSON.stringify({ restrictionName: restrictionName.trim(), memberId })]
+        // ✅ Proper destructuring for mysql2/promise
+        const [rows] = await connection.query(
+          'SELECT restriction_id FROM restrictions WHERE restriction_name = ? AND is_active = 1',
+          [restrictionName.trim()]
         );
+
+        console.log(`   Found ${rows.length} matching restriction(s)`);
+
+        if (rows && rows.length > 0) {
+          const restrictionId = rows[0].restriction_id;
+          console.log(`   ✅ Restriction ID: ${restrictionId}`);
+          
+          // Insert user restriction
+          await connection.query(
+            'INSERT INTO user_restrictions (user_id, member_id, restriction_id, status, requested_at) VALUES (?, ?, ?, ?, NOW())',
+            [req.user.userId, memberId, restrictionId, 'active']
+          );
+          
+          processedCount++;
+          console.log(`   ✅ Successfully added restriction: ${restrictionName}`);
+        } else {
+          console.log(`   ⚠️ Restriction not found in database: ${restrictionName}`);
+          
+          // Create a pending request for admin approval
+          await connection.query(
+            'INSERT INTO pending_requests (user_id, request_type, request_data, status, requested_at) VALUES (?, "custom_restriction", ?, "pending", NOW())',
+            [req.user.userId, JSON.stringify({ restrictionName: restrictionName.trim(), memberId })]
+          );
+          
+          pendingCount++;
+          console.log(`   📝 Created pending request for: ${restrictionName}`);
+        }
+      } catch (restrictionError) {
+        console.error(`   ❌ Error processing restriction "${restrictionName}":`, restrictionError);
+        throw restrictionError;
       }
     }
 
+    console.log(`\n📊 Restrictions Summary:`);
+    console.log(`   ✅ Successfully added: ${processedCount}`);
+    console.log(`   📝 Pending approval: ${pendingCount}`);
+
     // 3. Insert excluded ingredients
+    console.log(`\n🥗 Processing ${excludedIngredients.length} excluded ingredients...`);
+    let ingredientsAdded = 0;
+
     for (const ingredient of excludedIngredients) {
-      if (!ingredient || ingredient.trim() === '') continue;
+      if (!ingredient || ingredient.trim() === '') {
+        console.log('⏭️ Skipping empty ingredient');
+        continue;
+      }
       
-      await connection.query(
-        'INSERT INTO user_excluded_ingredients (user_id, member_id, ingredient_name, created_at) VALUES (?, ?, ?, NOW())',
-        [req.user.userId, memberId, ingredient.trim()]
-      );
-      console.log(`✅ Added excluded ingredient: ${ingredient}`);
+      try {
+        await connection.query(
+          'INSERT INTO user_excluded_ingredients (user_id, member_id, ingredient_name, created_at) VALUES (?, ?, ?, NOW())',
+          [req.user.userId, memberId, ingredient.trim()]
+        );
+        
+        ingredientsAdded++;
+        console.log(`   ✅ Added excluded ingredient: ${ingredient}`);
+      } catch (ingredientError) {
+        console.error(`   ❌ Error adding ingredient "${ingredient}":`, ingredientError);
+        throw ingredientError;
+      }
     }
 
+    console.log(`\n📊 Ingredients Summary:`);
+    console.log(`   ✅ Successfully added: ${ingredientsAdded}`);
+
+    // Commit transaction
+    console.log('\n💾 Committing transaction...');
     await connection.commit();
-    console.log('✅ User dietary profile saved successfully');
+    console.log('✅ Transaction committed successfully!');
+    console.log('🔷🔷🔷 === SAVE COMPLETED === 🔷🔷🔷\n');
 
     res.json({
       success: true,
       message: 'Dietary profile saved successfully',
       data: {
-        restrictionsAdded: allRestrictions.length,
-        ingredientsExcluded: excludedIngredients.length
+        restrictionsAdded: processedCount,
+        restrictionsPending: pendingCount,
+        ingredientsExcluded: ingredientsAdded
       }
     });
 
   } catch (error) {
-    await connection.rollback();
-    console.error('❌ Error saving user dietary profile:', error);
+    console.error('\n❌❌❌ === SAVE FAILED === ❌❌❌');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Error code:', error.code);
+    
+    if (connection) {
+      console.log('🔄 Rolling back transaction...');
+      try {
+        await connection.rollback();
+        console.log('✅ Transaction rolled back');
+      } catch (rollbackError) {
+        console.error('❌ Rollback failed:', rollbackError);
+      }
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Failed to save dietary profile',
+      errorType: error.code || 'UNKNOWN_ERROR',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   } finally {
-    connection.release();
+    if (connection) {
+      console.log('🔌 Releasing database connection...');
+      connection.release();
+      console.log('✅ Connection released\n');
+    }
   }
 });
 
@@ -233,7 +317,6 @@ router.get('/user/profile', authenticateToken, async (req, res) => {
     const { memberId } = req.query;
     console.log('🔍 Fetching user dietary profile for user:', req.user.userId, 'member:', memberId);
 
-    // Get user restrictions
     let restrictionsQuery = `
       SELECT 
         r.restriction_name,
@@ -257,7 +340,6 @@ router.get('/user/profile', authenticateToken, async (req, res) => {
 
     const restrictions = await pool.query(restrictionsQuery, params);
 
-    // Get excluded ingredients
     let ingredientsQuery = `
       SELECT ingredient_name
       FROM user_excluded_ingredients
@@ -275,7 +357,6 @@ router.get('/user/profile', authenticateToken, async (req, res) => {
 
     const excludedIngredients = await pool.query(ingredientsQuery, ingredientParams);
 
-    // Group restrictions by category
     const groupedRestrictions = {};
     restrictions.forEach(restriction => {
       const category = restriction.category_name;
@@ -308,16 +389,11 @@ router.get('/user/profile', authenticateToken, async (req, res) => {
 });
 
 // ========================================
-// ADMIN ENDPOINTS (protected)
+// ADMIN ENDPOINTS
 // ========================================
 
-// Get all restrictions (admin view)
-// 🔧 REPLACE your existing admin routes with these enhanced versions:
-
-// Get all restrictions (admin view) - ENHANCED
 router.get('/admin', authenticateToken, enhancedAuthCheck, asyncHandler(async (req, res) => {
   console.log('🔍 Admin fetching all dietary restrictions...');
-  console.log('👤 Request user:', { userId: req.user.userId, email: req.user.email });
   
   const query = `
     SELECT 
@@ -339,7 +415,6 @@ router.get('/admin', authenticateToken, enhancedAuthCheck, asyncHandler(async (r
   
   const restrictions = await pool.query(query);
   
-  // Transform to match your existing admin page structure
   const transformedRestrictions = restrictions.map(restriction => ({
     id: restriction.restriction_id,
     name: restriction.restriction_name,
@@ -363,39 +438,25 @@ router.get('/admin', authenticateToken, enhancedAuthCheck, asyncHandler(async (r
     ]
   }));
   
-  console.log(`✅ Found ${restrictions.length} total restrictions for admin`);
+  console.log(`✅ Found ${restrictions.length} total restrictions`);
   res.json({
     success: true,
-    data: transformedRestrictions,
-    meta: {
-      total: restrictions.length,
-      requestedBy: req.user.email,
-      timestamp: new Date().toISOString()
-    }
+    data: transformedRestrictions
   });
 }));
 
-// Create new restriction (admin) - ENHANCED
 router.post('/admin', authenticateToken, enhancedAuthCheck, asyncHandler(async (req, res) => {
   console.log('➕ Admin creating new restriction...');
-  console.log('👤 Request user:', { userId: req.user.userId, email: req.user.email });
-  console.log('📋 Request body:', req.body);
-  
-  const { name, category, description, status, visibility } = req.body;
+  const { name, category, description, status } = req.body;
 
   if (!name || !category) {
     return res.status(400).json({
       success: false,
       message: 'Restriction name and category are required',
-      errorType: 'VALIDATION_ERROR',
-      missingFields: [
-        !name && 'name',
-        !category && 'category'
-      ].filter(Boolean)
+      errorType: 'VALIDATION_ERROR'
     });
   }
 
-  // Get category ID from category name
   const categoryResult = await pool.query(
     'SELECT category_id FROM restriction_categories WHERE category_name = ?',
     [category]
@@ -405,14 +466,12 @@ router.post('/admin', authenticateToken, enhancedAuthCheck, asyncHandler(async (
     return res.status(400).json({
       success: false,
       message: 'Invalid category',
-      errorType: 'INVALID_CATEGORY',
-      providedCategory: category
+      errorType: 'INVALID_CATEGORY'
     });
   }
 
   const categoryId = categoryResult[0].category_id;
 
-  // Check if restriction already exists
   const existing = await pool.query(
     'SELECT restriction_id FROM restrictions WHERE restriction_name = ?',
     [name]
@@ -422,12 +481,10 @@ router.post('/admin', authenticateToken, enhancedAuthCheck, asyncHandler(async (
     return res.status(409).json({
       success: false,
       message: 'A restriction with this name already exists',
-      errorType: 'DUPLICATE_RESTRICTION',
-      existingId: existing[0].restriction_id
+      errorType: 'DUPLICATE_RESTRICTION'
     });
   }
 
-  // Insert new restriction
   const result = await pool.query(
     'INSERT INTO restrictions (restriction_name, category_id, description, severity_level, is_active, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
     [name, categoryId, description, 'Medium', status === 'Active' ? 1 : 0]
@@ -443,20 +500,14 @@ router.post('/admin', authenticateToken, enhancedAuthCheck, asyncHandler(async (
       name,
       category,
       description,
-      status,
-      visibility,
-      createdBy: req.user.email,
-      createdAt: new Date().toISOString()
+      status
     }
   });
 }));
 
-// Update restriction (admin) - ENHANCED
 router.put('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(async (req, res) => {
   const restrictionId = req.params.id;
   console.log(`✏️ Admin updating restriction ID: ${restrictionId}`);
-  console.log('👤 Request user:', { userId: req.user.userId, email: req.user.email });
-  console.log('📋 Request body:', req.body);
   
   const { name, category, description, status } = req.body;
 
@@ -464,15 +515,10 @@ router.put('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(asyn
     return res.status(400).json({
       success: false,
       message: 'Restriction name and category are required',
-      errorType: 'VALIDATION_ERROR',
-      missingFields: [
-        !name && 'name',
-        !category && 'category'
-      ].filter(Boolean)
+      errorType: 'VALIDATION_ERROR'
     });
   }
 
-  // Get category ID from category name
   const categoryResult = await pool.query(
     'SELECT category_id FROM restriction_categories WHERE category_name = ?',
     [category]
@@ -482,14 +528,12 @@ router.put('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(asyn
     return res.status(400).json({
       success: false,
       message: 'Invalid category',
-      errorType: 'INVALID_CATEGORY',
-      providedCategory: category
+      errorType: 'INVALID_CATEGORY'
     });
   }
 
   const categoryId = categoryResult[0].category_id;
 
-  // Check if restriction exists
   const existing = await pool.query(
     'SELECT restriction_id FROM restrictions WHERE restriction_id = ?',
     [restrictionId]
@@ -499,12 +543,10 @@ router.put('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(asyn
     return res.status(404).json({
       success: false,
       message: 'Restriction not found',
-      errorType: 'NOT_FOUND',
-      requestedId: restrictionId
+      errorType: 'NOT_FOUND'
     });
   }
 
-  // Update restriction
   await pool.query(
     'UPDATE restrictions SET restriction_name = ?, category_id = ?, description = ?, is_active = ? WHERE restriction_id = ?',
     [name, categoryId, description, status === 'Active' ? 1 : 0, restrictionId]
@@ -520,26 +562,22 @@ router.put('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(asyn
       name,
       category,
       description,
-      status,
-      updatedBy: req.user.email,
-      updatedAt: new Date().toISOString()
+      status
     }
   });
 }));
 
-// Delete restriction (admin) - ENHANCED
 router.delete('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(async (req, res) => {
-  const connection = await pool.getConnection();
+  let connection;
   
   try {
     const restrictionId = req.params.id;
     console.log(`🗑️ Admin deleting restriction ID: ${restrictionId}`);
-    console.log('👤 Request user:', { userId: req.user.userId, email: req.user.email });
 
+    connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // Check if restriction exists
-    const restrictionCheck = await connection.query(
+    const [restrictionCheck] = await connection.query(
       'SELECT restriction_id, restriction_name FROM restrictions WHERE restriction_id = ?',
       [restrictionId]
     );
@@ -548,19 +586,16 @@ router.delete('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(a
       return res.status(404).json({
         success: false,
         message: 'Restriction not found',
-        errorType: 'NOT_FOUND',
-        requestedId: restrictionId
+        errorType: 'NOT_FOUND'
       });
     }
 
-    // Check if restriction is being used by users
-    const userRestrictions = await connection.query(
+    const [userRestrictions] = await connection.query(
       'SELECT COUNT(*) as count FROM user_restrictions WHERE restriction_id = ?',
       [restrictionId]
     );
 
     if (userRestrictions[0].count > 0) {
-      // Don't delete, just deactivate
       await connection.query(
         'UPDATE restrictions SET is_active = 0 WHERE restriction_id = ?',
         [restrictionId]
@@ -571,12 +606,9 @@ router.delete('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(a
       return res.json({
         success: true,
         message: `Restriction deactivated (was being used by ${userRestrictions[0].count} users)`,
-        action: 'deactivated',
-        userCount: userRestrictions[0].count,
-        deactivatedBy: req.user.email
+        action: 'deactivated'
       });
     } else {
-      // Safe to delete
       await connection.query(
         'DELETE FROM restrictions WHERE restriction_id = ?',
         [restrictionId]
@@ -588,19 +620,22 @@ router.delete('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(a
       res.json({
         success: true,
         message: 'Restriction deleted successfully',
-        action: 'deleted',
-        deletedBy: req.user.email
+        action: 'deleted'
       });
     }
 
   } catch (error) {
-    await connection.rollback();
-    throw error; // Let asyncHandler deal with it
+    if (connection) {
+      await connection.rollback();
+    }
+    throw error;
   } finally {
-    connection.release();
+    if (connection) {
+      connection.release();
+    }
   }
 }));
-// Get restriction categories (for dropdowns)
+
 router.get('/categories', async (req, res) => {
   try {
     console.log('🔍 Fetching restriction categories...');
@@ -628,7 +663,6 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// Get pending restriction requests (admin)
 router.get('/admin/pending-requests', authenticateToken, async (req, res) => {
   try {
     console.log('🔍 Admin fetching pending restriction requests...');
@@ -648,7 +682,6 @@ router.get('/admin/pending-requests', authenticateToken, async (req, res) => {
       ORDER BY pr.requested_at DESC
     `);
     
-    // Transform to match your existing structure
     const formattedRequests = requests.map(req => {
       const requestData = JSON.parse(req.request_data);
       return {
@@ -681,18 +714,17 @@ router.get('/admin/pending-requests', authenticateToken, async (req, res) => {
   }
 });
 
-// Approve pending request (admin)
 router.post('/admin/approve-request/:id', authenticateToken, async (req, res) => {
-  const connection = await pool.getConnection();
+  let connection;
   
   try {
     const requestId = req.params.id;
     console.log(`✅ Admin approving request ID: ${requestId}`);
 
+    connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // Get the request details
-    const requests = await connection.query(
+    const [requests] = await connection.query(
       'SELECT * FROM pending_requests WHERE request_id = ? AND status = "pending"',
       [requestId]
     );
@@ -707,13 +739,11 @@ router.post('/admin/approve-request/:id', authenticateToken, async (req, res) =>
     const request = requests[0];
     const requestData = JSON.parse(request.request_data);
 
-    // Create the new restriction (assuming Custom category ID = 4, adjust as needed)
-    const result = await connection.query(
+    const [result] = await connection.query(
       'INSERT INTO restrictions (restriction_name, category_id, description, severity_level, is_active, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
       [requestData.restrictionName, 4, `User-submitted restriction`, 'Medium', 1]
     );
 
-    // Mark the request as completed
     await connection.query(
       'UPDATE pending_requests SET status = "completed", processed_at = NOW() WHERE request_id = ?',
       [requestId]
@@ -729,7 +759,9 @@ router.post('/admin/approve-request/:id', authenticateToken, async (req, res) =>
     });
 
   } catch (error) {
-    await connection.rollback();
+    if (connection) {
+      await connection.rollback();
+    }
     console.error('❌ Error approving request:', error);
     res.status(500).json({
       success: false,
@@ -737,17 +769,17 @@ router.post('/admin/approve-request/:id', authenticateToken, async (req, res) =>
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   } finally {
-    connection.release();
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
-// Reject pending request (admin)
 router.delete('/admin/pending-requests/:id', authenticateToken, async (req, res) => {
   try {
     const requestId = req.params.id;
     console.log(`❌ Admin rejecting request ID: ${requestId}`);
 
-    // Mark the request as rejected
     await pool.query(
       'UPDATE pending_requests SET status = "rejected", processed_at = NOW() WHERE request_id = ?',
       [requestId]
