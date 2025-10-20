@@ -2,6 +2,9 @@
 import { useState, useEffect } from 'react';
 import './styles.css';
 
+// Define the API base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+
 export default function GetStarted() {
   const [step, setStep] = useState(1);
   const [cookingFor, setCookingFor] = useState('Myself');
@@ -26,8 +29,9 @@ export default function GetStarted() {
   const [memberId, setMemberId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showWelcome, setShowWelcome] = useState(false);
   
-  // ADD THIS STATE - Load restrictions from database
+  // Load restrictions from database
   const [apiRestrictions, setApiRestrictions] = useState({
     dietaryRestrictions: [],
     preferredDiets: [],
@@ -39,6 +43,20 @@ export default function GetStarted() {
   };
   
   const [userProfile, setUserProfile] = useState(null);
+  
+  // ✅ Check for new user signup
+  useEffect(() => {
+    const isNewUser = sessionStorage.getItem('newUserSignup');
+    if (isNewUser === 'true') {
+      setShowWelcome(true);
+      sessionStorage.removeItem('newUserSignup');
+      
+      // Auto-hide welcome message after 4 seconds
+      setTimeout(() => {
+        setShowWelcome(false);
+      }, 4000);
+    }
+  }, []);
   
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -52,7 +70,7 @@ export default function GetStarted() {
     }
   }, []);
 
-  // ADD THIS useEffect - Load restrictions from database
+  // Load restrictions from database
   useEffect(() => {
     const loadRestrictions = async () => {
       try {
@@ -131,7 +149,7 @@ export default function GetStarted() {
     setIsSaved(false);
   };
 
-  // UPDATED handleSave - Now connects to API
+  // Save dietary profile to API
   const handleSave = async () => {
     try {
       setLoading(true);
@@ -146,7 +164,7 @@ export default function GetStarted() {
         excludedIngredients: dietaryData.excludedIngredients.split(',').map(item => item.trim()).filter(item => item)
       };
 
-      // Call the new API
+      // Call the API
       const response = await fetch(`${API_BASE_URL}/dietary-restrictions/user/save`, {
         method: 'POST',
         headers: {
@@ -167,7 +185,7 @@ export default function GetStarted() {
         console.log('✅ Profile saved successfully');
         setIsSaved(true);
         setTimeout(() => {
-          window.location.href = '/user/ph';
+          window.location.href = '/user/home';
         }, 2000);
       } else {
         throw new Error(result.message || 'Failed to save profile');
@@ -220,7 +238,7 @@ export default function GetStarted() {
     }
   };
 
-  // UPDATED categoryOptions - Now uses API data with fallback
+  // Category options with API data and fallback
   const categoryOptions = {
     dietaryRestrictions: apiRestrictions.dietaryRestrictions.length > 0 
       ? apiRestrictions.dietaryRestrictions 
@@ -279,11 +297,11 @@ export default function GetStarted() {
         disabled={loading}
       >
         {loading ? 'Loading...' : 'Next Step'}
-              <span className="btn-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </span>
+        <span className="btn-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </span>
       </button>
     </div>
   );
@@ -498,20 +516,50 @@ export default function GetStarted() {
   };
 
   return (
-    <div className="get-started-container">
-      <div className="decorative-circle circle1"></div>
-      <div className="decorative-circle circle2"></div>
-      <div className="decorative-circle circle3"></div>
-      <div className="get-started-card">
-        <h2 className="get-started-title">Get Started</h2>
-        <p className="get-started-subtitle">Create your DishCovery profile!</p>
-        <div className="progress-bar">
-          <div className={`step-circle ${step >= 1 ? 'active' : ''}`}>1</div>
-          <div className={`step-circle ${step >= 2 ? 'active' : ''}`}>2</div>
-          <div className={`step-circle ${step >= 3 ? 'active' : ''}`}>3</div>
+    <>
+      {/* ✅ Welcome banner for new users */}
+      {showWelcome && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          backgroundColor: '#059669',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="white"/>
+            <path d="M9 12l2 2 4-4" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <div>
+            <div style={{ fontWeight: 'bold', fontSize: '16px' }}>Welcome to DishCovery! 🎉</div>
+            <div style={{ fontSize: '14px', opacity: 0.9 }}>Let's set up your profile to get personalized recipes</div>
+          </div>
         </div>
-        {renderStep()}
+      )}
+      
+      <div className="get-started-container">
+        <div className="decorative-circle circle1"></div>
+        <div className="decorative-circle circle2"></div>
+        <div className="decorative-circle circle3"></div>
+        <div className="get-started-card">
+          <h2 className="get-started-title">Get Started</h2>
+          <p className="get-started-subtitle">Create your DishCovery profile!</p>
+          <div className="progress-bar">
+            <div className={`step-circle ${step >= 1 ? 'active' : ''}`}>1</div>
+            <div className={`step-circle ${step >= 2 ? 'active' : ''}`}>2</div>
+            <div className={`step-circle ${step >= 3 ? 'active' : ''}`}>3</div>
+          </div>
+          {renderStep()}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

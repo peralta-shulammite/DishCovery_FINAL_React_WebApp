@@ -194,7 +194,7 @@ const dishCoveryHandleSignInSubmit = async (e) => {
   const dishCoveryHandleSignUpSubmit = async (e) => {
     e.preventDefault();
     if (dishCoveryPassword !== dishCoveryConfirmPassword) {
-      setDishCoveryError('Passwords Robinets do not match');
+      setDishCoveryError('Passwords do not match');
       return;
     }
     try {
@@ -207,6 +207,7 @@ const dishCoveryHandleSignInSubmit = async (e) => {
     }
   };
 
+  // ✅ UPDATED: Redirect to get-started after verification
   const dishCoveryHandleVerifySubmit = async (e) => {
     e.preventDefault();
     try {
@@ -214,6 +215,13 @@ const dishCoveryHandleSignInSubmit = async (e) => {
       setDishCoveryUser(data.user);
       setDishCoveryIsLoggedIn(true);
       dishCoveryCloseModal();
+      
+      // ✅ Set flag for new user signup
+      sessionStorage.setItem('newUserSignup', 'true');
+      
+      // ✅ Redirect to get-started page
+      console.log('🎉 New user verified, redirecting to get-started...');
+      window.location.href = '/user/get-started';
     } catch (error) {
       setDishCoveryError(error.message);
     }
