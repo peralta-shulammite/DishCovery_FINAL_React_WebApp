@@ -23,6 +23,8 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 const IngredientScanner = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const bboxCanvasRef = useRef(null);
+  const imageRef = useRef(null);
   const fileInputRef = useRef(null);
   const ingredientsListRef = useRef(null);
   const newIngredientRef = useRef(null);
@@ -33,6 +35,7 @@ const IngredientScanner = () => {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [scannedIngredients, setScannedIngredients] = useState([]);
+  const [detections, setDetections] = useState([]);
   const [newIngredient, setNewIngredient] = useState('');
   const [backendError, setBackendError] = useState(null);
 
@@ -80,6 +83,50 @@ const IngredientScanner = () => {
     return null;
   };
 
+  // Draw bounding boxes on canvas
+  const drawBoundingBoxes = useCallback(() => {
+    if (!bboxCanvasRef.current || !imageRef.current || detections.length === 0) return;
+
+    const canvas = bboxCanvasRef.current;
+    const img = imageRef.current;
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    detections.forEach((det) => {
+      const [x1, y1, x2, y2] = det.bbox;
+      const width = x2 - x1;
+      const height = y2 - y1;
+
+      // Draw box
+      ctx.strokeStyle = det.db_matched ? '#4CAF50' : '#FF9800';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x1, y1, width, height);
+
+      // Draw label background
+      const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
+      ctx.font = '14px Arial';
+      const textWidth = ctx.measureText(label).width;
+      
+      ctx.fillStyle = det.db_matched ? '#4CAF50' : '#FF9800';
+      ctx.fillRect(x1, y1 - 20, textWidth + 10, 20);
+
+      // Draw label text
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(label, x1 + 5, y1 - 5);
+    });
+  }, [detections]);
+
+  // Redraw boxes when image loads or detections change
+  useEffect(() => {
+    if (imageRef.current && imageRef.current.complete) {
+      drawBoundingBoxes();
+    }
+  }, [detections, drawBoundingBoxes]);
+
   const handleImageUpload = () => {
     fileInputRef.current?.click();
   };
@@ -124,10 +171,12 @@ const IngredientScanner = () => {
           }));
           
           setScannedIngredients(ingredients);
+          setDetections(detections);
         } catch (error) {
           console.error('Error processing uploaded image:', error);
           setBackendError(error.message);
           setScannedIngredients([]);
+          setDetections([]);
         } finally {
           setIsScanning(false);
         }
@@ -180,12 +229,14 @@ const IngredientScanner = () => {
       }));
       
       setScannedIngredients(ingredients);
+      setDetections(detections);
       setShowModal(true);
       
     } catch (error) {
       console.error('Detection error:', error);
       setBackendError(error.message);
       setScannedIngredients([]);
+      setDetections([]);
     } finally {
       setIsScanning(false);
     }
@@ -287,6 +338,8 @@ const IngredientScanner = () => {
   const closeModal = () => {
     setShowModal(false);
     setCapturedImage(null);
+    setScannedIngredients([]);
+    setDetections([]);
     setBackendError(null);
   };
 
@@ -445,7 +498,26 @@ const IngredientScanner = () => {
               <div className="image-section">
                 <div className="image-container">
                   {capturedImage ? (
-                    <img src={capturedImage} alt="Captured ingredients" />
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <img 
+                        ref={imageRef}
+                        src={capturedImage} 
+                        alt="Captured ingredients"
+                        onLoad={drawBoundingBoxes}
+                        style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
+                      />
+                      <canvas 
+                        ref={bboxCanvasRef}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          pointerEvents: 'none'
+                        }}
+                      />
+                    </div>
                   ) : (
                     <div className="no-image">
                       <p>No image captured</p>
