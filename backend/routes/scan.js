@@ -11,20 +11,21 @@ const upload = multer({ dest: 'uploads/' });
 const DETECTION_API_URL = process.env.YOLO_API_URL || 'http://localhost:8000/detect';
 
 /**
- * ✅ Universal safeQuery that works on both phpMyAdmin (localhost)
- * and Aiven (mysql2/promise cloud)
+ * ✅ Universal safeQuery
+ * Works on both localhost (phpMyAdmin) and Aiven cloud (mysql2/promise).
  */
 async function safeQuery(query, params = []) {
   try {
-    console.log('🔍 Executing query:', query.length > 120 ? query.substring(0, 120) + '...' : query);
-    if (params.length) console.log('📝 Parameters:', params);
-
     const result = await pool.query(query, params);
+    // Convert RowDataPackets → plain objects
+    const rows = JSON.parse(JSON.stringify(result));
 
-    // 🔧 Normalize Aiven/mysql2 RowDataPacket format
-    const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
+    if (rows.length) {
+      console.log(`✅ DB: ${rows.length} row(s) returned.`);
+    } else {
+      console.log(`⚠️ DB: No rows found for query.`);
+    }
 
-    console.log(`✅ Query executed successfully. Rows: ${rows.length}`);
     return rows;
   } catch (error) {
     console.error('❌ safeQuery error:', error.message);
@@ -34,55 +35,53 @@ async function safeQuery(query, params = []) {
 
 /**
  * ✅ Match detected ingredient to database
- * Works on both local and Aiven MySQL connections
+ * Uses exact match first, then fuzzy match (LIKE).
  */
 async function matchIngredientToDatabase(ingredientName) {
   try {
-    console.log(`🔎 Matching ingredient: "${ingredientName}"`);
+    const lowerName = ingredientName.toLowerCase().trim();
+    console.log(`🔎 Searching for ingredient → "${ingredientName}"`);
 
-    // Step 1: Exact match
+    // 1️⃣ Exact match
     const exactRows = await safeQuery(
-      'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) = LOWER(?)',
-      [ingredientName]
+      'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) = ?',
+      [lowerName]
     );
-
-    console.log('🧩 Exact query result:', exactRows);
 
     if (exactRows.length > 0) {
-      console.log(`✅ Exact match found for "${ingredientName}" → ID: ${exactRows[0].ingredient_id}`);
+      const ing = exactRows[0];
+      console.log(`✅ Match → "${ingredientName}" = "${ing.ingredient_name}" (ID: ${ing.ingredient_id})`);
       return {
-        id: exactRows[0].ingredient_id,
-        name: exactRows[0].ingredient_name,
+        id: ing.ingredient_id,
+        name: ing.ingredient_name,
         matched: true
       };
     }
 
-    // Step 2: Fuzzy match
+    // 2️⃣ Fuzzy match (LIKE)
     const fuzzyRows = await safeQuery(
-      'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) LIKE LOWER(?)',
-      [`%${ingredientName}%`]
+      'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) LIKE ?',
+      [`%${lowerName}%`]
     );
 
-    console.log('🧩 Fuzzy query result:', fuzzyRows);
-
     if (fuzzyRows.length > 0) {
-      console.log(`✅ Fuzzy match found for "${ingredientName}" → ID: ${fuzzyRows[0].ingredient_id}`);
+      const ing = fuzzyRows[0];
+      console.log(`🟡 Fuzzy match → "${ingredientName}" ≈ "${ing.ingredient_name}" (ID: ${ing.ingredient_id})`);
       return {
-        id: fuzzyRows[0].ingredient_id,
-        name: fuzzyRows[0].ingredient_name,
+        id: ing.ingredient_id,
+        name: ing.ingredient_name,
         matched: true
       };
     }
 
-    console.log(`⚠️ No database match found for "${ingredientName}"`);
+    console.log(`❌ No match found for "${ingredientName}"`);
     return {
       id: null,
       name: ingredientName,
       matched: false
     };
-
   } catch (error) {
-    console.error('❌ Database matching error:', error.message);
+    console.error(`❌ Error matching "${ingredientName}":`, error.message);
     return {
       id: null,
       name: ingredientName,
@@ -92,7 +91,8 @@ async function matchIngredientToDatabase(ingredientName) {
 }
 
 /**
- * ✅ Main route: /api/scan
+ * ✅ POST /api/scan
+ * Main route: detects ingredients with YOLO, then matches to database.
  */
 router.post('/', upload.single('image'), async (req, res) => {
   let tempFilePath = null;
@@ -120,7 +120,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     console.log(`✅ Detection complete: ${response.data.num_detections} ingredients found`);
 
-    // Step 3: Match detections to DB
+    // Step 3️⃣ Match detections to DB
     const detectionsWithIds = await Promise.all(
       response.data.detections.map(async (det) => {
         const dbMatch = await matchIngredientToDatabase(det.class_name);
@@ -137,9 +137,9 @@ router.post('/', upload.single('image'), async (req, res) => {
     const matched = detectionsWithIds.filter(d => d.db_matched);
     const unmatched = detectionsWithIds.filter(d => !d.db_matched);
 
-    console.log(`✅ Matched ${matched.length} ingredients to database`);
+    console.log(`✅ Matched ${matched.length} ingredient(s) to database`);
     if (unmatched.length > 0) {
-      console.log(`⚠️ ${unmatched.length} not found:`, unmatched.map(u => u.original_detection));
+      console.log(`⚠️ ${unmatched.length} not found: ${unmatched.map(u => `"${u.original_detection}"`).join(', ')}`);
     }
 
     res.json({
@@ -183,7 +183,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 });
 
 /**
- * Health check route for detection service
+ * ✅ Health check route for YOLO detection service
  */
 router.get('/health', async (req, res) => {
   try {
