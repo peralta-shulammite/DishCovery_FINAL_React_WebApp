@@ -14,9 +14,7 @@ const DETECTION_API_URL = process.env.YOLO_API_URL || 'http://localhost:8000/det
  * Helper: Run query safely and return rows regardless of MySQL2 or mysql behavior
  */
 async function safeQuery(query, params = []) {
-  const result = await pool.query(query, params);
-  // Handle either [[rows], fields] or [rows]
-  return Array.isArray(result[0]) ? result[0] : result;
+  return await pool.query(query, params);
 }
 
 /**
