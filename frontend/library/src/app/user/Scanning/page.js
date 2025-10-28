@@ -11,7 +11,9 @@ import {
   faCheck,
   faTrash,
   faExclamationTriangle,
-  faArrowLeft
+  faArrowLeft,
+  faEye,
+  faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
 import './style.css';
 
@@ -21,11 +23,13 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 const IngredientScanner = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const liveCanvasRef = useRef(null);
   const bboxCanvasRef = useRef(null);
   const fileInputRef = useRef(null);
   const ingredientsListRef = useRef(null);
   const newIngredientRef = useRef(null);
   const imageRef = useRef(null);
+  const liveDetectionInterval = useRef(null);
   
   const [cameraState, setCameraState] = useState('not-started');
   const [isScanning, setIsScanning] = useState(false);
@@ -34,7 +38,9 @@ const IngredientScanner = () => {
   const [capturedImage, setCapturedImage] = useState(null);
   const [scannedIngredients, setScannedIngredients] = useState([]);
   const [detections, setDetections] = useState([]);
-  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  const [liveDetections, setLiveDetections] = useState([]);
+  const [liveDetectionEnabled, setLiveDetectionEnabled] = useState(true);
+  const [isLiveDetecting, setIsLiveDetecting] = useState(false);
   const [newIngredient, setNewIngredient] = useState('');
   const [backendError, setBackendError] = useState(null);
 
@@ -65,6 +71,95 @@ const IngredientScanner = () => {
     }
   }, []);
 
+  // Draw live bounding boxes on video feed
+  const drawLiveBoxes = useCallback(() => {
+    if (!liveCanvasRef.current || !videoRef.current || liveDetections.length === 0) return;
+
+    const canvas = liveCanvasRef.current;
+    const video = videoRef.current;
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    liveDetections.forEach((det) => {
+      const [x1, y1, x2, y2] = det.bbox;
+      const width = x2 - x1;
+      const height = y2 - y1;
+
+      // Draw box
+      ctx.strokeStyle = det.db_matched ? '#4CAF50' : '#FF9800';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x1, y1, width, height);
+
+      // Draw label background
+      const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
+      ctx.font = 'bold 16px Arial';
+      const textWidth = ctx.measureText(label).width;
+      
+      ctx.fillStyle = det.db_matched ? '#4CAF50' : '#FF9800';
+      ctx.fillRect(x1, y1 - 25, textWidth + 12, 25);
+
+      // Draw label text
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(label, x1 + 6, y1 - 6);
+    });
+  }, [liveDetections]);
+
+  // Live detection loop
+  useEffect(() => {
+    if (cameraState === 'available' && liveDetectionEnabled && !showModal) {
+      liveDetectionInterval.current = setInterval(async () => {
+        if (isLiveDetecting || isScanning) return;
+        
+        try {
+          setIsLiveDetecting(true);
+          const imageDataUrl = captureFrameForLiveDetection();
+          if (imageDataUrl) {
+            const blob = await (await fetch(imageDataUrl)).blob();
+            const result = await detectIngredientsBackend(blob, true);
+            setLiveDetections(result.detections);
+          }
+        } catch (error) {
+          console.log('Live detection error (will retry):', error.message);
+          setLiveDetections([]);
+        } finally {
+          setIsLiveDetecting(false);
+        }
+      }, 1500); // Detect every 1.5 seconds
+
+      return () => {
+        if (liveDetectionInterval.current) {
+          clearInterval(liveDetectionInterval.current);
+        }
+      };
+    }
+  }, [cameraState, liveDetectionEnabled, showModal, isScanning, isLiveDetecting]);
+
+  // Draw live boxes when detections update
+  useEffect(() => {
+    if (cameraState === 'available') {
+      drawLiveBoxes();
+    }
+  }, [liveDetections, cameraState, drawLiveBoxes]);
+
+  const captureFrameForLiveDetection = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      return canvas.toDataURL('image/jpeg', 0.7);
+    }
+    return null;
+  };
+
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
@@ -82,7 +177,7 @@ const IngredientScanner = () => {
     return null;
   };
 
-  // Draw bounding boxes on canvas
+  // Draw bounding boxes on captured image
   const drawBoundingBoxes = useCallback(() => {
     if (!bboxCanvasRef.current || !imageRef.current || detections.length === 0) return;
 
@@ -119,12 +214,18 @@ const IngredientScanner = () => {
     });
   }, [detections]);
 
-  // Redraw boxes when image loads or detections change
   useEffect(() => {
     if (imageRef.current && imageRef.current.complete) {
       drawBoundingBoxes();
     }
   }, [detections, drawBoundingBoxes]);
+
+  const toggleLiveDetection = () => {
+    setLiveDetectionEnabled(!liveDetectionEnabled);
+    if (liveDetectionEnabled) {
+      setLiveDetections([]);
+    }
+  };
 
   const handleImageUpload = () => {
     fileInputRef.current?.click();
@@ -142,10 +243,9 @@ const IngredientScanner = () => {
         setBackendError(null);
         
         try {
-          const result = await detectIngredientsBackend(file);
+          const result = await detectIngredientsBackend(file, false);
           setDetections(result.detections);
           
-          // Group by ingredient name and count quantity
           const grouped = {};
           result.detections.forEach((det) => {
             const name = capitalizeWords(det.class_name);
@@ -200,10 +300,9 @@ const IngredientScanner = () => {
 
     try {
       const blob = await (await fetch(imageDataUrl)).blob();
-      const result = await detectIngredientsBackend(blob);
+      const result = await detectIngredientsBackend(blob, false);
       setDetections(result.detections);
       
-      // Group by ingredient name and count quantity
       const grouped = {};
       result.detections.forEach((det) => {
         const name = capitalizeWords(det.class_name);
@@ -241,12 +340,14 @@ const IngredientScanner = () => {
     }
   };
 
-  async function detectIngredientsBackend(imageBlob) {
+  async function detectIngredientsBackend(imageBlob, isLive = false) {
     try {
       const formData = new FormData();
-      formData.append('image', imageBlob, 'ingredient-scan.jpg');
+      formData.append('image', imageBlob, isLive ? 'live-frame.jpg' : 'ingredient-scan.jpg');
 
-      console.log('📤 Sending image to backend for detection...');
+      if (!isLive) {
+        console.log('📤 Sending image to backend for detection...');
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/scan`, {
         method: 'POST',
@@ -259,7 +360,9 @@ const IngredientScanner = () => {
       }
 
       const data = await response.json();
-      console.log('✅ Detection response:', data);
+      if (!isLive) {
+        console.log('✅ Detection response:', data);
+      }
 
       if (!data.success) {
         throw new Error(data.error || 'Detection failed');
@@ -271,7 +374,9 @@ const IngredientScanner = () => {
         unmatched: data.unmatched_ingredients || []
       };
     } catch (error) {
-      console.error('❌ Detection error:', error);
+      if (!isLive) {
+        console.error('❌ Detection error:', error);
+      }
       throw error;
     }
   }
@@ -360,6 +465,9 @@ const IngredientScanner = () => {
       if (videoRef.current?.srcObject) {
         videoRef.current.srcObject.getTracks().forEach(track => track.stop());
       }
+      if (liveDetectionInterval.current) {
+        clearInterval(liveDetectionInterval.current);
+      }
     };
   }, [startCamera]);
 
@@ -393,15 +501,30 @@ const IngredientScanner = () => {
         {cameraState === 'available' && (
           <>
             <video ref={videoRef} autoPlay playsInline className="camera-feed" />
+            <canvas ref={liveCanvasRef} className="live-bbox-canvas" />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
             <div className="camera-overlay">
               <div className="scan-frame"></div>
+              {liveDetectionEnabled && (
+                <div className="live-indicator">
+                  <span className="pulse-dot"></span>
+                  LIVE
+                </div>
+              )}
             </div>
           </>
         )}
       </div>
 
       <div className="scanner-actions">
+        <button 
+          onClick={toggleLiveDetection}
+          className="live-toggle-button"
+          title={liveDetectionEnabled ? "Disable live detection" : "Enable live detection"}
+        >
+          <FontAwesomeIcon icon={liveDetectionEnabled ? faEye : faEyeSlash} />
+        </button>
+
         <button 
           onClick={handleImageUpload}
           className="upload-button"
@@ -601,19 +724,41 @@ const IngredientScanner = () => {
                   </li>
                   <li className="help-step">
                     <div className="help-step-number">3</div>
-                    <p className="help-step-text">Press "Scan Ingredient" to capture and analyze the image.</p>
+                    <p className="help-step-text">Watch live bounding boxes appear on detected ingredients.</p>
                   </li>
                   <li className="help-step">
                     <div className="help-step-number">4</div>
-                    <p className="help-step-text">Review detected ingredients and adjust selections as needed.</p>
+                    <p className="help-step-text">Press "Scan Ingredient" to capture and analyze the image.</p>
                   </li>
                   <li className="help-step">
                     <div className="help-step-number">5</div>
-                    <p className="help-step-text">Add any missed ingredients manually.</p>
+                    <p className="help-step-text">Review detected ingredients and adjust selections as needed.</p>
                   </li>
                   <li className="help-step">
                     <div className="help-step-number">6</div>
+                    <p className="help-step-text">Add any missed ingredients manually.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">7</div>
                     <p className="help-step-text">Click "Generate Recipe" to proceed with selected ingredients.</p>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="help-section">
+                <h2 className="help-section-title">Live Detection Features</h2>
+                <ul className="help-steps">
+                  <li className="help-step">
+                    <div className="help-step-number">👁️</div>
+                    <p className="help-step-text">Toggle live detection on/off using the eye icon button.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">🟢</div>
+                    <p className="help-step-text">Green boxes = ingredients found in database.</p>
+                  </li>
+                  <li className="help-step">
+                    <div className="help-step-number">🟠</div>
+                    <p className="help-step-text">Orange boxes = ingredients not in database.</p>
                   </li>
                 </ul>
               </div>
