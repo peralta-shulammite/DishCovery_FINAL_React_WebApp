@@ -24,10 +24,12 @@ const IngredientScanner = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const bboxCanvasRef = useRef(null);
+  const liveCanvasRef = useRef(null);
   const imageRef = useRef(null);
   const fileInputRef = useRef(null);
   const ingredientsListRef = useRef(null);
   const newIngredientRef = useRef(null);
+  const liveDetectionInterval = useRef(null);
   
   const [cameraState, setCameraState] = useState('not-started');
   const [isScanning, setIsScanning] = useState(false);
@@ -36,6 +38,8 @@ const IngredientScanner = () => {
   const [capturedImage, setCapturedImage] = useState(null);
   const [scannedIngredients, setScannedIngredients] = useState([]);
   const [detections, setDetections] = useState([]);
+  const [liveDetections, setLiveDetections] = useState([]);
+  const [isLiveDetecting, setIsLiveDetecting] = useState(false);
   const [newIngredient, setNewIngredient] = useState('');
   const [backendError, setBackendError] = useState(null);
 
@@ -127,6 +131,96 @@ const IngredientScanner = () => {
     }
   }, [detections, drawBoundingBoxes]);
 
+  // Draw live bounding boxes on video feed
+  const drawLiveBoxes = useCallback(() => {
+    if (!liveCanvasRef.current || !videoRef.current || liveDetections.length === 0) return;
+
+    const canvas = liveCanvasRef.current;
+    const video = videoRef.current;
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    liveDetections.forEach((det) => {
+      const [x1, y1, x2, y2] = det.bbox;
+      const width = x2 - x1;
+      const height = y2 - y1;
+
+      // Draw box
+      ctx.strokeStyle = det.db_matched ? '#4CAF50' : '#FF9800';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x1, y1, width, height);
+
+      // Draw label background
+      const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
+      ctx.font = 'bold 16px Arial';
+      const textWidth = ctx.measureText(label).width;
+      
+      ctx.fillStyle = det.db_matched ? '#4CAF50' : '#FF9800';
+      ctx.fillRect(x1, y1 - 25, textWidth + 12, 25);
+
+      // Draw label text
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(label, x1 + 6, y1 - 6);
+    });
+  }, [liveDetections]);
+
+  // Capture frame for live detection
+  const captureFrameForLiveDetection = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      return canvas.toDataURL('image/jpeg', 0.7);
+    }
+    return null;
+  };
+
+  // Live detection loop
+  useEffect(() => {
+    if (cameraState === 'available' && !showModal) {
+      liveDetectionInterval.current = setInterval(async () => {
+        if (isLiveDetecting || isScanning) return;
+        
+        try {
+          setIsLiveDetecting(true);
+          const imageDataUrl = captureFrameForLiveDetection();
+          if (imageDataUrl) {
+            const blob = await (await fetch(imageDataUrl)).blob();
+            const result = await detectIngredientsBackend(blob, true);
+            setLiveDetections(result.detections || []);
+          }
+        } catch (error) {
+          console.log('Live detection error (will retry):', error.message);
+          setLiveDetections([]);
+        } finally {
+          setIsLiveDetecting(false);
+        }
+      }, 1500); // Detect every 1.5 seconds
+
+      return () => {
+        if (liveDetectionInterval.current) {
+          clearInterval(liveDetectionInterval.current);
+        }
+      };
+    }
+  }, [cameraState, showModal, isScanning, isLiveDetecting]);
+
+  // Draw live boxes when detections update
+  useEffect(() => {
+    if (cameraState === 'available') {
+      drawLiveBoxes();
+    }
+  }, [liveDetections, cameraState, drawLiveBoxes]);
+
   const handleImageUpload = () => {
     fileInputRef.current?.click();
   };
@@ -143,11 +237,12 @@ const IngredientScanner = () => {
         setBackendError(null);
         
         try {
-          const detections = await detectIngredientsBackend(file);
+          const result = await detectIngredientsBackend(file);
+          setDetections(result.detections);
           
           // Group by ingredient name and count quantity
           const grouped = {};
-          detections.forEach((det) => {
+          result.detections.forEach((det) => {
             const name = capitalizeWords(det.class_name);
             if (grouped[name]) {
               grouped[name].quantity += 1;
@@ -201,11 +296,12 @@ const IngredientScanner = () => {
 
     try {
       const blob = await (await fetch(imageDataUrl)).blob();
-      const detections = await detectIngredientsBackend(blob);
+      const result = await detectIngredientsBackend(blob);
+      setDetections(result.detections);
       
       // Group by ingredient name and count quantity
       const grouped = {};
-      detections.forEach((det) => {
+      result.detections.forEach((det) => {
         const name = capitalizeWords(det.class_name);
         if (grouped[name]) {
           grouped[name].quantity += 1;
@@ -242,12 +338,14 @@ const IngredientScanner = () => {
     }
   };
 
-  async function detectIngredientsBackend(imageBlob) {
+  async function detectIngredientsBackend(imageBlob, isLive = false) {
     try {
       const formData = new FormData();
-      formData.append('image', imageBlob, 'ingredient-scan.jpg');
+      formData.append('image', imageBlob, isLive ? 'live-frame.jpg' : 'ingredient-scan.jpg');
 
-      console.log('📤 Sending image to backend for detection...');
+      if (!isLive) {
+        console.log('📤 Sending image to backend for detection...');
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/scan`, {
         method: 'POST',
@@ -260,14 +358,16 @@ const IngredientScanner = () => {
       }
 
       const data = await response.json();
-      console.log('✅ Detection results:', data);
+      if (!isLive) {
+        console.log('✅ Detection results:', data);
+      }
 
       if (!data.success) {
         throw new Error(data.error || 'Detection failed');
       }
 
-      return data.detections.map(det => ({
-        class_name: det.ingredient_name,
+      const detections = data.detections.map(det => ({
+        class_name: det.ingredient_name || det.class_name,
         confidence: det.confidence,
         bbox: det.bbox,
         ingredient_id: det.ingredient_id,
@@ -275,8 +375,12 @@ const IngredientScanner = () => {
         original_detection: det.original_detection
       }));
 
+      return { detections };
+
     } catch (error) {
-      console.error('❌ Backend detection error:', error);
+      if (!isLive) {
+        console.error('❌ Backend detection error:', error);
+      }
       throw error;
     }
   }
@@ -372,6 +476,14 @@ const IngredientScanner = () => {
 
   useEffect(() => {
     startCamera();
+    return () => {
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      }
+      if (liveDetectionInterval.current) {
+        clearInterval(liveDetectionInterval.current);
+      }
+    };
   }, [startCamera]);
 
   return (
@@ -403,6 +515,7 @@ const IngredientScanner = () => {
 
       <div className="camera-feed" style={{ position: 'relative' }}>
         <video ref={videoRef} autoPlay playsInline />
+        <canvas ref={liveCanvasRef} className="live-bbox-canvas" />
         
         {isScanning && (
           <div className="scanning-overlay">
