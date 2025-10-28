@@ -816,3 +816,69 @@ html, body {
 td, th {
   word-break: break-word;
 }
+
+/* Admin Notification Styles */
+.admin-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: adminNotifSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 400px;
+  min-width: 250px;
+}
+
+.admin-notification.success {
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+}
+
+.admin-notification.error {
+  background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+}
+
+.admin-notification.info {
+  background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%);
+}
+
+@keyframes adminNotifSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-notification {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    max-width: calc(100% - 32px);
+    font-size: 13px;
+    padding: 12px 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-notification {
+    font-size: 12px;
+    padding: 10px 16px;
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+  }
+}

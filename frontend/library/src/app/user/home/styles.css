@@ -1665,8 +1665,8 @@
   }
 }
 
-/* Welcome Toast Notification - Exact replica of react-hot-toast styling */
-.welcome-notification {
+/* Custom Notification Styles */
+.custom-notification {
   position: fixed;
   top: 20px;
   left: 50%;
@@ -1683,10 +1683,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: toastSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: notificationSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 500px;
+  text-align: center;
 }
 
-@keyframes toastSlideIn {
+@keyframes notificationSlideIn {
   from {
     opacity: 0;
     transform: translate(-50%, -20px);
@@ -1698,10 +1700,17 @@
 }
 
 @media (max-width: 768px) {
-  .welcome-notification {
+  .custom-notification {
     font-size: 13px;
     padding: 12px 20px;
     max-width: 90%;
     top: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .custom-notification {
+    font-size: 12px;
+    padding: 10px 16px;
   }
 }
