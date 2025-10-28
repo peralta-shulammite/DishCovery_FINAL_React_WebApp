@@ -24,14 +24,26 @@ async function safeQuery(query, params = []) {
  */
 async function matchIngredientToDatabase(ingredientName) {
   try {
-    // Exact match
-    const exactRows = await safeQuery(
+    console.log(`🔎 Attempting DB match for: "${ingredientName}"`);
+
+    // --- Exact Match ---
+    const exactResult = await safeQuery(
       'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) = LOWER(?)',
       [ingredientName]
     );
 
-    if (Array.isArray(exactRows) && exactRows.length > 0) {
-      console.log(`✅ Exact match found: ${ingredientName}`);
+    console.log('🧩 Exact query result type:', typeof exactResult, '| isArray:', Array.isArray(exactResult));
+    console.log('🧩 Exact query raw result:', exactResult);
+
+    // Normalize result: always return an array
+    const exactRows = Array.isArray(exactResult)
+      ? exactResult
+      : exactResult
+        ? [exactResult]
+        : [];
+
+    if (exactRows.length > 0) {
+      console.log(`✅ Exact match found in DB: ${ingredientName} → ID ${exactRows[0].ingredient_id}`);
       return {
         id: exactRows[0].ingredient_id,
         name: exactRows[0].ingredient_name,
@@ -39,14 +51,23 @@ async function matchIngredientToDatabase(ingredientName) {
       };
     }
 
-    // Fuzzy match
-    const fuzzyRows = await safeQuery(
+    // --- Fuzzy Match ---
+    const fuzzyResult = await safeQuery(
       'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) LIKE LOWER(?)',
       [`%${ingredientName}%`]
     );
 
-    if (Array.isArray(fuzzyRows) && fuzzyRows.length > 0) {
-      console.log(`✅ Fuzzy match found: ${ingredientName}`);
+    console.log('🧩 Fuzzy query result type:', typeof fuzzyResult, '| isArray:', Array.isArray(fuzzyResult));
+    console.log('🧩 Fuzzy query raw result:', fuzzyResult);
+
+    const fuzzyRows = Array.isArray(fuzzyResult)
+      ? fuzzyResult
+      : fuzzyResult
+        ? [fuzzyResult]
+        : [];
+
+    if (fuzzyRows.length > 0) {
+      console.log(`✅ Fuzzy match found in DB: ${ingredientName} → ID ${fuzzyRows[0].ingredient_id}`);
       return {
         id: fuzzyRows[0].ingredient_id,
         name: fuzzyRows[0].ingredient_name,
@@ -54,13 +75,14 @@ async function matchIngredientToDatabase(ingredientName) {
       };
     }
 
-    // No match found
-    console.log(`⚠️  No match found for: ${ingredientName}`);
+    // --- No Match ---
+    console.log(`⚠️ No match found for: "${ingredientName}"`);
     return {
       id: null,
       name: ingredientName,
       matched: false
     };
+
   } catch (error) {
     console.error('❌ Database matching error:', error);
     return {
