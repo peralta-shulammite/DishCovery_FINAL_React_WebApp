@@ -11,21 +11,11 @@ const upload = multer({ dest: 'uploads/' });
 const DETECTION_API_URL = process.env.YOLO_API_URL || 'http://localhost:8000/detect';
 
 /**
- * ✅ Universal safeQuery
- * Works on both localhost (phpMyAdmin) and Aiven cloud (mysql2/promise).
+ * ✅ Safe query helper (works on both Aiven + localhost)
  */
 async function safeQuery(query, params = []) {
   try {
-    const result = await pool.query(query, params);
-    // Convert RowDataPackets → plain objects
-    const rows = JSON.parse(JSON.stringify(result));
-
-    if (rows.length) {
-      console.log(`✅ DB: ${rows.length} row(s) returned.`);
-    } else {
-      console.log(`⚠️ DB: No rows found for query.`);
-    }
-
+    const [rows] = await pool.query(query, params); // mysql2/promise destructuring fix
     return rows;
   } catch (error) {
     console.error('❌ safeQuery error:', error.message);
@@ -34,8 +24,7 @@ async function safeQuery(query, params = []) {
 }
 
 /**
- * ✅ Match detected ingredient to database
- * Uses exact match first, then fuzzy match (LIKE).
+ * ✅ Match detected ingredient name to your database
  */
 async function matchIngredientToDatabase(ingredientName) {
   try {
@@ -50,7 +39,7 @@ async function matchIngredientToDatabase(ingredientName) {
 
     if (exactRows.length > 0) {
       const ing = exactRows[0];
-      console.log(`✅ Match → "${ingredientName}" = "${ing.ingredient_name}" (ID: ${ing.ingredient_id})`);
+      console.log(`✅ Exact match found: "${ing.ingredient_name}" (ID: ${ing.ingredient_id})`);
       return {
         id: ing.ingredient_id,
         name: ing.ingredient_name,
@@ -58,7 +47,7 @@ async function matchIngredientToDatabase(ingredientName) {
       };
     }
 
-    // 2️⃣ Fuzzy match (LIKE)
+    // 2️⃣ Fuzzy match
     const fuzzyRows = await safeQuery(
       'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) LIKE ?',
       [`%${lowerName}%`]
@@ -66,7 +55,7 @@ async function matchIngredientToDatabase(ingredientName) {
 
     if (fuzzyRows.length > 0) {
       const ing = fuzzyRows[0];
-      console.log(`🟡 Fuzzy match → "${ingredientName}" ≈ "${ing.ingredient_name}" (ID: ${ing.ingredient_id})`);
+      console.log(`🟡 Fuzzy match found: "${ing.ingredient_name}" (ID: ${ing.ingredient_id})`);
       return {
         id: ing.ingredient_id,
         name: ing.ingredient_name,
@@ -74,14 +63,16 @@ async function matchIngredientToDatabase(ingredientName) {
       };
     }
 
+    // ❌ No match found
     console.log(`❌ No match found for "${ingredientName}"`);
     return {
       id: null,
       name: ingredientName,
       matched: false
     };
+
   } catch (error) {
-    console.error(`❌ Error matching "${ingredientName}":`, error.message);
+    console.error(`❌ matchIngredientToDatabase error for "${ingredientName}":`, error.message);
     return {
       id: null,
       name: ingredientName,
@@ -91,15 +82,17 @@ async function matchIngredientToDatabase(ingredientName) {
 }
 
 /**
- * ✅ POST /api/scan
- * Main route: detects ingredients with YOLO, then matches to database.
+ * 📸 POST /api/scan
  */
 router.post('/', upload.single('image'), async (req, res) => {
   let tempFilePath = null;
 
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, error: 'No image file provided' });
+      return res.status(400).json({
+        success: false,
+        error: 'No image file provided'
+      });
     }
 
     tempFilePath = req.file.path;
@@ -120,7 +113,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     console.log(`✅ Detection complete: ${response.data.num_detections} ingredients found`);
 
-    // Step 3️⃣ Match detections to DB
+    // 🔍 Match each detected ingredient with DB
     const detectionsWithIds = await Promise.all(
       response.data.detections.map(async (det) => {
         const dbMatch = await matchIngredientToDatabase(det.class_name);
@@ -137,9 +130,9 @@ router.post('/', upload.single('image'), async (req, res) => {
     const matched = detectionsWithIds.filter(d => d.db_matched);
     const unmatched = detectionsWithIds.filter(d => !d.db_matched);
 
-    console.log(`✅ Matched ${matched.length} ingredient(s) to database`);
+    console.log(`✅ Matched ${matched.length} ingredients to database`);
     if (unmatched.length > 0) {
-      console.log(`⚠️ ${unmatched.length} not found: ${unmatched.map(u => `"${u.original_detection}"`).join(', ')}`);
+      console.log(`⚠️  ${unmatched.length} ingredients not found in database:`, unmatched.map(u => u.original_detection));
     }
 
     res.json({
@@ -155,6 +148,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 
   } catch (error) {
     console.error('❌ Detection error:', error.message);
+
     if (error.response) {
       return res.status(error.response.status).json({
         success: false,
@@ -177,19 +171,22 @@ router.post('/', upload.single('image'), async (req, res) => {
   } finally {
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
-      console.log('🗑️ Cleaned up temp file');
+      console.log('🗑️  Cleaned up temp file');
     }
   }
 });
 
 /**
- * ✅ Health check route for YOLO detection service
+ * 🩺 GET /api/scan/health
  */
 router.get('/health', async (req, res) => {
   try {
     const healthUrl = DETECTION_API_URL.replace('/detect', '/health');
     const response = await axios.get(healthUrl, { timeout: 5000 });
-    res.json({ success: true, detection_service: response.data });
+    res.json({
+      success: true,
+      detection_service: response.data
+    });
   } catch (error) {
     res.status(503).json({
       success: false,
