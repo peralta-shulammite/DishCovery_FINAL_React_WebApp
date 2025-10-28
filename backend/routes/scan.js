@@ -11,39 +11,45 @@ const upload = multer({ dest: 'uploads/' });
 const DETECTION_API_URL = process.env.YOLO_API_URL || 'http://localhost:8000/detect';
 
 /**
- * Helper: Always return an array of rows
+ * ✅ Universal safeQuery that works on both phpMyAdmin (localhost)
+ * and Aiven (mysql2/promise cloud)
  */
 async function safeQuery(query, params = []) {
-  const result = await pool.query(query, params);
-  // pool.query() in db.js already returns rows, not [rows, fields]
-  return Array.isArray(result) ? result : [result];
+  try {
+    console.log('🔍 Executing query:', query.length > 120 ? query.substring(0, 120) + '...' : query);
+    if (params.length) console.log('📝 Parameters:', params);
+
+    const result = await pool.query(query, params);
+
+    // 🔧 Normalize Aiven/mysql2 RowDataPacket format
+    const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
+
+    console.log(`✅ Query executed successfully. Rows: ${rows.length}`);
+    return rows;
+  } catch (error) {
+    console.error('❌ safeQuery error:', error.message);
+    return [];
+  }
 }
 
 /**
- * Match ingredient name to database ID
+ * ✅ Match detected ingredient to database
+ * Works on both local and Aiven MySQL connections
  */
 async function matchIngredientToDatabase(ingredientName) {
   try {
-    console.log(`🔎 Attempting DB match for: "${ingredientName}"`);
+    console.log(`🔎 Matching ingredient: "${ingredientName}"`);
 
-    // --- Exact Match ---
-    const exactResult = await safeQuery(
+    // Step 1: Exact match
+    const exactRows = await safeQuery(
       'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) = LOWER(?)',
       [ingredientName]
     );
 
-    console.log('🧩 Exact query result type:', typeof exactResult, '| isArray:', Array.isArray(exactResult));
-    console.log('🧩 Exact query raw result:', exactResult);
-
-    // Normalize result: always return an array
-    const exactRows = Array.isArray(exactResult)
-      ? exactResult
-      : exactResult
-        ? [exactResult]
-        : [];
+    console.log('🧩 Exact query result:', exactRows);
 
     if (exactRows.length > 0) {
-      console.log(`✅ Exact match found in DB: ${ingredientName} → ID ${exactRows[0].ingredient_id}`);
+      console.log(`✅ Exact match found for "${ingredientName}" → ID: ${exactRows[0].ingredient_id}`);
       return {
         id: exactRows[0].ingredient_id,
         name: exactRows[0].ingredient_name,
@@ -51,23 +57,16 @@ async function matchIngredientToDatabase(ingredientName) {
       };
     }
 
-    // --- Fuzzy Match ---
-    const fuzzyResult = await safeQuery(
+    // Step 2: Fuzzy match
+    const fuzzyRows = await safeQuery(
       'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) LIKE LOWER(?)',
       [`%${ingredientName}%`]
     );
 
-    console.log('🧩 Fuzzy query result type:', typeof fuzzyResult, '| isArray:', Array.isArray(fuzzyResult));
-    console.log('🧩 Fuzzy query raw result:', fuzzyResult);
-
-    const fuzzyRows = Array.isArray(fuzzyResult)
-      ? fuzzyResult
-      : fuzzyResult
-        ? [fuzzyResult]
-        : [];
+    console.log('🧩 Fuzzy query result:', fuzzyRows);
 
     if (fuzzyRows.length > 0) {
-      console.log(`✅ Fuzzy match found in DB: ${ingredientName} → ID ${fuzzyRows[0].ingredient_id}`);
+      console.log(`✅ Fuzzy match found for "${ingredientName}" → ID: ${fuzzyRows[0].ingredient_id}`);
       return {
         id: fuzzyRows[0].ingredient_id,
         name: fuzzyRows[0].ingredient_name,
@@ -75,8 +74,7 @@ async function matchIngredientToDatabase(ingredientName) {
       };
     }
 
-    // --- No Match ---
-    console.log(`⚠️ No match found for: "${ingredientName}"`);
+    console.log(`⚠️ No database match found for "${ingredientName}"`);
     return {
       id: null,
       name: ingredientName,
@@ -84,7 +82,7 @@ async function matchIngredientToDatabase(ingredientName) {
     };
 
   } catch (error) {
-    console.error('❌ Database matching error:', error);
+    console.error('❌ Database matching error:', error.message);
     return {
       id: null,
       name: ingredientName,
@@ -94,17 +92,14 @@ async function matchIngredientToDatabase(ingredientName) {
 }
 
 /**
- * POST /api/scan
+ * ✅ Main route: /api/scan
  */
 router.post('/', upload.single('image'), async (req, res) => {
   let tempFilePath = null;
 
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'No image file provided'
-      });
+      return res.status(400).json({ success: false, error: 'No image file provided' });
     }
 
     tempFilePath = req.file.path;
@@ -125,7 +120,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     console.log(`✅ Detection complete: ${response.data.num_detections} ingredients found`);
 
-    // Match each detected ingredient to DB
+    // Step 3: Match detections to DB
     const detectionsWithIds = await Promise.all(
       response.data.detections.map(async (det) => {
         const dbMatch = await matchIngredientToDatabase(det.class_name);
@@ -144,7 +139,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     console.log(`✅ Matched ${matched.length} ingredients to database`);
     if (unmatched.length > 0) {
-      console.log(`⚠️  ${unmatched.length} ingredients not found:`, unmatched.map(u => u.original_detection));
+      console.log(`⚠️ ${unmatched.length} not found:`, unmatched.map(u => u.original_detection));
     }
 
     res.json({
@@ -160,7 +155,6 @@ router.post('/', upload.single('image'), async (req, res) => {
 
   } catch (error) {
     console.error('❌ Detection error:', error.message);
-
     if (error.response) {
       return res.status(error.response.status).json({
         success: false,
@@ -183,22 +177,19 @@ router.post('/', upload.single('image'), async (req, res) => {
   } finally {
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
-      console.log('🗑️  Cleaned up temp file');
+      console.log('🗑️ Cleaned up temp file');
     }
   }
 });
 
 /**
- * GET /api/scan/health
+ * Health check route for detection service
  */
 router.get('/health', async (req, res) => {
   try {
     const healthUrl = DETECTION_API_URL.replace('/detect', '/health');
     const response = await axios.get(healthUrl, { timeout: 5000 });
-    res.json({
-      success: true,
-      detection_service: response.data
-    });
+    res.json({ success: true, detection_service: response.data });
   } catch (error) {
     res.status(503).json({
       success: false,
