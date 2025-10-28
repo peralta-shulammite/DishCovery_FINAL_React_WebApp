@@ -15,17 +15,17 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import './style.css';
 
+// Use your existing env variable name
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 const IngredientScanner = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const bboxCanvasRef = useRef(null);
   const fileInputRef = useRef(null);
   const ingredientsListRef = useRef(null);
   const newIngredientRef = useRef(null);
-  const imageRef = useRef(null);
   
   const [cameraState, setCameraState] = useState('not-started');
   const [isScanning, setIsScanning] = useState(false);
@@ -33,8 +33,6 @@ const IngredientScanner = () => {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [scannedIngredients, setScannedIngredients] = useState([]);
-  const [detections, setDetections] = useState([]);
-  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [newIngredient, setNewIngredient] = useState('');
   const [backendError, setBackendError] = useState(null);
 
@@ -82,50 +80,6 @@ const IngredientScanner = () => {
     return null;
   };
 
-  // Draw bounding boxes on canvas
-  const drawBoundingBoxes = useCallback(() => {
-    if (!bboxCanvasRef.current || !imageRef.current || detections.length === 0) return;
-
-    const canvas = bboxCanvasRef.current;
-    const img = imageRef.current;
-    const ctx = canvas.getContext('2d');
-
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    detections.forEach((det) => {
-      const [x1, y1, x2, y2] = det.bbox;
-      const width = x2 - x1;
-      const height = y2 - y1;
-
-      // Draw box
-      ctx.strokeStyle = det.db_matched ? '#4CAF50' : '#FF9800';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(x1, y1, width, height);
-
-      // Draw label background
-      const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
-      ctx.font = '14px Arial';
-      const textWidth = ctx.measureText(label).width;
-      
-      ctx.fillStyle = det.db_matched ? '#4CAF50' : '#FF9800';
-      ctx.fillRect(x1, y1 - 20, textWidth + 10, 20);
-
-      // Draw label text
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(label, x1 + 5, y1 - 5);
-    });
-  }, [detections]);
-
-  // Redraw boxes when image loads or detections change
-  useEffect(() => {
-    if (imageRef.current && imageRef.current.complete) {
-      drawBoundingBoxes();
-    }
-  }, [detections, drawBoundingBoxes]);
-
   const handleImageUpload = () => {
     fileInputRef.current?.click();
   };
@@ -142,12 +96,11 @@ const IngredientScanner = () => {
         setBackendError(null);
         
         try {
-          const result = await detectIngredientsBackend(file);
-          setDetections(result.detections);
+          const detections = await detectIngredientsBackend(file);
           
           // Group by ingredient name and count quantity
           const grouped = {};
-          result.detections.forEach((det) => {
+          detections.forEach((det) => {
             const name = capitalizeWords(det.class_name);
             if (grouped[name]) {
               grouped[name].quantity += 1;
@@ -175,7 +128,6 @@ const IngredientScanner = () => {
           console.error('Error processing uploaded image:', error);
           setBackendError(error.message);
           setScannedIngredients([]);
-          setDetections([]);
         } finally {
           setIsScanning(false);
         }
@@ -200,12 +152,11 @@ const IngredientScanner = () => {
 
     try {
       const blob = await (await fetch(imageDataUrl)).blob();
-      const result = await detectIngredientsBackend(blob);
-      setDetections(result.detections);
+      const detections = await detectIngredientsBackend(blob);
       
       // Group by ingredient name and count quantity
       const grouped = {};
-      result.detections.forEach((det) => {
+      detections.forEach((det) => {
         const name = capitalizeWords(det.class_name);
         if (grouped[name]) {
           grouped[name].quantity += 1;
@@ -235,7 +186,6 @@ const IngredientScanner = () => {
       console.error('Detection error:', error);
       setBackendError(error.message);
       setScannedIngredients([]);
-      setDetections([]);
     } finally {
       setIsScanning(false);
     }
@@ -255,98 +205,88 @@ const IngredientScanner = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error ${response.status}`);
+        throw new Error(errorData.error || 'Detection failed');
       }
 
       const data = await response.json();
-      console.log('✅ Detection response:', data);
+      console.log('✅ Detection results:', data);
 
       if (!data.success) {
         throw new Error(data.error || 'Detection failed');
       }
 
-      return {
-        detections: data.detections || [],
-        matched: data.matched_ingredients || [],
-        unmatched: data.unmatched_ingredients || []
-      };
+      return data.detections.map(det => ({
+        class_name: det.ingredient_name,
+        confidence: det.confidence,
+        bbox: det.bbox,
+        ingredient_id: det.ingredient_id,
+        db_matched: det.db_matched,
+        original_detection: det.original_detection
+      }));
+
     } catch (error) {
-      console.error('❌ Detection error:', error);
+      console.error('❌ Backend detection error:', error);
       throw error;
     }
   }
 
-  function capitalizeWords(str) {
-    return str.split(' ').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    ).join(' ');
-  }
+  const capitalizeWords = (str) => {
+    return str.replace(/\b\w/g, l => l.toUpperCase());
+  };
 
   const toggleIngredientSelection = (id) => {
     setScannedIngredients(prev => 
-      prev.map(ing => ing.id === id ? { ...ing, selected: !ing.selected } : ing)
-    );
-  };
-
-  const updateQuantity = (id, quantity) => {
-    setScannedIngredients(prev =>
-      prev.map(ing => ing.id === id ? { ...ing, quantity: Math.max(1, quantity) } : ing)
+      prev.map(ingredient => 
+        ingredient.id === id 
+          ? { ...ingredient, selected: !ingredient.selected }
+          : ingredient
+      )
     );
   };
 
   const deleteIngredient = (id) => {
-    setScannedIngredients(prev => prev.filter(ing => ing.id !== id));
+    setScannedIngredients(prev => 
+      prev.filter(ingredient => ingredient.id !== id)
+    );
+  };
+
+  const updateQuantity = (id, newQuantity) => {
+    setScannedIngredients(prev => 
+      prev.map(ingredient => 
+        ingredient.id === id 
+          ? { ...ingredient, quantity: Math.max(1, newQuantity) }
+          : ingredient
+      )
+    );
   };
 
   const addIngredient = () => {
     if (newIngredient.trim()) {
-      const newId = scannedIngredients.length > 0 
-        ? Math.max(...scannedIngredients.map(i => i.id)) + 1 
-        : 1;
-      
-      setScannedIngredients(prev => [...prev, {
-        id: newId,
-        ingredient_id: null,
-        name: capitalizeWords(newIngredient.trim()),
-        quantity: 1,
-        selected: true,
-        confidence: null,
-        db_matched: false,
-        original_detection: newIngredient.trim()
-      }]);
-      setNewIngredient('');
-      
-      setTimeout(() => {
-        if (ingredientsListRef.current) {
-          ingredientsListRef.current.scrollTop = ingredientsListRef.current.scrollHeight;
+      const newId = Math.max(...scannedIngredients.map(i => i.id), 0) + 1;
+      setScannedIngredients(prev => [
+        ...prev,
+        { 
+          id: newId, 
+          ingredient_id: null,
+          name: newIngredient.trim(), 
+          quantity: 1,
+          selected: true,
+          db_matched: false
         }
-      }, 100);
+      ]);
+      setNewIngredient('');
+
+      setTimeout(() => {
+        if (newIngredientRef.current) {
+          newIngredientRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 0);
     }
-  };
-
-  const getSelectedCount = () => {
-    return scannedIngredients.filter(ing => ing.selected).length;
-  };
-
-  const generateRecipe = () => {
-    const selected = scannedIngredients
-      .filter(ing => ing.selected)
-      .map(ing => ({
-        ingredient_id: ing.ingredient_id,
-        name: ing.name,
-        quantity: ing.quantity
-      }));
-    
-    console.log('Selected ingredients for recipe:', selected);
-    localStorage.setItem('selectedIngredients', JSON.stringify(selected));
-    window.location.href = '/recipe';
   };
 
   const closeModal = () => {
     setShowModal(false);
     setCapturedImage(null);
-    setScannedIngredients([]);
-    setDetections([]);
     setBackendError(null);
   };
 
@@ -354,78 +294,141 @@ const IngredientScanner = () => {
     setShowHelpModal(false);
   };
 
+  const generateRecipe = () => {
+    const selectedIngredients = scannedIngredients.filter(i => i.selected);
+    
+    // Send ingredient IDs (for database matching) and names (for display)
+    const ingredientIds = selectedIngredients
+      .filter(ing => ing.ingredient_id !== null)
+      .map(ing => ing.ingredient_id);
+    
+    const ingredientNames = selectedIngredients.map(ing => ing.name);
+    
+    const params = new URLSearchParams();
+    if (ingredientIds.length > 0) {
+      params.set('ids', ingredientIds.join(','));
+    }
+    params.set('ingredients', ingredientNames.join(','));
+    
+    window.location.href = `/user/recipe?${params.toString()}`;
+  };
+
+  const getSelectedCount = () => {
+    return scannedIngredients.filter(i => i.selected).length;
+  };
+
   useEffect(() => {
     startCamera();
-    return () => {
-      if (videoRef.current?.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-      }
-    };
   }, [startCamera]);
 
   return (
-    <div className="scanner-container">
-      <div className="scanner-header">
-        <button onClick={handleGoBack} className="back-button">
-          <FontAwesomeIcon icon={faArrowLeft} />
-        </button>
-        <h1>Ingredient Scanner</h1>
-        <button onClick={() => setShowHelpModal(true)} className="help-button">
-          <FontAwesomeIcon icon={faQuestionCircle} />
-        </button>
+    <div className="app-container">
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        style={{ display: 'none' }}
+      />
+
+      <div className="header">
+        <div className="header-left">
+          <button className="back-button" onClick={handleGoBack}>
+            <FontAwesomeIcon icon={faArrowLeft} className="icon" />
+          </button>
+        </div>
+        
+        <h1 className="title">Ingredient Scanner</h1>
+        
+        <div className="header-right">
+          <button className="help-button" onClick={() => setShowHelpModal(true)}>
+            <FontAwesomeIcon icon={faQuestionCircle} className="icon" />
+          </button>
+        </div>
       </div>
 
-      <div className="camera-container">
+      <div className="camera-feed" style={{ position: 'relative' }}>
+        <video ref={videoRef} autoPlay playsInline />
+        
+        {isScanning && (
+          <div className="scanning-overlay">
+            <div className="scanning-content">
+              <div className="spinner"></div>
+              <p className="scanning-text">Analyzing ingredients...</p>
+            </div>
+          </div>
+        )}
+
         {cameraState === 'loading' && (
-          <div className="camera-message">
-            <p>Starting camera...</p>
+          <div className="no-camera-overlay">
+            <div className="no-camera-content">
+              <div className="spinner"></div>
+              <p>Loading camera...</p>
+            </div>
           </div>
         )}
         
         {cameraState === 'denied' && (
-          <div className="camera-message error">
-            <FontAwesomeIcon icon={faExclamationTriangle} size="3x" />
-            <p>Camera access denied</p>
-            <p className="camera-message-sub">Please enable camera permissions in your browser settings</p>
+          <div className="no-camera-overlay denied">
+            <div className="no-camera-content">
+              <FontAwesomeIcon icon={faExclamationTriangle} className="warning-icon" />
+              <h2>Camera Access Denied</h2>
+              <p className="camera-subtitle">
+                Please enable camera permissions in your browser or device settings to scan ingredients.
+                Alternatively, upload an image using the button below.
+              </p>
+              <p className="camera-instructions">
+                <strong>How to enable:</strong><br />
+                - On Chrome: Click the lock icon in the address bar, select "Permissions," and allow Camera.<br />
+                - On iOS: Go to Settings {'>'} Safari {'>'} Camera and select "Allow."<br />
+                - On Android: Go to Settings {'>'} Apps {'>'} Browser {'>'} Permissions and enable Camera.
+              </p>
+              <div className="camera-denied-actions">
+                <button onClick={startCamera} className="retry-camera-btn">
+                  Try Again
+                </button>
+                <button onClick={handleImageUpload} className="upload-fallback-btn">
+                  Upload Image
+                </button>
+              </div>
+            </div>
           </div>
         )}
-
-        {cameraState === 'available' && (
-          <>
-            <video ref={videoRef} autoPlay playsInline className="camera-feed" />
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
-            <div className="camera-overlay">
-              <div className="scan-frame"></div>
+        
+        {cameraState === 'not-started' && (
+          <div className="no-camera-overlay">
+            <div className="no-camera-content">
+              <div className="camera-emoji">📷</div>
+              <p>Camera starting...</p>
             </div>
-          </>
+          </div>
         )}
       </div>
 
-      <div className="scanner-actions">
-        <button 
-          onClick={handleImageUpload}
-          className="upload-button"
-        >
-          <FontAwesomeIcon icon={faUpload} />
-          <span>Upload Image</span>
-        </button>
-        
-        <button 
-          onClick={handleScan}
-          disabled={cameraState !== 'available' || isScanning}
-          className="scan-button"
-        >
-          <FontAwesomeIcon icon={faSearch} spin={isScanning} />
-          <span>{isScanning ? 'Scanning...' : 'Scan Ingredient'}</span>
-        </button>
-        
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
-        />
+      <div className="bottom-controls">
+        <div className="controls-container">
+          <button 
+            onClick={handleScan}
+            disabled={isScanning || cameraState !== 'available'}
+            className={`scan-button ${isScanning || cameraState !== 'available' ? 'disabled' : ''}`}
+          >
+            <FontAwesomeIcon icon={faSearch} className="scan-icon" />
+            <span>
+              {isScanning ? 'Analyzing...' :
+               cameraState === 'available' ? 'Scan Ingredient' : 
+               cameraState === 'loading' ? 'Camera Loading...' :
+               cameraState === 'denied' ? 'Enable Camera' : 'Start Camera'}
+            </span>
+          </button>
+          <button 
+            onClick={handleImageUpload}
+            disabled={isScanning}
+            className={`upload-button ${isScanning ? 'disabled' : ''}`}
+          >
+            <FontAwesomeIcon icon={faUpload} className="upload-icon" />
+          </button>
+        </div>
       </div>
 
       {showModal && (
@@ -440,28 +443,9 @@ const IngredientScanner = () => {
             
             <div className="modal-content">
               <div className="image-section">
-                <div className="image-container-bbox">
+                <div className="image-container">
                   {capturedImage ? (
-                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                      <img 
-                        ref={imageRef}
-                        src={capturedImage} 
-                        alt="Captured ingredients"
-                        onLoad={drawBoundingBoxes}
-                        style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
-                      />
-                      <canvas 
-                        ref={bboxCanvasRef}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: '100%',
-                          pointerEvents: 'none'
-                        }}
-                      />
-                    </div>
+                    <img src={capturedImage} alt="Captured ingredients" />
                   ) : (
                     <div className="no-image">
                       <p>No image captured</p>
@@ -507,7 +491,7 @@ const IngredientScanner = () => {
                             <span className="ingredient-subtitle">
                               Quantity: {ingredient.quantity} • {ingredient.confidence && `Confidence: ${(ingredient.confidence * 100).toFixed(1)}% • `}
                               {ingredient.db_matched ? (
-                                <span style={{color: '#4CAF50'}}>✓ In Database</span>
+                                <span style={{color: '#4CAF50'}}>   <br />  ✓ In Database</span>
                               ) : (
                                 <span style={{color: '#ff9800'}}>⚠ Not in Database</span>
                               )}
