@@ -98,14 +98,29 @@ const IngredientScanner = () => {
         try {
           const detections = await detectIngredientsBackend(file);
           
-          const ingredients = detections.map((det, idx) => ({
-            id: idx + 1,
-            ingredient_id: det.ingredient_id,
-            name: capitalizeWords(det.class_name),
-            selected: true,
-            confidence: det.confidence,
-            db_matched: det.db_matched,
-            original_detection: det.original_detection
+          // Group by ingredient name and count quantity
+          const grouped = {};
+          detections.forEach((det) => {
+            const name = capitalizeWords(det.class_name);
+            if (grouped[name]) {
+              grouped[name].quantity += 1;
+              grouped[name].confidence = Math.max(grouped[name].confidence, det.confidence);
+            } else {
+              grouped[name] = {
+                ingredient_id: det.ingredient_id,
+                name: name,
+                quantity: 1,
+                selected: true,
+                confidence: det.confidence,
+                db_matched: det.db_matched,
+                original_detection: det.original_detection
+              };
+            }
+          });
+          
+          const ingredients = Object.values(grouped).map((item, idx) => ({
+            ...item,
+            id: idx + 1
           }));
           
           setScannedIngredients(ingredients);
@@ -139,14 +154,29 @@ const IngredientScanner = () => {
       const blob = await (await fetch(imageDataUrl)).blob();
       const detections = await detectIngredientsBackend(blob);
       
-      const ingredients = detections.map((det, idx) => ({
-        id: idx + 1,
-        ingredient_id: det.ingredient_id,
-        name: capitalizeWords(det.class_name),
-        selected: true,
-        confidence: det.confidence,
-        db_matched: det.db_matched,
-        original_detection: det.original_detection
+      // Group by ingredient name and count quantity
+      const grouped = {};
+      detections.forEach((det) => {
+        const name = capitalizeWords(det.class_name);
+        if (grouped[name]) {
+          grouped[name].quantity += 1;
+          grouped[name].confidence = Math.max(grouped[name].confidence, det.confidence);
+        } else {
+          grouped[name] = {
+            ingredient_id: det.ingredient_id,
+            name: name,
+            quantity: 1,
+            selected: true,
+            confidence: det.confidence,
+            db_matched: det.db_matched,
+            original_detection: det.original_detection
+          };
+        }
+      });
+      
+      const ingredients = Object.values(grouped).map((item, idx) => ({
+        ...item,
+        id: idx + 1
       }));
       
       setScannedIngredients(ingredients);
@@ -220,6 +250,16 @@ const IngredientScanner = () => {
     );
   };
 
+  const updateQuantity = (id, newQuantity) => {
+    setScannedIngredients(prev => 
+      prev.map(ingredient => 
+        ingredient.id === id 
+          ? { ...ingredient, quantity: Math.max(1, newQuantity) }
+          : ingredient
+      )
+    );
+  };
+
   const addIngredient = () => {
     if (newIngredient.trim()) {
       const newId = Math.max(...scannedIngredients.map(i => i.id), 0) + 1;
@@ -229,6 +269,7 @@ const IngredientScanner = () => {
           id: newId, 
           ingredient_id: null,
           name: newIngredient.trim(), 
+          quantity: 1,
           selected: true,
           db_matched: false
         }
@@ -448,15 +489,30 @@ const IngredientScanner = () => {
                           <div className="ingredient-info">
                             <span className="ingredient-name">{ingredient.name}</span>
                             <span className="ingredient-subtitle">
-                              {ingredient.confidence && `Confidence: ${(ingredient.confidence * 100).toFixed(1)}% • `}
+                              Quantity: {ingredient.quantity} • {ingredient.confidence && `Confidence: ${(ingredient.confidence * 100).toFixed(1)}% • `}
                               {ingredient.db_matched ? (
-                                <span style={{color: '#4CAF50'}}>✓ In Database</span>
+                                <span style={{color: '#4CAF50'}}>   <br />  ✓ In Database</span>
                               ) : (
                                 <span style={{color: '#ff9800'}}>⚠ Not in Database</span>
                               )}
                             </span>
                           </div>
                           <div className="ingredient-actions">
+                            <input
+                              type="number"
+                              min="1"
+                              value={ingredient.quantity}
+                              onChange={(e) => updateQuantity(ingredient.id, parseInt(e.target.value) || 1)}
+                              className="quantity-input"
+                              style={{
+                                width: '60px',
+                                padding: '0.4rem',
+                                border: '1px solid #ddd',
+                                borderRadius: '6px',
+                                fontSize: '0.9rem',
+                                marginRight: '0.5rem'
+                              }}
+                            />
                             <button 
                               className={`select-button ${ingredient.selected ? 'selected' : ''}`}
                               onClick={() => toggleIngredientSelection(ingredient.id)}
