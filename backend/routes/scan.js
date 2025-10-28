@@ -17,16 +17,26 @@ async function safeQuery(query, params = []) {
   try {
     const result = await pool.query(query, params);
 
-    // MySQL2 (Aiven) returns [rows, fields], while some local setups return rows directly.
-    const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
+    // 💥 Force log the raw structure Aiven returns
+    console.log('🧠 FULL result from MySQL:', JSON.stringify(result, null, 2));
 
-    console.log('🧠 Raw rows:', JSON.stringify(rows, null, 2));
+    let rows;
+    if (Array.isArray(result) && Array.isArray(result[0])) {
+      rows = result[0];
+    } else if (Array.isArray(result)) {
+      rows = result;
+    } else {
+      rows = [result];
+    }
+
+    console.log('🧠 EXTRACTED rows:', JSON.stringify(rows, null, 2));
     return rows;
   } catch (error) {
     console.error('❌ safeQuery error:', error.message);
     return [];
   }
 }
+
 
 /**
  * ✅ Match ingredient to database
