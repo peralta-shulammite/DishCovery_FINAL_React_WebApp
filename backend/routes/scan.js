@@ -11,12 +11,15 @@ const upload = multer({ dest: 'uploads/' });
 const DETECTION_API_URL = process.env.YOLO_API_URL || 'http://localhost:8000/detect';
 
 /**
- * ✅ Safe query wrapper that works both locally and on cloud (Aiven)
+ * ✅ Safe query wrapper (fully compatible with Aiven + localhost)
  */
 async function safeQuery(query, params = []) {
   try {
     const result = await pool.query(query, params);
-    const rows = Array.isArray(result[0]) ? result[0] : result; // handles both structures
+
+    // MySQL2 (Aiven) returns [rows, fields], while some local setups return rows directly.
+    const rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result;
+
     console.log('🧠 Raw rows:', JSON.stringify(rows, null, 2));
     return rows;
   } catch (error) {
@@ -26,22 +29,22 @@ async function safeQuery(query, params = []) {
 }
 
 /**
- * ✅ Match detected ingredient name with your database entry
+ * ✅ Match ingredient to database
  */
 async function matchIngredientToDatabase(ingredientName) {
   try {
     // Exact match
-    const rows = await safeQuery(
+    const exactRows = await safeQuery(
       'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) = LOWER(?)',
       [ingredientName]
     );
 
-    if (rows && rows.length > 0) {
-      console.log(`✅ Exact match found: "${ingredientName}" → ID ${rows[0].ingredient_id}`);
+    if (exactRows.length > 0) {
+      console.log(`✅ Exact match: "${ingredientName}" → ${exactRows[0].ingredient_name} (ID ${exactRows[0].ingredient_id})`);
       return {
-        id: rows[0].ingredient_id,
-        name: rows[0].ingredient_name,
-        matched: true
+        id: exactRows[0].ingredient_id,
+        name: exactRows[0].ingredient_name,
+        matched: true,
       };
     }
 
@@ -51,26 +54,25 @@ async function matchIngredientToDatabase(ingredientName) {
       [`%${ingredientName}%`]
     );
 
-    if (fuzzyRows && fuzzyRows.length > 0) {
-      console.log(`✅ Fuzzy match found: "${ingredientName}" → "${fuzzyRows[0].ingredient_name}"`);
+    if (fuzzyRows.length > 0) {
+      console.log(`✅ Fuzzy match: "${ingredientName}" → ${fuzzyRows[0].ingredient_name} (ID ${fuzzyRows[0].ingredient_id})`);
       return {
         id: fuzzyRows[0].ingredient_id,
         name: fuzzyRows[0].ingredient_name,
-        matched: true
+        matched: true,
       };
     }
 
-    console.warn(`⚠️ No match found for "${ingredientName}"`);
+    console.warn(`⚠️ No match for "${ingredientName}"`);
     return { id: null, name: ingredientName, matched: false };
-
   } catch (error) {
-    console.error('❌ Database matching error:', error);
+    console.error('❌ matchIngredientToDatabase error:', error.message);
     return { id: null, name: ingredientName, matched: false };
   }
 }
 
 /**
- * ✅ POST /api/scan — main YOLO scan handler
+ * ✅ POST /api/scan
  */
 router.post('/', upload.single('image'), async (req, res) => {
   let tempFilePath = null;
@@ -86,19 +88,19 @@ router.post('/', upload.single('image'), async (req, res) => {
     const formData = new FormData();
     formData.append('file', fs.createReadStream(tempFilePath), {
       filename: req.file.originalname,
-      contentType: req.file.mimetype
+      contentType: req.file.mimetype,
     });
 
     console.log(`🔄 Sending to YOLO API: ${DETECTION_API_URL}`);
 
     const response = await axios.post(DETECTION_API_URL, formData, {
       headers: { ...formData.getHeaders() },
-      timeout: 120000
+      timeout: 120000,
     });
 
     console.log(`✅ Detection complete: ${response.data.num_detections} ingredients found`);
 
-    // ✅ Match each detected ingredient to DB
+    // Match detected ingredients
     const detectionsWithIds = await Promise.all(
       response.data.detections.map(async (det) => {
         const dbMatch = await matchIngredientToDatabase(det.class_name);
@@ -107,18 +109,17 @@ router.post('/', upload.single('image'), async (req, res) => {
           ingredient_id: dbMatch.id,
           ingredient_name: dbMatch.name,
           db_matched: dbMatch.matched,
-          original_detection: det.class_name
+          original_detection: det.class_name,
         };
       })
     );
 
-    const matched = detectionsWithIds.filter(d => d.db_matched);
-    const unmatched = detectionsWithIds.filter(d => !d.db_matched);
+    const matched = detectionsWithIds.filter((d) => d.db_matched);
+    const unmatched = detectionsWithIds.filter((d) => !d.db_matched);
 
-    console.log(`✅ Matched ${matched.length} ingredients to database`);
-    if (unmatched.length > 0) {
-      console.warn(`⚠️ ${unmatched.length} not found:`, unmatched.map(u => u.original_detection));
-    }
+    console.log(`✅ Matched ${matched.length} ingredient(s)`);
+    if (unmatched.length > 0)
+      console.warn(`⚠️ Unmatched:`, unmatched.map((u) => u.original_detection));
 
     res.json({
       success: true,
@@ -128,29 +129,24 @@ router.post('/', upload.single('image'), async (req, res) => {
       unmatched_count: unmatched.length,
       detections: detectionsWithIds,
       matched_ingredients: matched,
-      unmatched_ingredients: unmatched
+      unmatched_ingredients: unmatched,
     });
-
   } catch (error) {
     console.error('❌ Detection error:', error.message);
-
     if (error.response) {
       return res.status(error.response.status).json({
         success: false,
         error: error.response.data?.detail || 'Detection service error',
-        details: error.response.data
       });
     } else if (error.code === 'ECONNREFUSED') {
       return res.status(503).json({
         success: false,
         error: 'Detection service unavailable',
-        details: 'Could not connect to YOLO detection API'
       });
     } else {
       return res.status(500).json({
         success: false,
         error: 'Internal server error',
-        details: error.message
       });
     }
   } finally {
@@ -162,7 +158,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 });
 
 /**
- * ✅ GET /api/scan/health — check YOLO service status
+ * ✅ GET /api/scan/health
  */
 router.get('/health', async (req, res) => {
   try {
@@ -173,7 +169,7 @@ router.get('/health', async (req, res) => {
     res.status(503).json({
       success: false,
       error: 'Detection service unavailable',
-      details: error.message
+      details: error.message,
     });
   }
 });
