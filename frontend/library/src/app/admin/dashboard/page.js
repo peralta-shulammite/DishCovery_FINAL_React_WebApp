@@ -2,31 +2,28 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
-import { Toaster, toast } from 'react-hot-toast';
-import api from '../../user/home/api'; // ✅ CORRECT: Import api for logout
+import api from '../../user/home/api'; 
 
 const DashboardContent = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This Week');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
 
-  // Check if user just logged in
+
+// Check if user just logged in
   useEffect(() => {
     // Only access sessionStorage in the browser
     if (typeof window !== 'undefined') {
       const justLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
       if (justLoggedIn === 'true') {
-        toast.success('Welcome back, Admin!', {
-          duration: 3000,
-          position: 'top-right',
-          style: {
-            background: '#2E7D32',
-            color: '#fff',
-            fontFamily: 'Poppins, sans-serif',
-            fontWeight: '500',
-          },
-        });
+        setNotification({ show: true, message: 'Welcome back, Admin!', type: 'success' });
         // Clear the flag
         sessionStorage.removeItem('adminJustLoggedIn');
+        
+        // Auto-hide after 4 seconds
+        setTimeout(() => {
+          setNotification({ show: false, message: '', type: 'success' });
+        }, 4000);
       }
     }
   }, []);
@@ -101,9 +98,15 @@ const DashboardContent = () => {
     </svg>
   );
 
-  return (
+ return (
     <div className="dashboard-content">
-      {/* <Toaster /> */}
+      {/* Custom Notification */}
+      {notification.show && (
+        <div className={`admin-notification ${notification.type}`}>
+          {notification.message}
+        </div>
+      )}
+      
       {/* Stats Cards - 3 cards */}
       <div className="stats-container">
         <div className="stat-card new-users">
@@ -119,8 +122,6 @@ const DashboardContent = () => {
           <div className="stat-label">Pending Requests</div>
         </div>
       </div>
-
-      {/* Filters and Controls */}
       <div className="controls-container">
         <div className="status-filters">
           <span className="filter-label">Status:</span>
@@ -237,32 +238,22 @@ const DashboardContent = () => {
 
 // FIXED: Use AdminLayout (capital A) not adminlayout (lowercase)
 const Dashboard = () => {
+    const [logoutNotification, setLogoutNotification] = useState({ show: false, message: '', type: 'info' });
   // ✅ ADDED: Logout handler function
-  const handleLogout = async () => {
+const handleLogout = async () => {
     try {
       console.log('🔴 Admin logout initiated...');
       
-      // Show loading toast
-      const loadingToast = toast.loading('Logging out...', {
-        style: {
-          fontFamily: 'Poppins, sans-serif',
-        },
-      });
+      // Show loading notification
+      setLogoutNotification({ show: true, message: 'Logging out...', type: 'info' });
 
       // Call the logout API
       await api.logout();
       
-      // Dismiss loading toast
-      toast.dismiss(loadingToast);
-      
       // The api.logout() will handle the redirect
     } catch (error) {
       console.error('❌ Logout error:', error);
-      toast.error('Logout failed. Redirecting...', {
-        style: {
-          fontFamily: 'Poppins, sans-serif',
-        },
-      });
+      setLogoutNotification({ show: true, message: 'Logout failed. Redirecting...', type: 'error' });
       
       // ✅ FIXED: Force cleanup and redirect to correct route
       localStorage.clear();
@@ -274,10 +265,19 @@ const Dashboard = () => {
   };
 
   return (
-    <AdminLayout currentPage="Dashboard" onLogout={handleLogout}>
-      <DashboardContent />
-    </AdminLayout>
-  );
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        {/* Logout Notification */}
+        {logoutNotification.show && (
+          <div className={`admin-notification ${logoutNotification.type}`}>
+            {logoutNotification.message}
+          </div>
+        )}
+        
+        <AdminLayout currentPage="Dashboard" onLogout={handleLogout}>
+          <DashboardContent />
+        </AdminLayout>
+        </div>
+      );
 };
 
 export default Dashboard;
