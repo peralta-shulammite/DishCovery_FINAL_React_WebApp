@@ -599,8 +599,7 @@ const UserManagementContent = () => {
         </div>
       </div>
 
-      {/* User Profile Modal */}
-      {selectedUser && !showMessageModal && (
+        {selectedUser && !showMessageModal && (
         <div className="modal-overlay">
           <div className="modal-content">
             <button 
@@ -610,65 +609,111 @@ const UserManagementContent = () => {
               <CloseIcon />
             </button>
             
-            <div className="modal-header">
+            <div className="profile-modal-header">
               <img 
-                src={selectedUser.profilePicture} 
-                alt={`${selectedUser.username} profile`}
+                src={selectedUser.profilePicture}
+                alt={selectedUser.username}
                 className="modal-profile-pic"
                 onError={(e) => {
                   e.target.src = 'https://via.placeholder.com/80x80/2E7D32/ffffff?text=' + selectedUser.username.charAt(0).toUpperCase();
                 }}
               />
-              <div className="modal-user-info">
-                <h2>@{selectedUser.username}</h2>
-                <p>✉️ {selectedUser.email}</p>
-                <p>📅 Joined: {selectedUser.joinedDate}</p>
-                <p>🕒 Last Active: {selectedUser.lastActive}</p>
-                <span className={`status-badge ${getStatusColor(selectedUser.status)}`}>
-                  {selectedUser.status === 'Active' ? '🟢' : '🔴'} {selectedUser.status}
-                </span>
+              <div className="modal-user-details">
+                <h2 className="user-username">@{selectedUser.username}</h2>
+                <div className="user-meta">
+                  <span className="user-email">{selectedUser.email}</span>
+                  <span className={`user-status-badge ${selectedUser.status === 'Active' ? 'active' : 'inactive'}`}>
+                    {selectedUser.status}
+                  </span>
+                </div>
+                <div className="user-timestamps">
+                  <span className="timestamp-item">
+                    <span className="label">Joined</span>
+                    <span className="value">{selectedUser.joinedDate}</span>
+                  </span>
+                  <span className="timestamp-divider">•</span>
+                  <span className="timestamp-item">
+                    <span className="label">Last Active</span>
+                    <span className="value">{selectedUser.lastActive}</span>
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="modal-section">
-              <h4>🍴 Dietary & Preference Info:</h4>
-              <p><strong>Restrictions:</strong> {selectedUser.restrictions.join(', ')}</p>
-              <p><strong>Excluded Ingredients:</strong> {selectedUser.excludedIngredients.join(', ')}</p>
-              <p><strong>Diets:</strong> {selectedUser.diets.join(', ')}</p>
-              <p><strong>Medical Conditions:</strong> {selectedUser.medicalConditions.length > 0 ? selectedUser.medicalConditions.join(', ') : 'None'}</p>
+            <div className="profile-sections-grid">
+              <div className="profile-card">
+                <h3 className="card-title">Dietary & Preferences</h3>
+                <div className="card-content">
+                  <div className="info-row">
+                    <span className="info-label">Restrictions</span>
+                    <span className="info-value">{selectedUser.restrictions.join(', ')}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Excluded Ingredients</span>
+                    <span className="info-value">{selectedUser.excludedIngredients.join(', ')}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Diets</span>
+                    <span className="info-value">{selectedUser.diets.join(', ')}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Medical Conditions</span>
+                    <span className="info-value">{selectedUser.medicalConditions.length > 0 ? selectedUser.medicalConditions.join(', ') : 'None'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-card">
+                <h3 className="card-title">Activity Summary</h3>
+                <div className="card-content">
+                  <div className="stats-grid">
+                    <div className="stat-item">
+                      <span className="stat-number">{selectedUser.recipesViewed}</span>
+                      <span className="stat-label">Recipes Viewed</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-number">{selectedUser.recipesSaved}</span>
+                      <span className="stat-label">Recipes Saved</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-number">{selectedUser.ingredientsScanned}</span>
+                      <span className="stat-label">Ingredients Scanned</span>
+                    </div>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Last Recipe</span>
+                    <span className="info-value">"{selectedUser.lastRecipe}"</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Feedback Submitted</span>
+                    <span className="info-value">{selectedUser.feedbackSubmitted ? 'Yes' : 'No'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-card full-width">
+                <h3 className="card-title">Admin Notes</h3>
+                <div className="card-content">
+                  <p className="notes-text">{selectedUser.notes}</p>
+                </div>
+              </div>
             </div>
 
-            <div className="modal-section">
-              <h4>📊 Activity Summary:</h4>
-              <p><strong>Recipes Viewed:</strong> {selectedUser.recipesViewed}</p>
-              <p><strong>Recipes Saved:</strong> {selectedUser.recipesSaved}</p>
-              <p><strong>Ingredients Scanned:</strong> {selectedUser.ingredientsScanned}</p>
-              <p><strong>Last Recipe:</strong> "{selectedUser.lastRecipe}"</p>
-              <p><strong>Feedback Submitted:</strong> {selectedUser.feedbackSubmitted ? 'Yes' : 'No'}</p>
-            </div>
-
-            <div className="modal-section">
-              <h4>📝 Notes:</h4>
-              <p>{selectedUser.notes}</p>
-            </div>
-
-            <div className="modal-actions">
-              <button className="action-btn" onClick={() => handleMessageUser(selectedUser)}>
-                🔔 Send Notification
+            <div className="modal-actions-improved">
+              <button className="action-btn-improved primary" onClick={() => handleMessageUser(selectedUser)}>
+                Send Notification
               </button>
               <button 
-                className="action-btn" 
-                style={{background: '#ff9800'}}
+                className="action-btn-improved warning"
                 onClick={() => handleUserAction(selectedUser.id, 'deactivate')}
               >
-                🟡 Deactivate
+                Deactivate User
               </button>
               <button 
-                className="action-btn" 
-                style={{background: '#dc2626'}}
+                className="action-btn-improved danger"
                 onClick={() => handleUserAction(selectedUser.id, 'delete')}
               >
-                ❌ Delete
+                Delete User
               </button>
             </div>
           </div>
@@ -678,7 +723,7 @@ const UserManagementContent = () => {
       {/* Message Modal */}
       {showMessageModal && selectedUser && (
         <div className="modal-overlay">
-          <div className="message-modal">
+          <div className="message-modal-improved">
             <button 
               className="modal-close-btn"
               onClick={() => {
@@ -690,36 +735,61 @@ const UserManagementContent = () => {
               <CloseIcon />
             </button>
             
-            <h3>📬 Send Message</h3>
-            <p><strong>To:</strong> @{selectedUser.username}</p>
+            <div className="message-modal-header">
+              <h3 className="message-modal-title">Send Notification</h3>
+              <p className="message-modal-subtitle">Send a message to this user</p>
+            </div>
+
+            <div className="message-recipient-info">
+              <div className="recipient-label">To:</div>
+              <div className="recipient-details">
+                <img 
+                  src={selectedUser.profilePicture}
+                  alt={selectedUser.username}
+                  className="recipient-avatar"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/40x40/2E7D32/ffffff?text=' + selectedUser.username.charAt(0).toUpperCase();
+                  }}
+                />
+                <div className="recipient-info">
+                  <span className="recipient-username">@{selectedUser.username}</span>
+                  <span className="recipient-email">{selectedUser.email}</span>
+                </div>
+              </div>
+            </div>
             
-            <div className="message-input-container">
-              <label htmlFor="message-text">Message:</label>
+            <div className="message-input-container-improved">
+              <label htmlFor="message-text" className="message-label">Message</label>
               <textarea
                 id="message-text"
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
                 placeholder="Type your message here..."
                 rows={6}
-                className="message-textarea"
+                className="message-textarea-improved"
               />
+              <div className="character-count">
+                {messageText.length} characters
+              </div>
             </div>
 
-            <div className="message-modal-actions">
-              <button className="action-btn" onClick={handleSendMessage}>
-                <SendIcon />
-                ✅ Send
-              </button>
+            <div className="message-modal-actions-improved">
               <button 
-                className="action-btn" 
-                style={{background: '#64748b'}}
+                className="message-btn cancel"
                 onClick={() => {
                   setShowMessageModal(false);
                   setSelectedUser(null);
                   setMessageText('');
                 }}
               >
-                ❌ Cancel
+                Cancel
+              </button>
+              <button 
+                className="message-btn send" 
+                onClick={handleSendMessage}
+                disabled={!messageText.trim()}
+              >
+                Send Message
               </button>
             </div>
           </div>
