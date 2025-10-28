@@ -4,7 +4,7 @@ import api from './api';
 import './styles.css';
 import Link from 'next/link';
 import UserLayout from '../../components/user/userlayout';
-import { Toaster, toast } from 'react-hot-toast';
+
 
 
 export default function DishCoveryLanding() {
@@ -27,7 +27,7 @@ export default function DishCoveryLanding() {
   const [dishCoveryVerificationCode, setDishCoveryVerificationCode] = useState('');
   const [dishCoveryUser, setDishCoveryUser] = useState(null);
   const [dishCoveryError, setDishCoveryError] = useState('');
-  
+  const [dishCoveryNotification, setDishCoveryNotification] = useState({ show: false, message: '' });
 
   const dishCoveryAnimatedWords = ['discover', 'explore', 'uncover'];
 
@@ -56,22 +56,30 @@ export default function DishCoveryLanding() {
     return () => clearInterval(interval);
   }, []);
 
-const [dishCoveryShowWelcomeMessage, setDishCoveryShowWelcomeMessage] = useState(false);
-
-  // Check if user just logged in
+  // Check for login notifications
   useEffect(() => {
-    const justLoggedIn = sessionStorage.getItem('userJustLoggedIn');
-    if (justLoggedIn === 'true') {
-      setDishCoveryShowWelcomeMessage(true);
-      // Clear the flag
+    const userLoggedIn = sessionStorage.getItem('userJustLoggedIn');
+    const adminLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
+    
+    if (userLoggedIn === 'true') {
+      setDishCoveryNotification({ show: true, message: 'Welcome back! Ready to cook up something delicious?' });
       sessionStorage.removeItem('userJustLoggedIn');
       
-      // Auto-hide after 4 seconds
       setTimeout(() => {
-        setDishCoveryShowWelcomeMessage(false);
+        setDishCoveryNotification({ show: false, message: '' });
+      }, 4000);
+    } else if (adminLoggedIn === 'true') {
+      setDishCoveryNotification({ show: true, message: 'Admin login successful!' });
+      sessionStorage.removeItem('adminJustLoggedIn');
+      
+      setTimeout(() => {
+        setDishCoveryNotification({ show: false, message: '' });
       }, 4000);
     }
   }, []);
+
+
+  
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -168,7 +176,7 @@ const dishCoveryHandleSignInSubmit = async (e) => {
         setDishCoveryIsLoggedIn(true);
         dishCoveryCloseModal();
         
-        // Set the flag for admin login toast
+        // Set flag for admin notification
         sessionStorage.setItem('adminJustLoggedIn', 'true');
         
         // Redirect to your existing admin dashboard
@@ -179,7 +187,6 @@ const dishCoveryHandleSignInSubmit = async (e) => {
         setDishCoveryIsLoggedIn(true);
         dishCoveryCloseModal();
         
-        // Set the flag for user login toast
         sessionStorage.setItem('userJustLoggedIn', 'true');
         
         // Reload page to trigger toast
@@ -275,7 +282,13 @@ const dishCoveryBottomRecipes = [
       onLogout={dishCoveryHandleLogout}
     >
     <div ref={dishCoveryTopRef} className="container">
-   <Toaster />
+
+      {/* Custom Notification */}
+      {dishCoveryNotification.show && (
+        <div className="custom-notification">
+          {dishCoveryNotification.message}
+        </div>
+      )}
 
     <main className="main-content">
         <div className="left-section">
