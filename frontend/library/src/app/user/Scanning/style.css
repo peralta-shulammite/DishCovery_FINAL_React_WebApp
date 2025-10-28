@@ -1400,3 +1400,22 @@ body {
   outline: 2px solid #4CAF50;
   outline-offset: 1px;
 }
+/* Bounding Box Styles - ONLY ADDITION */
+.image-container {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.image-container img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.image-container canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
