@@ -11,47 +11,56 @@ const upload = multer({ dest: 'uploads/' });
 const DETECTION_API_URL = process.env.YOLO_API_URL || 'http://localhost:8000/detect';
 
 /**
+ * Helper: Run query safely and return rows regardless of MySQL2 or mysql behavior
+ */
+async function safeQuery(query, params = []) {
+  const result = await pool.query(query, params);
+  // Handle either [[rows], fields] or [rows]
+  return Array.isArray(result[0]) ? result[0] : result;
+}
+
+/**
  * Match ingredient name to database ID
  */
 async function matchIngredientToDatabase(ingredientName) {
   try {
-    // Try exact match first
-    const [exactMatch] = await pool.query(
+    // Exact match
+    const rows = await safeQuery(
       'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) = LOWER(?)',
       [ingredientName]
     );
-    
-    if (exactMatch.length > 0) {
+
+    if (rows && rows.length > 0) {
       return {
-        id: exactMatch[0].ingredient_id,
-        name: exactMatch[0].ingredient_name,
+        id: rows[0].ingredient_id,
+        name: rows[0].ingredient_name,
         matched: true
       };
     }
-    
-    // Try fuzzy match (contains)
-    const [fuzzyMatch] = await pool.query(
+
+    // Fuzzy match
+    const fuzzyRows = await safeQuery(
       'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) LIKE LOWER(?)',
       [`%${ingredientName}%`]
     );
-    
-    if (fuzzyMatch.length > 0) {
+
+    if (fuzzyRows && fuzzyRows.length > 0) {
       return {
-        id: fuzzyMatch[0].ingredient_id,
-        name: fuzzyMatch[0].ingredient_name,
+        id: fuzzyRows[0].ingredient_id,
+        name: fuzzyRows[0].ingredient_name,
         matched: true
       };
     }
-    
+
     // No match found
     return {
       id: null,
       name: ingredientName,
       matched: false
     };
-    
+
   } catch (error) {
-    console.error('Database matching error:', error);
+    console.error('❌ Database matching error:', error);
     return {
       id: null,
       name: ingredientName,
@@ -68,9 +77,9 @@ router.post('/', upload.single('image'), async (req, res) => {
 
   try {
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No image file provided' 
+      return res.status(400).json({
+        success: false,
+        error: 'No image file provided'
       });
     }
 
@@ -86,15 +95,13 @@ router.post('/', upload.single('image'), async (req, res) => {
     console.log(`🔄 Sending to YOLO API: ${DETECTION_API_URL}`);
 
     const response = await axios.post(DETECTION_API_URL, formData, {
-      headers: {
-        ...formData.getHeaders()
-      },
+      headers: { ...formData.getHeaders() },
       timeout: 120000
     });
 
     console.log(`✅ Detection complete: ${response.data.num_detections} ingredients found`);
 
-    // Match each detected ingredient to database
+    // Match each detected ingredient to DB
     const detectionsWithIds = await Promise.all(
       response.data.detections.map(async (det) => {
         const dbMatch = await matchIngredientToDatabase(det.class_name);
@@ -130,7 +137,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 
   } catch (error) {
     console.error('❌ Detection error:', error.message);
-    
+
     if (error.response) {
       return res.status(error.response.status).json({
         success: false,
