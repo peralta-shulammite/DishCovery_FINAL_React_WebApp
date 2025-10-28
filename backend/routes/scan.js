@@ -11,10 +11,12 @@ const upload = multer({ dest: 'uploads/' });
 const DETECTION_API_URL = process.env.YOLO_API_URL || 'http://localhost:8000/detect';
 
 /**
- * Helper: Run query safely and return rows regardless of MySQL2 or mysql behavior
+ * Helper: Always return an array of rows
  */
 async function safeQuery(query, params = []) {
-  return await pool.query(query, params);
+  const result = await pool.query(query, params);
+  // pool.query() in db.js already returns rows, not [rows, fields]
+  return Array.isArray(result) ? result : [result];
 }
 
 /**
@@ -23,15 +25,16 @@ async function safeQuery(query, params = []) {
 async function matchIngredientToDatabase(ingredientName) {
   try {
     // Exact match
-    const rows = await safeQuery(
+    const exactRows = await safeQuery(
       'SELECT ingredient_id, ingredient_name FROM ingredients WHERE LOWER(ingredient_name) = LOWER(?)',
       [ingredientName]
     );
 
-    if (rows && rows.length > 0) {
+    if (Array.isArray(exactRows) && exactRows.length > 0) {
+      console.log(`✅ Exact match found: ${ingredientName}`);
       return {
-        id: rows[0].ingredient_id,
-        name: rows[0].ingredient_name,
+        id: exactRows[0].ingredient_id,
+        name: exactRows[0].ingredient_name,
         matched: true
       };
     }
@@ -42,7 +45,8 @@ async function matchIngredientToDatabase(ingredientName) {
       [`%${ingredientName}%`]
     );
 
-    if (fuzzyRows && fuzzyRows.length > 0) {
+    if (Array.isArray(fuzzyRows) && fuzzyRows.length > 0) {
+      console.log(`✅ Fuzzy match found: ${ingredientName}`);
       return {
         id: fuzzyRows[0].ingredient_id,
         name: fuzzyRows[0].ingredient_name,
@@ -51,12 +55,12 @@ async function matchIngredientToDatabase(ingredientName) {
     }
 
     // No match found
+    console.log(`⚠️  No match found for: ${ingredientName}`);
     return {
       id: null,
       name: ingredientName,
       matched: false
     };
-
   } catch (error) {
     console.error('❌ Database matching error:', error);
     return {
@@ -118,8 +122,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     console.log(`✅ Matched ${matched.length} ingredients to database`);
     if (unmatched.length > 0) {
-      console.log(`⚠️  ${unmatched.length} ingredients not found in database:`, 
-        unmatched.map(u => u.original_detection));
+      console.log(`⚠️  ${unmatched.length} ingredients not found:`, unmatched.map(u => u.original_detection));
     }
 
     res.json({
