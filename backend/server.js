@@ -15,18 +15,21 @@ import dietaryRestrictionsRouter from './routes/dietaryRestrictions.js';
 import pantryRouter from './routes/pantry.js';
 import scanRouter from './routes/scan.js';
 import userProfileRouter from './routes/userProfile.js';
+// ✅ NEW: Feedback routes
+import feedbackRouter from './routes/feedback.js';
+import adminFeedbackRouter from './routes/adminFeedback.js';
 import pool from './db.js';
 
 dotenv.config();
 
-// 🆕 Get __dirname equivalent in ES modules
+// Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ CORS with regex for Vercel previews
+// CORS with regex for Vercel previews
 const allowedOrigins = [
   "http://localhost:3000",
   "https://dishcovery-frontend-tau.vercel.app",
@@ -53,7 +56,7 @@ app.options('*', cors(corsOptions));
 
 app.use(express.json());
 
-// 🆕 Serve static files for uploads (profile pictures, etc.)
+// Serve static files for uploads (profile pictures, etc.)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
@@ -69,8 +72,11 @@ app.use('/api/admin-auth', adminAuthRouter);
 app.use('/api/pantry', pantryRouter);
 app.use('/api/scan', scanRouter);
 app.use('/api/user-profile', userProfileRouter);
+// ✅ NEW: Feedback routes
+app.use('/api/feedback', feedbackRouter);
+app.use('/api/admin/feedback', adminFeedbackRouter);
 
-// ✅ Improved health route (also checks DB)
+// Improved health route (also checks DB)
 app.use('/api/health', async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT 1");
@@ -83,7 +89,7 @@ app.use('/api/health', async (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log('📍 Available routes:');
+  console.log('📋 Available routes:');
   console.log('   - GET  /api/health');
   console.log('   - POST /api/auth/register');
   console.log('   - POST /api/auth/login');
@@ -119,13 +125,27 @@ app.listen(PORT, () => {
   console.log('   - POST /api/pantry/request-ingredient (🔒 Request New Ingredient)');
   console.log('   🆕 YOLO SCAN ROUTES:');
   console.log('   - POST /api/scan (📸 Scan Ingredients with YOLO)');
-  console.log('   - GET  /api/scan/health (🏥 Check Detection Service)');
+  console.log('   - GET  /api/scan/health (🥗 Check Detection Service)');
   console.log('   🆕 USER PROFILE ROUTES:');
   console.log('   - GET  /api/user-profile/dietary (🔒 Get User Dietary Preferences)');
   console.log('   - GET  /api/user-profile/info (🔒 Get User Basic Info)');
   console.log('   - PUT  /api/user-profile/info (🔒 Update User Basic Info)');
   console.log('   - POST /api/user-profile/profile-picture (🔒 Upload Profile Picture)');
   console.log('   - PUT  /api/user-profile/dietary (🔒 Update Dietary Preferences)');
+  console.log('   📩 FEEDBACK ROUTES:');
+  console.log('   - POST /api/feedback (🔒 Submit Feedback)');
+  console.log('   - GET  /api/feedback/my-feedback (🔒 Get User Feedback History)');
+  console.log('   - PUT  /api/feedback/:id/mark-read (🔒 Mark Feedback as Read)');
+  console.log('   - GET  /api/feedback/unread-count (🔒 Get Unread Count)');
+  console.log('   - DELETE /api/feedback/:id (🔒 Delete User Feedback)');
+  console.log('   📊 ADMIN FEEDBACK ROUTES:');
+  console.log('   - GET  /api/admin/feedback/stats (🔒 Get Feedback Statistics)');
+  console.log('   - GET  /api/admin/feedback (🔒 Get All Feedback with Filters)');
+  console.log('   - POST /api/admin/feedback/:id/reply (🔒 Reply to Feedback)');
+  console.log('   - PUT  /api/admin/feedback/:id/mark-read (🔒 Mark as Read)');
+  console.log('   - PUT  /api/admin/feedback/:id/mark-unread (🔒 Mark as Unread)');
+  console.log('   - DELETE /api/admin/feedback/:id (🔒 Delete Feedback)');
+  console.log('   - PUT  /api/admin/feedback/:id/priority (🔒 Update Priority)');
 });
 
 export default app;
