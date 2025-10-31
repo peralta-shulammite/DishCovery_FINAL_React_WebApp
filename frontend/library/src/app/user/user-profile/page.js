@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
 import { favoritesAPI } from '../recipe/api';
-import { profileAPI } from './api';
+import { profileAPI, feedbackAPI } from './api';
 
 // Helper function to construct full image URLs
 const getFullImageUrl = (path) => {
@@ -60,6 +60,15 @@ export default function UserProfilePage() {
   const [dishCoveryShowFeedbackModal, setDishCoveryShowFeedbackModal] = useState(false);
   const [dishCoveryShowDeactivateModal, setDishCoveryShowDeactivateModal] = useState(false);
 
+  // ========================================
+  // 🆕 FEEDBACK STATES
+  // ========================================
+  const [dishCoveryShowFeedbackHistoryModal, setDishCoveryShowFeedbackHistoryModal] = useState(false);
+  const [dishCoveryFeedbackHistory, setDishCoveryFeedbackHistory] = useState([]);
+  const [dishCoveryUnreadRepliesCount, setDishCoveryUnreadRepliesCount] = useState(0);
+  const [loadingFeedbackHistory, setLoadingFeedbackHistory] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
   // Form states
   const [dishCoveryTempFirstName, setDishCoveryTempFirstName] = useState('User');
   const [dishCoveryTempLastName, setDishCoveryTempLastName] = useState('');
@@ -78,13 +87,13 @@ export default function UserProfilePage() {
   const [loadingDietaryData, setLoadingDietaryData] = useState(true);
   const [loadingUserInfo, setLoadingUserInfo] = useState(true);
 
-  // Mock data for last opened recipe - using CSS placeholder instead of external URL
+  // Mock data for last opened recipe
   const [dishCoveryLastOpenedRecipe] = useState({
     id: 1,
     name: 'Mediterranean Quinoa Bowl',
     time: '25 min',
     difficulty: 'Easy',
-    image: null, // Will use CSS placeholder
+    image: null,
     lastOpened: '2025-01-28',
   });
 
@@ -111,7 +120,6 @@ export default function UserProfilePage() {
         if (response && response.success && response.data) {
           const { firstName, lastName, email, profilePicture } = response.data;
           
-          // Update user state with real data
           setDishCoveryUser({
             firstName: firstName || 'User',
             lastName: lastName || '',
@@ -119,7 +127,6 @@ export default function UserProfilePage() {
             profilePicture: profilePicture || null
           });
           
-          // Also update the temp states for editing
           setDishCoveryTempFirstName(firstName || 'User');
           setDishCoveryTempLastName(lastName || '');
           setDishCoveryTempEmail(email || '');
@@ -133,7 +140,6 @@ export default function UserProfilePage() {
         }
       } catch (error) {
         console.error('❌ Error loading user info:', error);
-        // Keep placeholder values as fallback
       } finally {
         setLoadingUserInfo(false);
       }
@@ -182,7 +188,6 @@ export default function UserProfilePage() {
         if (response && response.success && response.data) {
           const { dietaryRestrictions, medicalConditions, preferredDiets } = response.data;
           
-          // Map API data to state
           setDishCoveryAllergens(dietaryRestrictions || []);
           setDishCoveryMedicalConditions(medicalConditions || []);
           setDishCoveryPreferredDiet(preferredDiets || []);
@@ -195,13 +200,34 @@ export default function UserProfilePage() {
         }
       } catch (error) {
         console.error('❌ Error loading dietary data:', error);
-        // Keep empty arrays as fallback
       } finally {
         setLoadingDietaryData(false);
       }
     };
     
     loadDietaryData();
+  }, []);
+
+  // ========================================
+  // 🆕 LOAD UNREAD FEEDBACK COUNT
+  // ========================================
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      try {
+        const response = await feedbackAPI.getUnreadCount();
+        if (response && response.success && response.data) {
+          setDishCoveryUnreadRepliesCount(response.data.unreadCount);
+          console.log('🔔 Unread replies count:', response.data.unreadCount);
+        }
+      } catch (error) {
+        console.error('❌ Error loading unread count:', error);
+      }
+    };
+    
+    loadUnreadCount();
+    // Reload every 30 seconds to check for new replies
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const [dishCoveryHoverStates, setDishCoveryHoverStates] = useState({
@@ -243,26 +269,22 @@ export default function UserProfilePage() {
     const file = e.target.files[0];
     if (file) {
       try {
-        // Validate file size (5MB)
         if (file.size > 5 * 1024 * 1024) {
           alert('File size must be less than 5MB');
           return;
         }
 
-        // Show preview immediately
         const reader = new FileReader();
         reader.onload = (e) => {
           setDishCoveryUser((prev) => ({ ...prev, profilePicture: e.target.result }));
         };
         reader.readAsDataURL(file);
 
-        // Upload to server
         console.log('📤 Uploading profile picture...');
         const response = await profileAPI.uploadProfilePicture(file);
         
         if (response && response.success) {
           console.log('✅ Profile picture uploaded successfully');
-          // Update with server URL
           setDishCoveryUser((prev) => ({ 
             ...prev, 
             profilePicture: response.data.profilePicture 
@@ -271,7 +293,6 @@ export default function UserProfilePage() {
       } catch (error) {
         console.error('❌ Error uploading profile picture:', error);
         alert('Failed to upload profile picture. Please try again.');
-        // Reload user info to revert to previous picture
         const response = await profileAPI.getUserInfo();
         if (response && response.success && response.data) {
           setDishCoveryUser((prev) => ({
@@ -294,7 +315,6 @@ export default function UserProfilePage() {
       });
 
       if (response && response.success) {
-        // Update main user state
         setDishCoveryUser((prev) => ({
           ...prev,
           firstName: dishCoveryTempFirstName,
@@ -326,10 +346,108 @@ export default function UserProfilePage() {
     setDishCoveryConfirmPassword('');
   };
 
-  const dishCoveryHandleSendFeedback = () => {
-    console.log('Feedback sent:', dishCoveryFeedbackText);
-    setDishCoveryShowFeedbackModal(false);
-    setDishCoveryFeedbackText('');
+  // ========================================
+  // 🆕 UPDATED SEND FEEDBACK HANDLER
+  // ========================================
+  const dishCoveryHandleSendFeedback = async () => {
+    if (!dishCoveryFeedbackText.trim()) {
+      alert('Please enter your feedback');
+      return;
+    }
+
+    if (dishCoveryFeedbackText.trim().length < 10) {
+      alert('Feedback must be at least 10 characters long');
+      return;
+    }
+
+    try {
+      setSubmittingFeedback(true);
+      console.log('📝 Submitting feedback...');
+      
+      const response = await feedbackAPI.submitFeedback(dishCoveryFeedbackText.trim(), 'medium');
+      
+      if (response && response.success) {
+        console.log('✅ Feedback submitted successfully');
+        alert('Thank you for your feedback! We will review it soon.');
+        setDishCoveryShowFeedbackModal(false);
+        setDishCoveryFeedbackText('');
+      }
+    } catch (error) {
+      console.error('❌ Error submitting feedback:', error);
+      alert(error.message || 'Failed to submit feedback. Please try again.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  // ========================================
+  // 🆕 LOAD FEEDBACK HISTORY
+  // ========================================
+  const loadFeedbackHistory = async () => {
+    try {
+      setLoadingFeedbackHistory(true);
+      console.log('📜 Loading feedback history...');
+      
+      const response = await feedbackAPI.getMyFeedback(20, 0);
+      
+      if (response && response.success && response.data) {
+        setDishCoveryFeedbackHistory(response.data.feedbacks);
+        console.log('✅ Feedback history loaded:', response.data.feedbacks.length, 'items');
+      }
+    } catch (error) {
+      console.error('❌ Error loading feedback history:', error);
+    } finally {
+      setLoadingFeedbackHistory(false);
+    }
+  };
+
+  // ========================================
+  // 🆕 MARK FEEDBACK AS READ
+  // ========================================
+  const markFeedbackAsRead = async (feedbackId) => {
+    try {
+      await feedbackAPI.markAsRead(feedbackId);
+      
+      // Update local state
+      setDishCoveryFeedbackHistory(prev => 
+        prev.map(f => 
+          f.feedbackId === feedbackId 
+            ? { ...f, hasReadReply: true }
+            : f
+        )
+      );
+      
+      // Update unread count
+      setDishCoveryUnreadRepliesCount(prev => Math.max(0, prev - 1));
+      
+      console.log('✅ Marked feedback as read:', feedbackId);
+    } catch (error) {
+      console.error('❌ Error marking as read:', error);
+    }
+  };
+
+  // ========================================
+  // 🆕 DELETE FEEDBACK
+  // ========================================
+  const deleteFeedback = async (feedbackId) => {
+    if (!confirm('Are you sure you want to delete this feedback?')) {
+      return;
+    }
+
+    try {
+      await feedbackAPI.deleteFeedback(feedbackId);
+      
+      // Remove from local state
+      setDishCoveryFeedbackHistory(prev => 
+        prev.filter(f => f.feedbackId !== feedbackId)
+      );
+      
+      console.log('✅ Feedback deleted:', feedbackId);
+      alert('Feedback deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting feedback:', error);
+      alert('Failed to delete feedback');
+    }
   };
 
   const dishCoveryHandleDeactivateAccount = () => {
@@ -340,11 +458,9 @@ export default function UserProfilePage() {
 
   const dishCoveryRemoveCondition = async (condition) => {
     try {
-      // Optimistic update
       const newConditions = dishCoveryMedicalConditions.filter((c) => c !== condition);
       setDishCoveryMedicalConditions(newConditions);
       
-      // Update on server
       await profileAPI.updateDietaryPreferences({
         dietaryRestrictions: dishCoveryAllergens,
         medicalConditions: newConditions,
@@ -355,7 +471,6 @@ export default function UserProfilePage() {
       console.log('✅ Removed condition:', condition);
     } catch (error) {
       console.error('❌ Error removing condition:', error);
-      // Revert on error
       setDishCoveryMedicalConditions((prev) => [...prev, condition]);
       alert('Failed to remove condition. Please try again.');
     }
@@ -538,12 +653,28 @@ export default function UserProfilePage() {
                 </div>
               </section>
 
+              {/* ========================================
+                  🆕 UPDATED SUPPORT SECTION WITH NOTIFICATION BADGE
+                  ======================================== */}
               <section className="activity-section">
                 <h2 className="activity-section-title">
                   <svg className="activity-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 13h-2v-2h2v2zm0-4h-2V7h2v4z" />
                   </svg>
                   Support
+                  {dishCoveryUnreadRepliesCount > 0 && (
+                    <span style={{
+                      marginLeft: '10px',
+                      background: '#2E7D32',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}>
+                      {dishCoveryUnreadRepliesCount} new {dishCoveryUnreadRepliesCount === 1 ? 'reply' : 'replies'}
+                    </span>
+                  )}
                 </h2>
                 <div className="support-actions">
                   <button
@@ -554,6 +685,38 @@ export default function UserProfilePage() {
                       <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
                     </svg>
                     Send Feedback
+                  </button>
+                  <button
+                    className="support-btn"
+                    onClick={() => {
+                      setDishCoveryShowFeedbackHistoryModal(true);
+                      loadFeedbackHistory();
+                    }}
+                    style={{ position: 'relative' }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+                    </svg>
+                    My Feedback History
+                    {dishCoveryUnreadRepliesCount > 0 && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '-5px',
+                        right: '-5px',
+                        background: '#dc2626',
+                        color: 'white',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {dishCoveryUnreadRepliesCount}
+                      </span>
+                    )}
                   </button>
                   <a href="/help" className="support-link">
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -760,7 +923,7 @@ export default function UserProfilePage() {
                           </div>
 
                           <div className="preference-group-fixed">
-                            <h3 className="preference-group-label">Allergens</h3>
+                            <h3 className="preference-group-label">Allergens & Dietary Restrictions</h3>
                             <div className="tags-container-fixed">
                               {dishCoveryAllergens.length > 0 ? (
                                 dishCoveryAllergens.map((allergen) => (
@@ -786,7 +949,7 @@ export default function UserProfilePage() {
                           </div>
 
                           <div className="preference-group-fixed">
-                            <h3 className="preference-group-label">Preferred Diet</h3>
+                            <h3 className="preference-group-label">Preferred Diets</h3>
                             <div className="tags-container-fixed">
                               {dishCoveryPreferredDiet.length > 0 ? (
                                 dishCoveryPreferredDiet.map((diet) => (
@@ -820,6 +983,7 @@ export default function UserProfilePage() {
           </div>
         </main>
 
+        {/* CHANGE PASSWORD MODAL */}
         {dishCoveryShowChangePassword && (
           <div
             className="modal-overlay"
@@ -862,6 +1026,9 @@ export default function UserProfilePage() {
           </div>
         )}
 
+        {/* ========================================
+            🆕 UPDATED SEND FEEDBACK MODAL
+            ======================================== */}
         {dishCoveryShowFeedbackModal && (
           <div
             className="modal-overlay"
@@ -882,14 +1049,211 @@ export default function UserProfilePage() {
                 value={dishCoveryFeedbackText}
                 onChange={(e) => setDishCoveryFeedbackText(e.target.value)}
                 rows="6"
+                disabled={submittingFeedback}
               ></textarea>
-              <button className="modal-signin-btn" onClick={dishCoveryHandleSendFeedback}>
-                Send Feedback
+              <button 
+                className="modal-signin-btn" 
+                onClick={dishCoveryHandleSendFeedback}
+                disabled={submittingFeedback}
+              >
+                {submittingFeedback ? 'Sending...' : 'Send Feedback'}
               </button>
             </div>
           </div>
         )}
 
+        {/* ========================================
+            🆕 FEEDBACK HISTORY MODAL
+            ======================================== */}
+        {dishCoveryShowFeedbackHistoryModal && (
+          <div
+            className="modal-overlay"
+            onClick={() => setDishCoveryShowFeedbackHistoryModal(false)}
+          >
+            <div 
+              className="modal-content" 
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '700px', maxHeight: '80vh', overflowY: 'auto' }}
+            >
+              <button
+                className="close-btn"
+                onClick={() => setDishCoveryShowFeedbackHistoryModal(false)}
+              >
+                ×
+              </button>
+              <h2 className="modal-title">My Feedback History</h2>
+              <p className="modal-subtitle">View your submitted feedback and admin replies</p>
+              
+              {loadingFeedbackHistory ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                  Loading feedback history...
+                </div>
+              ) : dishCoveryFeedbackHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                  <p>You haven't submitted any feedback yet.</p>
+                  <button 
+                    style={{
+                      marginTop: '20px',
+                      padding: '10px 20px',
+                      background: '#2E7D32',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      setDishCoveryShowFeedbackHistoryModal(false);
+                      setDishCoveryShowFeedbackModal(true);
+                    }}
+                  >
+                    Send Your First Feedback
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
+                  {dishCoveryFeedbackHistory.map((feedback) => (
+                    <div
+                      key={feedback.feedbackId}
+                      style={{
+                        background: feedback.isReplied && !feedback.hasReadReply ? '#f0fdf4' : '#f8fafc',
+                        padding: '16px',
+                        borderRadius: '8px',
+                        border: feedback.isReplied && !feedback.hasReadReply ? '2px solid #2E7D32' : '1px solid #e5e7eb'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+                        <div>
+                          <span style={{
+                            fontSize: '12px',
+                            color: '#64748b',
+                            fontWeight: '500'
+                          }}>
+                            Submitted: {new Date(feedback.createdAt).toLocaleDateString()}
+                          </span>
+                          {feedback.isReplied && (
+                            <span style={{
+                              marginLeft: '8px',
+                              background: '#dcfce7',
+                              color: '#166534',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}>
+                              Replied
+                            </span>
+                          )}
+                          {feedback.isReplied && !feedback.hasReadReply && (
+                            <span style={{
+                              marginLeft: '4px',
+                              background: '#2E7D32',
+                              color: 'white',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '600'
+                            }}>
+                              NEW
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => deleteFeedback(feedback.feedbackId)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#dc2626',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '12px'
+                          }}
+                          title="Delete feedback"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+
+                      <div style={{
+                        background: 'white',
+                        padding: '12px',
+                        borderRadius: '6px',
+                        marginBottom: '12px',
+                        borderLeft: '3px solid #2E7D32'
+                      }}>
+                        <p style={{
+                          margin: 0,
+                          color: '#374151',
+                          fontSize: '14px',
+                          lineHeight: '1.6'
+                        }}>
+                          {feedback.message}
+                        </p>
+                      </div>
+
+                      {feedback.isReplied && feedback.adminReply && (
+                        <div style={{
+                          background: 'white',
+                          padding: '12px',
+                          borderRadius: '6px',
+                          borderLeft: '3px solid #3b82f6'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            marginBottom: '8px'
+                          }}>
+                            <svg 
+                              viewBox="0 0 24 24" 
+                              fill="#3b82f6"
+                              style={{ width: '16px', height: '16px', marginRight: '6px' }}
+                            >
+                              <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                            </svg>
+                            <span style={{
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              color: '#3b82f6'
+                            }}>
+                              Reply {feedback.repliedBy && `by ${feedback.repliedBy}`}
+                            </span>
+                          </div>
+                          <p style={{
+                            margin: 0,
+                            color: '#374151',
+                            fontSize: '14px',
+                            lineHeight: '1.6'
+                          }}>
+                            {feedback.adminReply}
+                          </p>
+                          {!feedback.hasReadReply && (
+                            <button
+                              onClick={() => markFeedbackAsRead(feedback.feedbackId)}
+                              style={{
+                                marginTop: '8px',
+                                padding: '4px 12px',
+                                background: '#2E7D32',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Mark as Read
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* DEACTIVATE ACCOUNT MODAL */}
         {dishCoveryShowDeactivateModal && (
           <div
             className="modal-overlay"

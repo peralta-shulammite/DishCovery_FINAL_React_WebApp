@@ -95,29 +95,13 @@ const IngredientScanner = () => {
     const img = imageRef.current;
     const ctx = canvas.getContext('2d');
 
-    // Get the displayed size of the image (after CSS scaling)
-    const displayedWidth = img.width;
-    const displayedHeight = img.height;
-    
-    // Calculate scale factors
-    const scaleX = displayedWidth / img.naturalWidth;
-    const scaleY = displayedHeight / img.naturalHeight;
-
-    // Set canvas to match displayed size
-    canvas.width = displayedWidth;
-    canvas.height = displayedHeight;
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     detections.forEach((det) => {
-      // Scale bbox coordinates to match displayed image size
-      const [x1_orig, y1_orig, x2_orig, y2_orig] = det.bbox;
-      
-      const x1 = x1_orig * scaleX;
-      const y1 = y1_orig * scaleY;
-      const x2 = x2_orig * scaleX;
-      const y2 = y2_orig * scaleY;
-      
+      const [x1, y1, x2, y2] = det.bbox;
       const width = x2 - x1;
       const height = y2 - y1;
 
@@ -126,27 +110,17 @@ const IngredientScanner = () => {
       ctx.lineWidth = 3;
       ctx.strokeRect(x1, y1, width, height);
 
-      // Prepare label
-      const ingredientName = det.class_name.replace(/\b\w/g, l => l.toUpperCase());
-      const label = `${ingredientName} (${(det.confidence * 100).toFixed(0)}%)`;
-      ctx.font = 'bold 14px Arial';
+      // Draw label background
+      const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
+      ctx.font = '14px Arial';
       const textWidth = ctx.measureText(label).width;
       
-      const labelPadding = 6;
-      const labelWidth = textWidth + (labelPadding * 2);
-      const labelHeight = 22;
-      
-      // Position label at top of box
-      const labelX = x1;
-      const labelY = y1 - labelHeight - 2;
-      
-      // Draw label background
       ctx.fillStyle = det.db_matched ? '#4CAF50' : '#FF9800';
-      ctx.fillRect(labelX, labelY, labelWidth, labelHeight);
+      ctx.fillRect(x1, y1 - 20, textWidth + 10, 20);
 
       // Draw label text
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(label, labelX + labelPadding, labelY + 16);
+      ctx.fillText(label, x1 + 5, y1 - 5);
     });
   }, [detections]);
 
@@ -165,44 +139,32 @@ const IngredientScanner = () => {
     const video = videoRef.current;
     const ctx = canvas.getContext('2d');
 
-    // Set canvas to match video dimensions
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     liveDetections.forEach((det) => {
-      // Use bbox coordinates directly (they should match video dimensions)
       const [x1, y1, x2, y2] = det.bbox;
       const width = x2 - x1;
       const height = y2 - y1;
 
       // Draw box
       ctx.strokeStyle = det.db_matched ? '#4CAF50' : '#FF9800';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 3;
       ctx.strokeRect(x1, y1, width, height);
 
-      // Prepare label
-      const ingredientName = det.class_name.replace(/\b\w/g, l => l.toUpperCase());
-      const label = `${ingredientName} (${(det.confidence * 100).toFixed(0)}%)`;
+      // Draw label background
+      const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
       ctx.font = 'bold 16px Arial';
       const textWidth = ctx.measureText(label).width;
       
-      const labelPadding = 8;
-      const labelWidth = textWidth + (labelPadding * 2);
-      const labelHeight = 26;
-      
-      // Position label at top of box
-      const labelX = x1;
-      const labelY = y1 - labelHeight - 2;
-      
-      // Draw label background
       ctx.fillStyle = det.db_matched ? '#4CAF50' : '#FF9800';
-      ctx.fillRect(labelX, labelY, labelWidth, labelHeight);
+      ctx.fillRect(x1, y1 - 25, textWidth + 12, 25);
 
       // Draw label text
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(label, labelX + labelPadding, labelY + 18);
+      ctx.fillText(label, x1 + 6, y1 - 6);
     });
   }, [liveDetections]);
 
