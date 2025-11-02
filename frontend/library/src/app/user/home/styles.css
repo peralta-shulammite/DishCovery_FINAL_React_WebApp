@@ -1714,3 +1714,139 @@
     padding: 10px 16px;
   }
 }
+
+/* Password Toggle Button */
+.toggle-password-btn {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-password-btn:hover {
+  opacity: 1;
+}
+
+.eye-icon {
+  width: 20px;
+  height: 20px;
+  fill: #757575;
+}
+
+/* Password Input Container */
+.password-input-container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.password-input-container .modal-input {
+  padding-right: 45px;
+  margin-bottom: 0;
+}
+
+/* Forgot Password Text */
+.forgot-password-text {
+  text-align: right;
+  margin: 8px 0 16px 0;
+  font-size: 12px;
+}
+
+.forgot-password-link {
+  background: none;
+  border: none;
+  color: #2E7D32;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s;
+  padding: 0;
+}
+
+.forgot-password-link:hover {
+  color: #1B5E20;
+  text-decoration: underline;
+}
+
+/* Modal Error Message */
+.modal-error {
+  background: #ffebee;
+  color: #c62828;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* Modal Checkbox */
+.modal-checkbox {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+/* Modal Link */
+.modal-link {
+  color: #2E7D32;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.modal-link:hover {
+  text-decoration: underline;
+}
+
+/* Close Button */
+.close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #757575;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  line-height: 1;
+  padding: 0;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #2E7D32;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .toggle-password-btn {
+    right: 12px;
+  }
+  
+  .eye-icon {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .forgot-password-text {
+    font-size: 11px;
+  }
+  
+  .forgot-password-link {
+    font-size: 11px;
+  }
+}

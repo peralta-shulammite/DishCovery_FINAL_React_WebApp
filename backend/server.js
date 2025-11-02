@@ -1,8 +1,24 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
+import fs from 'fs';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// LOAD ENV FIRST - BEFORE ANY OTHER IMPORTS
+const localEnvPath = path.join(__dirname, '.env.local');
+if (fs.existsSync(localEnvPath)) {
+  console.log('📝 Loading .env.local (development)');
+  dotenv.config({ path: localEnvPath });
+} else {
+  console.log('📝 Loading .env (production)');
+  dotenv.config();
+}
+
+// NOW IMPORT EVERYTHING ELSE
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import recipesRouter from './routes/recipes.js';
@@ -15,16 +31,9 @@ import dietaryRestrictionsRouter from './routes/dietaryRestrictions.js';
 import pantryRouter from './routes/pantry.js';
 import scanRouter from './routes/scan.js';
 import userProfileRouter from './routes/userProfile.js';
-// ✅ NEW: Feedback routes
 import feedbackRouter from './routes/feedback.js';
 import adminFeedbackRouter from './routes/adminFeedback.js';
 import pool from './db.js';
-
-dotenv.config();
-
-// Get __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,13 +59,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// Handle preflight requests
 app.options('*', cors(corsOptions));
 
 app.use(express.json());
-
-// Serve static files for uploads (profile pictures, etc.)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
@@ -72,11 +77,10 @@ app.use('/api/admin-auth', adminAuthRouter);
 app.use('/api/pantry', pantryRouter);
 app.use('/api/scan', scanRouter);
 app.use('/api/user-profile', userProfileRouter);
-// ✅ NEW: Feedback routes
 app.use('/api/feedback', feedbackRouter);
 app.use('/api/admin/feedback', adminFeedbackRouter);
 
-// Improved health route (also checks DB)
+// Health check
 app.use('/api/health', async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT 1");
@@ -89,10 +93,25 @@ app.use('/api/health', async (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log('');
+  console.log('🌍 Environment Configuration:');
+  console.log(`   - NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+  console.log(`   - FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set'}`);
+  console.log(`   - API_BASE_URL: ${process.env.API_BASE_URL || 'not set'}`);
+  console.log('');
+  console.log('🔐 Google OAuth Configuration:');
+  console.log(`   - GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID ? '✅ Set (ends with: ...' + process.env.GOOGLE_CLIENT_ID.slice(-20) + ')' : '❌ NOT SET'}`);
+  console.log(`   - GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? '✅ Set' : '❌ NOT SET'}`);
+  console.log(`   - OAuth Status: ${process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? '✅ Ready' : '❌ Missing credentials'}`);
+  console.log('');
   console.log('📋 Available routes:');
   console.log('   - GET  /api/health');
   console.log('   - POST /api/auth/register');
   console.log('   - POST /api/auth/login');
+  console.log('   - POST /api/auth/verify');
+  console.log('   - POST /api/auth/resend-verification (🆕 NEW)');
+  console.log('   - GET  /api/auth/google (🆕 NEW - Google OAuth)');
+  console.log('   - POST /api/auth/google/callback (🆕 NEW - Google OAuth)');
   console.log('   - POST /api/auth/logout (🔒 Protected)');
   console.log('   - POST /api/admin-auth/login (🔒 ADMIN LOGIN)');
   console.log('   - GET  /api/admin-auth/profile (🔒 ADMIN PROFILE)');

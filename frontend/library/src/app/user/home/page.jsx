@@ -94,6 +94,33 @@ export default function DishCoveryLanding() {
           setDishCoveryUser(null);
         });
     }
+    
+    // Load Google OAuth script
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  // Handle Google OAuth verification modal
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const needsVerification = urlParams.get('verify');
+    const pendingEmail = sessionStorage.getItem('pendingVerificationEmail');
+    const isGoogleAuth = sessionStorage.getItem('pendingGoogleAuth');
+    
+    if (needsVerification === 'true' && pendingEmail && isGoogleAuth === 'true') {
+      setDishCoveryEmail(pendingEmail);
+      setDishCoveryShowOneMoreStepModal(true);
+      window.history.replaceState({}, document.title, '/user/home');
+    }
   }, []);
 
   const dishCoveryHandleSignInClick = () => {
@@ -217,21 +244,45 @@ const dishCoveryHandleSignInSubmit = async (e) => {
   // ✅ UPDATED: Redirect to get-started after verification
   const dishCoveryHandleVerifySubmit = async (e) => {
     e.preventDefault();
+
+    const pendingEmail = localStorage.getItem('pendingVerificationEmail');
+  if (!pendingEmail) {
+    setDishCoveryError('Email not found. Please sign up again.');
+    return;
+  }
+
     try {
       const data = await api.verify(dishCoveryEmail, dishCoveryVerificationCode);
       setDishCoveryUser(data.user);
       setDishCoveryIsLoggedIn(true);
       dishCoveryCloseModal();
       
-      // ✅ Set flag for new user signup
-      sessionStorage.setItem('newUserSignup', 'true');
+      // Check if Google OAuth user
+      const isGoogleAuth = sessionStorage.getItem('pendingGoogleAuth') === 'true';
       
-      // ✅ Redirect to get-started page
+      if (isGoogleAuth) {
+        localStorage.setItem('googleAuth', 'true');
+        sessionStorage.removeItem('pendingGoogleAuth');
+        sessionStorage.removeItem('pendingVerificationEmail');
+      }
+      
+      sessionStorage.setItem('newUserSignup', 'true');
       console.log('🎉 New user verified, redirecting to get-started...');
       window.location.href = '/user/get-started';
     } catch (error) {
       setDishCoveryError(error.message);
     }
+  };
+
+  // ✅ UPDATED: Separate handlers for Google Login vs Signup
+  const dishCoveryHandleGoogleLogin = () => {
+    console.log('🔵 Clicking LOGIN with Google');
+    api.signInWithGoogle('login');
+  };
+  
+  const dishCoveryHandleGoogleSignup = () => {
+    console.log('🟢 Clicking SIGNUP with Google');
+    api.signUpWithGoogle();
   };
 
   const dishCoveryHandleForgotPasswordClick = () => {
@@ -370,20 +421,20 @@ const dishCoveryBottomRecipes = [
               </svg>
               <span className="btn-text">Scan Ingredients</span>
             </button>
-            <a
+            
+              <a
               href="/pantry"
               className={`how-to-use ${dishCoveryHoverStates.howToUse ? 'how-to-use-hover' : ''}`}
               onMouseEnter={() => dishCoveryHandleHover('howToUse', true)}
-              onMouseLeave={() => dishCoveryHandleHover('howToUse', false)}
-            >
-              How It Works
+               onMouseLeave={() => dishCoveryHandleHover('howToUse', false)}
+                >
+                How It Works
               <svg className="arrow" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M8.59 16.59L13.17 12L8.59 7.41L10 6l6 6-6 6-1.41-1.41z"/>
               </svg>
             </a>
-          </div>
-        </div>
-
+            </div>
+            </div> 
         <div className="right-section">
           <div className="plate-container">
             <div className="plate-glow"></div>
@@ -649,7 +700,7 @@ const dishCoveryBottomRecipes = [
                   <path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/>
                 </svg>
               </button>
-              <button className="social-btn google" onClick={dishCoveryHandleSocialLogin}>
+              <button className="social-btn google" onClick={dishCoveryHandleGoogleLogin}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.20-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -750,7 +801,8 @@ const dishCoveryBottomRecipes = [
                   <path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/>
                 </svg>
               </button>
-              <button className="social-btn google" onClick={dishCoveryHandleSocialLogin}>
+              {/* ✅ FIXED: Changed from dishCoveryHandleGoogleLogin to dishCoveryHandleGoogleSignup */}
+              <button className="social-btn google" onClick={dishCoveryHandleGoogleSignup}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.20-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>

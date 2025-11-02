@@ -1,7 +1,4 @@
-// api.js - Fixed Authentication API for landing page
-// File: /app/user/home/api.js
-// ✅ FIXED: This file redirects to /user/home (your landing page)
-
+// api.js - Enhanced Authentication API with Google OAuth
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
 const handleResponse = async (response) => {
@@ -13,15 +10,40 @@ const handleResponse = async (response) => {
 };
 
 const api = {
+  // ===================================================
+  // GOOGLE OAUTH
+  // ===================================================
+  
+  signInWithGoogle: (mode = 'login') => {  
+    const state = btoa(JSON.stringify({  
+      mode: 'login',  
+      nonce: Math.random().toString(36).substring(2)  
+    }));  
+    console.log('Clicking LOGIN with Google');  
+    window.location.href = `${API_BASE_URL}/api/auth/google?state=${state}`;  
+  },  
+  
+  signUpWithGoogle: () => {  
+    const state = btoa(JSON.stringify({  
+      mode: 'signup',  
+      nonce: Math.random().toString(36).substring(2)  
+    }));  
+    console.log('Clicking SIGNUP with Google');  
+    window.location.href = `${API_BASE_URL}/api/auth/google?state=${state}`;  
+  },  
+
+  // ===================================================
+  // STANDARD AUTHENTICATION
+  // ===================================================
+  
   signIn: async (email, password) => {
-    console.log('🔍 Smart login attempt for:', email);
+    console.log('🔐 Smart login attempt for:', email);
     
     const isLikelyAdmin = email.includes('admin') || email.endsWith('@dishcovery.com') || email.includes('test.com');
     
     if (isLikelyAdmin) {
       try {
         console.log('👑 Trying admin login first (admin-like email)...');
-        console.log('🌐 Admin endpoint: /api/admin-auth/login');
         
         const adminResponse = await fetch(`${API_BASE_URL}/api/admin-auth/login`, {
           method: 'POST',
@@ -44,9 +66,6 @@ const api = {
             isAdmin: true,
             redirectTo: '/admin/dashboard'
           };
-        } else {
-          const errorData = await adminResponse.json();
-          console.log('❌ Admin login failed:', errorData.message);
         }
       } catch (adminError) {
         console.log('⚠️ Admin login error:', adminError.message);
@@ -55,7 +74,6 @@ const api = {
 
     try {
       console.log('👤 Trying user login...');
-      console.log('🌐 User endpoint: /api/auth/login');
       
       const userResponse = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
@@ -110,32 +128,73 @@ const api = {
         }
       }
       
-      throw new Error('Invalid email or password');
+      throw userError;
     }
   },
 
   signUp: async (firstName, lastName, email, password) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firstName, lastName, email, password }),
-    });
-    return handleResponse(response);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName, lastName, email, password }),
+      });
+      
+      const data = await handleResponse(response);
+      
+      if (data.requiresVerification) {
+        sessionStorage.setItem('pendingVerificationEmail', email);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Sign up error:', error);
+      throw error;
+    }
   },
 
   verify: async (email, verificationCode) => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, code: verificationCode }),
-    });
-    const data = await handleResponse(response);
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('isAdmin', 'false');
-    localStorage.setItem('userType', 'user');
-    localStorage.setItem('userId', data.user.userId);
-    localStorage.setItem('userEmail', data.user.email);
-    return data;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: verificationCode }),
+      });
+      
+      const data = await handleResponse(response);
+      console.log('✅ Email verified successfully');
+      
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('isAdmin', 'false');
+      localStorage.setItem('userType', 'user');
+      localStorage.setItem('userId', data.user.userId);
+      localStorage.setItem('userEmail', data.user.email);
+      
+      sessionStorage.removeItem('pendingVerificationEmail');
+      sessionStorage.removeItem('pendingGoogleAuth');
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Verification error:', error);
+      throw error;
+    }
+  },
+
+  resendVerificationCode: async (email) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      
+      const data = await handleResponse(response);
+      console.log('✅ Verification code resent');
+      return data;
+    } catch (error) {
+      console.error('❌ Resend code error:', error);
+      throw error;
+    }
   },
 
   getProfile: async () => {
@@ -164,7 +223,6 @@ const api = {
     
     console.log('🚪 Logging out user...', { isAdmin, userId, userType });
 
-    // Call backend logout endpoint
     try {
       const endpoint = isAdmin ? '/api/admin-auth/logout' : '/api/auth/logout';
       
@@ -183,16 +241,15 @@ const api = {
       }
     } catch (error) {
       console.warn('⚠️ Server logout error:', error.message);
-      // Continue with client-side cleanup even if server logout fails
     }
 
-    // Clear all localStorage data
     const itemsToRemove = [
       'token', 
       'isAdmin', 
       'userType', 
       'userId', 
       'userEmail',
+      'googleAuth',
       'userPreferences',
       'lastActivity'
     ];
@@ -201,15 +258,13 @@ const api = {
       localStorage.removeItem(item);
     });
 
-    // Also clear sessionStorage
     sessionStorage.clear();
 
     console.log('✅ Client-side cleanup completed');
 
-    // ✅✅✅ FIXED: REDIRECT TO /user/home (YOUR LANDING PAGE) ✅✅✅
     if (typeof window !== 'undefined') {
-      console.log('🏠 Redirecting to home page (/user/home)...');
-      window.location.href = '/user/home'; // ✅ CORRECT ROUTE
+      console.log('🏠 Redirecting to home page...');
+      window.location.href = '/user/home';
     }
 
     return { success: true, message: 'Logout successful' };
@@ -229,8 +284,13 @@ const api = {
       email: localStorage.getItem('userEmail'),
       isAdmin: localStorage.getItem('isAdmin') === 'true',
       userType: localStorage.getItem('userType'),
+      isGoogleAuth: localStorage.getItem('googleAuth') === 'true',
       hasToken: !!localStorage.getItem('token')
     };
+  },
+
+  isAuthenticated: () => {
+    return !!localStorage.getItem('token');
   }
 };
 
