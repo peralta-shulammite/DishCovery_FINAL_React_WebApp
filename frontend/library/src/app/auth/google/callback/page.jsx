@@ -1,8 +1,9 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+"use client";
+import { Suspense } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function GoogleCallback() {
+function GoogleCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState('Processing...');
@@ -14,19 +15,19 @@ export default function GoogleCallback() {
         const code = searchParams.get('code');  
         const stateParam = searchParams.get('state');  
         const errorParam = searchParams.get('error');  
-  
+
         if (errorParam) {  
           setError('Google authentication cancelled');  
           setTimeout(() => router.push('/user/home'), 2000);  
           return;  
         }  
-  
+
         if (!code || !stateParam) {  
           setError('Missing code or state from Google');  
           setTimeout(() => router.push('/user/home'), 2000);  
           return;  
         }  
-  
+
         let mode = 'login';  
         try {  
           const decoded = JSON.parse(atob(stateParam));  
@@ -34,35 +35,35 @@ export default function GoogleCallback() {
         } catch (e) {  
           console.warn('Invalid state format, using default login');  
         }  
-  
+
         console.log(`Processing Google ${mode}...`);  
-  
+
         setStatus(`Authenticating with Google (${mode})...`);  
-  
+
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';  
-  
+
         const response = await fetch(`${API_BASE_URL}/api/auth/google/callback`, {  
           method: 'POST',  
           headers: { 'Content-Type': 'application/json' },  
           body: JSON.stringify({ code, state: stateParam }),  
           credentials: 'include',  
         });  
-  
+
         const data = await response.json();  
-  
+
         if (!response.ok) {  
           throw new Error(data.message || 'Authentication failed');  
         }  
-  
+
         if (data.requiresVerification) {  
           localStorage.setItem('pendingVerificationEmail', data.email);
           setStatus('Verification email sent! Check your inbox.');  
           sessionStorage.setItem('pendingVerificationEmail', data.email);  
           sessionStorage.setItem('pendingGoogleAuth', 'true');  
           setTimeout(() => router.push('/user/home?verify=true'), 1500);  
-          return; // HINDI MAG-LOGIN  
+          return;  
         }  
-  
+
         setStatus('Login successful! Redirecting...');  
         localStorage.setItem('token', data.token);  
         localStorage.setItem('isAdmin', 'false');  
@@ -72,14 +73,14 @@ export default function GoogleCallback() {
         localStorage.setItem('googleAuth', 'true');  
         sessionStorage.setItem('userJustLoggedIn', 'true');  
         setTimeout(() => router.push('/user/home'), 1000);  
-  
+
       } catch (error) {  
         console.error('Callback error:', error);  
         setError(error.message || 'Authentication failed');  
         setTimeout(() => router.push('/user/home'), 3000);  
       }  
     };  
-  
+
     handleCallback();  
   }, [searchParams, router]); 
 
@@ -147,5 +148,14 @@ export default function GoogleCallback() {
         }
       `}</style>
     </div>
+  );
+}
+
+// ✅ Wrap with Suspense directly in the same file
+export default function GoogleCallback() {
+  return (
+    <Suspense fallback={<div>Loading Google callback...</div>}>
+      <GoogleCallbackInner />
+    </Suspense>
   );
 }
