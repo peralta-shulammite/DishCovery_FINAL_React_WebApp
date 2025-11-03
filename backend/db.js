@@ -1,16 +1,10 @@
 // db.js
 import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import dotenv from 'dotenv';
 
-// LOAD .ENV.LOCAL FIRST BEFORE ANYTHING
-const localEnvPath = path.join(process.cwd(), '.env.local');
-if (fs.existsSync(localEnvPath)) {
-  dotenv.config({ path: localEnvPath });
-} else {
-  dotenv.config();
-}
+dotenv.config();
 
 // Determine SSL configuration
 let sslConfig = false;
