@@ -4,6 +4,8 @@ import api from './api';
 import './styles.css';
 import Link from 'next/link';
 import UserLayout from '../../components/user/userlayout';
+import PWAInstallBanner from '../../components/PWAInstallBanner';
+import Banner from '../../components/Banner'; // Import the Banner component
 
 
 
@@ -281,6 +283,7 @@ const dishCoveryBottomRecipes = [
       onSignInClick={dishCoveryHandleSignInClick}
       onLogout={dishCoveryHandleLogout}
     >
+      <PWAInstallBanner />  {/* Add this line */}
     <div ref={dishCoveryTopRef} className="container">
 
       {/* Custom Notification */}
@@ -809,6 +812,7 @@ const dishCoveryBottomRecipes = [
           </div>
         </div>
       )}
+      <Banner /> {/* Include the Banner component here */}
     </div>
       </UserLayout>
   );

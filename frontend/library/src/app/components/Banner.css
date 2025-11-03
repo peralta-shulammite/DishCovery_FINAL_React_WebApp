@@ -1,0 +1,155 @@
+/* Banner.css */
+.banner {
+  background-color: #4CAF50; /* Green background */
+  color: white; /* White text */
+  padding: 15px; /* Some padding */
+  text-align: center; /* Centered text */
+  position: fixed; /* Fixed position */
+  bottom: 0; /* Stick to the bottom */
+  left: 0; /* Align to the left */
+  right: 0; /* Align to the right */
+  z-index: 1000; /* Ensure it appears above other content */
+}
+
+.install-button {
+  background-color: white; /* White button */
+  color: #4CAF50; /* Green text */
+  border: none; /* No border */
+  padding: 10px 20px; /* Padding for the button */
+  cursor: pointer; /* Pointer cursor on hover */
+  margin-left: 10px; /* Space between text and button */
+}
+
+.install-button:hover {
+  background-color: #ddd; /* Light grey on hover */
+}
+
+.pwa-banner {
+  position: fixed;
+  right: 20px;
+  bottom: 100px; /* Moved higher from 20px to 100px */
+  width: 340px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(46,125,50,0.12);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(46,125,50,0.08);
+  z-index: 1200;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* Mobile devices (portrait phones, less than 576px) */
+@media (max-width: 575.98px) {
+  .pwa-banner {
+    width: calc(100% - 32px); /* Full width minus margins */
+    right: 16px;
+    left: 16px;
+    bottom: 80px; /* Moved higher from 16px to 80px */
+    padding: 12px;
+  }
+
+  .pwa-icon {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+  }
+
+  .pwa-title {
+    font-size: 14px;
+  }
+
+  .pwa-desc {
+    font-size: 11px;
+  }
+
+  .install-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+/* Small devices (landscape phones, 576px and up) */
+@media (min-width: 576px) and (max-width: 767.98px) {
+  .pwa-banner {
+    width: 300px;
+  }
+}
+
+/* Medium devices (tablets, 768px and up) */
+@media (min-width: 768px) {
+  .pwa-banner {
+    width: 340px;
+  }
+}
+
+/* Add hover effects only for devices that support hover */
+@media (hover: hover) {
+  .install-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(46,125,50,0.24);
+  }
+}
+
+/* Ensure smooth transitions */
+.pwa-banner, .install-btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.pwa-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #eaf6ef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 48px;
+}
+
+.heart-svg {
+  width: 24px;
+  height: 24px;
+  fill: #2E7D32;
+}
+
+.pwa-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.pwa-title {
+  margin: 0;
+  font-size: 16px;
+  color: #2E7D32;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pwa-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #586069;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.install-btn {
+  background: #2E7D32;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(46,125,50,0.18);
+}
+
+.install-btn:hover {
+  transform: translateY(-2px);
+}
