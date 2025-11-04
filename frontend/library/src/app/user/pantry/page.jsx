@@ -6,7 +6,8 @@ import './styles.css';
 import UserLayout from '../../components/user/userlayout'
 
 // Backend API service integrated directly
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+const API_URL = `${API_BASE_URL}/api`;
 
 const pantryService = {
   getAuthToken() {
@@ -35,7 +36,7 @@ const pantryService = {
 
   async getIngredients() {
     try {
-      const response = await fetch(`${API_BASE_URL}/pantry/ingredients`, {
+      const response = await fetch(`${API_URL}/pantry/ingredients`, {
         method: 'GET',
         headers: this.createHeaders(),
       });
@@ -49,7 +50,7 @@ const pantryService = {
 
   async saveIngredientSelection(selectedIngredients) {
     try {
-      const response = await fetch(`${API_BASE_URL}/pantry/save-selection`, {
+      const response = await fetch(`${API_URL}/pantry/save-selection`, {
         method: 'POST',
         headers: this.createHeaders(),
         body: JSON.stringify({ selectedIngredients })
@@ -63,7 +64,7 @@ const pantryService = {
 
   async getUserSelection() {
     try {
-      const response = await fetch(`${API_BASE_URL}/pantry/my-selection`, {
+      const response = await fetch(`${API_URL}/pantry/my-selection`, {
         method: 'GET',
         headers: this.createHeaders(),
       });
@@ -77,7 +78,7 @@ const pantryService = {
 
   async generateRecipe(selectedIngredients) {
     try {
-      const response = await fetch(`${API_BASE_URL}/pantry/generate-recipe`, {
+      const response = await fetch(`${API_URL}/pantry/generate-recipe`, {
         method: 'POST',
         headers: this.createHeaders(),
         body: JSON.stringify({ selectedIngredients })
@@ -91,7 +92,7 @@ const pantryService = {
 
   async requestIngredient(ingredientData) {
     try {
-      const response = await fetch(`${API_BASE_URL}/pantry/request-ingredient`, {
+      const response = await fetch(`${API_URL}/pantry/request-ingredient`, {
         method: 'POST',
         headers: this.createHeaders(),
         body: JSON.stringify(ingredientData)

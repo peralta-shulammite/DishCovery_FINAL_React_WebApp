@@ -22,7 +22,8 @@ const IngredientManagement = () => {
   const [loading, setLoading] = useState(true);
 
   // Backend API integration
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+  const API_URL = `${API_BASE_URL}/api`;
 
   const adminIngredientsService = {
     getAuthToken() {
@@ -49,14 +50,14 @@ const IngredientManagement = () => {
     },
 
     async getAllIngredients() {
-      const response = await fetch(`${API_BASE_URL}/admin/ingredients`, {
+      const response = await fetch(`${API_URL}/admin/ingredients`, {
         headers: this.createHeaders(),
       });
       return await this.handleResponse(response);
     },
 
     async createIngredient(ingredientData) {
-      const response = await fetch(`${API_BASE_URL}/admin/ingredients`, {
+      const response = await fetch(`${API_URL}/admin/ingredients`, {
         method: 'POST',
         headers: this.createHeaders(),
         body: JSON.stringify(ingredientData)
@@ -65,7 +66,7 @@ const IngredientManagement = () => {
     },
 
     async updateIngredient(id, ingredientData) {
-      const response = await fetch(`${API_BASE_URL}/admin/ingredients/${id}`, {
+      const response = await fetch(`${API_URL}/admin/ingredients/${id}`, {
         method: 'PUT',
         headers: this.createHeaders(),
         body: JSON.stringify(ingredientData)
@@ -74,7 +75,7 @@ const IngredientManagement = () => {
     },
 
     async deleteIngredient(id) {
-      const response = await fetch(`${API_BASE_URL}/admin/ingredients/${id}`, {
+      const response = await fetch(`${API_URL}/admin/ingredients/${id}`, {
         method: 'DELETE',
         headers: this.createHeaders(),
       });
@@ -82,7 +83,7 @@ const IngredientManagement = () => {
     },
 
     async approvePendingIngredient(pendingData) {
-      const response = await fetch(`${API_BASE_URL}/admin/ingredients/approve-pending`, {
+      const response = await fetch(`${API_URL}/admin/ingredients/approve-pending`, {
         method: 'POST',
         headers: this.createHeaders(),
         body: JSON.stringify(pendingData)
@@ -91,7 +92,7 @@ const IngredientManagement = () => {
     },
 
     async getPendingIngredients() {
-      const response = await fetch(`${API_BASE_URL}/admin/ingredients/pending`, {
+      const response = await fetch(`${API_URL}/admin/ingredients/pending`, {
         headers: this.createHeaders(),
       });
       return await this.handleResponse(response);

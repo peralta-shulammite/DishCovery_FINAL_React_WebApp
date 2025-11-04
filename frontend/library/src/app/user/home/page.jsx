@@ -845,7 +845,16 @@ const dishCoveryBottomRecipes = [
               </span>
             </div>
             <button className="modal-signin-btn" disabled={!dishCoveryIsOneMoreStepChecked} onClick={dishCoveryHandleVerifySubmit}>Verify</button>
-            <p className="modal-signup-text">Didn't receive a code? <a href="#" onClick={() => console.log("Resend code")}>Resend</a></p>
+            <p className="modal-signup-text">Didn't receive a code? <a href="#" onClick={async (e) => {
+              e.preventDefault();
+              try {
+                await api.resendVerificationCode(dishCoveryEmail);
+                setDishCoveryError('');
+                alert('✅ New verification code sent! Check your email.');
+              } catch (error) {
+                setDishCoveryError(error.message);
+              }
+            }}>Resend</a></p>
           </div>
         </div>
       )}

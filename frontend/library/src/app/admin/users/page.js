@@ -1,7 +1,10 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
+
+// API Base URL - automatically detects environment
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
 const UserManagementContent = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This Week');
@@ -14,116 +17,61 @@ const UserManagementContent = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [showBulkActionModal, setShowBulkActionModal] = useState(false);
 
-  const userStats = {
-    totalUsers: 2847,
-    activeUsers: 1876,
-    newUsers: 324,
-    inactiveUsers: 623
-  };
+  // API Data States
+  const [users, setUsers] = useState([]);
+  const [userStats, setUserStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    newUsers: 0,
+    inactiveUsers: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const users = [
-    {
-      id: 1,
-      profilePicture: 'https://images.unsplash.com/photo-1494790108755-2616b612b64c?w=150&h=150&fit=crop&crop=face',
-      username: 'fitmeals',
-      email: 'fitmeals@email.com',
-      status: 'Active',
-      lastActive: '3 hours ago',
-      joinedDate: 'July 1, 2025',
-      restrictions: ['Gluten-Free', 'Dairy-Free'],
-      excludedIngredients: ['Nuts', 'Shellfish'],
-      diets: ['Keto', 'High-Protein'],
-      medicalConditions: ['Diabetes'],
-      recipesViewed: 124,
-      recipesSaved: 45,
-      ingredientsScanned: 28,
-      lastRecipe: 'Cauliflower Rice Bowl',
-      feedbackSubmitted: true,
-      notes: 'Premium user - very active in community'
-    },
-    {
-      id: 2,
-      profilePicture: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-      username: 'lazychef',
-      email: '— (Google login)',
-      status: 'Inactive',
-      lastActive: '2 months ago',
-      joinedDate: 'May 12, 2025',
-      restrictions: ['Vegetarian'],
-      excludedIngredients: ['Garlic', 'Onions'],
-      diets: ['Mediterranean'],
-      medicalConditions: [],
-      recipesViewed: 89,
-      recipesSaved: 23,
-      ingredientsScanned: 12,
-      lastRecipe: 'Veggie Pasta',
-      feedbackSubmitted: false,
-      notes: 'Has not logged in for 2 months - potential churn risk'
-    },
-    {
-      id: 3,
-      profilePicture: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-      username: 'vegansoul',
-      email: 'vegan@email.com',
-      status: 'Active',
-      lastActive: '1 day ago',
-      joinedDate: 'June 15, 2025',
-      restrictions: ['Vegan', 'Halal'],
-      excludedIngredients: ['Honey'],
-      diets: ['Vegan', 'Low-Sodium'],
-      medicalConditions: ['Hypertension'],
-      recipesViewed: 256,
-      recipesSaved: 78,
-      ingredientsScanned: 45,
-      lastRecipe: 'Quinoa Buddha Bowl',
-      feedbackSubmitted: true,
-      notes: 'Reported bug - June 15, 2025. Very engaged user.'
-    },
-    {
-      id: 4,
-      profilePicture: 'https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?w=150&h=150&fit=crop&crop=face',
-      username: 'runnerlife',
-      email: 'runner@fitness.com',
-      status: 'Active',
-      lastActive: '30 minutes ago',
-      joinedDate: 'June 28, 2025',
-      restrictions: ['Lactose Intolerant'],
-      excludedIngredients: ['Dairy', 'Artificial Sweeteners'],
-      diets: ['High-Carb', 'High-Protein'],
-      medicalConditions: [],
-      recipesViewed: 67,
-      recipesSaved: 34,
-      ingredientsScanned: 19,
-      lastRecipe: 'Energy Overnight Oats',
-      feedbackSubmitted: true,
-      notes: 'New user showing high engagement'
-    },
-    {
-      id: 5,
-      profilePicture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      username: 'grandpacooks',
-      email: 'grandpa@family.com',
-      status: 'Inactive',
-      lastActive: '3 weeks ago',
-      joinedDate: 'April 20, 2025',
-      restrictions: ['Diabetic-Safe', 'Low-Sodium'],
-      excludedIngredients: ['Sugar', 'Salt'],
-      diets: ['Heart-Healthy'],
-      medicalConditions: ['Diabetes', 'Hypertension'],
-      recipesViewed: 145,
-      recipesSaved: 56,
-      ingredientsScanned: 23,
-      lastRecipe: 'Herb Crusted Salmon',
-      feedbackSubmitted: false,
-      notes: 'Senior user - may need simplified interface'
-    }
-  ];
+  // Fetch users from database
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
 
-  const inactiveUsers = [
-    { username: 'inactivejoe', lastActive: 'April 1, 2025', joinedDate: 'Jan 10, 2025', status: 'Inactive' },
-    { username: 'forgottenuser', lastActive: 'March 15, 2025', joinedDate: 'Dec 5, 2024', status: 'Inactive' },
-    { username: 'oldaccount', lastActive: 'February 28, 2025', joinedDate: 'Nov 20, 2024', status: 'Inactive' }
-  ];
+        const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch users');
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+          setUsers(data.users || []);
+          setUserStats(data.stats || {
+            totalUsers: 0,
+            activeUsers: 0,
+            newUsers: 0,
+            inactiveUsers: 0
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  const inactiveUsers = users.filter(u => u.status === 'Inactive').slice(0, 3);
 
   const filteredUsers = users.filter(user => {
     const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
@@ -236,6 +184,65 @@ const UserManagementContent = () => {
       <path d="M8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11 8 15.01z"/>
     </svg>
   );
+
+  // Loading State
+  if (loading) {
+    return (
+      <div className="users-content">
+        <div className="loading-container" style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '400px',
+          flexDirection: 'column',
+          gap: '20px'
+        }}>
+          <div style={{
+            border: '4px solid #f3f3f3',
+            borderTop: '4px solid #2E7D32',
+            borderRadius: '50%',
+            width: '60px',
+            height: '60px',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{ color: '#666', fontSize: '16px' }}>Loading users...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <div className="users-content">
+        <div className="error-container" style={{
+          background: '#ffebee',
+          border: '1px solid #ef5350',
+          borderRadius: '8px',
+          padding: '20px',
+          margin: '20px',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ color: '#c62828', marginBottom: '10px' }}>Error Loading Users</h3>
+          <p style={{ color: '#666' }}>{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: '15px',
+              padding: '10px 20px',
+              background: '#2E7D32',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="users-content">
