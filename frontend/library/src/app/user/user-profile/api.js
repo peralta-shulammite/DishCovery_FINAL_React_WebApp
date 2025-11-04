@@ -129,6 +129,8 @@ export const profileAPI = {
       throw error;
     }
   }
+<<<<<<< HEAD
+=======
 };
 
 // ========================================
@@ -256,4 +258,5 @@ export const feedbackAPI = {
       throw error;
     }
   }
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
 };

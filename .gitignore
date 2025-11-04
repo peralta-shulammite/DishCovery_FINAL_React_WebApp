@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+.vercel
+node_modules/
+node_modules/
+=======
 # Node and build
 node_modules/
 .vercel/
@@ -8,3 +13,4 @@ node_modules/
 backend/.env
 backend/.env.local
 .env
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3

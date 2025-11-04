@@ -1399,6 +1399,8 @@ body {
 .add-ingredient-input input:focus {
   outline: 2px solid #4CAF50;
   outline-offset: 1px;
+<<<<<<< HEAD
+=======
 }
 /* Bounding Box Styles - ONLY ADDITION */
 .image-container {
@@ -1428,4 +1430,5 @@ body {
   height: 100%;
   pointer-events: none;
   z-index: 5;
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
 }

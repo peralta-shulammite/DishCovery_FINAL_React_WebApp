@@ -3,7 +3,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
 import { favoritesAPI } from '../recipe/api';
+<<<<<<< HEAD
+import { profileAPI } from './api';
+=======
 import { profileAPI, feedbackAPI } from './api';
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
 
 // Helper function to construct full image URLs
 const getFullImageUrl = (path) => {
@@ -60,6 +64,8 @@ export default function UserProfilePage() {
   const [dishCoveryShowFeedbackModal, setDishCoveryShowFeedbackModal] = useState(false);
   const [dishCoveryShowDeactivateModal, setDishCoveryShowDeactivateModal] = useState(false);
 
+<<<<<<< HEAD
+=======
   // ========================================
   // 🆕 FEEDBACK STATES
   // ========================================
@@ -69,6 +75,7 @@ export default function UserProfilePage() {
   const [loadingFeedbackHistory, setLoadingFeedbackHistory] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   // Form states
   const [dishCoveryTempFirstName, setDishCoveryTempFirstName] = useState('User');
   const [dishCoveryTempLastName, setDishCoveryTempLastName] = useState('');
@@ -87,13 +94,21 @@ export default function UserProfilePage() {
   const [loadingDietaryData, setLoadingDietaryData] = useState(true);
   const [loadingUserInfo, setLoadingUserInfo] = useState(true);
 
+<<<<<<< HEAD
+  // Mock data for last opened recipe - using CSS placeholder instead of external URL
+=======
   // Mock data for last opened recipe
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const [dishCoveryLastOpenedRecipe] = useState({
     id: 1,
     name: 'Mediterranean Quinoa Bowl',
     time: '25 min',
     difficulty: 'Easy',
+<<<<<<< HEAD
+    image: null, // Will use CSS placeholder
+=======
     image: null,
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
     lastOpened: '2025-01-28',
   });
 
@@ -120,6 +135,10 @@ export default function UserProfilePage() {
         if (response && response.success && response.data) {
           const { firstName, lastName, email, profilePicture } = response.data;
           
+<<<<<<< HEAD
+          // Update user state with real data
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
           setDishCoveryUser({
             firstName: firstName || 'User',
             lastName: lastName || '',
@@ -127,6 +146,10 @@ export default function UserProfilePage() {
             profilePicture: profilePicture || null
           });
           
+<<<<<<< HEAD
+          // Also update the temp states for editing
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
           setDishCoveryTempFirstName(firstName || 'User');
           setDishCoveryTempLastName(lastName || '');
           setDishCoveryTempEmail(email || '');
@@ -140,6 +163,10 @@ export default function UserProfilePage() {
         }
       } catch (error) {
         console.error('❌ Error loading user info:', error);
+<<<<<<< HEAD
+        // Keep placeholder values as fallback
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
       } finally {
         setLoadingUserInfo(false);
       }
@@ -188,6 +215,10 @@ export default function UserProfilePage() {
         if (response && response.success && response.data) {
           const { dietaryRestrictions, medicalConditions, preferredDiets } = response.data;
           
+<<<<<<< HEAD
+          // Map API data to state
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
           setDishCoveryAllergens(dietaryRestrictions || []);
           setDishCoveryMedicalConditions(medicalConditions || []);
           setDishCoveryPreferredDiet(preferredDiets || []);
@@ -200,6 +231,10 @@ export default function UserProfilePage() {
         }
       } catch (error) {
         console.error('❌ Error loading dietary data:', error);
+<<<<<<< HEAD
+        // Keep empty arrays as fallback
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
       } finally {
         setLoadingDietaryData(false);
       }
@@ -208,6 +243,8 @@ export default function UserProfilePage() {
     loadDietaryData();
   }, []);
 
+<<<<<<< HEAD
+=======
   // ========================================
   // 🆕 LOAD UNREAD FEEDBACK COUNT
   // ========================================
@@ -230,6 +267,7 @@ export default function UserProfilePage() {
     return () => clearInterval(interval);
   }, []);
 
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const [dishCoveryHoverStates, setDishCoveryHoverStates] = useState({
     logo: false,
     avatar: false,
@@ -269,22 +307,38 @@ export default function UserProfilePage() {
     const file = e.target.files[0];
     if (file) {
       try {
+<<<<<<< HEAD
+        // Validate file size (5MB)
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         if (file.size > 5 * 1024 * 1024) {
           alert('File size must be less than 5MB');
           return;
         }
 
+<<<<<<< HEAD
+        // Show preview immediately
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         const reader = new FileReader();
         reader.onload = (e) => {
           setDishCoveryUser((prev) => ({ ...prev, profilePicture: e.target.result }));
         };
         reader.readAsDataURL(file);
 
+<<<<<<< HEAD
+        // Upload to server
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         console.log('📤 Uploading profile picture...');
         const response = await profileAPI.uploadProfilePicture(file);
         
         if (response && response.success) {
           console.log('✅ Profile picture uploaded successfully');
+<<<<<<< HEAD
+          // Update with server URL
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
           setDishCoveryUser((prev) => ({ 
             ...prev, 
             profilePicture: response.data.profilePicture 
@@ -293,6 +347,10 @@ export default function UserProfilePage() {
       } catch (error) {
         console.error('❌ Error uploading profile picture:', error);
         alert('Failed to upload profile picture. Please try again.');
+<<<<<<< HEAD
+        // Reload user info to revert to previous picture
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         const response = await profileAPI.getUserInfo();
         if (response && response.success && response.data) {
           setDishCoveryUser((prev) => ({
@@ -315,6 +373,10 @@ export default function UserProfilePage() {
       });
 
       if (response && response.success) {
+<<<<<<< HEAD
+        // Update main user state
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         setDishCoveryUser((prev) => ({
           ...prev,
           firstName: dishCoveryTempFirstName,
@@ -346,6 +408,12 @@ export default function UserProfilePage() {
     setDishCoveryConfirmPassword('');
   };
 
+<<<<<<< HEAD
+  const dishCoveryHandleSendFeedback = () => {
+    console.log('Feedback sent:', dishCoveryFeedbackText);
+    setDishCoveryShowFeedbackModal(false);
+    setDishCoveryFeedbackText('');
+=======
   // ========================================
   // 🆕 UPDATED SEND FEEDBACK HANDLER
   // ========================================
@@ -448,6 +516,7 @@ export default function UserProfilePage() {
       console.error('❌ Error deleting feedback:', error);
       alert('Failed to delete feedback');
     }
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   };
 
   const dishCoveryHandleDeactivateAccount = () => {
@@ -458,9 +527,17 @@ export default function UserProfilePage() {
 
   const dishCoveryRemoveCondition = async (condition) => {
     try {
+<<<<<<< HEAD
+      // Optimistic update
       const newConditions = dishCoveryMedicalConditions.filter((c) => c !== condition);
       setDishCoveryMedicalConditions(newConditions);
       
+      // Update on server
+=======
+      const newConditions = dishCoveryMedicalConditions.filter((c) => c !== condition);
+      setDishCoveryMedicalConditions(newConditions);
+      
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
       await profileAPI.updateDietaryPreferences({
         dietaryRestrictions: dishCoveryAllergens,
         medicalConditions: newConditions,
@@ -471,6 +548,10 @@ export default function UserProfilePage() {
       console.log('✅ Removed condition:', condition);
     } catch (error) {
       console.error('❌ Error removing condition:', error);
+<<<<<<< HEAD
+      // Revert on error
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
       setDishCoveryMedicalConditions((prev) => [...prev, condition]);
       alert('Failed to remove condition. Please try again.');
     }
@@ -653,15 +734,20 @@ export default function UserProfilePage() {
                 </div>
               </section>
 
+<<<<<<< HEAD
+=======
               {/* ========================================
                   🆕 UPDATED SUPPORT SECTION WITH NOTIFICATION BADGE
                   ======================================== */}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
               <section className="activity-section">
                 <h2 className="activity-section-title">
                   <svg className="activity-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 13h-2v-2h2v2zm0-4h-2V7h2v4z" />
                   </svg>
                   Support
+<<<<<<< HEAD
+=======
                   {dishCoveryUnreadRepliesCount > 0 && (
                     <span style={{
                       marginLeft: '10px',
@@ -675,6 +761,7 @@ export default function UserProfilePage() {
                       {dishCoveryUnreadRepliesCount} new {dishCoveryUnreadRepliesCount === 1 ? 'reply' : 'replies'}
                     </span>
                   )}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
                 </h2>
                 <div className="support-actions">
                   <button
@@ -686,6 +773,8 @@ export default function UserProfilePage() {
                     </svg>
                     Send Feedback
                   </button>
+<<<<<<< HEAD
+=======
                   <button
                     className="support-btn"
                     onClick={() => {
@@ -718,6 +807,7 @@ export default function UserProfilePage() {
                       </span>
                     )}
                   </button>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
                   <a href="/help" className="support-link">
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" />
@@ -923,7 +1013,11 @@ export default function UserProfilePage() {
                           </div>
 
                           <div className="preference-group-fixed">
+<<<<<<< HEAD
+                            <h3 className="preference-group-label">Allergens</h3>
+=======
                             <h3 className="preference-group-label">Allergens & Dietary Restrictions</h3>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
                             <div className="tags-container-fixed">
                               {dishCoveryAllergens.length > 0 ? (
                                 dishCoveryAllergens.map((allergen) => (
@@ -949,7 +1043,11 @@ export default function UserProfilePage() {
                           </div>
 
                           <div className="preference-group-fixed">
+<<<<<<< HEAD
+                            <h3 className="preference-group-label">Preferred Diet</h3>
+=======
                             <h3 className="preference-group-label">Preferred Diets</h3>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
                             <div className="tags-container-fixed">
                               {dishCoveryPreferredDiet.length > 0 ? (
                                 dishCoveryPreferredDiet.map((diet) => (
@@ -983,7 +1081,10 @@ export default function UserProfilePage() {
           </div>
         </main>
 
+<<<<<<< HEAD
+=======
         {/* CHANGE PASSWORD MODAL */}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         {dishCoveryShowChangePassword && (
           <div
             className="modal-overlay"
@@ -1026,9 +1127,12 @@ export default function UserProfilePage() {
           </div>
         )}
 
+<<<<<<< HEAD
+=======
         {/* ========================================
             🆕 UPDATED SEND FEEDBACK MODAL
             ======================================== */}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         {dishCoveryShowFeedbackModal && (
           <div
             className="modal-overlay"
@@ -1049,6 +1153,11 @@ export default function UserProfilePage() {
                 value={dishCoveryFeedbackText}
                 onChange={(e) => setDishCoveryFeedbackText(e.target.value)}
                 rows="6"
+<<<<<<< HEAD
+              ></textarea>
+              <button className="modal-signin-btn" onClick={dishCoveryHandleSendFeedback}>
+                Send Feedback
+=======
                 disabled={submittingFeedback}
               ></textarea>
               <button 
@@ -1057,11 +1166,14 @@ export default function UserProfilePage() {
                 disabled={submittingFeedback}
               >
                 {submittingFeedback ? 'Sending...' : 'Send Feedback'}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
               </button>
             </div>
           </div>
         )}
 
+<<<<<<< HEAD
+=======
         {/* ========================================
             🆕 FEEDBACK HISTORY MODAL
             ======================================== */}
@@ -1254,6 +1366,7 @@ export default function UserProfilePage() {
         )}
 
         {/* DEACTIVATE ACCOUNT MODAL */}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         {dishCoveryShowDeactivateModal && (
           <div
             className="modal-overlay"

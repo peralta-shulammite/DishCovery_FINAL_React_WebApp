@@ -23,6 +23,11 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 const IngredientScanner = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+<<<<<<< HEAD
+  const fileInputRef = useRef(null);
+  const ingredientsListRef = useRef(null);
+  const newIngredientRef = useRef(null);
+=======
   const bboxCanvasRef = useRef(null);
   const liveCanvasRef = useRef(null);
   const imageRef = useRef(null);
@@ -30,6 +35,7 @@ const IngredientScanner = () => {
   const ingredientsListRef = useRef(null);
   const newIngredientRef = useRef(null);
   const liveDetectionInterval = useRef(null);
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   
   const [cameraState, setCameraState] = useState('not-started');
   const [isScanning, setIsScanning] = useState(false);
@@ -37,9 +43,12 @@ const IngredientScanner = () => {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [scannedIngredients, setScannedIngredients] = useState([]);
+<<<<<<< HEAD
+=======
   const [detections, setDetections] = useState([]);
   const [liveDetections, setLiveDetections] = useState([]);
   const [isLiveDetecting, setIsLiveDetecting] = useState(false);
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const [newIngredient, setNewIngredient] = useState('');
   const [backendError, setBackendError] = useState(null);
 
@@ -87,6 +96,8 @@ const IngredientScanner = () => {
     return null;
   };
 
+<<<<<<< HEAD
+=======
   // Draw bounding boxes on canvas
   const drawBoundingBoxes = useCallback(() => {
     if (!bboxCanvasRef.current || !imageRef.current || detections.length === 0) return;
@@ -221,6 +232,7 @@ const IngredientScanner = () => {
     }
   }, [liveDetections, cameraState, drawLiveBoxes]);
 
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const handleImageUpload = () => {
     fileInputRef.current?.click();
   };
@@ -237,6 +249,21 @@ const IngredientScanner = () => {
         setBackendError(null);
         
         try {
+<<<<<<< HEAD
+          const detections = await detectIngredientsBackend(file);
+          
+          const ingredients = detections.map((det, idx) => ({
+            id: idx + 1,
+            ingredient_id: det.ingredient_id,
+            name: capitalizeWords(det.class_name),
+            selected: true,
+            confidence: det.confidence,
+            db_matched: det.db_matched,
+            original_detection: det.original_detection
+          }));
+          
+          setScannedIngredients(ingredients);
+=======
           const result = await detectIngredientsBackend(file);
           setDetections(result.detections);
           
@@ -267,11 +294,15 @@ const IngredientScanner = () => {
           
           setScannedIngredients(ingredients);
           setDetections(detections);
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         } catch (error) {
           console.error('Error processing uploaded image:', error);
           setBackendError(error.message);
           setScannedIngredients([]);
+<<<<<<< HEAD
+=======
           setDetections([]);
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         } finally {
           setIsScanning(false);
         }
@@ -296,6 +327,21 @@ const IngredientScanner = () => {
 
     try {
       const blob = await (await fetch(imageDataUrl)).blob();
+<<<<<<< HEAD
+      const detections = await detectIngredientsBackend(blob);
+      
+      const ingredients = detections.map((det, idx) => ({
+        id: idx + 1,
+        ingredient_id: det.ingredient_id,
+        name: capitalizeWords(det.class_name),
+        selected: true,
+        confidence: det.confidence,
+        db_matched: det.db_matched,
+        original_detection: det.original_detection
+      }));
+      
+      setScannedIngredients(ingredients);
+=======
       const result = await detectIngredientsBackend(blob);
       setDetections(result.detections);
       
@@ -326,18 +372,30 @@ const IngredientScanner = () => {
       
       setScannedIngredients(ingredients);
       setDetections(detections);
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
       setShowModal(true);
       
     } catch (error) {
       console.error('Detection error:', error);
       setBackendError(error.message);
       setScannedIngredients([]);
+<<<<<<< HEAD
+=======
       setDetections([]);
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
     } finally {
       setIsScanning(false);
     }
   };
 
+<<<<<<< HEAD
+  async function detectIngredientsBackend(imageBlob) {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageBlob, 'ingredient-scan.jpg');
+
+      console.log('📤 Sending image to backend for detection...');
+=======
   async function detectIngredientsBackend(imageBlob, isLive = false) {
     try {
       const formData = new FormData();
@@ -346,6 +404,7 @@ const IngredientScanner = () => {
       if (!isLive) {
         console.log('📤 Sending image to backend for detection...');
       }
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
 
       const response = await fetch(`${API_BASE_URL}/api/scan`, {
         method: 'POST',
@@ -358,16 +417,25 @@ const IngredientScanner = () => {
       }
 
       const data = await response.json();
+<<<<<<< HEAD
+      console.log('✅ Detection results:', data);
+=======
       if (!isLive) {
         console.log('✅ Detection results:', data);
       }
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
 
       if (!data.success) {
         throw new Error(data.error || 'Detection failed');
       }
 
+<<<<<<< HEAD
+      return data.detections.map(det => ({
+        class_name: det.ingredient_name,
+=======
       const detections = data.detections.map(det => ({
         class_name: det.ingredient_name || det.class_name,
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         confidence: det.confidence,
         bbox: det.bbox,
         ingredient_id: det.ingredient_id,
@@ -375,12 +443,17 @@ const IngredientScanner = () => {
         original_detection: det.original_detection
       }));
 
+<<<<<<< HEAD
+    } catch (error) {
+      console.error('❌ Backend detection error:', error);
+=======
       return { detections };
 
     } catch (error) {
       if (!isLive) {
         console.error('❌ Backend detection error:', error);
       }
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
       throw error;
     }
   }
@@ -405,6 +478,8 @@ const IngredientScanner = () => {
     );
   };
 
+<<<<<<< HEAD
+=======
   const updateQuantity = (id, newQuantity) => {
     setScannedIngredients(prev => 
       prev.map(ingredient => 
@@ -415,6 +490,7 @@ const IngredientScanner = () => {
     );
   };
 
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const addIngredient = () => {
     if (newIngredient.trim()) {
       const newId = Math.max(...scannedIngredients.map(i => i.id), 0) + 1;
@@ -424,7 +500,10 @@ const IngredientScanner = () => {
           id: newId, 
           ingredient_id: null,
           name: newIngredient.trim(), 
+<<<<<<< HEAD
+=======
           quantity: 1,
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
           selected: true,
           db_matched: false
         }
@@ -442,8 +521,11 @@ const IngredientScanner = () => {
   const closeModal = () => {
     setShowModal(false);
     setCapturedImage(null);
+<<<<<<< HEAD
+=======
     setScannedIngredients([]);
     setDetections([]);
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
     setBackendError(null);
   };
 
@@ -476,6 +558,8 @@ const IngredientScanner = () => {
 
   useEffect(() => {
     startCamera();
+<<<<<<< HEAD
+=======
     return () => {
       if (videoRef.current?.srcObject) {
         videoRef.current.srcObject.getTracks().forEach(track => track.stop());
@@ -484,6 +568,7 @@ const IngredientScanner = () => {
         clearInterval(liveDetectionInterval.current);
       }
     };
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   }, [startCamera]);
 
   return (
@@ -515,7 +600,10 @@ const IngredientScanner = () => {
 
       <div className="camera-feed" style={{ position: 'relative' }}>
         <video ref={videoRef} autoPlay playsInline />
+<<<<<<< HEAD
+=======
         <canvas ref={liveCanvasRef} className="live-bbox-canvas" />
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
         
         {isScanning && (
           <div className="scanning-overlay">
@@ -611,6 +699,9 @@ const IngredientScanner = () => {
               <div className="image-section">
                 <div className="image-container">
                   {capturedImage ? (
+<<<<<<< HEAD
+                    <img src={capturedImage} alt="Captured ingredients" />
+=======
                     <div style={{ position: 'relative', display: 'inline-block' }}>
                       <img 
                         ref={imageRef}
@@ -631,6 +722,7 @@ const IngredientScanner = () => {
                         }}
                       />
                     </div>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
                   ) : (
                     <div className="no-image">
                       <p>No image captured</p>
@@ -674,15 +766,23 @@ const IngredientScanner = () => {
                           <div className="ingredient-info">
                             <span className="ingredient-name">{ingredient.name}</span>
                             <span className="ingredient-subtitle">
+<<<<<<< HEAD
+                              {ingredient.confidence && `Confidence: ${(ingredient.confidence * 100).toFixed(1)}% • `}
+                              {ingredient.db_matched ? (
+                                <span style={{color: '#4CAF50'}}>✓ In Database</span>
+=======
                               Quantity: {ingredient.quantity} • {ingredient.confidence && `Confidence: ${(ingredient.confidence * 100).toFixed(1)}% • `}
                               {ingredient.db_matched ? (
                                 <span style={{color: '#4CAF50'}}>   <br />  ✓ In Database</span>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
                               ) : (
                                 <span style={{color: '#ff9800'}}>⚠ Not in Database</span>
                               )}
                             </span>
                           </div>
                           <div className="ingredient-actions">
+<<<<<<< HEAD
+=======
                             <input
                               type="number"
                               min="1"
@@ -698,6 +798,7 @@ const IngredientScanner = () => {
                                 marginRight: '0.5rem'
                               }}
                             />
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
                             <button 
                               className={`select-button ${ingredient.selected ? 'selected' : ''}`}
                               onClick={() => toggleIngredientSelection(ingredient.id)}
