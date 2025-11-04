@@ -6,6 +6,9 @@ import './userlayout.css';
 export default function UserLayout({ children, isLoggedIn, user, onSignInClick, onLogout }) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState('');
   const avatarRef = useRef(null);
   const [hoverStates, setHoverStates] = useState({
     logo: false,
@@ -13,6 +16,36 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     signIn: false,
     avatar: false,
   });
+
+  // Sample notification messages (in a real app, this would come from an API)
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      from: 'Admin',
+      subject: 'Welcome to DishCovery!',
+      text: 'Thank you for joining DishCovery. We are excited to help you discover amazing recipes!',
+      timestamp: '2 hours ago',
+      isRead: false,
+    },
+    {
+      id: 2,
+      from: 'Admin',
+      subject: 'New Features Available',
+      text: 'Check out our new pantry management feature to track your ingredients more efficiently.',
+      timestamp: '1 day ago',
+      isRead: true,
+    },
+    {
+      id: 3,
+      from: 'Admin',
+      subject: 'Recipe Recommendation Update',
+      text: 'Our AI has been updated to provide even better recipe recommendations based on your preferences.',
+      timestamp: '3 days ago',
+      isRead: true,
+    },
+  ]);
+
+  const unreadCount = messages.filter(msg => !msg.isRead).length;
 
   const handleHover = (element, isHover) => {
     setHoverStates((prev) => ({ ...prev, [element]: isHover }));
@@ -47,6 +80,36 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     setShowAvatarDropdown(false);
     setShowMobileMenu(false);
     window.location.href = '/user/home'; // redirect properly
+  };
+
+  const handleDeleteMessage = (messageId) => {
+    setMessages(messages.filter(msg => msg.id !== messageId));
+  };
+
+  const handleToggleRead = (messageId) => {
+    setMessages(messages.map(msg => 
+      msg.id === messageId ? { ...msg, isRead: !msg.isRead } : msg
+    ));
+  };
+
+  const handleReplyClick = (messageId) => {
+    setReplyingTo(messageId);
+    setReplyText('');
+  };
+
+  const handleSendReply = (messageId) => {
+    if (replyText.trim()) {
+      // In a real app, send reply to backend
+      console.log(`Reply to message ${messageId}: ${replyText}`);
+      alert('Reply sent successfully!');
+      setReplyingTo(null);
+      setReplyText('');
+    }
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+    setReplyText('');
   };
   
 
@@ -104,7 +167,20 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
               </button>
             </>
           ) : (
-            <div className="avatar-container" ref={avatarRef}>
+            <>
+              <button 
+                className="notification-btn" 
+                onClick={() => setShowNotificationModal(true)}
+                title="Notifications"
+              >
+                <svg className="notification-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="notification-badge">{unreadCount}</span>
+                )}
+              </button>
+              <div className="avatar-container" ref={avatarRef}>
               <button
                 className={`avatar-btn ${hoverStates.avatar ? 'avatar-btn-hover' : ''}`}
                 onClick={() => setShowAvatarDropdown((prev) => !prev)}
@@ -137,6 +213,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
                 </div>
               )}
             </div>
+            </>
           )}
         </div>
       </header>
@@ -145,7 +222,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
         <div className="mobile-menu">
           <div className="mobile-menu-header">
             <span className="mobile-menu-logo">DishCovery</span>
-            <button className="close-mobile-menu" onClick={toggleMobileMenu}>
+            <button className="close-mobile-menu" onClick={() => setShowMobileMenu(false)}>
               <svg viewBox="0 0 24 24" fill="currentColor" className="close-icon">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
               </svg>
@@ -236,6 +313,116 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
           Profile
         </Link>
       </nav>
+
+      {showNotificationModal && isLoggedIn && (
+        <div className="notification-modal-overlay" onClick={() => setShowNotificationModal(false)}>
+          <div className="notification-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="notification-modal-header">
+              <h2 className="notification-modal-title">Notifications</h2>
+              <button 
+                className="close-modal-btn" 
+                onClick={() => setShowNotificationModal(false)}
+              >
+                <svg className="close-modal-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="notification-modal-content">
+              {messages.length === 0 ? (
+                <div className="empty-messages">
+                  <svg className="empty-messages-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                  </svg>
+                  <p className="empty-messages-text">No notifications yet</p>
+                </div>
+              ) : (
+                <div className="message-list">
+                  {messages.map((message) => (
+                    <div 
+                      key={message.id} 
+                      className={`message-item ${!message.isRead ? 'unread' : ''}`}
+                    >
+                      <div className="message-header">
+                        <div className="message-sender">
+                          <span>{message.from}</span>
+                          <span className="admin-badge">ADMIN</span>
+                        </div>
+                        <span className="message-time">{message.timestamp}</span>
+                      </div>
+                      
+                      <div className="message-subject">{message.subject}</div>
+                      <div className="message-text">{message.text}</div>
+                      
+                      <div className="message-actions">
+                        <button 
+                          className="message-action-btn reply-btn"
+                          onClick={() => handleReplyClick(message.id)}
+                        >
+                          <svg className="message-action-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/>
+                          </svg>
+                          Reply
+                        </button>
+                        
+                        <button 
+                          className="message-action-btn"
+                          onClick={() => handleToggleRead(message.id)}
+                        >
+                          <svg className="message-action-icon" viewBox="0 0 24 24" fill="currentColor">
+                            {message.isRead ? (
+                              <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            ) : (
+                              <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            )}
+                          </svg>
+                          {message.isRead ? 'Mark Unread' : 'Mark Read'}
+                        </button>
+                        
+                        <button 
+                          className="message-action-btn delete-btn"
+                          onClick={() => handleDeleteMessage(message.id)}
+                        >
+                          <svg className="message-action-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                      
+                      {replyingTo === message.id && (
+                        <div className="reply-section">
+                          <textarea
+                            className="reply-input"
+                            placeholder="Type your reply..."
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                          />
+                          <div className="reply-actions">
+                            <button 
+                              className="reply-cancel-btn"
+                              onClick={handleCancelReply}
+                            >
+                              Cancel
+                            </button>
+                            <button 
+                              className="reply-send-btn"
+                              onClick={() => handleSendReply(message.id)}
+                            >
+                              Send Reply
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
