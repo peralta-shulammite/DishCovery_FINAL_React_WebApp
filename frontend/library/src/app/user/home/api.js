@@ -39,7 +39,7 @@ const api = {
   signIn: async (email, password) => {
     console.log('🔐 Smart login attempt for:', email);
     
-    const isLikelyAdmin = email.includes('admin') || email.endsWith('@dishcovery.com') || email.includes('test.com');
+    const isLikelyAdmin = email.includes('admin') || email.endsWith('@dishcovery.com');
     
     if (isLikelyAdmin) {
       try {
