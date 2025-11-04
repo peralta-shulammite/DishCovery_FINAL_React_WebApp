@@ -1,15 +1,29 @@
 'use client';
+<<<<<<< HEAD
 import React, { useState } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
 
 const FeedbackManagementContent = () => {
+=======
+import React, { useState, useEffect } from 'react';
+import AdminLayout from '../../components/adminlayout';
+import { adminFeedbackAPI } from './api';
+import './styles.css';
+
+const FeedbackManagementContent = () => {
+  // State management
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
+<<<<<<< HEAD
   const [markAsResolved, setMarkAsResolved] = useState(false);
   const [sendAsNotification, setSendAsNotification] = useState(true);
+=======
+  const [updateStatusOnReply, setUpdateStatusOnReply] = useState('replied');
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   
   // Filter states
   const [sortBy, setSortBy] = useState('newest');
@@ -18,6 +32,7 @@ const FeedbackManagementContent = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+<<<<<<< HEAD
   // Sample feedback data with actual dates
   const [feedbackList, setFeedbackList] = useState([
     {
@@ -163,12 +178,129 @@ const FeedbackManagementContent = () => {
     setReplyText('');
     setMarkAsResolved(false);
     setSendAsNotification(true);
+=======
+  // Data states
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    replied: 0,
+    unread: 0,
+    unreplied: 0
+  });
+
+  // Loading states
+  const [loading, setLoading] = useState(true);
+  const [loadingModal, setLoadingModal] = useState(false);
+  const [sendingReply, setSendingReply] = useState(false);
+
+  // Pagination
+  const [pagination, setPagination] = useState({
+    limit: 50,
+    offset: 0,
+    total: 0,
+    hasMore: false
+  });
+
+  // ========================================
+  // 📊 LOAD STATISTICS
+  // ========================================
+  const loadStats = async () => {
+    try {
+      const response = await adminFeedbackAPI.getStats();
+      if (response && response.success) {
+        setStats(response.data);
+        console.log('✅ Stats loaded:', response.data);
+      }
+    } catch (error) {
+      console.error('❌ Error loading stats:', error);
+    }
+  };
+
+  // ========================================
+  // 📋 LOAD FEEDBACK LIST
+  // ========================================
+  const loadFeedback = async () => {
+    try {
+      setLoading(true);
+      const filters = {
+        sortBy,
+        priority: priorityFilter,
+        status: statusFilter,
+        fromDate: dateFrom,
+        toDate: dateTo,
+        search: searchQuery,
+        limit: pagination.limit,
+        offset: pagination.offset
+      };
+
+      const response = await adminFeedbackAPI.getAllFeedback(filters);
+      
+      if (response && response.success) {
+        setFeedbackList(response.data.feedbacks);
+        setPagination(response.data.pagination);
+        console.log('✅ Feedback loaded:', response.data.feedbacks.length, 'items');
+      }
+    } catch (error) {
+      console.error('❌ Error loading feedback:', error);
+      setFeedbackList([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ========================================
+  // 🔄 INITIAL LOAD AND REFRESH
+  // ========================================
+  useEffect(() => {
+    loadStats();
+    loadFeedback();
+  }, [sortBy, priorityFilter, statusFilter, dateFrom, dateTo, pagination.offset]);
+
+  // Search with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadFeedback();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // ========================================
+  // 🔍 OPEN FEEDBACK MODAL
+  // ========================================
+  const openModal = async (feedback) => {
+    try {
+      setIsModalOpen(true);
+      setLoadingModal(true);
+      setReplyText('');
+      setUpdateStatusOnReply('replied');
+
+      // Mark as read when opening
+      if (!feedback.isRead) {
+        await adminFeedbackAPI.markAsRead(feedback.feedbackId);
+      }
+
+      // Get full feedback details with all replies
+      const response = await adminFeedbackAPI.getFeedbackById(feedback.feedbackId);
+      
+      if (response && response.success) {
+        setSelectedFeedback(response.data);
+        console.log('✅ Feedback details loaded:', response.data);
+      }
+    } catch (error) {
+      console.error('❌ Error loading feedback details:', error);
+      alert('Failed to load feedback details');
+      closeModal();
+    } finally {
+      setLoadingModal(false);
+    }
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedFeedback(null);
     setReplyText('');
+<<<<<<< HEAD
   };
 
   const markAsRead = (id) => {
@@ -216,6 +348,120 @@ const FeedbackManagementContent = () => {
     }
   };
 
+=======
+    setUpdateStatusOnReply('replied');
+  };
+
+  // ========================================
+  // 💬 SEND REPLY
+  // ========================================
+  const sendReply = async () => {
+    if (!replyText.trim()) {
+      alert('Please enter a reply message');
+      return;
+    }
+
+    if (replyText.trim().length < 10) {
+      alert('Reply must be at least 10 characters long');
+      return;
+    }
+
+    try {
+      setSendingReply(true);
+      await adminFeedbackAPI.replyToFeedback(
+        selectedFeedback.feedbackId,
+        replyText.trim(),
+        updateStatusOnReply
+      );
+
+      console.log('✅ Reply sent successfully');
+      alert('Reply sent successfully!');
+      
+      // Refresh data
+      await loadStats();
+      await loadFeedback();
+      closeModal();
+    } catch (error) {
+      console.error('❌ Error sending reply:', error);
+      alert(error.message || 'Failed to send reply');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  // ========================================
+  // ✅ MARK AS READ
+  // ========================================
+  const markAsRead = async (feedbackId) => {
+    try {
+      await adminFeedbackAPI.markAsRead(feedbackId);
+      await loadFeedback();
+      await loadStats();
+      console.log('✅ Marked as read');
+    } catch (error) {
+      console.error('❌ Error marking as read:', error);
+      alert('Failed to mark as read');
+    }
+  };
+
+  // ========================================
+  // ⚪ MARK AS UNREAD
+  // ========================================
+  const markAsUnread = async (feedbackId) => {
+    try {
+      await adminFeedbackAPI.markAsUnread(feedbackId);
+      await loadFeedback();
+      await loadStats();
+      console.log('✅ Marked as unread');
+    } catch (error) {
+      console.error('❌ Error marking as unread:', error);
+      alert('Failed to mark as unread');
+    }
+  };
+
+  // ========================================
+  // 🎯 UPDATE PRIORITY
+  // ========================================
+  const updatePriority = async (feedbackId, newPriority) => {
+    try {
+      await adminFeedbackAPI.updatePriority(feedbackId, newPriority);
+      await loadFeedback();
+      console.log('✅ Priority updated');
+    } catch (error) {
+      console.error('❌ Error updating priority:', error);
+      alert('Failed to update priority');
+    }
+  };
+
+  // ========================================
+  // 🗑️ DELETE FEEDBACK
+  // ========================================
+  const deleteFeedback = async (feedbackId) => {
+    if (!confirm('Are you sure you want to delete this feedback? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await adminFeedbackAPI.deleteFeedback(feedbackId);
+      await loadStats();
+      await loadFeedback();
+      
+      if (selectedFeedback && selectedFeedback.feedbackId === feedbackId) {
+        closeModal();
+      }
+      
+      console.log('✅ Feedback deleted');
+      alert('Feedback deleted successfully');
+    } catch (error) {
+      console.error('❌ Error deleting feedback:', error);
+      alert('Failed to delete feedback');
+    }
+  };
+
+  // ========================================
+  // 🧹 CLEAR FILTERS
+  // ========================================
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const clearFilters = () => {
     setSortBy('newest');
     setPriorityFilter('all');
@@ -223,9 +469,55 @@ const FeedbackManagementContent = () => {
     setDateFrom('');
     setDateTo('');
     setSearchQuery('');
+<<<<<<< HEAD
   };
 
   // Icons
+=======
+    setPagination(prev => ({ ...prev, offset: 0 }));
+  };
+
+  // ========================================
+  // 🎨 HELPER FUNCTIONS
+  // ========================================
+  const getPriorityColor = (priority) => {
+    switch(priority) {
+      case 'high': return 'priority-high';
+      case 'medium': return 'priority-medium';
+      case 'low': return 'priority-low';
+      default: return 'priority-medium';
+    }
+  };
+
+  const formatTimestamp = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Get latest feedback for stats display
+  const latestFeedback = feedbackList.length > 0 ? feedbackList[0] : null;
+
+  // ========================================
+  // 🎯 ICONS
+  // ========================================
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const SearchIcon = () => (
     <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
       <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
@@ -276,26 +568,44 @@ const FeedbackManagementContent = () => {
 
   return (
     <div className="main-content">
+<<<<<<< HEAD
       {/* Simple Stats */}
+=======
+      {/* ========================================
+          📊 STATISTICS CARDS
+          ======================================== */}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
       <div className="simple-stats">
         <div className="stat-card">
           <FeedbackIcon />
           <div className="stat-content">
+<<<<<<< HEAD
             <div className="stat-number">{totalFeedback}</div>
+=======
+            <div className="stat-number">{stats.total}</div>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
             <div className="stat-label">Total Feedback</div>
           </div>
         </div>
         <div className="stat-card">
           <RepliedIcon />
           <div className="stat-content">
+<<<<<<< HEAD
             <div className="stat-number">{totalReplied}</div>
+=======
+            <div className="stat-number">{stats.replied}</div>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
             <div className="stat-label">Replied</div>
           </div>
         </div>
         <div className="stat-card">
           <UnreadIcon />
           <div className="stat-content">
+<<<<<<< HEAD
             <div className="stat-number">{totalUnread}</div>
+=======
+            <div className="stat-number">{stats.unread}</div>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
             <div className="stat-label">Unread</div>
           </div>
         </div>
@@ -303,16 +613,29 @@ const FeedbackManagementContent = () => {
           <FeedbackIcon />
           <div className="stat-content">
             <div className="stat-number">
+<<<<<<< HEAD
               {latestFeedback ? `@${latestFeedback.username}` : 'None'}
             </div>
             <div className="stat-label">
               {latestFeedback ? latestFeedback.timestamp : 'No recent feedback'}
+=======
+              {latestFeedback ? `@${latestFeedback.user.fullName}` : 'None'}
+            </div>
+            <div className="stat-label">
+              {latestFeedback ? formatTimestamp(latestFeedback.createdAt) : 'No recent feedback'}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
             </div>
           </div>
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Filters Section */}
+=======
+      {/* ========================================
+          🔍 FILTERS SECTION
+          ======================================== */}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
       <div className="filters-section">
         <div className="filters-header">
           <div className="filters-title">
@@ -351,9 +674,15 @@ const FeedbackManagementContent = () => {
             <label>Priority:</label>
             <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
               <option value="all">All Priorities</option>
+<<<<<<< HEAD
               <option value="High">High Priority</option>
               <option value="Medium">Medium Priority</option>
               <option value="Low">Low Priority</option>
+=======
+              <option value="high">High Priority</option>
+              <option value="medium">Medium Priority</option>
+              <option value="low">Low Priority</option>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
             </select>
           </div>
           
@@ -365,6 +694,12 @@ const FeedbackManagementContent = () => {
               <option value="read">Read</option>
               <option value="replied">Replied</option>
               <option value="unreplied">Not Replied</option>
+<<<<<<< HEAD
+=======
+              <option value="pending">Pending</option>
+              <option value="resolved">Resolved</option>
+              <option value="archived">Archived</option>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
             </select>
           </div>
           
@@ -388,6 +723,7 @@ const FeedbackManagementContent = () => {
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Results Count */}
       <div className="results-info">
         Showing {filteredFeedback.length} of {totalFeedback} feedback items
@@ -522,6 +858,247 @@ const FeedbackManagementContent = () => {
                 Delete Feedback
               </button>
             </div>
+=======
+      {/* ========================================
+          📝 RESULTS COUNT
+          ======================================== */}
+      <div className="results-info">
+        Showing {feedbackList.length} of {pagination.total} feedback items
+      </div>
+
+      {/* ========================================
+          📋 FEEDBACK CARDS
+          ======================================== */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+          Loading feedback...
+        </div>
+      ) : feedbackList.length === 0 ? (
+        <div className="no-feedback">
+          <p>No feedback found matching your criteria.</p>
+        </div>
+      ) : (
+        <div className="feedback-grid">
+          {feedbackList.map((feedback) => (
+            <div key={feedback.feedbackId} className={`feedback-card ${!feedback.isRead ? 'unread' : ''}`}>
+              <div className="feedback-header">
+                <div className="user-info">
+                  <div className="user-avatar">
+                    {feedback.user.firstName?.charAt(0)}{feedback.user.lastName?.charAt(0)}
+                  </div>
+                  <div className="user-details">
+                    <div className="username">{feedback.user.fullName}</div>
+                    <div className="timestamp">{formatTimestamp(feedback.createdAt)}</div>
+                  </div>
+                </div>
+                <div className="feedback-status">
+                  {!feedback.isRead && <span className="unread-indicator">●</span>}
+                  <span className={`priority-badge ${getPriorityColor(feedback.priority)}`}>
+                    {feedback.priority.charAt(0).toUpperCase() + feedback.priority.slice(1)}
+                  </span>
+                  {feedback.isReplied && (
+                    <span className="replied-badge">
+                      ✓ Replied ({feedback.replyCount})
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="feedback-preview">
+                {feedback.message.length > 150 
+                  ? feedback.message.substring(0, 150) + '...' 
+                  : feedback.message}
+              </div>
+              
+              <div className="feedback-actions">
+                <button 
+                  className="action-btn primary"
+                  onClick={() => openModal(feedback)}
+                >
+                  View & Reply
+                </button>
+                <button 
+                  className="action-btn secondary"
+                  onClick={() => feedback.isRead ? markAsUnread(feedback.feedbackId) : markAsRead(feedback.feedbackId)}
+                >
+                  {feedback.isRead ? 'Mark Unread' : 'Mark Read'}
+                </button>
+                <select 
+                  className="action-btn secondary"
+                  value={feedback.priority}
+                  onChange={(e) => updatePriority(feedback.feedbackId, e.target.value)}
+                  style={{ padding: '8px 12px' }}
+                >
+                  <option value="low">Low Priority</option>
+                  <option value="medium">Medium Priority</option>
+                  <option value="high">High Priority</option>
+                </select>
+                <button 
+                  className="action-btn danger"
+                  onClick={() => deleteFeedback(feedback.feedbackId)}
+                >
+                  <DeleteIcon />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ========================================
+          🔍 FEEDBACK DETAIL MODAL
+          ======================================== */}
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal">
+            {loadingModal ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                Loading feedback details...
+              </div>
+            ) : selectedFeedback && (
+              <>
+                <div className="modal-header">
+                  <div className="modal-user-info">
+                    <div className="user-avatar">
+                      {selectedFeedback.user.firstName?.charAt(0)}{selectedFeedback.user.lastName?.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="modal-username">{selectedFeedback.user.fullName}</div>
+                      <div className="modal-timestamp">
+                        {new Date(selectedFeedback.createdAt).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                      <div className="modal-timestamp" style={{ fontSize: '12px', marginTop: '4px' }}>
+                        {selectedFeedback.user.email}
+                      </div>
+                    </div>
+                  </div>
+                  <button className="close-btn" onClick={closeModal}>
+                    <CloseIcon />
+                  </button>
+                </div>
+                
+                <div className="modal-content">
+                  {/* Original Feedback Message */}
+                  <div className="feedback-message">
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      marginBottom: '12px'
+                    }}>
+                      <strong>User's Feedback:</strong>
+                      <span className={`priority-badge ${getPriorityColor(selectedFeedback.priority)}`}>
+                        {selectedFeedback.priority.charAt(0).toUpperCase() + selectedFeedback.priority.slice(1)} Priority
+                      </span>
+                    </div>
+                    {selectedFeedback.message}
+                  </div>
+
+                  {/* Display All Previous Replies */}
+                  {selectedFeedback.replies && selectedFeedback.replies.length > 0 && (
+                    <div className="replies-section" style={{ marginTop: '20px' }}>
+                      <strong style={{ display: 'block', marginBottom: '12px' }}>
+                        Previous Replies ({selectedFeedback.replies.length}):
+                      </strong>
+                      {selectedFeedback.replies.map((reply) => (
+                        <div 
+                          key={reply.replyId}
+                          style={{
+                            background: '#f0f9ff',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            marginBottom: '10px',
+                            borderLeft: '3px solid #0284c7'
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            marginBottom: '8px',
+                            fontSize: '12px',
+                            color: '#666'
+                          }}>
+                            <span style={{ fontWeight: '600', color: '#0284c7' }}>
+                              {reply.adminName}
+                            </span>
+                            <span>{new Date(reply.createdAt).toLocaleString()}</span>
+                          </div>
+                          <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                            {reply.message}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* New Reply Section */}
+                  <div className="reply-section" style={{ marginTop: '20px' }}>
+                    <label htmlFor="reply-text">
+                      <strong>Your Reply:</strong>
+                    </label>
+                    <textarea
+                      id="reply-text"
+                      className="reply-textarea"
+                      placeholder="Type your reply here..."
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      rows={4}
+                      disabled={sendingReply}
+                    />
+                    
+                    <div className="reply-options">
+                      <label className="checkbox-label">
+                        <span style={{ fontWeight: '500', marginRight: '8px' }}>Update status to:</span>
+                        <select 
+                          value={updateStatusOnReply} 
+                          onChange={(e) => setUpdateStatusOnReply(e.target.value)}
+                          disabled={sendingReply}
+                          style={{ padding: '4px 8px' }}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="replied">Replied</option>
+                          <option value="resolved">Resolved</option>
+                          <option value="archived">Archived</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="modal-actions">
+                  <button 
+                    className="modal-btn primary" 
+                    onClick={sendReply} 
+                    disabled={!replyText.trim() || sendingReply}
+                  >
+                    <SendIcon />
+                    {sendingReply ? 'Sending...' : 'Send Reply'}
+                  </button>
+                  <button 
+                    className="modal-btn secondary" 
+                    onClick={closeModal}
+                    disabled={sendingReply}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="modal-btn danger" 
+                    onClick={() => deleteFeedback(selectedFeedback.feedbackId)}
+                    disabled={sendingReply}
+                  >
+                    <DeleteIcon />
+                    Delete Feedback
+                  </button>
+                </div>
+              </>
+            )}
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
           </div>
         </div>
       )}

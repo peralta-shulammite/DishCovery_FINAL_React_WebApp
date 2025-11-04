@@ -4,9 +4,21 @@ services:
     env: python
     region: oregon
     plan: free
+<<<<<<< HEAD
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn detect_api:app --host 0.0.0.0 --port $PORT
+=======
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: uvicorn detect_api:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 300
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+<<<<<<< HEAD
+=======
+      - key: PYTHONUNBUFFERED
+        value: 1
+      - key: CUDA_VISIBLE_DEVICES
+        value: -1
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3

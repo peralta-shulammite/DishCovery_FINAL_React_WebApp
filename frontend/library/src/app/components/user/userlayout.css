@@ -223,6 +223,7 @@
   color: #B71C1C;
 }
 
+<<<<<<< HEAD
 .notification-btn {
   background: transparent;
   border: none;
@@ -534,6 +535,8 @@
 }
 
 
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
 .mobile-menu {
   position: fixed;
   top: 0;

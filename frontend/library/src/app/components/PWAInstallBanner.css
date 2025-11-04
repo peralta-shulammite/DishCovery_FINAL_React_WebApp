@@ -1,0 +1,310 @@
+/* PWAInstallModal.css */
+/* Create this file: frontend/components/PWAInstallModal.css */
+
+.pwa-install-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pwa-install-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 32px 24px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.pwa-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 32px;
+  color: #666;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.pwa-close-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.pwa-icon-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.pwa-app-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pwa-title {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 12px;
+  color: #1a1a1a;
+}
+
+.pwa-description {
+  text-align: center;
+  color: #666;
+  font-size: 15px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pwa-ios-share-icon {
+  width: 20px;
+  height: 20px;
+  margin: 0 4px;
+  color: #007aff;
+  vertical-align: middle;
+}
+
+.pwa-ios-instructions {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.pwa-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.pwa-step:not(:last-child) {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.pwa-step-number {
+  background: #007aff;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.pwa-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.pwa-feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: #333;
+}
+
+.pwa-feature svg {
+  width: 20px;
+  height: 20px;
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.pwa-button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.pwa-install-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.pwa-install-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.pwa-install-btn:active {
+  transform: translateY(0);
+}
+
+.pwa-remind-btn {
+  background: #f0f0f0;
+  color: #333;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pwa-remind-btn:hover {
+  background: #e0e0e0;
+}
+
+.pwa-dismiss-link {
+  background: transparent;
+  border: none;
+  color: #999;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  padding: 8px;
+  transition: color 0.2s;
+}
+
+.pwa-dismiss-link:hover {
+  color: #666;
+  text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .pwa-install-modal {
+    padding: 28px 20px;
+    max-width: 100%;
+    margin: 0 16px;
+  }
+
+  .pwa-title {
+    font-size: 22px;
+  }
+
+  .pwa-description {
+    font-size: 14px;
+  }
+
+  .pwa-app-icon {
+    width: 70px;
+    height: 70px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .pwa-install-modal {
+    background: #1e1e1e;
+    color: #ffffff;
+  }
+
+  .pwa-title {
+    color: #ffffff;
+  }
+
+  .pwa-description {
+    color: #b0b0b0;
+  }
+
+  .pwa-close-btn {
+    color: #b0b0b0;
+  }
+
+  .pwa-close-btn:hover {
+    background: #2a2a2a;
+    color: #ffffff;
+  }
+
+  .pwa-ios-instructions {
+    background: #2a2a2a;
+  }
+
+  .pwa-step {
+    color: #e0e0e0;
+    border-bottom-color: #3a3a3a;
+  }
+
+  .pwa-feature {
+    color: #e0e0e0;
+  }
+
+  .pwa-remind-btn {
+    background: #2a2a2a;
+    color: #ffffff;
+  }
+
+  .pwa-remind-btn:hover {
+    background: #3a3a3a;
+  }
+
+  .pwa-dismiss-link {
+    color: #808080;
+  }
+
+  .pwa-dismiss-link:hover {
+    color: #b0b0b0;
+  }
+}

@@ -1399,4 +1399,36 @@ body {
 .add-ingredient-input input:focus {
   outline: 2px solid #4CAF50;
   outline-offset: 1px;
+<<<<<<< HEAD
+=======
+}
+/* Bounding Box Styles - ONLY ADDITION */
+.image-container {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.image-container img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.image-container canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+/* Live Detection Canvas Overlay - ONLY ADDITION */
+.live-bbox-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
 }

@@ -129,4 +129,134 @@ export const profileAPI = {
       throw error;
     }
   }
+<<<<<<< HEAD
+=======
+};
+
+// ========================================
+// 📝 FEEDBACK API FUNCTIONS - UPDATED TO MATCH NEW BACKEND
+// ========================================
+export const feedbackAPI = {
+  // Submit new feedback
+  submitFeedback: async (feedbackMessage, priority = 'medium') => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ feedbackMessage, priority })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      throw error;
+    }
+  },
+
+  // Get user's feedback history with all replies
+  getMyFeedback: async (limit = 10, offset = 0) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/feedback/my-feedback?limit=${limit}&offset=${offset}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching feedback history:', error);
+      throw error;
+    }
+  },
+
+  // Get unread reply count
+  getUnreadCount: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/feedback/unread-count`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Failed to fetch unread count:', response.status, response.statusText);
+        // Return default value instead of throwing to prevent app crash
+        return { success: true, data: { unreadCount: 0 } };
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+      // Return default value instead of throwing to prevent app crash
+      return { success: true, data: { unreadCount: 0 } };
+    }
+  },
+
+  // Mark feedback reply as read
+  markAsRead: async (feedback_id) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/feedback/${feedbackId}/mark-read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error marking feedback as read:', error);
+      throw error;
+    }
+  },
+
+  // Delete feedback
+  deleteFeedback: async (feedback_id) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/feedback/${feedbackId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error deleting feedback:', error);
+      throw error;
+    }
+  }
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
 };

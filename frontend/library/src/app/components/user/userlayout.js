@@ -6,9 +6,12 @@ import './userlayout.css';
 export default function UserLayout({ children, isLoggedIn, user, onSignInClick, onLogout }) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
+<<<<<<< HEAD
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const avatarRef = useRef(null);
   const [hoverStates, setHoverStates] = useState({
     logo: false,
@@ -17,6 +20,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     avatar: false,
   });
 
+<<<<<<< HEAD
   // Sample notification messages (in a real app, this would come from an API)
   const [messages, setMessages] = useState([
     {
@@ -47,6 +51,8 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
 
   const unreadCount = messages.filter(msg => !msg.isRead).length;
 
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   const handleHover = (element, isHover) => {
     setHoverStates((prev) => ({ ...prev, [element]: isHover }));
   };
@@ -81,6 +87,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     setShowMobileMenu(false);
     window.location.href = '/user/home'; // redirect properly
   };
+<<<<<<< HEAD
 
   const handleDeleteMessage = (messageId) => {
     setMessages(messages.filter(msg => msg.id !== messageId));
@@ -111,6 +118,8 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     setReplyingTo(null);
     setReplyText('');
   };
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
   
 
   const navLinks = [
@@ -167,6 +176,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
               </button>
             </>
           ) : (
+<<<<<<< HEAD
             <>
               <button 
                 className="notification-btn" 
@@ -181,6 +191,9 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
                 )}
               </button>
               <div className="avatar-container" ref={avatarRef}>
+=======
+            <div className="avatar-container" ref={avatarRef}>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
               <button
                 className={`avatar-btn ${hoverStates.avatar ? 'avatar-btn-hover' : ''}`}
                 onClick={() => setShowAvatarDropdown((prev) => !prev)}
@@ -213,7 +226,10 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
                 </div>
               )}
             </div>
+<<<<<<< HEAD
             </>
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
           )}
         </div>
       </header>
@@ -222,7 +238,11 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
         <div className="mobile-menu">
           <div className="mobile-menu-header">
             <span className="mobile-menu-logo">DishCovery</span>
+<<<<<<< HEAD
             <button className="close-mobile-menu" onClick={() => setShowMobileMenu(false)}>
+=======
+            <button className="close-mobile-menu" onClick={toggleMobileMenu}>
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
               <svg viewBox="0 0 24 24" fill="currentColor" className="close-icon">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
               </svg>
@@ -313,6 +333,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
           Profile
         </Link>
       </nav>
+<<<<<<< HEAD
 
       {showNotificationModal && isLoggedIn && (
         <div className="notification-modal-overlay" onClick={() => setShowNotificationModal(false)}>
@@ -423,6 +444,8 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
           </div>
         </div>
       )}
+=======
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
     </>
   );
 }

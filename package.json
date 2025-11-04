@@ -7,6 +7,10 @@
     "@fortawesome/react-fontawesome": "^0.2.3",
     "axios": "^1.10.0",
     "lucide-react": "^0.536.0",
+<<<<<<< HEAD
+=======
+    "next": "^16.0.1",
+>>>>>>> ba8278bf5470655a6d74991d7ae177ba36724de3
     "react-hot-toast": "^2.6.0"
   },
   "devDependencies": {
