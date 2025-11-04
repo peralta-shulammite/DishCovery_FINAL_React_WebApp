@@ -152,7 +152,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// LOGIN
+// LOGIN - FIXED TO HANDLE GOOGLE OAUTH USERS
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -162,6 +162,15 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
 
     const user = users[0][0];
+
+    // FIX: Check if user registered via Google OAuth (no password)
+    if (!user.password_hash || user.password_hash === null) {
+      return res.status(400).json({
+        message: 'This account was created with Google. Please use "Continue with Google" to log in.',
+        useGoogleLogin: true
+      });
+    }
+
     const isMatch = user.password_hash.startsWith('$2')
       ? await bcrypt.compare(password, user.password_hash)
       : password === user.password_hash;
@@ -430,12 +439,31 @@ router.post('/google/callback', async (req, res) => {
         });
       }
 
-      // CHECK VERIFICATION
+      // CHECK VERIFICATION - AUTO SEND CODE
       if (!existingUser.email_verified) {
-        await connection.rollback();
+        // Expire old codes
+        await connection.query(
+          'UPDATE pending_requests SET status = ? WHERE user_id = ? AND request_type = ? AND status = ?',
+          ['expired', existingUser.user_id, 'email_verification', 'pending']
+        );
+
+        // Generate new verification code
+        const verificationCode = generateVerificationCode();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        await connection.query(
+          'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
+          [existingUser.user_id, 'email_verification', verificationCode, 'pending', expiresAt]
+        );
+
+        // Send verification email
+        await sendVerificationEmail(email, verificationCode, existingUser.first_name || given_name);
+
+        console.log(`🔐 Unverified user login attempt - verification code sent to ${email}`);
+        await connection.commit();
         return res.status(403).json({
           success: false,
-          message: 'Please verify your email first.',
+          message: 'Please verify your email first. A new verification code has been sent.',
           requiresVerification: true,
           email
         });
