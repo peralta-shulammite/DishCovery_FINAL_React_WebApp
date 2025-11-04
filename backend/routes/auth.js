@@ -22,19 +22,29 @@ const googleClient = new OAuth2Client(
   `${FRONTEND_URL}/auth/google/callback`
 );
 
-// FIXED EMAIL TRANSPORTER - WITH TLS FIX FOR SSL ERROR
-const emailTransporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Use STARTTLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD
-  },
-  tls: {
-    rejectUnauthorized: false  // FIX: Ignore self-signed cert error
-  }
-});
+// EMAIL TRANSPORTER - WORKS WITH RENDER (Uses SendGrid or Gmail fallback)
+const emailTransporter = process.env.SENDGRID_API_KEY
+  ? nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
+      auth: {
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY
+      }
+    })
+  : nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_APP_PASSWORD
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
 
 // Utility Functions
 const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -49,8 +59,9 @@ const generateVerificationCode = () => Math.floor(100000 + Math.random() * 90000
 
 // Send verification email
 const sendVerificationEmail = async (email, code, firstName = '') => {
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.EMAIL_USER;
   const mailOptions = {
-    from: `"DishCovery" <${process.env.EMAIL_USER}>`,
+    from: `"DishCovery" <${fromEmail}>`,
     to: email,
     subject: 'Verify Your DishCovery Account',
     html: `
