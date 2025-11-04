@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import './styles.css';
 
 // Define the API base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
 export default function GetStarted() {
   const [step, setStep] = useState(1);
@@ -61,10 +61,13 @@ export default function GetStarted() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      fetch(`${API_BASE_URL}/users/profile`, {
+      fetch(`${API_BASE_URL}/api/users/profile`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch profile');
+        return res.json();
+      })
       .then(data => setUserProfile(data))
       .catch(err => console.error('Failed to load user profile:', err));
     }
@@ -75,7 +78,7 @@ export default function GetStarted() {
     const loadRestrictions = async () => {
       try {
         console.log('📥 Loading restrictions from database...');
-        const response = await fetch(`${API_BASE_URL}/dietary-restrictions/public`);
+        const response = await fetch(`${API_BASE_URL}/api/dietary-restrictions/public`);
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
@@ -87,7 +90,7 @@ export default function GetStarted() {
         console.log('Using fallback restrictions');
       }
     };
-    
+
     loadRestrictions();
   }, []);
 
@@ -112,7 +115,7 @@ export default function GetStarted() {
       if (cookingFor === 'Others') {
         try {
           setLoading(true);
-          const response = await fetch(`${API_BASE_URL}/profile/member`, {
+          const response = await fetch(`${API_BASE_URL}/api/profile/member`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${getAuthToken()}`,
@@ -165,7 +168,7 @@ export default function GetStarted() {
       };
 
       // Call the API
-      const response = await fetch(`${API_BASE_URL}/dietary-restrictions/user/save`, {
+      const response = await fetch(`${API_BASE_URL}/api/dietary-restrictions/user/save`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
