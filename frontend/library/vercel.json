@@ -1,28 +1,32 @@
 {
-  "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/next"
+      "source": "/",
+      "destination": "/user/home"
     }
   ],
-  "routes": [
+  "headers": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
     },
     {
-      "src": "/$",
-      "dest": "/user/home",
-      "status": 308
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/manifest.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
+        }
+      ]
     }
-  ],
-  "env": {
-    "NEXT_PUBLIC_API_BASE_URL": "https://dishcovery-backend-wvhn.onrender.com",
-    "NODE_ENV": "production"
-  }
+  ]
 }
