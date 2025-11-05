@@ -1,48 +1,34 @@
 {
-  "name": "DishCovery - Personalized Recipe Generator",
+  "name": "DishCovery",
   "short_name": "DishCovery",
-  "description": "Generate personalized recipes from your ingredients, tailored to your lifestyle and health with expert guidance.",
-  "start_url": "/user/home",
-  "display": "standalone",
-  "background_color": "#ffffff",
   "theme_color": "#2E7D32",
-  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "display": "standalone",
   "scope": "/",
+  "start_url": "/",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "android/android-launchericon-192-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "android/android-launchericon-512-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-144.png",
-      "sizes": "144x144",
+      "src": "ios/180.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
-    }
-  ],
-  "categories": ["food", "health", "lifestyle"],
-  "shortcuts": [
-    {
-      "name": "Scan Ingredients",
-      "short_name": "Scan",
-      "description": "Quickly scan your ingredients",
-      "url": "/user/Scanning",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "View Recipes",
-      "short_name": "Recipes",
-      "description": "Browse your recipes",
-      "url": "/user/recipe",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "src": "windows11/Square150x150Logo.scale-100.png",
+      "sizes": "150x150",
+      "type": "image/png"
     }
   ]
 }
