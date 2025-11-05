@@ -6,7 +6,7 @@ const RUNTIME_CACHE = 'dishcovery-runtime-v1';
 const PRECACHE_URLS = [
   '/',
   '/user/home',
-  '/assets/LOGO.png',
+  '/assets/logo copy.png',
   '/main.png',
   '/offline.html'
 ];
