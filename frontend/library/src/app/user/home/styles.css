@@ -2111,3 +2111,237 @@
 }
 
 /* ==================== END PWA INSTALL PROMPT STYLES ==================== */
+
+/* ==================== PWA FLOATING BUTTON STYLES ==================== */
+
+@keyframes pwaButtonPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 16px rgba(46, 125, 50, 0.3);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(46, 125, 50, 0.4);
+  }
+}
+
+@keyframes pwaButtonExpand {
+  from {
+    width: 56px;
+    border-radius: 28px;
+  }
+  to {
+    width: auto;
+    border-radius: 28px;
+  }
+}
+
+.pwa-floating-container {
+  position: fixed;
+  bottom: 120px;
+  right: 20px;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pwa-floating-button {
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 24px;
+  font-family: 'Poppins', sans-serif;
+  box-shadow: 0 4px 16px rgba(46, 125, 50, 0.3);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+
+  /* Default dot state */
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  padding: 0;
+}
+
+.pwa-floating-button:not(.expanded) {
+  animation: pwaButtonPulse 2s ease-in-out infinite;
+}
+
+.pwa-floating-button.expanded {
+  width: auto;
+  padding: 14px 24px;
+  border-radius: 28px;
+  animation: none;
+}
+
+.pwa-floating-button:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(46, 125, 50, 0.45);
+  background: linear-gradient(135deg, #1B5E20 0%, #388E3C 100%);
+}
+
+.pwa-floating-button:active {
+  transform: translateY(-1px) scale(0.98);
+  box-shadow: 0 3px 12px rgba(46, 125, 50, 0.3);
+}
+
+.pwa-button-dot {
+  display: inline-block;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.pwa-button-icon {
+  display: inline-block;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.pwa-button-text {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pwa-collapse-button {
+  background: rgba(46, 125, 50, 0.9);
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.3);
+  font-weight: 300;
+  padding: 0;
+}
+
+.pwa-collapse-button:hover {
+  background: rgba(27, 94, 32, 0.95);
+  transform: rotate(90deg) scale(1.1);
+  box-shadow: 0 3px 12px rgba(46, 125, 50, 0.4);
+}
+
+.pwa-collapse-button:active {
+  transform: rotate(90deg) scale(0.95);
+}
+
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+  .pwa-floating-container {
+    bottom: 100px;
+    right: 16px;
+  }
+
+  .pwa-floating-button {
+    width: 50px;
+    height: 50px;
+    border-radius: 25px;
+  }
+
+  .pwa-floating-button.expanded {
+    padding: 12px 20px;
+    border-radius: 25px;
+  }
+
+  .pwa-button-dot {
+    font-size: 24px;
+  }
+
+  .pwa-button-icon {
+    font-size: 18px;
+  }
+
+  .pwa-button-text {
+    font-size: 14px;
+  }
+
+  .pwa-collapse-button {
+    width: 28px;
+    height: 28px;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pwa-floating-container {
+    bottom: 90px;
+    right: 12px;
+  }
+
+  .pwa-floating-button {
+    width: 46px;
+    height: 46px;
+    border-radius: 23px;
+  }
+
+  .pwa-floating-button.expanded {
+    padding: 10px 16px;
+    border-radius: 23px;
+  }
+
+  .pwa-button-dot {
+    font-size: 22px;
+  }
+
+  .pwa-button-icon {
+    font-size: 16px;
+  }
+
+  .pwa-button-text {
+    font-size: 13px;
+  }
+
+  .pwa-collapse-button {
+    width: 26px;
+    height: 26px;
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 360px) {
+  .pwa-floating-container {
+    bottom: 80px;
+    right: 10px;
+  }
+
+  .pwa-floating-button {
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
+  }
+
+  .pwa-floating-button.expanded {
+    padding: 8px 14px;
+    border-radius: 22px;
+  }
+
+  .pwa-button-dot {
+    font-size: 20px;
+  }
+
+  .pwa-button-icon {
+    font-size: 15px;
+  }
+
+  .pwa-button-text {
+    font-size: 12px;
+  }
+}
+
+/* ==================== END PWA FLOATING BUTTON STYLES ==================== */
