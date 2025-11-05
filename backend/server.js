@@ -101,10 +101,40 @@ app.listen(PORT, () => {
   console.log(`   - FRONTEND_URL: ${process.env.FRONTEND_URL || 'not set'}`);
   console.log(`   - API_BASE_URL: ${process.env.API_BASE_URL || 'not set'}`);
   console.log('');
+
   console.log('🔐 Google OAuth Configuration:');
   console.log(`   - GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID ? '✅ Set (ends with: ...' + process.env.GOOGLE_CLIENT_ID.slice(-20) + ')' : '❌ NOT SET'}`);
   console.log(`   - GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? '✅ Set' : '❌ NOT SET'}`);
   console.log(`   - OAuth Status: ${process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? '✅ Ready' : '❌ Missing credentials'}`);
+  console.log('');
+
+  console.log('📧 Email Configuration:');
+  const hasGmail = process.env.EMAIL_USER && process.env.EMAIL_APP_PASSWORD;
+  const hasSendGrid = process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL;
+  console.log(`   - Gmail SMTP: ${hasGmail ? '✅ Configured' : '❌ Not configured'}`);
+  if (hasGmail) {
+    console.log(`     • Email: ${process.env.EMAIL_USER}`);
+  }
+  console.log(`   - SendGrid: ${hasSendGrid ? '✅ Configured (ACTIVE)' : '❌ Not configured'}`);
+  if (hasSendGrid) {
+    console.log(`     • API Key: ${process.env.SENDGRID_API_KEY ? '✅ Set (starts with: ' + process.env.SENDGRID_API_KEY.substring(0, 10) + '...)' : '❌ NOT SET'}`);
+    console.log(`     • From Email: ${process.env.SENDGRID_FROM_EMAIL}`);
+  }
+  console.log(`   - Email Provider: ${hasSendGrid ? '🟢 SendGrid (Recommended for production)' : hasGmail ? '🟡 Gmail SMTP (Development only)' : '🔴 NONE'}`);
+  console.log('');
+
+  console.log('🗄️  Database Configuration:');
+  console.log(`   - DB_HOST: ${process.env.DB_HOST ? '✅ ' + process.env.DB_HOST : '❌ NOT SET'}`);
+  console.log(`   - DB_PORT: ${process.env.DB_PORT || '❌ NOT SET'}`);
+  console.log(`   - DB_NAME: ${process.env.DB_NAME || '❌ NOT SET'}`);
+  console.log(`   - DB_USER: ${process.env.DB_USER || '❌ NOT SET'}`);
+  console.log(`   - DB_PASSWORD: ${process.env.DB_PASSWORD ? '✅ Set' : '❌ NOT SET'}`);
+  console.log(`   - DB_SSL: ${process.env.DB_SSL || 'false'}`);
+  console.log('');
+
+  console.log('🤖 External APIs:');
+  console.log(`   - YOLO_API_URL: ${process.env.YOLO_API_URL ? '✅ ' + process.env.YOLO_API_URL : '❌ NOT SET'}`);
+  console.log(`   - JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Set' : '❌ NOT SET (using default)'}`);
   console.log('');
   console.log('📋 Available routes:');
   console.log('   - GET  /api/health');
