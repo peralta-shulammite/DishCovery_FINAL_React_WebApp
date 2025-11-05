@@ -1,11 +1,10 @@
 'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from './api'; 
 import './styles.css';
 import Link from 'next/link';
 import UserLayout from '../../components/user/userlayout';
-
-
 
 export default function DishCoveryLanding() {
   const dishCoveryTopRef = useRef(null);
@@ -31,7 +30,6 @@ export default function DishCoveryLanding() {
   const [dishCoveryShowPWAPrompt, setDishCoveryShowPWAPrompt] = useState(false);
   const [dishCoveryDeferredPrompt, setDishCoveryDeferredPrompt] = useState(null);
   const [dishCoveryShowIOSInstructions, setDishCoveryShowIOSInstructions] = useState(false);
-  const [dishCoveryPWAButtonExpanded, setDishCoveryPWAButtonExpanded] = useState(false);
 
   const dishCoveryAnimatedWords = ['discover', 'explore', 'uncover'];
 
@@ -47,6 +45,7 @@ export default function DishCoveryLanding() {
     plate: false,
     scanNav: false,
     avatar: false,
+    installApp: false,
   });
 
   const dishCoveryHandleHover = (element, isHover) => {
@@ -82,53 +81,38 @@ export default function DishCoveryLanding() {
     }
   }, []);
 
-  // PWA Install Prompt Handler
+  // PWA Install Prompt Handler - One Click Install
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
+      console.log('📱 beforeinstallprompt event fired!');
       e.preventDefault();
+
+      // Store the event so it can be triggered later
       setDishCoveryDeferredPrompt(e);
-
-      // Check if user has already dismissed the prompt
-      const promptDismissed = localStorage.getItem('pwaPromptDismissed');
-      const promptDismissedTime = localStorage.getItem('pwaPromptDismissedTime');
-
-      // Show prompt if never dismissed or if 7 days have passed
-      if (!promptDismissed || (promptDismissedTime && Date.now() - parseInt(promptDismissedTime) > 7 * 24 * 60 * 60 * 1000)) {
-        setTimeout(() => {
-          setDishCoveryShowPWAPrompt(true);
-        }, 3000); // Show after 3 seconds
-      }
+      console.log('✅ Install prompt captured and ready for one-click install!');
+      console.log('💡 Look for the "Install App" button on the page');
     };
 
+    // Listen for the install prompt event
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    console.log('👂 Listening for beforeinstallprompt event...');
 
     // Check if app is already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setDishCoveryShowPWAPrompt(false);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone) {
+      console.log('✅ App is already installed (standalone mode)');
     }
 
-    // For iOS Safari: Show prompt with manual instructions
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const isInStandaloneMode = ('standalone' in window.navigator) && (window.navigator.standalone);
-
-    if (isIOS && !isInStandaloneMode) {
-      const promptDismissed = localStorage.getItem('pwaPromptDismissed');
-      const promptDismissedTime = localStorage.getItem('pwaPromptDismissedTime');
-
-      if (!promptDismissed || (promptDismissedTime && Date.now() - parseInt(promptDismissedTime) > 7 * 24 * 60 * 60 * 1000)) {
-        setTimeout(() => {
-          setDishCoveryShowPWAPrompt(true);
-        }, 3000);
-      }
-    }
+    // Check for successful installation
+    window.addEventListener('appinstalled', (evt) => {
+      console.log('✅ PWA was installed successfully!');
+      localStorage.setItem('pwaInstalled', 'true');
+    });
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
-
-
-  
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -363,51 +347,63 @@ const dishCoveryHandlePWAInstall = async () => {
     return;
   }
 
-   // Check if app is already installed
+  // Check if app is already installed
   if (window.matchMedia('(display-mode: standalone)').matches) {
-    alert('DishCovery is already installed on your device!');
+    console.log('✅ App is already installed! Redirecting...');
+    setDishCoveryShowPWAPrompt(false);
+    // Redirect to app if already installed
+    window.location.href = dishCoveryIsLoggedIn ? '/user/get-started' : '/user/home';
+    return;
+  }
+
+  // For Android/Chrome, use the deferred prompt
+  if (!dishCoveryDeferredPrompt) {
+    console.log('⚠️ Install prompt not available. This can happen if:');
+    console.log('- The app is already installed');
+    console.log('- The browser has already shown the prompt');
+    console.log('- PWA installation criteria are not met');
     setDishCoveryShowPWAPrompt(false);
     return;
   }
 
-  // For other platforms, use the deferred prompt
-  if (!dishCoveryDeferredPrompt) {
-    console.log('No install prompt available');
-    alert('Installation is not available on this browser. Please use Chrome, Edge, or Safari.');
-   
-     // Provide more specific feedback based on the browser
-    const isAndroid = /Android/.test(navigator.userAgent);
-    const isChrome = /Chrome/.test(navigator.userAgent);
-    if (isAndroid && isChrome) {
-      alert('To install DishCovery:\n\n1. Tap the menu (⋮) in the top right\n2. Select "Install app" or "Add to Home screen"\n\nNote: If you don\'t see this option, the app may already be installed or your browser needs to be updated.');
-    } else {
-      alert('Installation is not available on this browser. Please use Chrome, Edge, or Safari.\n\nFor Android: Use Chrome browser\nFor iPhone: Use Safari browser');
-    }
-   
-   
-    return;
-  }
-
   try {
-    // Show the install prompt
+    // Show the native install prompt immediately
+    console.log('🚀 Triggering native install prompt...');
     await dishCoveryDeferredPrompt.prompt();
 
     // Wait for the user to respond to the prompt
     const { outcome } = await dishCoveryDeferredPrompt.userChoice;
 
+    console.log(`📱 User response: ${outcome}`);
+
     if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
+      console.log('✅ PWA installed successfully!');
+
+      // Store installation success
+      localStorage.setItem('pwaInstalled', 'true');
+      localStorage.setItem('pwaInstallTime', Date.now().toString());
+
+      // Show success notification
+      setDishCoveryNotification({
+        show: true,
+        message: '🎉 DishCovery installed! Opening app...'
+      });
+
+      // Wait a bit for installation to complete, then redirect
+      setTimeout(() => {
+        console.log('🔄 Redirecting to app...');
+        window.location.href = dishCoveryIsLoggedIn ? '/user/get-started' : '/user/home';
+      }, 1500);
     } else {
-      console.log('User dismissed the install prompt');
+      console.log('❌ User declined installation');
     }
 
     // Clear the deferredPrompt
     setDishCoveryDeferredPrompt(null);
     setDishCoveryShowPWAPrompt(false);
   } catch (error) {
-    console.error('Error showing install prompt:', error);
-    alert('Unable to show installation prompt. Please try again.');
-     alert('Unable to show installation prompt. Please try installing manually:\n\n1. Tap the menu (⋮) in Chrome\n2. Select "Install app" or "Add to Home screen"');
+    console.error('❌ Error showing install prompt:', error);
+    setDishCoveryShowPWAPrompt(false);
   }
 };
 
@@ -461,81 +457,28 @@ const dishCoveryBottomRecipes = [
         </div>
       )}
 
-      {/* PWA Install Floating Button */}
-      <div className="pwa-floating-container">
-        <button
-          onClick={() => {
-            if (!dishCoveryPWAButtonExpanded) {
-              setDishCoveryPWAButtonExpanded(true);
-            } else {
-              setDishCoveryShowPWAPrompt(true);
-            }
-          }}
-          className={`pwa-floating-button ${dishCoveryPWAButtonExpanded ? 'expanded' : ''}`}
-          aria-label="Install DishCovery App"
-        >
-          {dishCoveryPWAButtonExpanded ? (
-            <>
-              <span className="pwa-button-icon">📱</span>
-              <span className="pwa-button-text">Install App</span>
-            </>
-          ) : (
-            <span className="pwa-button-dot">📱</span>
-          )}
-        </button>
-        {dishCoveryPWAButtonExpanded && (
+      {/* PWA Install Floating Button - One Click Install */}
+      {dishCoveryDeferredPrompt && !window.matchMedia('(display-mode: standalone)').matches && (
+        <div className="pwa-floating-container">
           <button
-            onClick={() => setDishCoveryPWAButtonExpanded(false)}
-            className="pwa-collapse-button"
-            aria-label="Collapse button"
+            onClick={dishCoveryHandlePWAInstall}
+            className="pwa-floating-button expanded"
+            aria-label="Install DishCovery App - One Click"
+            title="Install DishCovery app with one click!"
           >
-            ×
+            <span className="pwa-button-icon">📱</span>
+            <span className="pwa-button-text">Install App</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* PWA Install Prompt */}
-      {dishCoveryShowPWAPrompt && (() => {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-        return (
-          <div className="pwa-install-prompt">
-            <img
-              src="/assets/logo.png"
-              alt="DishCovery Logo"
-              className="pwa-prompt-logo"
-            />
-            <div className="pwa-prompt-content">
-              <h3 className="pwa-prompt-title">Install DishCovery</h3>
-              <p className="pwa-prompt-description">
-                Get quick access to personalized recipes anytime, anywhere!
-              </p>
-            </div>
-            <div className="pwa-prompt-actions">
-              <button
-                className="pwa-install-btn"
-                onClick={isIOS ? dishCoveryHandleIOSInstall : dishCoveryHandlePWAInstall}
-              >
-                Install App
-              </button>
-              <button
-                className="pwa-close-btn"
-                onClick={dishCoveryHandlePWADismiss}
-                aria-label="Close install prompt"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* iOS Installation Instructions Modal */}
       {dishCoveryShowIOSInstructions && (
         <div className="modal-overlay" onClick={() => setDishCoveryShowIOSInstructions(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '400px'}}>
             <button className="close-btn" onClick={() => setDishCoveryShowIOSInstructions(false)}>×</button>
-            <div className="modal-logo"><img src="/assets/logo copy.png" alt="DishCovery Logo" /></div>
+            <div className="modal-logo"><img src="/public/logo.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">Install on iPhone</h2>
             <p className="modal-subtitle">Follow these simple steps:</p>
 
@@ -699,7 +642,37 @@ const dishCoveryBottomRecipes = [
               </svg>
               <span className="btn-text">Scan Ingredients</span>
             </button>
-            
+
+            {/* One-Click PWA Install Button */}
+            {dishCoveryDeferredPrompt && !window.matchMedia('(display-mode: standalone)').matches && (
+              <button
+                className="scan-btn"
+                onClick={dishCoveryHandlePWAInstall}
+                onMouseEnter={() => dishCoveryHandleHover('installApp', true)}
+                onMouseLeave={() => dishCoveryHandleHover('installApp', false)}
+                style={{
+                  backgroundColor: '#1976D2',
+                  color: 'white',
+                  padding: '10px 20px',
+                  borderRadius: '25px',
+                  border: 'none',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: dishCoveryHoverStates.installApp ? '0 5px 12px rgba(25, 118, 210, 0.25)' : '0 3px 8px rgba(25, 118, 210, 0.15)',
+                  transition: 'all 0.3s ease',
+                  animation: 'pulse 2s ease-in-out infinite',
+                }}
+                title="Install DishCovery app with one click!"
+              >
+                <span style={{ fontSize: '18px' }}>📱</span>
+                <span className="btn-text">Install App</span>
+              </button>
+            )}
+
               <a
               href="/pantry"
               className={`how-to-use ${dishCoveryHoverStates.howToUse ? 'how-to-use-hover' : ''}`}
