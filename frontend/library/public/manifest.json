@@ -1,0 +1,48 @@
+{
+  "name": "DishCovery - Personalized Recipe Generator",
+  "short_name": "DishCovery",
+  "description": "Generate personalized recipes from your ingredients, tailored to your lifestyle and health with expert guidance.",
+  "start_url": "/user/home",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2E7D32",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["food", "health", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "Scan Ingredients",
+      "short_name": "Scan",
+      "description": "Quickly scan your ingredients",
+      "url": "/user/Scanning",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "View Recipes",
+      "short_name": "Recipes",
+      "description": "Browse your recipes",
+      "url": "/user/recipe",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

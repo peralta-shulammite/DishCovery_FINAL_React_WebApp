@@ -28,6 +28,9 @@ export default function DishCoveryLanding() {
   const [dishCoveryUser, setDishCoveryUser] = useState(null);
   const [dishCoveryError, setDishCoveryError] = useState('');
   const [dishCoveryNotification, setDishCoveryNotification] = useState({ show: false, message: '' });
+  const [dishCoveryShowPWAPrompt, setDishCoveryShowPWAPrompt] = useState(false);
+  const [dishCoveryDeferredPrompt, setDishCoveryDeferredPrompt] = useState(null);
+  const [dishCoveryShowIOSInstructions, setDishCoveryShowIOSInstructions] = useState(false);
 
   const dishCoveryAnimatedWords = ['discover', 'explore', 'uncover'];
 
@@ -60,22 +63,67 @@ export default function DishCoveryLanding() {
   useEffect(() => {
     const userLoggedIn = sessionStorage.getItem('userJustLoggedIn');
     const adminLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
-    
+
     if (userLoggedIn === 'true') {
       setDishCoveryNotification({ show: true, message: 'Welcome back! Ready to cook up something delicious?' });
       sessionStorage.removeItem('userJustLoggedIn');
-      
+
       setTimeout(() => {
         setDishCoveryNotification({ show: false, message: '' });
       }, 4000);
     } else if (adminLoggedIn === 'true') {
       setDishCoveryNotification({ show: true, message: 'Admin login successful!' });
       sessionStorage.removeItem('adminJustLoggedIn');
-      
+
       setTimeout(() => {
         setDishCoveryNotification({ show: false, message: '' });
       }, 4000);
     }
+  }, []);
+
+  // PWA Install Prompt Handler
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDishCoveryDeferredPrompt(e);
+
+      // Check if user has already dismissed the prompt
+      const promptDismissed = localStorage.getItem('pwaPromptDismissed');
+      const promptDismissedTime = localStorage.getItem('pwaPromptDismissedTime');
+
+      // Show prompt if never dismissed or if 7 days have passed
+      if (!promptDismissed || (promptDismissedTime && Date.now() - parseInt(promptDismissedTime) > 7 * 24 * 60 * 60 * 1000)) {
+        setTimeout(() => {
+          setDishCoveryShowPWAPrompt(true);
+        }, 3000); // Show after 3 seconds
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Check if app is already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setDishCoveryShowPWAPrompt(false);
+    }
+
+    // For iOS Safari: Show prompt with manual instructions
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isInStandaloneMode = ('standalone' in window.navigator) && (window.navigator.standalone);
+
+    if (isIOS && !isInStandaloneMode) {
+      const promptDismissed = localStorage.getItem('pwaPromptDismissed');
+      const promptDismissedTime = localStorage.getItem('pwaPromptDismissedTime');
+
+      if (!promptDismissed || (promptDismissedTime && Date.now() - parseInt(promptDismissedTime) > 7 * 24 * 60 * 60 * 1000)) {
+        setTimeout(() => {
+          setDishCoveryShowPWAPrompt(true);
+        }, 3000);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
   }, []);
 
 
@@ -303,6 +351,40 @@ const dishCoveryHandleForgotPasswordSubmit = async (e) => {
   }
 };
 
+const dishCoveryHandlePWAInstall = async () => {
+  if (!dishCoveryDeferredPrompt) {
+    return;
+  }
+
+  // Show the install prompt
+  dishCoveryDeferredPrompt.prompt();
+
+  // Wait for the user to respond to the prompt
+  const { outcome } = await dishCoveryDeferredPrompt.userChoice;
+
+  if (outcome === 'accepted') {
+    console.log('User accepted the install prompt');
+  } else {
+    console.log('User dismissed the install prompt');
+  }
+
+  // Clear the deferredPrompt
+  setDishCoveryDeferredPrompt(null);
+  setDishCoveryShowPWAPrompt(false);
+};
+
+const dishCoveryHandlePWADismiss = () => {
+  setDishCoveryShowPWAPrompt(false);
+  localStorage.setItem('pwaPromptDismissed', 'true');
+  localStorage.setItem('pwaPromptDismissedTime', Date.now().toString());
+};
+
+const dishCoveryHandleIOSInstall = () => {
+  // For iOS, show instructions modal
+  setDishCoveryShowIOSInstructions(true);
+  setDishCoveryShowPWAPrompt(false);
+};
+
 const dishCoveryTopRecipes = [
     { name: "Chicken Adobo", time: "50 min", difficulty: "Easy", img: "/images/food-carousel/adobong-manok.jpg" },
     { name: "Sauteed Chayote Greens", time: "20 min", difficulty: "Easy", img: "/images/food-carousel/ginisang-talbos.jpg" },
@@ -338,6 +420,152 @@ const dishCoveryBottomRecipes = [
       {dishCoveryNotification.show && (
         <div className="custom-notification">
           {dishCoveryNotification.message}
+        </div>
+      )}
+
+      {/* TEMPORARY TEST BUTTON - Remove after testing */}
+      <button
+        onClick={() => setDishCoveryShowPWAPrompt(true)}
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          background: '#2E7D32',
+          color: 'white',
+          border: 'none',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          zIndex: 9999,
+          fontWeight: 'bold',
+          boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
+        }}
+      >
+        🧪 DishCovery App
+      </button>
+
+      {/* PWA Install Prompt */}
+      {dishCoveryShowPWAPrompt && (() => {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        return (
+          <div className="pwa-install-prompt">
+            <img
+              src="/assets/LOGO.png"
+              alt="DishCovery Logo"
+              className="pwa-prompt-logo"
+            />
+            <div className="pwa-prompt-content">
+              <h3 className="pwa-prompt-title">Install DishCovery</h3>
+              <p className="pwa-prompt-description">
+                Get quick access to personalized recipes anytime, anywhere!
+              </p>
+            </div>
+            <div className="pwa-prompt-actions">
+              <button
+                className="pwa-install-btn"
+                onClick={isIOS ? dishCoveryHandleIOSInstall : dishCoveryHandlePWAInstall}
+              >
+                Install App
+              </button>
+              <button
+                className="pwa-close-btn"
+                onClick={dishCoveryHandlePWADismiss}
+                aria-label="Close install prompt"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* iOS Installation Instructions Modal */}
+      {dishCoveryShowIOSInstructions && (
+        <div className="modal-overlay" onClick={() => setDishCoveryShowIOSInstructions(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '400px'}}>
+            <button className="close-btn" onClick={() => setDishCoveryShowIOSInstructions(false)}>×</button>
+            <div className="modal-logo"><img src="/assets/LOGO.png" alt="DishCovery Logo" /></div>
+            <h2 className="modal-title">Install on iPhone</h2>
+            <p className="modal-subtitle">Follow these simple steps:</p>
+
+            <div style={{textAlign: 'left', padding: '16px 0'}}>
+              <div style={{display: 'flex', alignItems: 'flex-start', marginBottom: '16px'}}>
+                <div style={{
+                  background: '#2E7D32',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  marginRight: '12px',
+                  flexShrink: 0
+                }}>1</div>
+                <div>
+                  <p style={{margin: 0, fontSize: '14px', color: '#424242'}}>
+                    Tap the <strong>Share button</strong>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#2E7D32" style={{display: 'inline', verticalAlign: 'middle', margin: '0 4px'}}>
+                      <path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z"/>
+                    </svg>
+                    at the bottom of Safari
+                  </p>
+                </div>
+              </div>
+
+              <div style={{display: 'flex', alignItems: 'flex-start', marginBottom: '16px'}}>
+                <div style={{
+                  background: '#2E7D32',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  marginRight: '12px',
+                  flexShrink: 0
+                }}>2</div>
+                <div>
+                  <p style={{margin: 0, fontSize: '14px', color: '#424242'}}>
+                    Scroll down and tap <strong>"Add to Home Screen"</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div style={{display: 'flex', alignItems: 'flex-start'}}>
+                <div style={{
+                  background: '#2E7D32',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  marginRight: '12px',
+                  flexShrink: 0
+                }}>3</div>
+                <div>
+                  <p style={{margin: 0, fontSize: '14px', color: '#424242'}}>
+                    Tap <strong>"Add"</strong> and DishCovery will appear on your home screen!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="modal-signin-btn"
+              onClick={() => setDishCoveryShowIOSInstructions(false)}
+              style={{marginTop: '8px'}}
+            >
+              Got it!
+            </button>
+          </div>
         </div>
       )}
 
