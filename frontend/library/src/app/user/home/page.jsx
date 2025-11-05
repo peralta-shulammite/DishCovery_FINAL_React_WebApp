@@ -363,10 +363,28 @@ const dishCoveryHandlePWAInstall = async () => {
     return;
   }
 
+   // Check if app is already installed
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    alert('DishCovery is already installed on your device!');
+    setDishCoveryShowPWAPrompt(false);
+    return;
+  }
+
   // For other platforms, use the deferred prompt
   if (!dishCoveryDeferredPrompt) {
     console.log('No install prompt available');
     alert('Installation is not available on this browser. Please use Chrome, Edge, or Safari.');
+   
+     // Provide more specific feedback based on the browser
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const isChrome = /Chrome/.test(navigator.userAgent);
+    if (isAndroid && isChrome) {
+      alert('To install DishCovery:\n\n1. Tap the menu (⋮) in the top right\n2. Select "Install app" or "Add to Home screen"\n\nNote: If you don\'t see this option, the app may already be installed or your browser needs to be updated.');
+    } else {
+      alert('Installation is not available on this browser. Please use Chrome, Edge, or Safari.\n\nFor Android: Use Chrome browser\nFor iPhone: Use Safari browser');
+    }
+   
+   
     return;
   }
 
@@ -389,6 +407,7 @@ const dishCoveryHandlePWAInstall = async () => {
   } catch (error) {
     console.error('Error showing install prompt:', error);
     alert('Unable to show installation prompt. Please try again.');
+     alert('Unable to show installation prompt. Please try installing manually:\n\n1. Tap the menu (⋮) in Chrome\n2. Select "Install app" or "Add to Home screen"');
   }
 };
 
@@ -516,7 +535,7 @@ const dishCoveryBottomRecipes = [
         <div className="modal-overlay" onClick={() => setDishCoveryShowIOSInstructions(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '400px'}}>
             <button className="close-btn" onClick={() => setDishCoveryShowIOSInstructions(false)}>×</button>
-            <div className="modal-logo"><img src="/assets/logo.png" alt="DishCovery Logo" /></div>
+            <div className="modal-logo"><img src="/assets/logo copy.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">Install on iPhone</h2>
             <p className="modal-subtitle">Follow these simple steps:</p>
 
