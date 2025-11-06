@@ -457,20 +457,6 @@ const dishCoveryBottomRecipes = [
         </div>
       )}
 
-      {/* PWA Install Floating Button - One Click Install */}
-      {dishCoveryDeferredPrompt && !window.matchMedia('(display-mode: standalone)').matches && (
-        <div className="pwa-floating-container">
-          <button
-            onClick={dishCoveryHandlePWAInstall}
-            className="pwa-floating-button expanded"
-            aria-label="Install DishCovery App - One Click"
-            title="Install DishCovery app with one click!"
-          >
-            <span className="pwa-button-icon">📱</span>
-            <span className="pwa-button-text">Install App</span>
-          </button>
-        </div>
-      )}
 
 
       {/* iOS Installation Instructions Modal */}
@@ -616,6 +602,7 @@ const dishCoveryBottomRecipes = [
           </div>
 
           <div className="button-group">
+            {/* Green Scan Ingredients Button */}
             <button
               className={`scan-btn ${dishCoveryHoverStates.scan ? 'scan-btn-hover' : ''}`}
               onClick={dishCoveryHandleScanClick}
@@ -643,15 +630,15 @@ const dishCoveryBottomRecipes = [
               <span className="btn-text">Scan Ingredients</span>
             </button>
 
-            {/* One-Click PWA Install Button */}
+            {/* Green Install App Button - Only show when PWA prompt is available */}
             {dishCoveryDeferredPrompt && !window.matchMedia('(display-mode: standalone)').matches && (
               <button
-                className="scan-btn"
+                className={`scan-btn ${dishCoveryHoverStates.installApp ? 'scan-btn-hover' : ''}`}
                 onClick={dishCoveryHandlePWAInstall}
                 onMouseEnter={() => dishCoveryHandleHover('installApp', true)}
                 onMouseLeave={() => dishCoveryHandleHover('installApp', false)}
                 style={{
-                  backgroundColor: '#1976D2',
+                  backgroundColor: '#2E7D32',
                   color: 'white',
                   padding: '10px 20px',
                   borderRadius: '25px',
@@ -662,9 +649,8 @@ const dishCoveryBottomRecipes = [
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  boxShadow: dishCoveryHoverStates.installApp ? '0 5px 12px rgba(25, 118, 210, 0.25)' : '0 3px 8px rgba(25, 118, 210, 0.15)',
+                  boxShadow: dishCoveryHoverStates.installApp ? '0 5px 12px rgba(46, 125, 50, 0.25)' : '0 3px 8px rgba(46, 125, 50, 0.15)',
                   transition: 'all 0.3s ease',
-                  animation: 'pulse 2s ease-in-out infinite',
                 }}
                 title="Install DishCovery app with one click!"
               >
