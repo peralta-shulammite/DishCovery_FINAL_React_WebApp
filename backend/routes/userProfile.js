@@ -69,9 +69,9 @@ router.get('/dietary', authenticateToken, async (req, res) => {
     const preferredDiets = [];
 
     restrictions.forEach(item => {
-      if (item.category_name === 'Allergies') {
+      if (item.category_name === 'Allergy') {
         dietaryRestrictions.push(item.restriction_name);
-      } else if (item.category_name === 'Health Conditions') {
+      } else if (item.category_name === 'Intolerance') {
         medicalConditions.push(item.restriction_name);
       } else if (item.category_name === 'Dietary Lifestyle') {
         preferredDiets.push(item.restriction_name);

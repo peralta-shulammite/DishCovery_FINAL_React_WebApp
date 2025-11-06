@@ -43,14 +43,14 @@ const saveRecipeIngredients = async (connection, recipeId, ingredients) => {
 
 const getTagIdsFromNames = async (connection, tagNames) => {
   if (!tagNames || tagNames.length === 0) return [];
-  
+
   try {
     const placeholders = tagNames.map(() => '?').join(',');
     const query = `SELECT tag_id FROM dietary_tags WHERE tag_name IN (${placeholders})`;
-    
+
     const results = await connection.query(query, tagNames);
     const tagIds = results.map(row => row.tag_id).filter(id => id != null);
-    
+
     console.log(`Found ${tagIds.length} matching tags out of ${tagNames.length} requested`);
     if (tagIds.length < tagNames.length) {
       const foundTags = await connection.query(
@@ -60,11 +60,121 @@ const getTagIdsFromNames = async (connection, tagNames) => {
       const missingTags = tagNames.filter(name => !foundNames.includes(name));
       console.warn(`Tags not found in database: ${missingTags.join(', ')}`);
     }
-    
+
     return tagIds;
   } catch (error) {
     console.error('Error getting tag IDs:', error);
     return [];
+  }
+};
+
+// ✅ Helper function to get restriction IDs from restriction names
+const getRestrictionIdsFromNames = async (connection, restrictionNames) => {
+  if (!restrictionNames || restrictionNames.length === 0) return [];
+
+  try {
+    console.log('🔍 Looking up restriction IDs for:', restrictionNames);
+
+    // First, get ALL active restrictions to see what's available
+    // ✅ CRITICAL FIX: connection.query() returns [results, fields], must destructure!
+    const allRestrictionsQuery = `SELECT * FROM restrictions WHERE is_active = 1 LIMIT 5`;
+    const [allRestrictions] = await connection.query(allRestrictionsQuery);
+
+    console.log('📋 Sample restrictions from DB (showing structure):');
+    console.log(JSON.stringify(allRestrictions, null, 2));
+
+    // Check if table has data
+    if (allRestrictions.length === 0) {
+      console.log('⚠️  WARNING: restrictions table is EMPTY!');
+      return [];
+    }
+
+    // Get the actual column names from the first row
+    const firstRow = allRestrictions[0];
+    console.log('📋 Available columns:', Object.keys(firstRow));
+
+    // Try to find the name column (could be 'restriction_name', 'name', etc.)
+    const nameColumn = firstRow.restriction_name !== undefined ? 'restriction_name' :
+                       firstRow.name !== undefined ? 'name' :
+                       Object.keys(firstRow).find(key => key.toLowerCase().includes('name'));
+
+    console.log(`📋 Using column: ${nameColumn}`);
+
+    if (!nameColumn) {
+      console.log('❌ Could not find name column in restrictions table!');
+      return [];
+    }
+
+    // Try case-insensitive matching with the correct column name
+    const placeholders = restrictionNames.map(() => '?').join(',');
+    const query = `SELECT restriction_id, ${nameColumn} as restriction_name FROM restrictions WHERE LOWER(${nameColumn}) IN (${restrictionNames.map(() => 'LOWER(?)').join(',')}) AND is_active = 1`;
+
+    // ✅ CRITICAL FIX: Destructure to get results array
+    const [results] = await connection.query(query, restrictionNames);
+    const restrictionIds = results.map(row => row.restriction_id).filter(id => id != null);
+
+    console.log(`✅ Found ${restrictionIds.length} matching restrictions out of ${restrictionNames.length} requested`);
+    if (restrictionIds.length < restrictionNames.length) {
+      console.log('⚠️  MISMATCH DETECTED!');
+      console.log('   Requested names:', restrictionNames);
+      console.log('   Found in DB:', results.map(r => r.restriction_name));
+
+      // Get all restriction names for comparison
+      const allNamesQuery = `SELECT ${nameColumn} as restriction_name FROM restrictions WHERE is_active = 1`;
+      // ✅ CRITICAL FIX: Destructure to get results array
+      const [allNames] = await connection.query(allNamesQuery);
+      const availableNames = allNames.map(r => r.restriction_name).filter(Boolean);
+
+      console.log('   📋 All available restriction names:', availableNames);
+
+      // Show which names were not found
+      const foundNames = results.map(r => r.restriction_name).filter(Boolean);
+      const notFound = restrictionNames.filter(name => !foundNames.some(found => found.toLowerCase() === name.toLowerCase()));
+      console.log('   ❌ NOT FOUND:', notFound);
+
+      // Suggest possible matches
+      notFound.forEach(missing => {
+        const suggestions = availableNames
+          .filter(name => name && name.toLowerCase().includes(missing.toLowerCase().split(' ')[0]))
+        if (suggestions.length > 0) {
+          console.log(`   💡 Possible matches for "${missing}":`, suggestions);
+        }
+      });
+    }
+
+    return restrictionIds;
+  } catch (error) {
+    console.error('❌ Error getting restriction IDs:', error);
+    console.error('Stack:', error.stack);
+    return [];
+  }
+};
+
+// ✅ Helper function to save recipe restrictions
+const saveRecipeRestrictions = async (connection, recipeId, restrictionNames) => {
+  try {
+    // Delete existing restrictions
+    await connection.query('DELETE FROM recipe_restrictions WHERE recipe_id = ?', [recipeId]);
+
+    if (!restrictionNames || restrictionNames.length === 0) {
+      console.log('No restrictions to save for recipe', recipeId);
+      return;
+    }
+
+    // Get restriction IDs
+    const restrictionIds = await getRestrictionIdsFromNames(connection, restrictionNames);
+
+    if (restrictionIds.length > 0) {
+      const restrictionValues = restrictionIds.map(restrictionId => [recipeId, restrictionId]);
+      await connection.query(
+        'INSERT INTO recipe_restrictions (recipe_id, restriction_id) VALUES ?',
+        [restrictionValues]
+      );
+      console.log(`Inserted ${restrictionIds.length} restrictions for recipe ${recipeId}`);
+    }
+  } catch (error) {
+    console.error('Error saving recipe restrictions:', error);
+    throw error;
   }
 };
 
@@ -177,9 +287,9 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const query = `
-      SELECT 
+      SELECT
         r.*,
         GROUP_CONCAT(DISTINCT ri.image_url ORDER BY ri.display_order) as images,
         GROUP_CONCAT(DISTINCT CASE WHEN dt.tag_category = 'dietary' THEN dt.tag_name END) as dietary_tags,
@@ -197,7 +307,7 @@ router.get('/:id', async (req, res) => {
     `;
 
     const recipes = await pool.query(query, [parseInt(id)]);
-    
+
     if (recipes.length === 0) {
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
@@ -215,7 +325,7 @@ router.get('/:id', async (req, res) => {
       ORDER BY display_order
     `;
     const ingredientsResults = await pool.query(ingredientsQuery, [parseInt(id)]);
-    
+
     const ingredients = { main: [], condiments: [], optional: [] };
     ingredientsResults.forEach(ing => {
       const item = {
@@ -227,20 +337,49 @@ router.get('/:id', async (req, res) => {
       }
     });
 
+    // ✅ Fetch restrictions separately and group by category
+    const restrictionsQuery = `
+      SELECT
+        res.restriction_name,
+        rc.category_name,
+        rc.category_id
+      FROM recipe_restrictions rr
+      INNER JOIN restrictions res ON rr.restriction_id = res.restriction_id
+      INNER JOIN restriction_categories rc ON res.category_id = rc.category_id
+      WHERE rr.recipe_id = ? AND res.is_active = 1
+    `;
+    const restrictionsResults = await pool.query(restrictionsQuery, [parseInt(id)]);
+
+    // Separate restrictions by category
+    const dietaryLifestyleTags = [];
+    const medicalConditions = [];
+
+    restrictionsResults.forEach(res => {
+      if (res.category_id === 3) {
+        // Dietary Lifestyle
+        dietaryLifestyleTags.push(res.restriction_name);
+      } else if (res.category_id === 1 || res.category_id === 2) {
+        // Allergy (1) or Intolerance (2)
+        medicalConditions.push(res.restriction_name);
+      }
+    });
+
     const transformed = transformRecipeForFrontend({
       ...recipe,
       images,
       dietaryTags,
       healthTags,
-      ingredients
+      ingredients,
+      dietaryLifestyleTags,
+      medicalConditions
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: transformed,
       timestamp: new Date().toISOString()
     });
-    
+
   } catch (error) {
     console.error('Error fetching recipe:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
@@ -321,6 +460,11 @@ router.post('/', async (req, res) => {
 
     // Insert ingredients
     await saveRecipeIngredients(connection, recipeId, transformed.ingredients);
+
+    // ✅ Insert restrictions
+    if (transformed.restrictions && transformed.restrictions.length > 0) {
+      await saveRecipeRestrictions(connection, recipeId, transformed.restrictions);
+    }
 
     // Insert verification status
     await connection.query(
@@ -435,6 +579,9 @@ router.put('/:id', async (req, res) => {
 
     // Update ingredients
     await saveRecipeIngredients(connection, recipeId, transformed.ingredients);
+
+    // ✅ Update restrictions
+    await saveRecipeRestrictions(connection, recipeId, transformed.restrictions || []);
 
     // Update verification
     await connection.query('DELETE FROM recipe_verification WHERE recipe_id = ?', [recipeId]);
