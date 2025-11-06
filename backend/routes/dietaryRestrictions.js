@@ -89,9 +89,9 @@ router.get('/public', async (req, res) => {
     });
     
     const result = {
-      dietaryRestrictions: groupedRestrictions['Allergies'] || [],
-      preferredDiets: groupedRestrictions['Dietary Lifestyle'] || [], 
-      medicalConditions: groupedRestrictions['Health Conditions'] || []
+      dietaryRestrictions: groupedRestrictions['Allergy'] || [],
+      preferredDiets: groupedRestrictions['Dietary Lifestyle'] || [],
+      medicalConditions: groupedRestrictions['Intolerance'] || []
     };
     
     console.log(`✅ Found ${restrictions.length} active restrictions`);
@@ -638,20 +638,47 @@ router.delete('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(a
 
 router.get('/categories', async (req, res) => {
   try {
-    console.log('🔍 Fetching restriction categories...');
-    
-    const categories = await pool.query(
-      'SELECT category_id, category_name, description FROM restriction_categories WHERE is_active = 1 ORDER BY category_name'
-    );
-    
-    console.log(`✅ Found ${categories.length} categories`);
+    console.log('🔍 Fetching restriction categories with restrictions...');
+
+    // Fetch all active restrictions with their categories
+    const query = `
+      SELECT
+        r.restriction_id,
+        r.restriction_name,
+        r.description,
+        r.severity_level,
+        rc.category_name,
+        rc.category_id
+      FROM restrictions r
+      JOIN restriction_categories rc ON r.category_id = rc.category_id
+      WHERE r.is_active = 1 AND rc.is_active = 1
+      ORDER BY rc.category_name, r.restriction_name
+    `;
+
+    const restrictions = await pool.query(query);
+
+    // Group restrictions by category name
+    const groupedRestrictions = {};
+    restrictions.forEach(restriction => {
+      const category = restriction.category_name;
+      if (!groupedRestrictions[category]) {
+        groupedRestrictions[category] = [];
+      }
+      groupedRestrictions[category].push({
+        id: restriction.restriction_id,
+        name: restriction.restriction_name,
+        description: restriction.description,
+        severityLevel: restriction.severity_level,
+        categoryId: restriction.category_id
+      });
+    });
+
+    console.log(`✅ Found ${restrictions.length} restrictions across ${Object.keys(groupedRestrictions).length} categories`);
+    console.log('📊 Categories:', Object.keys(groupedRestrictions));
+
     res.json({
       success: true,
-      data: categories.map(cat => ({
-        id: cat.category_id,
-        name: cat.category_name,
-        description: cat.description
-      }))
+      data: groupedRestrictions
     });
   } catch (error) {
     console.error('❌ Error fetching categories:', error);

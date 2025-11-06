@@ -345,7 +345,7 @@ router.get('/', async (req, res) => {
           title: recipe.title,
           description: recipe.description,
           instructions: parseInstructions(recipe.instructions),
-          images: recipe.image_url ? [recipe.image_url] : ['https://via.placeholder.com/400x300?text=No+Image'],
+          images: recipe.image_url ? [recipe.image_url] : ['https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop'],
           mealType: recipe.meal_type,
           rating: recipe.rating || 4.5,
           engagement: {

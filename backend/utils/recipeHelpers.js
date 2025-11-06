@@ -4,16 +4,26 @@
  * Transform frontend recipe data to database format
  */
 export const transformRecipeForDB = (frontendData) => {
+  // Combine dietary lifestyle tags and medical conditions into restrictions array
+  const dietaryLifestyleTags = frontendData.dietaryLifestyleTags || [];
+  const medicalConditions = frontendData.medicalConditions || [];
+  const restrictions = [...dietaryLifestyleTags, ...medicalConditions];
+
+  console.log('📦 transformRecipeForDB - Combining restrictions:');
+  console.log('   - Dietary Lifestyle Tags:', dietaryLifestyleTags);
+  console.log('   - Medical Conditions:', medicalConditions);
+  console.log('   - Combined Restrictions:', restrictions);
+
   return {
     recipe: {
       recipe_name: frontendData.title,
       description: frontendData.description,
-      instructions: Array.isArray(frontendData.instructions) 
-        ? frontendData.instructions.join('\n') 
+      instructions: Array.isArray(frontendData.instructions)
+        ? frontendData.instructions.join('\n')
         : frontendData.instructions,
       prep_time: parseInt(frontendData.prep_time) || null,
       cook_time: parseInt(frontendData.cook_time) || null,
-      total_time: frontendData.total_time || 
+      total_time: frontendData.total_time ||
         ((frontendData.prep_time || 0) + (frontendData.cook_time || 0)) || null,
       servings: parseInt(frontendData.servings) || null,
       difficulty_level: frontendData.difficulty || 'Easy',
@@ -25,6 +35,7 @@ export const transformRecipeForDB = (frontendData) => {
     dietaryTags: frontendData.dietaryTags || [],
     healthTags: frontendData.healthTags || [],
     ingredients: frontendData.ingredients || { main: [], condiments: [], optional: [] },
+    restrictions: restrictions,
     verification: {
       status: frontendData.verificationStatus || 'AI-generated',
       verifierName: frontendData.verifierName || null,
@@ -37,11 +48,15 @@ export const transformRecipeForDB = (frontendData) => {
  * Transform database recipe data to frontend format
  */
 export const transformRecipeForFrontend = (dbData) => {
+  // Separate restrictions by category
+  const dietaryLifestyleTags = dbData.dietaryLifestyleTags || [];
+  const medicalConditions = dbData.medicalConditions || [];
+
   return {
     id: dbData.recipe_id || dbData.id,
     title: dbData.recipe_name || dbData.title,
     description: dbData.description,
-    instructions: dbData.instructions ? 
+    instructions: dbData.instructions ?
       (dbData.instructions.includes('\n') ? dbData.instructions.split('\n') : [dbData.instructions]) :
       [],
     prep_time: dbData.prep_time,
@@ -55,6 +70,8 @@ export const transformRecipeForFrontend = (dbData) => {
     images: dbData.images || [dbData.image_url].filter(Boolean),
     dietaryTags: dbData.dietaryTags || [],
     healthTags: dbData.healthTags || [],
+    dietaryLifestyleTags: dietaryLifestyleTags,
+    medicalConditions: medicalConditions,
     ingredients: dbData.ingredients || { main: [], condiments: [], optional: [] },
     verificationStatus: dbData.verificationStatus || dbData.verification_status || 'AI-generated',
     verifierName: dbData.verifierName || dbData.verifier_name || '',
