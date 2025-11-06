@@ -1,11 +1,10 @@
 'use client';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from './api'; 
 import './styles.css';
 import Link from 'next/link';
 import UserLayout from '../../components/user/userlayout';
-
-
 
 export default function DishCoveryLanding() {
   const dishCoveryTopRef = useRef(null);
@@ -28,6 +27,9 @@ export default function DishCoveryLanding() {
   const [dishCoveryUser, setDishCoveryUser] = useState(null);
   const [dishCoveryError, setDishCoveryError] = useState('');
   const [dishCoveryNotification, setDishCoveryNotification] = useState({ show: false, message: '' });
+  const [dishCoveryShowPWAPrompt, setDishCoveryShowPWAPrompt] = useState(false);
+  const [dishCoveryDeferredPrompt, setDishCoveryDeferredPrompt] = useState(null);
+  const [dishCoveryShowIOSInstructions, setDishCoveryShowIOSInstructions] = useState(false);
 
   const dishCoveryAnimatedWords = ['discover', 'explore', 'uncover'];
 
@@ -43,6 +45,7 @@ export default function DishCoveryLanding() {
     plate: false,
     scanNav: false,
     avatar: false,
+    installApp: false,
   });
 
   const dishCoveryHandleHover = (element, isHover) => {
@@ -60,26 +63,56 @@ export default function DishCoveryLanding() {
   useEffect(() => {
     const userLoggedIn = sessionStorage.getItem('userJustLoggedIn');
     const adminLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
-    
+
     if (userLoggedIn === 'true') {
       setDishCoveryNotification({ show: true, message: 'Welcome back! Ready to cook up something delicious?' });
       sessionStorage.removeItem('userJustLoggedIn');
-      
+
       setTimeout(() => {
         setDishCoveryNotification({ show: false, message: '' });
       }, 4000);
     } else if (adminLoggedIn === 'true') {
       setDishCoveryNotification({ show: true, message: 'Admin login successful!' });
       sessionStorage.removeItem('adminJustLoggedIn');
-      
+
       setTimeout(() => {
         setDishCoveryNotification({ show: false, message: '' });
       }, 4000);
     }
   }, []);
 
+  // PWA Install Prompt Handler - One Click Install
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      console.log('📱 beforeinstallprompt event fired!');
+      e.preventDefault();
 
-  
+      // Store the event so it can be triggered later
+      setDishCoveryDeferredPrompt(e);
+      console.log('✅ Install prompt captured and ready for one-click install!');
+      console.log('💡 Look for the "Install App" button on the page');
+    };
+
+    // Listen for the install prompt event
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    console.log('👂 Listening for beforeinstallprompt event...');
+
+    // Check if app is already installed
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone) {
+      console.log('✅ App is already installed (standalone mode)');
+    }
+
+    // Check for successful installation
+    window.addEventListener('appinstalled', (evt) => {
+      console.log('✅ PWA was installed successfully!');
+      localStorage.setItem('pwaInstalled', 'true');
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -303,6 +336,89 @@ const dishCoveryHandleForgotPasswordSubmit = async (e) => {
   }
 };
 
+const dishCoveryHandlePWAInstall = async () => {
+  // Check if iOS device
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+  if (isIOS) {
+    // For iOS, show manual installation instructions
+    setDishCoveryShowIOSInstructions(true);
+    setDishCoveryShowPWAPrompt(false);
+    return;
+  }
+
+  // Check if app is already installed
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    console.log('✅ App is already installed! Redirecting...');
+    setDishCoveryShowPWAPrompt(false);
+    // Redirect to app if already installed
+    window.location.href = dishCoveryIsLoggedIn ? '/user/get-started' : '/user/home';
+    return;
+  }
+
+  // For Android/Chrome, use the deferred prompt
+  if (!dishCoveryDeferredPrompt) {
+    console.log('⚠️ Install prompt not available. This can happen if:');
+    console.log('- The app is already installed');
+    console.log('- The browser has already shown the prompt');
+    console.log('- PWA installation criteria are not met');
+    setDishCoveryShowPWAPrompt(false);
+    return;
+  }
+
+  try {
+    // Show the native install prompt immediately
+    console.log('🚀 Triggering native install prompt...');
+    await dishCoveryDeferredPrompt.prompt();
+
+    // Wait for the user to respond to the prompt
+    const { outcome } = await dishCoveryDeferredPrompt.userChoice;
+
+    console.log(`📱 User response: ${outcome}`);
+
+    if (outcome === 'accepted') {
+      console.log('✅ PWA installed successfully!');
+
+      // Store installation success
+      localStorage.setItem('pwaInstalled', 'true');
+      localStorage.setItem('pwaInstallTime', Date.now().toString());
+
+      // Show success notification
+      setDishCoveryNotification({
+        show: true,
+        message: '🎉 DishCovery installed! Opening app...'
+      });
+
+      // Wait a bit for installation to complete, then redirect
+      setTimeout(() => {
+        console.log('🔄 Redirecting to app...');
+        window.location.href = dishCoveryIsLoggedIn ? '/user/get-started' : '/user/home';
+      }, 1500);
+    } else {
+      console.log('❌ User declined installation');
+    }
+
+    // Clear the deferredPrompt
+    setDishCoveryDeferredPrompt(null);
+    setDishCoveryShowPWAPrompt(false);
+  } catch (error) {
+    console.error('❌ Error showing install prompt:', error);
+    setDishCoveryShowPWAPrompt(false);
+  }
+};
+
+const dishCoveryHandlePWADismiss = () => {
+  setDishCoveryShowPWAPrompt(false);
+  localStorage.setItem('pwaPromptDismissed', 'true');
+  localStorage.setItem('pwaPromptDismissedTime', Date.now().toString());
+};
+
+const dishCoveryHandleIOSInstall = () => {
+  // For iOS, show instructions modal
+  setDishCoveryShowIOSInstructions(true);
+  setDishCoveryShowPWAPrompt(false);
+};
+
 const dishCoveryTopRecipes = [
     { name: "Chicken Adobo", time: "50 min", difficulty: "Easy", img: "/images/food-carousel/adobong-manok.jpg" },
     { name: "Sauteed Chayote Greens", time: "20 min", difficulty: "Easy", img: "/images/food-carousel/ginisang-talbos.jpg" },
@@ -338,6 +454,97 @@ const dishCoveryBottomRecipes = [
       {dishCoveryNotification.show && (
         <div className="custom-notification">
           {dishCoveryNotification.message}
+        </div>
+      )}
+
+
+
+      {/* iOS Installation Instructions Modal */}
+      {dishCoveryShowIOSInstructions && (
+        <div className="modal-overlay" onClick={() => setDishCoveryShowIOSInstructions(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '400px'}}>
+            <button className="close-btn" onClick={() => setDishCoveryShowIOSInstructions(false)}>×</button>
+            <div className="modal-logo"><img src="/android/android-launchericon-192-192.png" alt="DishCovery Logo" /></div>
+            <h2 className="modal-title">Install on iPhone</h2>
+            <p className="modal-subtitle">Follow these simple steps:</p>
+
+            <div style={{textAlign: 'left', padding: '16px 0'}}>
+              <div style={{display: 'flex', alignItems: 'flex-start', marginBottom: '16px'}}>
+                <div style={{
+                  background: '#2E7D32',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  marginRight: '12px',
+                  flexShrink: 0
+                }}>1</div>
+                <div>
+                  <p style={{margin: 0, fontSize: '14px', color: '#424242'}}>
+                    Tap the <strong>Share button</strong>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#2E7D32" style={{display: 'inline', verticalAlign: 'middle', margin: '0 4px'}}>
+                      <path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z"/>
+                    </svg>
+                    at the bottom of Safari
+                  </p>
+                </div>
+              </div>
+
+              <div style={{display: 'flex', alignItems: 'flex-start', marginBottom: '16px'}}>
+                <div style={{
+                  background: '#2E7D32',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  marginRight: '12px',
+                  flexShrink: 0
+                }}>2</div>
+                <div>
+                  <p style={{margin: 0, fontSize: '14px', color: '#424242'}}>
+                    Scroll down and tap <strong>"Add to Home Screen"</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div style={{display: 'flex', alignItems: 'flex-start'}}>
+                <div style={{
+                  background: '#2E7D32',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  marginRight: '12px',
+                  flexShrink: 0
+                }}>3</div>
+                <div>
+                  <p style={{margin: 0, fontSize: '14px', color: '#424242'}}>
+                    Tap <strong>"Add"</strong> and DishCovery will appear on your home screen!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="modal-signin-btn"
+              onClick={() => setDishCoveryShowIOSInstructions(false)}
+              style={{marginTop: '8px'}}
+            >
+              Got it!
+            </button>
+          </div>
         </div>
       )}
 
@@ -395,6 +602,7 @@ const dishCoveryBottomRecipes = [
           </div>
 
           <div className="button-group">
+            {/* Green Scan Ingredients Button */}
             <button
               className={`scan-btn ${dishCoveryHoverStates.scan ? 'scan-btn-hover' : ''}`}
               onClick={dishCoveryHandleScanClick}
@@ -421,7 +629,36 @@ const dishCoveryBottomRecipes = [
               </svg>
               <span className="btn-text">Scan Ingredients</span>
             </button>
-            
+
+            {/* Green Install App Button - Only show when PWA prompt is available */}
+            {dishCoveryDeferredPrompt && !window.matchMedia('(display-mode: standalone)').matches && (
+              <button
+                className={`scan-btn ${dishCoveryHoverStates.installApp ? 'scan-btn-hover' : ''}`}
+                onClick={dishCoveryHandlePWAInstall}
+                onMouseEnter={() => dishCoveryHandleHover('installApp', true)}
+                onMouseLeave={() => dishCoveryHandleHover('installApp', false)}
+                style={{
+                  backgroundColor: '#2E7D32',
+                  color: 'white',
+                  padding: '10px 20px',
+                  borderRadius: '25px',
+                  border: 'none',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: dishCoveryHoverStates.installApp ? '0 5px 12px rgba(46, 125, 50, 0.25)' : '0 3px 8px rgba(46, 125, 50, 0.15)',
+                  transition: 'all 0.3s ease',
+                }}
+                title="Install DishCovery app with one click!"
+              >
+                <span style={{ fontSize: '18px' }}>📱</span>
+                <span className="btn-text">Install App</span>
+              </button>
+            )}
+
               <a
               href="/pantry"
               className={`how-to-use ${dishCoveryHoverStates.howToUse ? 'how-to-use-hover' : ''}`}
@@ -642,7 +879,7 @@ const dishCoveryBottomRecipes = [
         <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
-            <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
+            <div className="modal-logo"><img src="/android/android-launchericon-192-192.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">Welcome to DishCovery!</h2>
             <p className="modal-subtitle">Sign in to continue</p>
             {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
@@ -740,7 +977,7 @@ const dishCoveryBottomRecipes = [
         <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
-            <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
+            <div className="modal-logo"><img src="/android/android-launchericon-192-192.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">New to DishCovery?</h2>
             <p className="modal-subtitle">Create account to continue</p>
             {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
@@ -819,7 +1056,7 @@ const dishCoveryBottomRecipes = [
         <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
-            <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
+            <div className="modal-logo"><img src="/android/android-launchericon-192-192.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">One More Step</h2>
             <p className="modal-subtitle">Verify your account to get started</p>
             {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}

@@ -1,8 +1,9 @@
-// FIXED auth.js (BACKEND) - FINAL VERSION WITH ALL FIXES
+// FIXED auth.js (BACKEND) - FINAL VERSION WITH SENDGRID HTTP API
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
+import sgMail from '@sendgrid/mail';
 import nodemailer from 'nodemailer';
 import pool from '../db.js';
 import authenticateToken from '../middleware/auth.js';
@@ -22,18 +23,15 @@ const googleClient = new OAuth2Client(
   `${FRONTEND_URL}/auth/google/callback`
 );
 
-// EMAIL TRANSPORTER - WORKS WITH RENDER (Uses SendGrid or Gmail fallback)
-const emailTransporter = process.env.SENDGRID_API_KEY
+// SENDGRID HTTP API - WORKS WITH RENDER (No SMTP ports needed!)
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('✅ SendGrid HTTP API configured');
+}
+
+// GMAIL SMTP FALLBACK (for local development only)
+const gmailTransporter = process.env.EMAIL_USER && process.env.EMAIL_APP_PASSWORD
   ? nodemailer.createTransport({
-      host: 'smtp.sendgrid.net',
-      port: 587,
-      secure: false,
-      auth: {
-        user: 'apikey',
-        pass: process.env.SENDGRID_API_KEY
-      }
-    })
-  : nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
       secure: false,
@@ -44,7 +42,8 @@ const emailTransporter = process.env.SENDGRID_API_KEY
       tls: {
         rejectUnauthorized: false
       }
-    });
+    })
+  : null;
 
 // Utility Functions
 const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -57,42 +56,65 @@ const validatePassword = (password) => {
 };
 const generateVerificationCode = () => Math.floor(100000 + Math.random() * 900000).toString();
 
-// Send verification email
+// Send verification email using SendGrid HTTP API or Gmail SMTP fallback
 const sendVerificationEmail = async (email, code, firstName = '') => {
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.EMAIL_USER;
-  const mailOptions = {
-    from: `"DishCovery" <${fromEmail}>`,
-    to: email,
-    subject: 'Verify Your DishCovery Account',
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <body style="font-family: Arial, sans-serif; color: #333;">
-        <div style="max-width:600px;margin:0 auto;padding:20px;">
-          <h2 style="background:#667eea;color:white;padding:15px;border-radius:10px 10px 0 0;text-align:center;">
-            Welcome to DishCovery!
-          </h2>
-          <div style="background:#f9f9f9;padding:20px;border-radius:0 0 10px 10px;">
-            <p>Hi ${firstName || 'there'}!</p>
-            <p>Please verify your email using the code below:</p>
-            <div style="background:white;border:2px dashed #667eea;padding:15px;text-align:center;font-size:28px;font-weight:bold;color:#667eea;">
-              ${code}
-            </div>
-            <p>This code will expire in 10 minutes.</p>
-            <p>If you didn't register, ignore this email.</p>
-            <p style="font-size:12px;color:#888;">© 2025 DishCovery. All rights reserved.</p>
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333;">
+      <div style="max-width:600px;margin:0 auto;padding:20px;">
+        <h2 style="background:#667eea;color:white;padding:15px;border-radius:10px 10px 0 0;text-align:center;">
+          Welcome to DishCovery!
+        </h2>
+        <div style="background:#f9f9f9;padding:20px;border-radius:0 0 10px 10px;">
+          <p>Hi ${firstName || 'there'}!</p>
+          <p>Please verify your email using the code below:</p>
+          <div style="background:white;border:2px dashed #667eea;padding:15px;text-align:center;font-size:28px;font-weight:bold;color:#667eea;">
+            ${code}
           </div>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you didn't register, ignore this email.</p>
+          <p style="font-size:12px;color:#888;">© 2025 DishCovery. All rights reserved.</p>
         </div>
-      </body>
-      </html>`
-  };
+      </div>
+    </body>
+    </html>`;
 
   try {
-    await emailTransporter.sendMail(mailOptions);
-    console.log(`Verification email sent to ${email}`);
-    return true;
+    // Use SendGrid HTTP API (works on Render - no SMTP ports needed!)
+    if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
+      const msg = {
+        to: email,
+        from: {
+          email: process.env.SENDGRID_FROM_EMAIL,
+          name: 'DishCovery'
+        },
+        subject: 'Verify Your DishCovery Account',
+        html: emailHtml
+      };
+
+      await sgMail.send(msg);
+      console.log(`✅ Verification email sent via SendGrid HTTP API to ${email}`);
+      return true;
+    }
+
+    // Fallback to Gmail SMTP (local development only)
+    if (gmailTransporter) {
+      const mailOptions = {
+        from: `"DishCovery" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Verify Your DishCovery Account',
+        html: emailHtml
+      };
+
+      await gmailTransporter.sendMail(mailOptions);
+      console.log(`✅ Verification email sent via Gmail SMTP to ${email}`);
+      return true;
+    }
+
+    throw new Error('No email service configured');
   } catch (error) {
-    console.error('Email send error:', error);
+    console.error('❌ Email send error:', error);
     throw new Error('Failed to send verification email');
   }
 };
