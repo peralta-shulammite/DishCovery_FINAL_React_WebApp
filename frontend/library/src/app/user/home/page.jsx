@@ -478,7 +478,7 @@ const dishCoveryBottomRecipes = [
         <div className="modal-overlay" onClick={() => setDishCoveryShowIOSInstructions(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{maxWidth: '400px'}}>
             <button className="close-btn" onClick={() => setDishCoveryShowIOSInstructions(false)}>×</button>
-            <div className="modal-logo"><img src="/public/logo.png" alt="DishCovery Logo" /></div>
+            <div className="modal-logo"><img src="/android/android-launchericon-192-192.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">Install on iPhone</h2>
             <p className="modal-subtitle">Follow these simple steps:</p>
 
@@ -893,7 +893,7 @@ const dishCoveryBottomRecipes = [
         <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
-            <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
+            <div className="modal-logo"><img src="/android/android-launchericon-192-192.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">Welcome to DishCovery!</h2>
             <p className="modal-subtitle">Sign in to continue</p>
             {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
@@ -991,7 +991,7 @@ const dishCoveryBottomRecipes = [
         <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
-            <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
+            <div className="modal-logo"><img src="/android/android-launchericon-192-192.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">New to DishCovery?</h2>
             <p className="modal-subtitle">Create account to continue</p>
             {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
@@ -1070,7 +1070,7 @@ const dishCoveryBottomRecipes = [
         <div className="modal-overlay" onClick={dishCoveryCloseModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
-            <div className="modal-logo"><img src="/logo.png" alt="DishCovery Logo" /></div>
+            <div className="modal-logo"><img src="/android/android-launchericon-192-192.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">One More Step</h2>
             <p className="modal-subtitle">Verify your account to get started</p>
             {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
