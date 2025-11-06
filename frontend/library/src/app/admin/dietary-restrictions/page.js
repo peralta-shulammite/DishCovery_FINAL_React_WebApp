@@ -24,13 +24,13 @@ const DietaryRestrictionsManagementContent = () => {
   // Form state for adding/editing restrictions
   const [formData, setFormData] = useState({
     name: '',
-    category: 'Allergies',
+    category: 'Allergy',
     description: '',
     status: 'Active',
     visibility: 'Public',
   });
 
-  const categories = ['Allergies', 'Health Conditions', 'Dietary Lifestyle'].sort();
+  const categories = ['Allergy', 'Intolerance', 'Dietary Lifestyle'].sort();
   const statuses = ['Active', 'Inactive'];
 
   // Fetch dietary restrictions from database
@@ -195,7 +195,7 @@ const DietaryRestrictionsManagementContent = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      category: 'Allergies',
+      category: 'Allergy',
       description: '',
       status: 'Active',
       visibility: 'Public',

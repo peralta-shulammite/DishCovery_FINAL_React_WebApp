@@ -151,25 +151,31 @@ const transformRecipeData = (recipeData) => {
   return {
     title: recipeData.title || '',
     description: recipeData.description || '',
-    instructions: Array.isArray(recipeData.instructions) 
-      ? recipeData.instructions 
+    instructions: Array.isArray(recipeData.instructions)
+      ? recipeData.instructions
       : (recipeData.instructions ? [recipeData.instructions] : []),
     prep_time: parseInt(recipeData.prep_time) || null,
     cook_time: parseInt(recipeData.cook_time) || null,
     total_time: recipeData.total_time || null,
     servings: parseInt(recipeData.servings) || null,
     difficulty: recipeData.difficulty || 'Easy',
-    images: Array.isArray(recipeData.images) 
-      ? recipeData.images 
+    images: Array.isArray(recipeData.images)
+      ? recipeData.images
       : (recipeData.images ? [recipeData.images] : []),
     mealType: recipeData.mealType || 'Light Meal',
     dish_type: recipeData.dish_type || '',
     ingredients: transformedIngredients,
-    dietaryTags: Array.isArray(recipeData.dietaryTags) 
-      ? recipeData.dietaryTags 
+    dietaryTags: Array.isArray(recipeData.dietaryTags)
+      ? recipeData.dietaryTags
       : [],
-    healthTags: Array.isArray(recipeData.healthTags) 
-      ? recipeData.healthTags 
+    healthTags: Array.isArray(recipeData.healthTags)
+      ? recipeData.healthTags
+      : [],
+    dietaryLifestyleTags: Array.isArray(recipeData.dietaryLifestyleTags)
+      ? recipeData.dietaryLifestyleTags
+      : [],
+    medicalConditions: Array.isArray(recipeData.medicalConditions)
+      ? recipeData.medicalConditions
       : [],
     verificationStatus: recipeData.verificationStatus || 'AI-generated',
     verifierName: recipeData.verifierName || '',

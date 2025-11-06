@@ -23,6 +23,14 @@ const RecipeManagement = () => {
   const [error, setError] = useState(null);
   const [recipes, setRecipes] = useState([]);
 
+  // Restrictions state
+  const [availableDietaryLifestyle, setAvailableDietaryLifestyle] = useState([]);
+  const [availableMedicalConditions, setAvailableMedicalConditions] = useState([]);
+  const [restrictionsLoading, setRestrictionsLoading] = useState(true);
+
+  // Image URL input state
+  const [imageUrlInput, setImageUrlInput] = useState('');
+
   // Form state for adding/editing recipes
   const [formData, setFormData] = useState({
     title: '',
@@ -36,6 +44,8 @@ const RecipeManagement = () => {
       optional: [{ ingredient: '', alternative: '' }]
     },
     dietaryTags: [],
+    dietaryLifestyleTags: [],
+    medicalConditions: [],
     servings: '2',
     verificationStatus: 'AI-generated',
     verifierName: '',
@@ -45,6 +55,48 @@ const RecipeManagement = () => {
   const mealTypes = ['Breakfast', 'Dessert', 'Dinner', 'Heavy Meal', 'Light Meal', 'Lunch', 'Smoothie', 'Snack'].sort();
   const dietaryOptions = ['Dairy-free', 'Gluten-free', 'Halal', 'Keto', 'Mediterranean', 'Paleo', 'Vegan', 'Vegetarian'].sort();
   const servingsOptions = ['1', '2', '3', '4', '5', '6', '7', '8+'].sort();
+
+  // Fetch dietary restrictions from database
+  const fetchRestrictions = async () => {
+    try {
+      setRestrictionsLoading(true);
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
+
+      const response = await fetch(`${API_BASE_URL}/api/dietary-restrictions/categories`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch restrictions');
+      }
+
+      const result = await response.json();
+      console.log('Fetched restrictions:', result);
+
+      if (result.success && result.data) {
+        // Category ID 3 = Dietary Lifestyle
+        const dietaryLifestyle = result.data['Dietary Lifestyle'] || [];
+        // Category ID 1 and 2 = Allergy and Intolerance (Medical Conditions)
+        const allergies = result.data['Allergy'] || [];
+        const intolerances = result.data['Intolerance'] || [];
+        const medicalConditions = [...allergies, ...intolerances];
+
+        setAvailableDietaryLifestyle(dietaryLifestyle.map(r => r.name));
+        setAvailableMedicalConditions(medicalConditions.map(r => r.name));
+
+        console.log('Dietary Lifestyle:', dietaryLifestyle);
+        console.log('Medical Conditions:', medicalConditions);
+      }
+    } catch (err) {
+      console.error('Error fetching restrictions:', err);
+    } finally {
+      setRestrictionsLoading(false);
+    }
+  };
 
   // Fetch recipes from database
   const fetchRecipes = async () => {
@@ -71,6 +123,11 @@ const RecipeManagement = () => {
       setLoading(false);
     }
   };
+
+  // Load restrictions on component mount
+  useEffect(() => {
+    fetchRestrictions();
+  }, []);
 
   // Load recipes on component mount and when filters change
   useEffect(() => {
@@ -122,9 +179,16 @@ const RecipeManagement = () => {
     setShowAddModal(true);
   };
 
-  const handleViewRecipe = (recipe) => {
-    setSelectedRecipe(recipe);
-    setShowViewModal(true);
+  const handleViewRecipe = async (recipe) => {
+    try {
+      // Fetch full recipe with ingredients
+      const fullRecipe = await recipeAPI.getById(recipe.id);
+      setSelectedRecipe(fullRecipe);
+      setShowViewModal(true);
+    } catch (error) {
+      console.error('Error loading recipe details:', error);
+      alert('Failed to load recipe details');
+    }
   };
 
   // ✅ REPLACED: Fetch full recipe before editing
@@ -153,11 +217,13 @@ const RecipeManagement = () => {
           condiments: convertIngredients(fullRecipe.ingredients.condiments),
           optional: convertIngredients(fullRecipe.ingredients.optional)
         },
-        verifierName: fullRecipe.verificationStatus.includes('Checked by') 
-          ? fullRecipe.verificationStatus.split(': ')[1].split(', ')[0] 
+        dietaryLifestyleTags: fullRecipe.dietaryLifestyleTags || [],
+        medicalConditions: fullRecipe.medicalConditions || [],
+        verifierName: fullRecipe.verificationStatus.includes('Checked by')
+          ? fullRecipe.verificationStatus.split(': ')[1].split(', ')[0]
           : '',
-        verifierCredentials: fullRecipe.verificationStatus.includes('Checked by') 
-          ? fullRecipe.verificationStatus.split(', ')[1] || '' 
+        verifierCredentials: fullRecipe.verificationStatus.includes('Checked by')
+          ? fullRecipe.verificationStatus.split(', ')[1] || ''
           : ''
       });
       
@@ -224,6 +290,8 @@ const RecipeManagement = () => {
         optional: [{ ingredient: '', alternative: '' }]
       },
       dietaryTags: [],
+      dietaryLifestyleTags: [],
+      medicalConditions: [],
       servings: '2',
       verificationStatus: 'AI-generated',
       verifierName: '',
@@ -289,11 +357,11 @@ const RecipeManagement = () => {
   };
 
   const toggleTag = (tagType, tag) => {
-    const currentTags = formData[tagType];
+    const currentTags = formData[tagType] || [];
     const newTags = currentTags.includes(tag)
       ? currentTags.filter(t => t !== tag)
       : [...currentTags, tag];
-    
+
     setFormData({
       ...formData,
       [tagType]: newTags
@@ -312,12 +380,155 @@ const RecipeManagement = () => {
     return matchesSearch && matchesMealType && matchesStatus && matchesHealth;
   });
 
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files).slice(0, 4);
-    const imageUrls = files.map(file => URL.createObjectURL(file));
+  const compressImage = (file, maxWidth = 600, maxHeight = 450, quality = 0.5) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const img = new Image();
+
+        img.onload = () => {
+          // Create canvas
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          // Calculate new dimensions while maintaining aspect ratio
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+
+          // Set canvas size
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw and compress image
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to base64 with compression
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+
+          // Check size (warn if still too large)
+          const sizeInKB = Math.round((compressedBase64.length * 3) / 4 / 1024);
+          console.log(`Image compressed: ${img.width}x${img.height} → ${width}x${height}, Size: ${sizeInKB}KB`);
+
+          if (sizeInKB > 500) {
+            console.warn(`⚠️ Image still large (${sizeInKB}KB). Consider using a smaller image.`);
+          }
+
+          resolve(compressedBase64);
+        };
+
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files).slice(0, 4 - formData.images.length);
+
+    try {
+      // Compress and convert images to base64
+      const compressedImages = await Promise.all(
+        files.map(file => compressImage(file))
+      );
+
+      setFormData({
+        ...formData,
+        images: [...formData.images, ...compressedImages].slice(0, 4)
+      });
+
+      // Show success message
+      if (files.length > 0) {
+        console.log(`✅ ${files.length} image(s) compressed and added successfully`);
+      }
+    } catch (error) {
+      console.error('Error compressing images:', error);
+      alert('Failed to process images. Please try again.');
+    }
+  };
+
+  const handleAddImageUrl = () => {
+    const trimmedUrl = imageUrlInput.trim();
+
+    // Validate URL format
+    if (!trimmedUrl) {
+      alert('Please enter an image URL');
+      return;
+    }
+
+    // Basic URL validation
+    try {
+      const url = new URL(trimmedUrl);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        alert('URL must start with http:// or https://');
+        return;
+      }
+
+      // Validate it's a direct image URL (not a search result or webpage)
+      const invalidPatterns = [
+        'google.com/search',
+        'google.com/imgres',
+        'bing.com/images',
+        'yahoo.com/search',
+        'pinterest.com'
+      ];
+
+      if (invalidPatterns.some(pattern => url.href.includes(pattern))) {
+        alert('Please use a direct image URL, not a search result page.\n\nRight-click the image and select "Copy Image Address" or upload a file instead.');
+        return;
+      }
+
+      // Validate it has an image extension (optional but recommended)
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+      const hasImageExtension = imageExtensions.some(ext => url.pathname.toLowerCase().includes(ext));
+
+      if (!hasImageExtension && !url.href.includes('cloudinary') && !url.href.includes('imgur') && !url.href.includes('unsplash')) {
+        const proceed = confirm(
+          'This URL does not appear to be a direct image link.\n\n' +
+          'Direct image URLs usually end with .jpg, .png, etc.\n\n' +
+          'Continue anyway?'
+        );
+        if (!proceed) return;
+      }
+    } catch (e) {
+      alert('Invalid URL format');
+      return;
+    }
+
+    // Check if we already have 4 images
+    if (formData.images.length >= 4) {
+      alert('Maximum 4 images allowed');
+      return;
+    }
+
+    // Add URL to images array
     setFormData({
       ...formData,
-      images: imageUrls
+      images: [...formData.images, trimmedUrl]
+    });
+
+    // Clear input
+    setImageUrlInput('');
+  };
+
+  const handleRemoveImage = (index) => {
+    const newImages = formData.images.filter((_, i) => i !== index);
+    setFormData({
+      ...formData,
+      images: newImages
     });
   };
 
@@ -474,10 +685,17 @@ const RecipeManagement = () => {
               <div key={recipe.id} className="recipe-card" onClick={() => handleViewRecipe(recipe)}>
                 <div className="recipe-image">
                   {/* ✅ FIXED: Handle both images array and image_url string */}
-                  <img 
-                    src={recipe.images?.[0] || recipe.image_url || 'https://via.placeholder.com/400x300?text=No+Image'} 
+                  <img
+                    src={(() => {
+                      const imgUrl = recipe.images?.[0] || recipe.image_url;
+                      // Check if URL is valid (starts with http/https or data:)
+                      if (imgUrl && (imgUrl.startsWith('http') || imgUrl.startsWith('data:'))) {
+                        return imgUrl;
+                      }
+                      return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="20" text-anchor="middle" x="200" y="150"%3ENo Image%3C/text%3E%3C/svg%3E';
+                    })()}
                     alt={recipe.title}
-                    onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=No+Image'; }}
+                    onError={(e) => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="20" text-anchor="middle" x="200" y="150"%3ENo Image%3C/text%3E%3C/svg%3E'; }}
                   />
                   <div className="recipe-actions">
                     <button className="recipe-action-btn edit" onClick={(e) => { 
@@ -559,21 +777,97 @@ const RecipeManagement = () => {
 
                 <div className="form-section">
                   <label className="form-label">Photos (1-4 required) *</label>
-                  <input
-                    type="file"
-                    className="form-input"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageUpload}
-                    required={!formData.images.length}
-                  />
+
+                  {/* File Upload */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <input
+                      type="file"
+                      className="form-input"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      disabled={formData.images.length >= 4}
+                      required={!formData.images.length}
+                    />
+                    <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
+                      Upload from computer (auto-compressed to 600x450, 60% quality for smaller file size)
+                    </small>
+                  </div>
+
+                  {/* URL Input */}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <input
+                      type="url"
+                      className="form-input"
+                      placeholder="Or paste image URL (https://...)"
+                      value={imageUrlInput}
+                      onChange={(e) => setImageUrlInput(e.target.value)}
+                      disabled={formData.images.length >= 4}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddImageUrl}
+                      disabled={formData.images.length >= 4 || !imageUrlInput.trim()}
+                      style={{
+                        padding: '8px 16px',
+                        background: formData.images.length >= 4 || !imageUrlInput.trim() ? '#ccc' : '#2E7D32',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: formData.images.length >= 4 || !imageUrlInput.trim() ? 'not-allowed' : 'pointer',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Add URL
+                    </button>
+                  </div>
+
+                  {/* Image Preview with Remove Button */}
                   {formData.images.length > 0 && (
-                    <div className="image-preview">
+                    <div className="image-preview" style={{ marginTop: '15px' }}>
                       {formData.images.map((image, index) => (
-                        <img key={index} src={image} alt={`Preview ${index + 1}`} className="preview-image" />
+                        <div key={index} style={{ position: 'relative', display: 'inline-block', margin: '5px' }}>
+                          <img
+                            src={image}
+                            alt={`Preview ${index + 1}`}
+                            className="preview-image"
+                            onError={(e) => {
+                              e.target.style.border = '2px solid red';
+                              e.target.alt = 'Failed to load';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(index)}
+                            style={{
+                              position: 'absolute',
+                              top: '5px',
+                              right: '5px',
+                              background: 'rgba(255, 0, 0, 0.8)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '24px',
+                              height: '24px',
+                              cursor: 'pointer',
+                              fontSize: '16px',
+                              fontWeight: 'bold',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: 0
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
+                  <small style={{ color: '#666', display: 'block', marginTop: '8px' }}>
+                    {formData.images.length}/4 images added
+                  </small>
                 </div>
 
                 <div className="form-section">
@@ -660,18 +954,46 @@ const RecipeManagement = () => {
 
                 <div className="form-section">
                   <label className="form-label">Dietary Lifestyle Tags</label>
-                  <div className="tag-grid">
-                    {dietaryOptions.map(tag => (
-                      <button
-                        key={tag}
-                        type="button"
-                        className={`tag-btn ${formData.dietaryTags.includes(tag) ? 'active' : ''}`}
-                        onClick={() => toggleTag('dietaryTags', tag)}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
+                  {restrictionsLoading ? (
+                    <p style={{ fontSize: '14px', color: '#64748b' }}>Loading dietary restrictions...</p>
+                  ) : availableDietaryLifestyle.length === 0 ? (
+                    <p style={{ fontSize: '14px', color: '#dc2626' }}>No dietary lifestyle restrictions available. Please add them in the dietary restrictions management page.</p>
+                  ) : (
+                    <div className="tag-grid">
+                      {availableDietaryLifestyle.map(tag => (
+                        <button
+                          key={tag}
+                          type="button"
+                          className={`tag-btn ${formData.dietaryLifestyleTags.includes(tag) ? 'active' : ''}`}
+                          onClick={() => toggleTag('dietaryLifestyleTags', tag)}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-section">
+                  <label className="form-label">Medical Conditions (Allergies & Intolerances)</label>
+                  {restrictionsLoading ? (
+                    <p style={{ fontSize: '14px', color: '#64748b' }}>Loading medical conditions...</p>
+                  ) : availableMedicalConditions.length === 0 ? (
+                    <p style={{ fontSize: '14px', color: '#dc2626' }}>No medical conditions available. Please add them in the dietary restrictions management page.</p>
+                  ) : (
+                    <div className="tag-grid">
+                      {availableMedicalConditions.map(tag => (
+                        <button
+                          key={tag}
+                          type="button"
+                          className={`tag-btn medical ${formData.medicalConditions.includes(tag) ? 'active' : ''}`}
+                          onClick={() => toggleTag('medicalConditions', tag)}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="form-section">
@@ -750,11 +1072,18 @@ const RecipeManagement = () => {
               <div className="recipe-details">
                 <div className="recipe-images">
                   {/* ✅ FIXED: Handle both images array and image_url string */}
-                  <img 
-                    src={selectedRecipe.images?.[0] || selectedRecipe.image_url || 'https://via.placeholder.com/400x300?text=No+Image'} 
-                    alt={selectedRecipe.title} 
+                  <img
+                    src={(() => {
+                      const imgUrl = selectedRecipe.images?.[0] || selectedRecipe.image_url;
+                      // Check if URL is valid (starts with http/https or data:)
+                      if (imgUrl && (imgUrl.startsWith('http') || imgUrl.startsWith('data:'))) {
+                        return imgUrl;
+                      }
+                      return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="20" text-anchor="middle" x="200" y="150"%3ENo Image%3C/text%3E%3C/svg%3E';
+                    })()}
+                    alt={selectedRecipe.title}
                     className="main-image"
-                    onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=No+Image'; }}
+                    onError={(e) => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="20" text-anchor="middle" x="200" y="150"%3ENo Image%3C/text%3E%3C/svg%3E'; }}
                   />
                 </div>
                 
@@ -781,11 +1110,27 @@ const RecipeManagement = () => {
 
                 <div className="recipe-tags-display">
                   <div className="tag-group">
-                    <h4>Dietary Tags:</h4>
+                    <h4>Dietary Lifestyle Tags:</h4>
                     <div className="tags">
-                      {(selectedRecipe.dietaryTags || []).map(tag => (
-                        <span key={tag} className="tag dietary">{tag}</span>
-                      ))}
+                      {(selectedRecipe.dietaryLifestyleTags || []).length > 0 ? (
+                        selectedRecipe.dietaryLifestyleTags.map(tag => (
+                          <span key={tag} className="tag dietary">{tag}</span>
+                        ))
+                      ) : (
+                        <span className="tag servings">None</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="tag-group">
+                    <h4>Medical Conditions (Allergies & Intolerances):</h4>
+                    <div className="tags">
+                      {(selectedRecipe.medicalConditions || []).length > 0 ? (
+                        selectedRecipe.medicalConditions.map(tag => (
+                          <span key={tag} className="tag dietary">{tag}</span>
+                        ))
+                      ) : (
+                        <span className="tag servings">None</span>
+                      )}
                     </div>
                   </div>
                   <div className="tag-group">
@@ -830,7 +1175,7 @@ const RecipeManagement = () => {
                       </ul>
                     </div>
                     <div className="ingredient-group">
-                      <h5>Optional:</h5>
+                      <h5>Optional Ingredients:</h5>
                       <ul>
                         {(selectedRecipe.ingredients?.optional || []).map((item, index) => (
                           <li key={index} className="ingredient-with-alternative">
