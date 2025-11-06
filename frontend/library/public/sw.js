@@ -4,7 +4,6 @@ const RUNTIME_CACHE = 'dishcovery-runtime-v1';
 
 // Assets to cache on install
 const PRECACHE_URLS = [
-  '/',
   '/user/home',
   '/assets/logo copy.png',
   '/main.png',
