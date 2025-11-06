@@ -1,11 +1,14 @@
 // DishCovery Service Worker
-const CACHE_NAME = 'dishcovery-v1';
-const RUNTIME_CACHE = 'dishcovery-runtime-v1';
+const CACHE_NAME = 'dishcovery-v2';
+const RUNTIME_CACHE = 'dishcovery-runtime-v2';
 
 // Assets to cache on install
 const PRECACHE_URLS = [
   '/user/home',
-  '/assets/logo copy.png',
+  '/manifest.json',
+  '/android/android-launchericon-192-192.png',
+  '/android/android-launchericon-512-512.png',
+  '/ios/180.png',
   '/main.png',
   '/offline.html'
 ];
