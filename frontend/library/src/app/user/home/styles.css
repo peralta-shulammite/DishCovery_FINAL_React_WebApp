@@ -2346,3 +2346,287 @@
 
 /* ==================== END PWA FLOATING BUTTON STYLES ==================== */
 
+/* ==================== NEW PWA FLOATING INSTALL BUTTON STYLES ==================== */
+
+/* Floating Install Container - Positioned at top right */
+.pwa-floating-install-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Expanded state - Button with text and close X button */
+.pwa-install-expanded {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.pwa-install-button-expanded {
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(46, 125, 50, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Poppins', sans-serif;
+  white-space: nowrap;
+}
+
+.pwa-install-button-expanded:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px rgba(46, 125, 50, 0.45);
+  background: linear-gradient(135deg, #1B5E20 0%, #388E3C 100%);
+}
+
+.pwa-install-button-expanded:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 3px 12px rgba(46, 125, 50, 0.3);
+}
+
+.pwa-install-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.pwa-install-text {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Close X button */
+.pwa-install-close {
+  background: rgba(46, 125, 50, 0.9);
+  color: white;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.25);
+  font-weight: 300;
+  padding: 0;
+}
+
+.pwa-install-close:hover {
+  background: rgba(27, 94, 32, 0.95);
+  transform: rotate(90deg) scale(1.1);
+  box-shadow: 0 6px 16px rgba(46, 125, 50, 0.35);
+}
+
+.pwa-install-close:active {
+  transform: rotate(90deg) scale(0.95);
+}
+
+/* Collapsed dot state */
+.pwa-install-button-dot {
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+  color: white;
+  border: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(46, 125, 50, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: pwaButtonPulse 2s ease-in-out infinite;
+  padding: 0;
+}
+
+.pwa-install-button-dot:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(46, 125, 50, 0.45);
+  background: linear-gradient(135deg, #1B5E20 0%, #388E3C 100%);
+  animation: none;
+}
+
+.pwa-install-button-dot:active {
+  transform: scale(0.95);
+  box-shadow: 0 3px 12px rgba(46, 125, 50, 0.3);
+}
+
+.pwa-install-dot {
+  font-size: 28px;
+  line-height: 1;
+}
+
+/* Mobile responsive breakpoints */
+@media (max-width: 1024px) {
+  .pwa-floating-install-container {
+    top: 16px;
+    right: 16px;
+  }
+
+  .pwa-install-button-expanded {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+
+  .pwa-install-icon {
+    font-size: 18px;
+  }
+
+  .pwa-install-text {
+    font-size: 14px;
+  }
+
+  .pwa-install-close {
+    width: 32px;
+    height: 32px;
+    font-size: 22px;
+  }
+
+  .pwa-install-button-dot {
+    width: 50px;
+    height: 50px;
+  }
+
+  .pwa-install-dot {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pwa-floating-install-container {
+    top: 12px;
+    right: 12px;
+  }
+
+  .pwa-install-button-expanded {
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 20px;
+  }
+
+  .pwa-install-icon {
+    font-size: 16px;
+  }
+
+  .pwa-install-text {
+    font-size: 13px;
+  }
+
+  .pwa-install-close {
+    width: 30px;
+    height: 30px;
+    font-size: 20px;
+  }
+
+  .pwa-install-button-dot {
+    width: 46px;
+    height: 46px;
+  }
+
+  .pwa-install-dot {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pwa-floating-install-container {
+    top: 10px;
+    right: 10px;
+  }
+
+  .pwa-install-button-expanded {
+    padding: 8px 14px;
+    font-size: 12px;
+    border-radius: 18px;
+  }
+
+  .pwa-install-icon {
+    font-size: 15px;
+  }
+
+  .pwa-install-text {
+    font-size: 12px;
+  }
+
+  .pwa-install-close {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+  }
+
+  .pwa-install-button-dot {
+    width: 44px;
+    height: 44px;
+  }
+
+  .pwa-install-dot {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .pwa-floating-install-container {
+    top: 8px;
+    right: 8px;
+  }
+
+  .pwa-install-button-expanded {
+    padding: 6px 12px;
+    font-size: 11px;
+    border-radius: 16px;
+  }
+
+  .pwa-install-icon {
+    font-size: 14px;
+  }
+
+  .pwa-install-text {
+    font-size: 11px;
+  }
+
+  .pwa-install-close {
+    width: 26px;
+    height: 26px;
+    font-size: 16px;
+  }
+
+  .pwa-install-button-dot {
+    width: 40px;
+    height: 40px;
+  }
+
+  .pwa-install-dot {
+    font-size: 18px;
+  }
+}
+
+/* Ensure button doesn't block content */
+.pwa-floating-install-container {
+  pointer-events: none;
+}
+
+.pwa-install-expanded,
+.pwa-install-button-dot,
+.pwa-install-button-expanded,
+.pwa-install-close {
+  pointer-events: auto;
+}
+
+/* ==================== END NEW PWA FLOATING INSTALL BUTTON STYLES ==================== */
+
