@@ -460,7 +460,7 @@ const IngredientScanner = () => {
         console.log('📤 Sending image to backend for detection...');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/scan`, {
+      const response = await fetch(`${API_BASE_URL}/scan`, {
         method: 'POST',
         body: formData
       });

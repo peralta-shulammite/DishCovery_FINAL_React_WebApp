@@ -23,6 +23,63 @@ const googleClient = new OAuth2Client(
   `${FRONTEND_URL}/auth/google/callback`
 );
 
+// ========================================
+// 🔐 SECURITY: VERIFY TOKEN & GET USER ROLE
+// ========================================
+router.get('/verify-token', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('🔐 Verifying token for user:', userId);
+    
+    // ✅ FETCH USER DATA FROM DATABASE (NOT FROM JWT!)
+    const users = await pool.query(`
+      SELECT 
+        u.user_id, 
+        u.email, 
+        u.first_name, 
+        u.last_name,
+        u.google_id,
+        CASE 
+          WHEN EXISTS (
+            SELECT 1 FROM admin_users a 
+            WHERE a.email = u.email AND (a.is_active = 1 OR a.is_active IS NULL)
+          ) THEN TRUE 
+          ELSE FALSE 
+        END as is_admin
+      FROM users u
+      WHERE u.user_id = ?
+    `, [userId]);
+    
+    if (users.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+    
+    const user = users[0];
+    console.log('✅ User verified:', { email: user.email, isAdmin: user.is_admin });
+    
+    res.json({
+      success: true,
+      user: {
+        userId: user.user_id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        isAdmin: Boolean(user.is_admin),  // ✅ From DATABASE!
+        isGoogleUser: Boolean(user.google_id)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Token verification error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error during verification' 
+    });
+  }
+});
+
 // SENDGRID HTTP API - WORKS WITH RENDER (No SMTP ports needed!)
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
