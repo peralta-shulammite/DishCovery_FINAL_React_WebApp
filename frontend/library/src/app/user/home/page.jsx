@@ -18,6 +18,11 @@ export default function DishCoveryLanding() {
   const [dishCoveryIsOneMoreStepChecked, setDishCoveryIsOneMoreStepChecked] = useState(false);
   const [dishCoveryShowPassword, setDishCoveryShowPassword] = useState(false);
   const [dishCoveryShowForgotPasswordModal, setDishCoveryShowForgotPasswordModal] = useState(false);
+  const [dishCoveryResetStep, setDishCoveryResetStep] = useState(1); // 1: email, 2: code+newPassword
+  const [dishCoveryResetEmail, setDishCoveryResetEmail] = useState('');
+  const [dishCoveryResetCode, setDishCoveryResetCode] = useState('');
+  const [dishCoveryNewPassword, setDishCoveryNewPassword] = useState('');
+  const [dishCoveryConfirmNewPassword, setDishCoveryConfirmNewPassword] = useState('');
   const [dishCoveryEmail, setDishCoveryEmail] = useState('');
   const [dishCoveryPassword, setDishCoveryPassword] = useState('');
   const [dishCoveryFirstName, setDishCoveryFirstName] = useState('');
@@ -118,34 +123,38 @@ export default function DishCoveryLanding() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     
-    console.log('🔍 Checking login state:', { hasToken: !!token, tokenLength: token?.length });
-    
     // ✅ SECURITY FIX: Validate token format before using it
     if (token && token.length > 10 && token.split('.').length === 3) {
-      console.log('✅ Valid token found, user is logged in!');
       setDishCoveryIsLoggedIn(true);
       
       // Fetch full profile from backend (token is verified server-side)
       api.getProfile()
         .then((userData) => {
-          console.log('✅ Profile loaded:', userData);
+          console.log('✅ Profile loaded successfully');
           setDishCoveryUser(userData);
+          setDishCoveryIsLoggedIn(true);
         })
         .catch((error) => {
-          console.warn('⚠️ Failed to load profile, clearing invalid token:', error.message);
+          // Silently handle expired/invalid tokens (expected behavior)
+          if (error.message === 'Token verification failed' || error.message === 'No token found') {
+            console.log('ℹ️ No valid session found');
+          } else {
+            console.warn('⚠️ Failed to load profile:', error.message);
+          }
           // Token might be expired or invalid - clear it
           localStorage.clear();
           sessionStorage.clear();
           setDishCoveryIsLoggedIn(false);
+          setDishCoveryUser(null);
         });
     } else {
       if (token) {
-        console.warn('⚠️ Invalid token detected, clearing localStorage');
+        // Silently clear malformed tokens
         localStorage.clear();
         sessionStorage.clear();
       }
-      console.log('❌ No valid token found, user not logged in');
       setDishCoveryIsLoggedIn(false);
+      setDishCoveryUser(null);
     }
     
     // Load Google OAuth script
@@ -354,22 +363,99 @@ const dishCoveryHandleSignInSubmit = async (e) => {
   };
 
   const dishCoveryHandleForgotPasswordClick = () => {
-  setDishCoveryShowSignInModal(false); // close sign in modal
-  setDishCoveryShowForgotPasswordModal(true); // open forgot password modal
-  setDishCoveryError('');
-};
+    setDishCoveryShowSignInModal(false); // close sign in modal
+    setDishCoveryShowForgotPasswordModal(true); // open forgot password modal
+    setDishCoveryResetStep(1); // start at email step
+    setDishCoveryError('');
+    setDishCoveryResetEmail('');
+    setDishCoveryResetCode('');
+    setDishCoveryNewPassword('');
+    setDishCoveryConfirmNewPassword('');
+  };
 
-const dishCoveryHandleForgotPasswordSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    // Replace this with your API call
-    console.log("Password reset requested for:", dishCoveryEmail);
-    alert("Password reset link sent to your email!");
-    setDishCoveryShowForgotPasswordModal(false);
-  } catch (error) {
-    setDishCoveryError(error.message);
-  }
-};
+  const dishCoveryHandleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setDishCoveryError('');
+    
+    try {
+      if (dishCoveryResetStep === 1) {
+        // Step 1: Request reset code
+        if (!dishCoveryResetEmail) {
+          setDishCoveryError('Please enter your email address');
+          return;
+        }
+        
+        console.log("Password reset requested for:", dishCoveryResetEmail);
+        await api.forgotPassword(dishCoveryResetEmail);
+        
+        // Move to step 2
+        setDishCoveryResetStep(2);
+        setDishCoveryError('');
+      } else if (dishCoveryResetStep === 2) {
+        // Step 2: Verify code and reset password
+        if (!dishCoveryResetCode) {
+          setDishCoveryError('Please enter the verification code');
+          return;
+        }
+        
+        if (!dishCoveryNewPassword) {
+          setDishCoveryError('Please enter a new password');
+          return;
+        }
+        
+        if (dishCoveryNewPassword !== dishCoveryConfirmNewPassword) {
+          setDishCoveryError('Passwords do not match');
+          return;
+        }
+        
+        if (dishCoveryNewPassword.length < 8) {
+          setDishCoveryError('Password must be at least 8 characters');
+          return;
+        }
+        
+        console.log("Resetting password for:", dishCoveryResetEmail);
+        await api.resetPassword(dishCoveryResetEmail, dishCoveryResetCode, dishCoveryNewPassword);
+        
+        // Success! Close modal and show sign in
+        setDishCoveryShowForgotPasswordModal(false);
+        setDishCoveryShowSignInModal(true);
+        setDishCoveryNotification({ 
+          show: true, 
+          message: '✅ Password reset successful! Please log in with your new password.' 
+        });
+        
+        setTimeout(() => {
+          setDishCoveryNotification({ show: false, message: '' });
+        }, 5000);
+        
+        // Reset all fields
+        setDishCoveryResetStep(1);
+        setDishCoveryResetEmail('');
+        setDishCoveryResetCode('');
+        setDishCoveryNewPassword('');
+        setDishCoveryConfirmNewPassword('');
+      }
+    } catch (error) {
+      console.error("Password reset error:", error);
+      setDishCoveryError(error.message || 'Failed to reset password. Please try again.');
+    }
+  };
+  
+  const dishCoveryHandleResendResetCode = async () => {
+    try {
+      setDishCoveryError('');
+      await api.forgotPassword(dishCoveryResetEmail);
+      setDishCoveryNotification({ 
+        show: true, 
+        message: '✅ New reset code sent to your email!' 
+      });
+      setTimeout(() => {
+        setDishCoveryNotification({ show: false, message: '' });
+      }, 3000);
+    } catch (error) {
+      setDishCoveryError(error.message || 'Failed to resend code');
+    }
+  };
 
 const dishCoveryHandlePWAInstall = async () => {
   // Check if iOS device (iPhone, iPad, iPod)
@@ -959,18 +1045,65 @@ const dishCoveryBottomRecipes = [
         <div className="modal-overlay" onClick={() => setDishCoveryShowForgotPasswordModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={() => setDishCoveryShowForgotPasswordModal(false)}>×</button>
-            <h2 className="modal-title">Reset Your Password</h2>
-            <p className="modal-subtitle">Enter your email to get a reset link</p>
-            <input
-              type="email"
-              className="modal-input"
-              placeholder="Enter your email"
-              value={dishCoveryEmail}
-              onChange={(e) => setDishCoveryEmail(e.target.value)}
-              required
-            />
-            {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
-            <button className="modal-signin-btn" onClick={dishCoveryHandleForgotPasswordSubmit}>Send Reset Link</button>
+            
+            {dishCoveryResetStep === 1 ? (
+              <>
+                <h2 className="modal-title">Reset Your Password</h2>
+                <p className="modal-subtitle">Enter your email to get a reset code</p>
+                <input
+                  type="email"
+                  className="modal-input"
+                  placeholder="Enter your email"
+                  value={dishCoveryResetEmail}
+                  onChange={(e) => setDishCoveryResetEmail(e.target.value)}
+                  required
+                />
+                {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
+                <button className="modal-signin-btn" onClick={dishCoveryHandleForgotPasswordSubmit}>
+                  Send Reset Code
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="modal-title">Enter Reset Code</h2>
+                <p className="modal-subtitle">Check your email ({dishCoveryResetEmail}) for the code</p>
+                <input
+                  type="text"
+                  className="modal-input"
+                  placeholder="Enter 6-digit code"
+                  value={dishCoveryResetCode}
+                  onChange={(e) => setDishCoveryResetCode(e.target.value)}
+                  maxLength="6"
+                  required
+                />
+                <input
+                  type="password"
+                  className="modal-input"
+                  placeholder="New password (min. 8 characters)"
+                  value={dishCoveryNewPassword}
+                  onChange={(e) => setDishCoveryNewPassword(e.target.value)}
+                  required
+                />
+                <input
+                  type="password"
+                  className="modal-input"
+                  placeholder="Confirm new password"
+                  value={dishCoveryConfirmNewPassword}
+                  onChange={(e) => setDishCoveryConfirmNewPassword(e.target.value)}
+                  required
+                />
+                {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
+                <button className="modal-signin-btn" onClick={dishCoveryHandleForgotPasswordSubmit}>
+                  Reset Password
+                </button>
+                <p className="modal-signup-text">
+                  Didn't receive the code?{' '}
+                  <a href="#" onClick={(e) => { e.preventDefault(); dishCoveryHandleResendResetCode(); }}>
+                    Resend
+                  </a>
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
