@@ -43,6 +43,7 @@ const IngredientScanner = () => {
   const [newIngredient, setNewIngredient] = useState('');
   const [backendError, setBackendError] = useState(null);
   const smoothedDetectionsRef = useRef([]);
+  const captureResolutionRef = useRef({ width: 0, height: 0 });
 
   const handleGoBack = () => {
     window.history.back();
@@ -157,7 +158,7 @@ const IngredientScanner = () => {
     return matched;
   }, []);
 
-  // Draw bounding boxes on canvas
+  // Draw bounding boxes on captured/static image
   const drawBoundingBoxes = useCallback(() => {
     if (!bboxCanvasRef.current || !imageRef.current || detections.length === 0) return;
 
@@ -165,56 +166,86 @@ const IngredientScanner = () => {
     const img = imageRef.current;
     const ctx = canvas.getContext('2d');
 
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
+    // Get natural (original) and displayed dimensions
+    const naturalWidth = img.naturalWidth;
+    const naturalHeight = img.naturalHeight;
+    const displayedWidth = img.width;
+    const displayedHeight = img.height;
+    
+    // Set canvas internal dimensions to match displayed size
+    canvas.width = displayedWidth;
+    canvas.height = displayedHeight;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Calculate scale factor (bbox coords are in natural dimensions)
+    const scaleX = displayedWidth / naturalWidth;
+    const scaleY = displayedHeight / naturalHeight;
 
     // Filter by confidence > 75%
     const highConfidenceDetections = detections.filter(det => det.confidence >= 0.75);
 
-    highConfidenceDetections.forEach((det) => {
-      const [x1, y1, x2, y2] = det.bbox;
-      const width = x2 - x1;
-      const height = y2 - y1;
-      const radius = 8; // Rounded corner radius
+    console.log('📸 Static image bbox:', {
+      natural: `${naturalWidth}x${naturalHeight}`,
+      displayed: `${displayedWidth}x${displayedHeight}`,
+      scale: `${scaleX.toFixed(3)}x${scaleY.toFixed(3)}`,
+      detections: highConfidenceDetections.length
+    });
 
-      // Draw filled rounded rectangle with light green translucent fill
-      ctx.fillStyle = 'rgba(76, 175, 80, 0.12)'; // #4CAF50 at ~12% opacity
-      drawRoundedRect(ctx, x1, y1, width, height, radius);
-      ctx.fill();
+    highConfidenceDetections.forEach((det) => {
+      // Bbox coordinates are in natural dimensions
+      const [x1, y1, x2, y2] = det.bbox;
+      
+      // Scale to displayed dimensions
+      const scaledX1 = x1 * scaleX;
+      const scaledY1 = y1 * scaleY;
+      const scaledX2 = x2 * scaleX;
+      const scaledY2 = y2 * scaleY;
+      
+      const width = scaledX2 - scaledX1;
+      const height = scaledY2 - scaledY1;
+      const radius = 12;
 
       // Draw rounded rectangle stroke
-      ctx.strokeStyle = '#4CAF50'; // Medium green
-      ctx.lineWidth = 3;
-      drawRoundedRect(ctx, x1, y1, width, height, radius);
+      ctx.strokeStyle = '#4CAF50';
+      ctx.lineWidth = 4;
+      drawRoundedRect(ctx, scaledX1, scaledY1, width, height, radius);
       ctx.stroke();
 
-      // Draw label background (rounded rectangle)
-      const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
-      ctx.font = 'bold 14px Arial';
+      // Draw label
+      const label = `${det.class_name.charAt(0).toUpperCase() + det.class_name.slice(1)} (${(det.confidence * 100).toFixed(0)}%)`;
+      ctx.font = 'bold 18px Arial';
       const textWidth = ctx.measureText(label).width;
-      const labelHeight = 22;
-      const labelPadding = 8;
-      const labelX = x1;
-      const labelY = y1 - labelHeight - 4;
+      const labelHeight = 28;
+      const labelPadding = 12;
+      const labelX = scaledX1;
+      const labelY = Math.max(labelHeight + 6, scaledY1 - labelHeight - 6);
       const labelRadius = 6;
       
       ctx.fillStyle = '#4CAF50';
       drawRoundedRect(ctx, labelX, labelY, textWidth + labelPadding * 2, labelHeight, labelRadius);
       ctx.fill();
 
-      // Draw label text
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(label, labelX + labelPadding, labelY + labelHeight - 6);
+      ctx.fillText(label, labelX + labelPadding, labelY + labelHeight - 8);
     });
   }, [detections]);
 
-  // Redraw boxes when image loads or detections change
+  // Redraw boxes when image loads, detections change, or window resizes
   useEffect(() => {
     if (imageRef.current && imageRef.current.complete) {
       drawBoundingBoxes();
     }
+    
+    // Redraw on window resize to handle modal/container size changes
+    const handleResize = () => {
+      if (imageRef.current && imageRef.current.complete) {
+        drawBoundingBoxes();
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [detections, drawBoundingBoxes]);
 
   // Draw live bounding boxes on video feed
@@ -225,8 +256,18 @@ const IngredientScanner = () => {
     const video = videoRef.current;
     const ctx = canvas.getContext('2d');
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Get displayed dimensions of video element
+    const videoRect = video.getBoundingClientRect();
+    const displayWidth = Math.floor(videoRect.width);
+    const displayHeight = Math.floor(videoRect.height);
+    
+    if (displayWidth === 0 || displayHeight === 0) return;
+
+    // Set canvas internal dimensions to match displayed dimensions
+    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
+    }
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -238,63 +279,161 @@ const IngredientScanner = () => {
 
     if (highConfidenceDetections.length === 0) return;
 
-    highConfidenceDetections.forEach((det) => {
-      const [x1, y1, x2, y2] = det.bbox;
-      const width = x2 - x1;
-      const height = y2 - y1;
-      const radius = 8; // Rounded corner radius
+    // 🎯 NORMALIZED COORDINATES - Simple percentage-based positioning!
+    // Backend now returns bbox_normalized (0-1 range) for easy scaling
+    
+    highConfidenceDetections.forEach((det, idx) => {
+      // Use normalized coordinates if available, fallback to pixel coordinates
+      const bboxNorm = det.bbox_normalized || det.bbox;
+      const isNormalized = !!det.bbox_normalized;
+      
+      let scaledX1, scaledY1, scaledX2, scaledY2;
+      
+      if (isNormalized) {
+        // Simple multiplication by display dimensions
+        const [x1_norm, y1_norm, x2_norm, y2_norm] = bboxNorm;
+        scaledX1 = x1_norm * displayWidth;
+        scaledY1 = y1_norm * displayHeight;
+        scaledX2 = x2_norm * displayWidth;
+        scaledY2 = y2_norm * displayHeight;
+        
+        if (idx === 0) {
+          console.log('✅ Normalized Bbox:', det.class_name, 
+            `norm=[${(x1_norm*100).toFixed(0)}%,${(y1_norm*100).toFixed(0)}%]`,
+            `→ display=[${scaledX1.toFixed(0)},${scaledY1.toFixed(0)}]`
+          );
+        }
+      } else {
+        // Fallback: scale from captured dimensions
+        const capturedWidth = captureResolutionRef.current.width;
+        const capturedHeight = captureResolutionRef.current.height;
+        if (!capturedWidth || !capturedHeight) return;
+        
+        const [x1, y1, x2, y2] = bboxNorm;
+        const scaleX = displayWidth / capturedWidth;
+        const scaleY = displayHeight / capturedHeight;
+        scaledX1 = x1 * scaleX;
+        scaledY1 = y1 * scaleY;
+        scaledX2 = x2 * scaleX;
+        scaledY2 = y2 * scaleY;
+      }
+      
+      const width = scaledX2 - scaledX1;
+      const height = scaledY2 - scaledY1;
+      
+      // Skip if completely outside visible area
+      if (scaledX2 < 0 || scaledY2 < 0 || scaledX1 > displayWidth || scaledY1 > displayHeight) {
+        return;
+      }
+      
+      const radius = 15;
 
-      // Draw filled rounded rectangle with light green translucent fill
-      ctx.fillStyle = 'rgba(76, 175, 80, 0.12)'; // #4CAF50 at ~12% opacity
-      drawRoundedRect(ctx, x1, y1, width, height, radius);
+      // Draw thicker, more visible bounding box
+      ctx.strokeStyle = '#00FF00'; // Bright green
+      ctx.lineWidth = 5; // Thicker line
+      drawRoundedRect(ctx, scaledX1, scaledY1, width, height, radius);
+      ctx.stroke();
+      
+      // Add semi-transparent fill to make bbox more visible
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+      drawRoundedRect(ctx, scaledX1, scaledY1, width, height, radius);
       ctx.fill();
 
-      // Draw rounded rectangle stroke
-      ctx.strokeStyle = '#4CAF50'; // Medium green
-      ctx.lineWidth = 3;
-      drawRoundedRect(ctx, x1, y1, width, height, radius);
-      ctx.stroke();
-
-      // Draw label background (rounded rectangle)
-      const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
-      ctx.font = 'bold 16px Arial';
+      // Draw label with better visibility
+      const label = `${det.class_name.charAt(0).toUpperCase() + det.class_name.slice(1)} (${(det.confidence * 100).toFixed(0)}%)`;
+      ctx.font = 'bold 20px Arial';
       const textWidth = ctx.measureText(label).width;
-      const labelHeight = 24;
-      const labelPadding = 10;
-      const labelX = x1;
-      const labelY = y1 - labelHeight - 4;
-      const labelRadius = 6;
+      const labelHeight = 32;
+      const labelPadding = 14;
+      const labelX = Math.max(5, scaledX1);
+      const labelY = Math.max(labelHeight + 8, scaledY1 - labelHeight - 8);
+      const labelRadius = 8;
       
-      ctx.fillStyle = '#4CAF50';
+      // Label background
+      ctx.fillStyle = '#00FF00';
       drawRoundedRect(ctx, labelX, labelY, textWidth + labelPadding * 2, labelHeight, labelRadius);
       ctx.fill();
 
-      // Draw label text
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(label, labelX + labelPadding, labelY + labelHeight - 6);
+      // Label text
+      ctx.fillStyle = '#000000'; // Black text for better contrast
+      ctx.fillText(label, labelX + labelPadding, labelY + labelHeight - 10);
     });
   }, [liveDetections]);
 
-  // Capture frame for live detection
+  // 🌟 DYNAMIC CAPTURE - Works on ANY screen size/orientation!
+  // Captures exactly what's visible, matching display aspect ratio
   const captureFrameForLiveDetection = () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       const context = canvas.getContext('2d');
       
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Get actual display dimensions
+      const videoRect = video.getBoundingClientRect();
+      const displayWidth = Math.floor(videoRect.width);
+      const displayHeight = Math.floor(videoRect.height);
       
-      return canvas.toDataURL('image/jpeg', 0.7);
+      // Calculate capture size maintaining display aspect ratio
+      const maxCaptureDimension = isMobile ? 320 : 480;
+      const displayAspect = displayWidth / displayHeight;
+      
+      let captureWidth, captureHeight;
+      const isLandscape = displayWidth > displayHeight;
+      
+      if (isLandscape) {
+        // Landscape - width is longer
+        captureWidth = maxCaptureDimension;
+        captureHeight = Math.round(captureWidth / displayAspect);
+      } else {
+        // Portrait - height is longer  
+        captureHeight = maxCaptureDimension;
+        captureWidth = Math.round(captureHeight * displayAspect);
+      }
+      
+      canvas.width = captureWidth;
+      canvas.height = captureHeight;
+      
+      // Store for bbox scaling
+      captureResolutionRef.current = { width: captureWidth, height: captureHeight };
+      
+      console.log('🎯 ORIENTATION:', isLandscape ? 'LANDSCAPE' : 'PORTRAIT', {
+        display: `${displayWidth}×${displayHeight}`,
+        capture: `${captureWidth}×${captureHeight}`,
+        aspectMatch: (displayWidth/displayHeight).toFixed(3) === (captureWidth/captureHeight).toFixed(3) ? '✅' : '❌'
+      });
+      
+      // Calculate visible portion of video (object-fit: cover)
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      const videoAspect = videoWidth / videoHeight;
+      
+      let srcX = 0, srcY = 0, srcW = videoWidth, srcH = videoHeight;
+      
+      if (videoAspect > displayAspect) {
+        // Video wider - crop sides to match display aspect
+        srcH = videoHeight;
+        srcW = videoHeight * displayAspect;
+        srcX = (videoWidth - srcW) / 2;
+      } else {
+        // Video taller - crop top/bottom to match display aspect
+        srcW = videoWidth;
+        srcH = videoWidth / displayAspect;
+        srcY = (videoHeight - srcH) / 2;
+      }
+      
+      // Capture only what's visible on screen
+      context.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, captureWidth, captureHeight);
+      
+      return canvas.toDataURL('image/jpeg', 0.5);
     }
     return null;
   };
 
-  // Live detection loop
+  // Live detection loop (optimized)
   useEffect(() => {
     if (cameraState === 'available' && !showModal) {
       liveDetectionInterval.current = setInterval(async () => {
+        // 🚀 OPTIMIZATION: Skip if previous detection still processing
         if (isLiveDetecting || isScanning) return;
         
         try {
@@ -310,6 +449,7 @@ const IngredientScanner = () => {
             setLiveDetections(smoothed);
           }
         } catch (error) {
+          // Silent error handling for live detection
           console.log('Live detection error (will retry):', error.message);
           // On error, fade out existing detections
           const faded = smoothDetections([]);
@@ -317,7 +457,7 @@ const IngredientScanner = () => {
         } finally {
           setIsLiveDetecting(false);
         }
-      }, 150); // Detect at ~6.7 FPS (150ms interval) for smooth real-time detection
+      }, 200); // 🚀 OPTIMIZATION: 200ms = 5 FPS (balanced speed/responsiveness)
 
       return () => {
         if (liveDetectionInterval.current) {
@@ -333,6 +473,35 @@ const IngredientScanner = () => {
       drawLiveBoxes();
     }
   }, [liveDetections, cameraState, drawLiveBoxes]);
+
+  // Ensure canvas stays synchronized with video display dimensions
+  useEffect(() => {
+    if (!videoRef.current || !liveCanvasRef.current) return;
+    
+    const video = videoRef.current;
+    
+    const updateCanvasSize = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        // Canvas size is handled in drawLiveBoxes based on displayed dimensions
+        drawLiveBoxes();
+      }
+    };
+    
+    // Update on video metadata loaded and resize events
+    video.addEventListener('loadedmetadata', updateCanvasSize);
+    video.addEventListener('resize', updateCanvasSize);
+    window.addEventListener('resize', updateCanvasSize);
+    
+    // Initial update with a small delay to ensure video is ready
+    const initialTimer = setTimeout(updateCanvasSize, 100);
+    
+    return () => {
+      video.removeEventListener('loadedmetadata', updateCanvasSize);
+      video.removeEventListener('resize', updateCanvasSize);
+      window.removeEventListener('resize', updateCanvasSize);
+      clearTimeout(initialTimer);
+    };
+  }, [cameraState, drawLiveBoxes]);
 
   const handleImageUpload = () => {
     fileInputRef.current?.click();
