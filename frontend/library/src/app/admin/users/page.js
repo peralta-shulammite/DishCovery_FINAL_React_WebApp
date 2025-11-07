@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
+import { adminUsersAPI } from './api';
 import './styles.css';
 
 // API Base URL - automatically detects environment
@@ -29,45 +30,29 @@ const UserManagementContent = () => {
   const [error, setError] = useState(null);
 
   // Fetch users from database
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await adminUsersAPI.getAllUsers();
 
-        const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+      if (data.success) {
+        setUsers(data.users || []);
+        setUserStats(data.stats || {
+          totalUsers: 0,
+          activeUsers: 0,
+          newUsers: 0,
+          inactiveUsers: 0
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch users');
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-          setUsers(data.users || []);
-          setUserStats(data.stats || {
-            totalUsers: 0,
-            activeUsers: 0,
-            newUsers: 0,
-            inactiveUsers: 0
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -143,8 +128,58 @@ const UserManagementContent = () => {
     setSelectedUser(null);
   };
 
-  const handleUserAction = (userId, action) => {
-    console.log(`${action} user with ID: ${userId}`);
+  const handleActivateUser = async (userId, username) => {
+    if (!confirm(`Are you sure you want to activate user "${username}"?`)) {
+      return;
+    }
+
+    try {
+      const result = await adminUsersAPI.activateUser(userId);
+      if (result.success) {
+        alert('User activated successfully!');
+        await fetchUsers(); // Refresh the list
+      }
+    } catch (error) {
+      alert(`Failed to activate user: ${error.message}`);
+    }
+  };
+
+  const handleDeactivateUser = async (userId, username) => {
+    if (!confirm(`Are you sure you want to deactivate user "${username}"?`)) {
+      return;
+    }
+
+    try {
+      const result = await adminUsersAPI.deactivateUser(userId);
+      if (result.success) {
+        alert('User deactivated successfully!');
+        await fetchUsers(); // Refresh the list
+      }
+    } catch (error) {
+      alert(`Failed to deactivate user: ${error.message}`);
+    }
+  };
+
+  const handleDeleteUser = async (userId, username) => {
+    if (!confirm(`⚠️ WARNING: Are you sure you want to permanently delete user "${username}"?\n\nThis action cannot be undone and will delete all user data including:\n- Profile information\n- Dietary preferences\n- Feedback history\n- Saved recipes\n\nType the username to confirm deletion.`)) {
+      return;
+    }
+
+    const confirmation = prompt(`Type "${username}" to confirm deletion:`);
+    if (confirmation !== username) {
+      alert('Deletion cancelled: Username did not match');
+      return;
+    }
+
+    try {
+      const result = await adminUsersAPI.deleteUser(userId);
+      if (result.success) {
+        alert('User deleted successfully!');
+        await fetchUsers(); // Refresh the list
+      }
+    } catch (error) {
+      alert(`Failed to delete user: ${error.message}`);
+    }
   };
 
   const handleSendReminder = (username) => {
@@ -504,19 +539,35 @@ const UserManagementContent = () => {
                             <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
                           </svg>
                         </button>
-                        <button 
-                          className={`action-btn-small ${user.status === 'Active' ? 'warning' : 'danger'}`}
-                          onClick={() => handleUserAction(user.id, user.status === 'Active' ? 'deactivate' : 'delete')}
-                          title={user.status === 'Active' ? 'Deactivate' : 'Delete'}
-                        >
-                          {user.status === 'Active' ? 
+                        {user.status === 'Active' ? (
+                          <button 
+                            className="action-btn-small warning"
+                            onClick={() => handleDeactivateUser(user.id, user.username)}
+                            title="Deactivate User"
+                          >
                             <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                            </svg> :
-                            <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm0-4V7h2v6h-2z"/>
                             </svg>
-                          }
+                          </button>
+                        ) : (
+                          <button 
+                            className="action-btn-small success"
+                            onClick={() => handleActivateUser(user.id, user.username)}
+                            title="Activate User"
+                          >
+                            <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                          </button>
+                        )}
+                        <button 
+                          className="action-btn-small danger"
+                          onClick={() => handleDeleteUser(user.id, user.username)}
+                          title="Delete User"
+                        >
+                          <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                          </svg>
                         </button>
                       </div>
                     </td>
@@ -710,15 +761,24 @@ const UserManagementContent = () => {
               <button className="action-btn-improved primary" onClick={() => handleMessageUser(selectedUser)}>
                 Send Notification
               </button>
-              <button 
-                className="action-btn-improved warning"
-                onClick={() => handleUserAction(selectedUser.id, 'deactivate')}
-              >
-                Deactivate User
-              </button>
+              {selectedUser.status === 'Active' ? (
+                <button 
+                  className="action-btn-improved warning"
+                  onClick={() => handleDeactivateUser(selectedUser.id, selectedUser.username)}
+                >
+                  Deactivate User
+                </button>
+              ) : (
+                <button 
+                  className="action-btn-improved success"
+                  onClick={() => handleActivateUser(selectedUser.id, selectedUser.username)}
+                >
+                  Activate User
+                </button>
+              )}
               <button 
                 className="action-btn-improved danger"
-                onClick={() => handleUserAction(selectedUser.id, 'delete')}
+                onClick={() => handleDeleteUser(selectedUser.id, selectedUser.username)}
               >
                 Delete User
               </button>
