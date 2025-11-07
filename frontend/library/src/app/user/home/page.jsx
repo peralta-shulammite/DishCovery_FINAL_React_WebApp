@@ -117,35 +117,34 @@ export default function DishCoveryLanding() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userId = localStorage.getItem('userId');
-    const userEmail = localStorage.getItem('userEmail');
     
-    console.log('🔍 Checking login state:', { hasToken: !!token, userId, userEmail });
+    console.log('🔍 Checking login state:', { hasToken: !!token, tokenLength: token?.length });
     
-    if (token) {
-      console.log('✅ Token found, user is logged in!');
+    // ✅ SECURITY FIX: Validate token format before using it
+    if (token && token.length > 10 && token.split('.').length === 3) {
+      console.log('✅ Valid token found, user is logged in!');
       setDishCoveryIsLoggedIn(true);
       
-      // Set basic user info from localStorage immediately
-      if (userId && userEmail) {
-        setDishCoveryUser({
-          userId: userId,
-          email: userEmail,
-        });
-      }
-      
-      // Then try to fetch full profile (but don't fail login if it errors)
+      // Fetch full profile from backend (token is verified server-side)
       api.getProfile()
         .then((userData) => {
           console.log('✅ Profile loaded:', userData);
           setDishCoveryUser(userData);
         })
         .catch((error) => {
-          console.warn('⚠️ Failed to load profile, but keeping user logged in:', error.message);
-          // Don't set isLoggedIn to false - token is still valid
+          console.warn('⚠️ Failed to load profile, clearing invalid token:', error.message);
+          // Token might be expired or invalid - clear it
+          localStorage.clear();
+          sessionStorage.clear();
+          setDishCoveryIsLoggedIn(false);
         });
     } else {
-      console.log('❌ No token found, user not logged in');
+      if (token) {
+        console.warn('⚠️ Invalid token detected, clearing localStorage');
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+      console.log('❌ No valid token found, user not logged in');
       setDishCoveryIsLoggedIn(false);
     }
     
@@ -630,7 +629,7 @@ const dishCoveryBottomRecipes = [
                 </svg>
               </div>
               <div className="feature-title">Smart Scanning</div>
-              <div className="feature-desc">AI-powered ingredient detection from your pantry</div>
+              <div className="feature-desc">Smart ingredient recognition from your pantry</div>
             </div>
 
             <div className="feature-card">
@@ -774,15 +773,6 @@ const dishCoveryBottomRecipes = [
           <div className="confidence-card">
             <div className="confidence-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-              </svg>
-            </div>
-            <h3 className="confidence-card-title">Recipe Generator</h3>
-            <p className="confidence-card-desc">Get ideas based on your ingredients and dietary needs.</p>
-          </div>
-          <div className="confidence-card">
-            <div className="confidence-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
               </svg>
             </div>
@@ -841,7 +831,6 @@ const dishCoveryBottomRecipes = [
       <div className="footer-column">
         <h3 className="footer-title">Product</h3>
         <ul className="footer-links">
-          <li><a href="/Scanning">Recipe Generator</a></li>
           <li><a href="/Scanning">Smart Scanning</a></li>
           <li><a href="/pantry">Pantry Management</a></li>
           <li><a href="/how-it-works">How It Works</a></li>
@@ -852,10 +841,10 @@ const dishCoveryBottomRecipes = [
       <div className="footer-column">
         <h3 className="footer-title">Company</h3>
         <ul className="footer-links">
-          <li><a href="/about">About Us</a></li>
-          <li><a href="/contact">Contact Us</a></li>
-          <li><a href="/help-center">Help Center</a></li>
-          <li><a href="/careers">Careers</a></li>
+          <li><a href="/user/about-us">About Us</a></li>
+          <li><a href="/user/about-support">Contact Us</a></li>
+          <li><a href="/user/about-support">Help Center</a></li>
+          <li><a href="/user/about-company">Careers</a></li>
         </ul>
       </div>
 
@@ -863,8 +852,8 @@ const dishCoveryBottomRecipes = [
       <div className="footer-column">
         <h3 className="footer-title">Legal</h3>
         <ul className="footer-links">
-          <li><a href="/privacy-policy">Privacy Policy</a></li>
-          <li><a href="/terms-of-service">Terms of Service</a></li>
+          <li><a href="/user/about-legal#privacy-policy">Privacy Policy</a></li>
+          <li><a href="/user/about-legal#terms-service">Terms of Service</a></li>
         </ul>
       </div>
 

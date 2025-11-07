@@ -305,12 +305,46 @@ export default function UserProfilePage() {
     return () => document.removeEventListener('mousedown', dishCoveryHandleClickOutside);
   }, []);
 
-  const dishCoveryHandleLogout = () => {
-    localStorage.removeItem('token');
-    setDishCoveryIsLoggedIn(false);
-    setDishCoveryUser(null);
-    setDishCoveryShowAvatarDropdown(false);
-    window.location.href = '/';
+  const dishCoveryHandleLogout = async () => {
+    try {
+      console.log('🚪 Logging out user...');
+      
+      // Clear all localStorage items
+      const itemsToRemove = [
+        'token', 
+        'isAdmin', 
+        'userType', 
+        'userId', 
+        'userEmail',
+        'googleAuth',
+        'userFirstName',
+        'userLastName',
+        'userPreferences',
+        'lastActivity',
+        'pendingVerificationEmail'
+      ];
+      
+      itemsToRemove.forEach(item => {
+        localStorage.removeItem(item);
+      });
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      console.log('✅ All user data cleared');
+      
+      // Reset state
+      setDishCoveryIsLoggedIn(false);
+      setDishCoveryUser(null);
+      setDishCoveryShowAvatarDropdown(false);
+      
+      // Redirect to home
+      window.location.href = '/user/home';
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      // Force redirect even on error
+      window.location.href = '/user/home';
+    }
   };
 
   const dishCoveryHandleSignInClick = () => {

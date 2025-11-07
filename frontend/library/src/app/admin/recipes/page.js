@@ -63,7 +63,7 @@ const RecipeManagement = () => {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
 
-      const response = await fetch(`${API_BASE_URL}/api/dietary-restrictions/categories`, {
+      const response = await fetch(`${API_BASE_URL}/dietary-restrictions/categories`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`

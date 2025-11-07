@@ -61,11 +61,8 @@ const api = {
           const adminData = await adminResponse.json();
           console.log('✅ Admin login successful:', adminData);
           
+          // ✅ SECURITY FIX: Only store token
           localStorage.setItem('token', adminData.token);
-          localStorage.setItem('isAdmin', 'true');
-          localStorage.setItem('userType', 'admin');
-          localStorage.setItem('userId', adminData.user?.adminId || adminData.admin?.adminId);
-          localStorage.setItem('userEmail', adminData.user?.email || adminData.admin?.email);
           
           return {
             ...adminData,
@@ -90,11 +87,8 @@ const api = {
       const userData = await handleResponse(userResponse);
       console.log('✅ User login successful:', userData);
       
+      // ✅ SECURITY FIX: Only store token
       localStorage.setItem('token', userData.token);
-      localStorage.setItem('isAdmin', 'false');
-      localStorage.setItem('userType', 'user');
-      localStorage.setItem('userId', userData.user.userId);
-      localStorage.setItem('userEmail', userData.user.email);
       
       return {
         ...userData,
@@ -117,11 +111,8 @@ const api = {
             const adminData = await adminResponse.json();
             console.log('✅ Admin login successful (last resort)');
             
+            // ✅ SECURITY FIX: Only store token
             localStorage.setItem('token', adminData.token);
-            localStorage.setItem('isAdmin', 'true');
-            localStorage.setItem('userType', 'admin');
-            localStorage.setItem('userId', adminData.user?.adminId || adminData.admin?.adminId);
-            localStorage.setItem('userEmail', adminData.user?.email || adminData.admin?.email);
             
             return {
               ...adminData,
@@ -207,13 +198,15 @@ const api = {
   getProfile: async () => {
     try {
       const token = localStorage.getItem('token');
-      const isAdmin = localStorage.getItem('isAdmin') === 'true';
       
       if (!token) {
         throw new Error('No token found');
       }
 
-      const endpoint = isAdmin ? '/admin-auth/profile' : '/user-profile/info';
+      // ✅ SECURITY FIX: Use verifyToken to get user role from database
+      const user = await api.verifyToken();
+      
+      const endpoint = user.isAdmin ? '/admin-auth/profile' : '/user-profile/info';
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'GET',
@@ -235,18 +228,47 @@ const api = {
     }
   },
 
+  // ========================================
+  // 🔐 SECURITY: VERIFY TOKEN & GET USER ROLE
+  // ========================================
+  verifyToken: async () => {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('No token found');
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/verify-token`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Token verification failed');
+      }
+      
+      const data = await response.json();
+      console.log('✅ Token verified:', data.user);
+      return data.user; // { userId, email, firstName, lastName, isAdmin, isGoogleUser }
+    } catch (error) {
+      console.error('❌ Token verification error:', error);
+      localStorage.removeItem('token');
+      throw error;
+    }
+  },
+
   logout: async () => {
     const token = localStorage.getItem('token');
-    const isAdmin = localStorage.getItem('isAdmin') === 'true';
-    const userId = localStorage.getItem('userId');
-    const userType = localStorage.getItem('userType');
     
-    console.log('🚪 Logging out user...', { isAdmin, userId, userType });
+    console.log('🚪 Logging out user...');
 
     try {
-      const endpoint = isAdmin ? '/admin-auth/logout' : '/auth/logout';
-      
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      // ✅ SECURITY FIX: Use user logout endpoint (works for both)
+      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,21 +285,8 @@ const api = {
       console.warn('⚠️ Server logout error:', error.message);
     }
 
-    const itemsToRemove = [
-      'token', 
-      'isAdmin', 
-      'userType', 
-      'userId', 
-      'userEmail',
-      'googleAuth',
-      'userPreferences',
-      'lastActivity'
-    ];
-    
-    itemsToRemove.forEach(item => {
-      localStorage.removeItem(item);
-    });
-
+    // ✅ SECURITY FIX: Clear ALL localStorage (including any leftover sensitive data)
+    localStorage.clear();
     sessionStorage.clear();
 
     console.log('✅ Client-side cleanup completed');
@@ -290,23 +299,37 @@ const api = {
     return { success: true, message: 'Logout successful' };
   },
 
-  isAdmin: () => {
-    return localStorage.getItem('isAdmin') === 'true';
+  // ✅ SECURITY FIX: These functions now use verifyToken instead of localStorage
+  isAdmin: async () => {
+    try {
+      const user = await api.verifyToken();
+      return user.isAdmin;
+    } catch {
+      return false;
+    }
   },
 
-  getUserType: () => {
-    return localStorage.getItem('userType') || 'user';
+  getUserType: async () => {
+    try {
+      const user = await api.verifyToken();
+      return user.isAdmin ? 'admin' : 'user';
+    } catch {
+      return 'user';
+    }
   },
 
-  getCurrentUser: () => {
-    return {
-      userId: localStorage.getItem('userId'),
-      email: localStorage.getItem('userEmail'),
-      isAdmin: localStorage.getItem('isAdmin') === 'true',
-      userType: localStorage.getItem('userType'),
-      isGoogleAuth: localStorage.getItem('googleAuth') === 'true',
-      hasToken: !!localStorage.getItem('token')
-    };
+  getCurrentUser: async () => {
+    try {
+      const user = await api.verifyToken();
+      return {
+        ...user,
+        hasToken: true
+      };
+    } catch {
+      return {
+        hasToken: false
+      };
+    }
   },
 
   isAuthenticated: () => {

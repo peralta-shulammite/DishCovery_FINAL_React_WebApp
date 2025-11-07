@@ -35,13 +35,8 @@ function GoogleCallbackInner() {
         throw new Error(data.message || 'Verification failed');
       }
 
-      // Store tokens and user info
+      // ✅ SECURITY FIX: Only store token
       localStorage.setItem('token', data.token);
-      localStorage.setItem('isAdmin', 'false');
-      localStorage.setItem('userType', 'user');
-      localStorage.setItem('userId', data.user.userId);
-      localStorage.setItem('userEmail', data.user.email);
-      localStorage.setItem('googleAuth', 'true');
 
       sessionStorage.setItem('newUserSignup', 'true');
       sessionStorage.removeItem('pendingVerificationEmail');
@@ -139,17 +134,11 @@ function GoogleCallbackInner() {
         }
 
         setStatus('Login successful! Redirecting...');
-        console.log('💾 Saving user data to localStorage:', data.user);
+        console.log('💾 Saving token to localStorage');
+        // ✅ SECURITY FIX: Only store token
         localStorage.setItem('token', data.token);
-        localStorage.setItem('isAdmin', 'false');
-        localStorage.setItem('userType', 'user');
-        localStorage.setItem('userId', data.user.userId);
-        localStorage.setItem('userEmail', data.user.email);
-        localStorage.setItem('googleAuth', 'true');
-        if (data.user.firstName) localStorage.setItem('userFirstName', data.user.firstName);
-        if (data.user.lastName) localStorage.setItem('userLastName', data.user.lastName);
         sessionStorage.setItem('userJustLoggedIn', 'true');
-        console.log('✅ User data saved, redirecting to home...');
+        console.log('✅ Token saved, redirecting to home...');
         setTimeout(() => router.push('/user/home'), 1000);
 
       } catch (error) {
