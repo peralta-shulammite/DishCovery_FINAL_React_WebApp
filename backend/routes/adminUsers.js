@@ -185,4 +185,134 @@ function formatDate(date) {
   return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
+// PUT /api/admin/users/:id/activate - Activate a user
+router.put('/:id/activate', authenticateToken, adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const userCheck = await pool.query('SELECT * FROM users WHERE user_id = ?', [id]);
+    if (userCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update user's last_login to make them active
+    await pool.query('UPDATE users SET last_login = NOW() WHERE user_id = ?', [id]);
+
+    res.json({
+      success: true,
+      message: 'User activated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error activating user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to activate user',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/admin/users/:id/deactivate - Deactivate a user
+router.put('/:id/deactivate', authenticateToken, adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user exists
+    const userCheck = await pool.query('SELECT * FROM users WHERE user_id = ?', [id]);
+    if (userCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Set last_login to more than 7 days ago to make them inactive
+    await pool.query('UPDATE users SET last_login = DATE_SUB(NOW(), INTERVAL 8 DAY) WHERE user_id = ?', [id]);
+
+    res.json({
+      success: true,
+      message: 'User deactivated successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deactivating user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to deactivate user',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/admin/users/:id - Delete a user
+router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🗑️ Attempting to delete user with ID: ${id}`);
+
+    // Check if user exists
+    const userCheck = await pool.query('SELECT * FROM users WHERE user_id = ?', [id]);
+    if (userCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log(`✅ User found: ${userCheck[0].email}`);
+
+    // Delete related data first (foreign key constraints) - wrapped in try-catch to handle missing tables
+    const tablesToClean = [
+      'pending_requests',  // ⚠️ IMPORTANT: Must be first due to foreign key constraints
+      'user_scanned_ingredients',
+      'user_dietary_restrictions',
+      'user_excluded_ingredients', 
+      'user_preferred_diets',
+      'user_medical_conditions',
+      'feedback',
+      'user_saved_recipes',
+      'user_pantry_selections'
+    ];
+
+    for (const table of tablesToClean) {
+      try {
+        const result = await pool.query(`DELETE FROM ${table} WHERE user_id = ?`, [id]);
+        console.log(`  ✓ Cleaned ${table}: ${result.affectedRows || 0} rows deleted`);
+      } catch (err) {
+        // Table might not exist or no data - continue
+        console.log(`  ⚠️ Skipped ${table}: ${err.message}`);
+      }
+    }
+    
+    // Delete the user
+    await pool.query('DELETE FROM users WHERE user_id = ?', [id]);
+    console.log(`✅ User deleted successfully`);
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting user:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+      sqlMessage: error.sqlMessage
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete user',
+      error: error.message
+    });
+  }
+});
+
 export default router;

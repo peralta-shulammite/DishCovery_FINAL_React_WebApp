@@ -49,6 +49,7 @@ export default function UserProfilePage() {
     lastName: '',
     email: '',
     profilePicture: null,
+    isGoogleUser: false,
   });
   const dishCoveryAvatarRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -87,6 +88,14 @@ export default function UserProfilePage() {
   const [loadingDietaryData, setLoadingDietaryData] = useState(true);
   const [loadingUserInfo, setLoadingUserInfo] = useState(true);
 
+  // 🆕 Modal states for dietary preferences
+  const [showMedicalConditionsModal, setShowMedicalConditionsModal] = useState(false);
+  const [showDietaryLifestyleModal, setShowDietaryLifestyleModal] = useState(false);
+  const [availableMedicalConditions, setAvailableMedicalConditions] = useState([]);
+  const [availableLifestyles, setAvailableLifestyles] = useState([]);
+  const [tempMedicalConditions, setTempMedicalConditions] = useState([]);
+  const [tempLifestyles, setTempLifestyles] = useState([]);
+
   // Mock data for last opened recipe
   const [dishCoveryLastOpenedRecipe] = useState({
     id: 1,
@@ -118,13 +127,20 @@ export default function UserProfilePage() {
         const response = await profileAPI.getUserInfo();
         
         if (response && response.success && response.data) {
-          const { firstName, lastName, email, profilePicture } = response.data;
+          const { firstName, lastName, email, profilePicture, googleId } = response.data;
+          
+          // Check if user is Google user (has googleId but no password set yet)
+          const hasPassword = response.data.hasPassword !== false; // Default to true if not provided
+          const isGoogleUser = !!googleId && !hasPassword;
           
           setDishCoveryUser({
             firstName: firstName || 'User',
             lastName: lastName || '',
             email: email || '',
-            profilePicture: profilePicture || null
+            profilePicture: profilePicture || null,
+            createdAt: response.data.createdAt || null,
+            lastLogin: response.data.lastLogin || null,
+            isGoogleUser: isGoogleUser
           });
           
           setDishCoveryTempFirstName(firstName || 'User');
@@ -188,12 +204,14 @@ export default function UserProfilePage() {
         if (response && response.success && response.data) {
           const { dietaryRestrictions, medicalConditions, preferredDiets } = response.data;
           
-          setDishCoveryAllergens(dietaryRestrictions || []);
+          // Category 1 (Allergy) + Category 2 (Intolerance) = Medical Conditions
+          // Category 3 (Dietary Lifestyle) = Allergens & Dietary Restrictions + Preferred Diets
+          setDishCoveryAllergens(preferredDiets || []); // Changed from dietaryRestrictions to preferredDiets
           setDishCoveryMedicalConditions(medicalConditions || []);
           setDishCoveryPreferredDiet(preferredDiets || []);
           
           console.log('✅ Dietary data loaded successfully:', {
-            allergens: dietaryRestrictions?.length || 0,
+            allergens: preferredDiets?.length || 0,
             conditions: medicalConditions?.length || 0,
             diets: preferredDiets?.length || 0
           });
@@ -206,6 +224,40 @@ export default function UserProfilePage() {
     };
     
     loadDietaryData();
+  }, []);
+
+  // ========================================
+  // 🆕 LOAD ALL AVAILABLE DIETARY CATEGORIES
+  // ========================================
+  useEffect(() => {
+    const loadAvailableCategories = async () => {
+      try {
+        console.log('📥 Loading all available dietary categories...');
+        const response = await profileAPI.getAllCategories();
+        
+        console.log('🔍 Full response:', response);
+        
+        if (response && response.success && response.data) {
+          // medicalConditions contains Category 1 (Allergy) + Category 2 (Intolerance)
+          // preferredDiets contains Category 3 (Dietary Lifestyle)
+          const medicalConditions = response.data.medicalConditions || [];
+          const lifestyles = response.data.preferredDiets || [];
+          
+          // The backend returns arrays of strings, not objects
+          setAvailableMedicalConditions(medicalConditions);
+          setAvailableLifestyles(lifestyles);
+          
+          console.log('✅ Available categories loaded:', {
+            medicalConditions: medicalConditions,
+            lifestyles: lifestyles
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error loading available categories:', error);
+      }
+    };
+    
+    loadAvailableCategories();
   }, []);
 
   // ========================================
@@ -338,12 +390,54 @@ export default function UserProfilePage() {
     setDishCoveryEditingProfile(false);
   };
 
-  const dishCoveryHandleChangePassword = () => {
-    console.log('Password changed');
-    setDishCoveryShowChangePassword(false);
-    setDishCoveryCurrentPassword('');
-    setDishCoveryNewPassword('');
-    setDishCoveryConfirmPassword('');
+  const dishCoveryHandleChangePassword = async () => {
+    // Validate new password and confirmation
+    if (!dishCoveryNewPassword || !dishCoveryConfirmPassword) {
+      alert('Please enter and confirm your new password');
+      return;
+    }
+
+    if (dishCoveryNewPassword !== dishCoveryConfirmPassword) {
+      alert('New passwords do not match');
+      return;
+    }
+
+    if (dishCoveryNewPassword.length < 8) {
+      alert('Password must be at least 8 characters long');
+      return;
+    }
+
+    // For manual users (not Google), require current password
+    if (!dishCoveryUser.isGoogleUser && !dishCoveryCurrentPassword) {
+      alert('Please enter your current password');
+      return;
+    }
+
+    try {
+      const actionText = dishCoveryUser.isGoogleUser ? 'Setting password' : 'Changing password';
+      console.log(`🔒 ${actionText}...`);
+      
+      const response = await profileAPI.changePassword(dishCoveryCurrentPassword, dishCoveryNewPassword);
+      
+      if (response && response.success) {
+        if (response.isGoogleUser) {
+          alert('Password set successfully! You can now log in with your email and password.');
+          // Update user state to reflect they now have a password
+          setDishCoveryUser(prev => ({ ...prev, isGoogleUser: false }));
+        } else {
+          alert('Password changed successfully!');
+        }
+        
+        setDishCoveryShowChangePassword(false);
+        setDishCoveryCurrentPassword('');
+        setDishCoveryNewPassword('');
+        setDishCoveryConfirmPassword('');
+        console.log('✅ Password updated successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error changing password:', error);
+      alert(error.message || 'Failed to change password. Please try again.');
+    }
   };
 
   // ========================================
@@ -447,6 +541,92 @@ export default function UserProfilePage() {
     } catch (error) {
       console.error('❌ Error deleting feedback:', error);
       alert('Failed to delete feedback');
+    }
+  };
+
+  // ========================================
+  // 🆕 HANDLERS FOR DIETARY PREFERENCES MODALS
+  // ========================================
+  const handleOpenMedicalConditionsModal = () => {
+    setTempMedicalConditions([...dishCoveryMedicalConditions]);
+    setShowMedicalConditionsModal(true);
+  };
+
+  const handleOpenDietaryLifestyleModal = () => {
+    setTempLifestyles([...dishCoveryPreferredDiet]);
+    setShowDietaryLifestyleModal(true);
+  };
+
+  const handleCloseMedicalConditionsModal = () => {
+    setShowMedicalConditionsModal(false);
+    setTempMedicalConditions([]);
+  };
+
+  const handleCloseDietaryLifestyleModal = () => {
+    setShowDietaryLifestyleModal(false);
+    setTempLifestyles([]);
+  };
+
+  const handleToggleMedicalCondition = (condition) => {
+    setTempMedicalConditions(prev => {
+      if (prev.includes(condition)) {
+        return prev.filter(c => c !== condition);
+      } else {
+        return [...prev, condition];
+      }
+    });
+  };
+
+  const handleToggleLifestyle = (lifestyle) => {
+    setTempLifestyles(prev => {
+      if (prev.includes(lifestyle)) {
+        return prev.filter(l => l !== lifestyle);
+      } else {
+        return [...prev, lifestyle];
+      }
+    });
+  };
+
+  const handleSaveMedicalConditions = async () => {
+    try {
+      console.log('💾 Saving medical conditions...', tempMedicalConditions);
+      
+      await profileAPI.updateDietaryPreferences({
+        dietaryRestrictions: [], // Empty - not used
+        medicalConditions: tempMedicalConditions,
+        preferredDiets: dishCoveryPreferredDiet,
+        excludedIngredients: []
+      });
+      
+      setDishCoveryMedicalConditions(tempMedicalConditions);
+      setShowMedicalConditionsModal(false);
+      console.log('✅ Medical conditions saved successfully');
+      alert('Medical conditions updated successfully!');
+    } catch (error) {
+      console.error('❌ Error saving medical conditions:', error);
+      alert('Failed to save medical conditions. Please try again.');
+    }
+  };
+
+  const handleSaveDietaryLifestyle = async () => {
+    try {
+      console.log('💾 Saving dietary lifestyle...', tempLifestyles);
+      
+      await profileAPI.updateDietaryPreferences({
+        dietaryRestrictions: [], // Empty - not used
+        medicalConditions: dishCoveryMedicalConditions,
+        preferredDiets: tempLifestyles,
+        excludedIngredients: []
+      });
+      
+      setDishCoveryPreferredDiet(tempLifestyles);
+      setDishCoveryAllergens(tempLifestyles); // Keep in sync
+      setShowDietaryLifestyleModal(false);
+      console.log('✅ Dietary lifestyle saved successfully');
+      alert('Dietary lifestyle updated successfully!');
+    } catch (error) {
+      console.error('❌ Error saving dietary lifestyle:', error);
+      alert('Failed to save dietary lifestyle. Please try again.');
     }
   };
 
@@ -872,6 +1052,42 @@ export default function UserProfilePage() {
                             <span className="info-label-fixed">Email Address</span>
                             <span className="info-value-fixed">{dishCoveryUser.email}</span>
                           </div>
+                          {dishCoveryUser.createdAt && (
+                            <div className="info-item-fixed">
+                              <span className="info-label-fixed">Member Since</span>
+                              <span className="info-value-fixed">
+                                {new Date(dishCoveryUser.createdAt).toLocaleDateString('en-US', { 
+                                  year: 'numeric', 
+                                  month: 'long', 
+                                  day: 'numeric' 
+                                })}
+                              </span>
+                            </div>
+                          )}
+                          {dishCoveryUser.lastLogin && (
+                            <div className="info-item-fixed">
+                              <span className="info-label-fixed">Last Login</span>
+                              <span className="info-value-fixed">
+                                {new Date(dishCoveryUser.lastLogin).toLocaleDateString('en-US', { 
+                                  year: 'numeric', 
+                                  month: 'long', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          )}
+                          <button 
+                            className="setting-action-btn-minimal"
+                            onClick={() => setDishCoveryShowChangePassword(true)}
+                            style={{
+                              marginTop: '12px',
+                              alignSelf: 'flex-start'
+                            }}
+                          >
+                            Change Password
+                          </button>
                         </div>
                       )}
                     </div>
@@ -917,39 +1133,18 @@ export default function UserProfilePage() {
                                 <span style={{ color: '#999', fontSize: '14px' }}>No medical conditions set</span>
                               )}
                               {dishCoveryEditingPreferences && (
-                                <button className="add-tag-btn-fixed">+ Add</button>
+                                <button 
+                                  className="add-tag-btn-fixed"
+                                  onClick={handleOpenMedicalConditionsModal}
+                                >
+                                  + Add
+                                </button>
                               )}
                             </div>
                           </div>
 
                           <div className="preference-group-fixed">
-                            <h3 className="preference-group-label">Allergens & Dietary Restrictions</h3>
-                            <div className="tags-container-fixed">
-                              {dishCoveryAllergens.length > 0 ? (
-                                dishCoveryAllergens.map((allergen) => (
-                                  <div key={allergen} className="tag-fixed allergen-tag-fixed">
-                                    <span>{allergen}</span>
-                                    {dishCoveryEditingPreferences && (
-                                      <button
-                                        onClick={() => dishCoveryRemoveAllergen(allergen)}
-                                        className="tag-remove-fixed"
-                                      >
-                                        ×
-                                      </button>
-                                    )}
-                                  </div>
-                                ))
-                              ) : (
-                                <span style={{ color: '#999', fontSize: '14px' }}>No allergens set</span>
-                              )}
-                              {dishCoveryEditingPreferences && (
-                                <button className="add-tag-btn-fixed">+ Add</button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="preference-group-fixed">
-                            <h3 className="preference-group-label">Preferred Diets</h3>
+                            <h3 className="preference-group-label">Dietary Lifestyle</h3>
                             <div className="tags-container-fixed">
                               {dishCoveryPreferredDiet.length > 0 ? (
                                 dishCoveryPreferredDiet.map((diet) => (
@@ -969,7 +1164,12 @@ export default function UserProfilePage() {
                                 <span style={{ color: '#999', fontSize: '14px' }}>No preferred diets set</span>
                               )}
                               {dishCoveryEditingPreferences && (
-                                <button className="add-tag-btn-fixed">+ Add</button>
+                                <button 
+                                  className="add-tag-btn-fixed"
+                                  onClick={handleOpenDietaryLifestyleModal}
+                                >
+                                  + Add
+                                </button>
                               )}
                             </div>
                           </div>
@@ -996,32 +1196,45 @@ export default function UserProfilePage() {
               >
                 ×
               </button>
-              <h2 className="modal-title">Change Password</h2>
-              <p className="modal-subtitle">Enter your current password and new password</p>
+              <h2 className="modal-title">
+                {dishCoveryUser.isGoogleUser ? 'Set Password' : 'Change Password'}
+              </h2>
+              <p className="modal-subtitle">
+                {dishCoveryUser.isGoogleUser 
+                  ? 'Create a password to enable email/password login'
+                  : 'Enter your current password and new password'}
+              </p>
+              {!dishCoveryUser.isGoogleUser && (
+                <input
+                  type="password"
+                  className="modal-input"
+                  placeholder="Current Password"
+                  value={dishCoveryCurrentPassword}
+                  onChange={(e) => setDishCoveryCurrentPassword(e.target.value)}
+                />
+              )}
               <input
                 type="password"
                 className="modal-input"
-                placeholder="Current Password"
-                value={dishCoveryCurrentPassword}
-                onChange={(e) => setDishCoveryCurrentPassword(e.target.value)}
-              />
-              <input
-                type="password"
-                className="modal-input"
-                placeholder="New Password"
+                placeholder={dishCoveryUser.isGoogleUser ? "Password" : "New Password"}
                 value={dishCoveryNewPassword}
                 onChange={(e) => setDishCoveryNewPassword(e.target.value)}
               />
               <input
                 type="password"
                 className="modal-input"
-                placeholder="Confirm New Password"
+                placeholder={dishCoveryUser.isGoogleUser ? "Confirm Password" : "Confirm New Password"}
                 value={dishCoveryConfirmPassword}
                 onChange={(e) => setDishCoveryConfirmPassword(e.target.value)}
               />
               <button className="modal-signin-btn" onClick={dishCoveryHandleChangePassword}>
-                Change Password
+                {dishCoveryUser.isGoogleUser ? 'Set Password' : 'Change Password'}
               </button>
+              {dishCoveryUser.isGoogleUser && (
+                <p style={{ marginTop: '12px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
+                  After setting a password, you can log in using either Google or email/password
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -1280,6 +1493,166 @@ export default function UserProfilePage() {
                 </button>
                 <button className="danger-btn" onClick={dishCoveryHandleDeactivateAccount}>
                   Deactivate Account
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 🆕 MEDICAL CONDITIONS MODAL */}
+        {showMedicalConditionsModal && (
+          <div
+            className="modal-overlay"
+            onClick={handleCloseMedicalConditionsModal}
+          >
+            <div 
+              className="modal-content" 
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '600px', maxHeight: '80vh', overflow: 'auto' }}
+            >
+              <button
+                className="close-btn"
+                onClick={handleCloseMedicalConditionsModal}
+              >
+                ×
+              </button>
+              <h2 className="modal-title">Medical Conditions</h2>
+              <p className="modal-subtitle">
+                Select all that apply (Allergies & Intolerances)
+              </p>
+              
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                gap: '12px',
+                marginTop: '20px'
+              }}>
+                {availableMedicalConditions.map((condition) => (
+                  <label 
+                    key={condition}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '12px',
+                      border: tempMedicalConditions.includes(condition) 
+                        ? '2px solid #4A7C4E' 
+                        : '2px solid #e0e0e0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      backgroundColor: tempMedicalConditions.includes(condition) 
+                        ? '#e8f5e9' 
+                        : '#fff',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={tempMedicalConditions.includes(condition)}
+                      onChange={() => handleToggleMedicalCondition(condition)}
+                      style={{ 
+                        marginRight: '8px',
+                        width: '18px',
+                        height: '18px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <span style={{ fontSize: '14px' }}>{condition}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '24px' }}>
+                <button
+                  className="cancel-btn"
+                  onClick={handleCloseMedicalConditionsModal}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="modal-signin-btn"
+                  onClick={handleSaveMedicalConditions}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 🆕 DIETARY LIFESTYLE MODAL */}
+        {showDietaryLifestyleModal && (
+          <div
+            className="modal-overlay"
+            onClick={handleCloseDietaryLifestyleModal}
+          >
+            <div 
+              className="modal-content" 
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '600px', maxHeight: '80vh', overflow: 'auto' }}
+            >
+              <button
+                className="close-btn"
+                onClick={handleCloseDietaryLifestyleModal}
+              >
+                ×
+              </button>
+              <h2 className="modal-title">Dietary Lifestyle</h2>
+              <p className="modal-subtitle">
+                Select your dietary preferences
+              </p>
+              
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                gap: '12px',
+                marginTop: '20px'
+              }}>
+                {availableLifestyles.map((lifestyle) => (
+                  <label 
+                    key={lifestyle}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '12px',
+                      border: tempLifestyles.includes(lifestyle) 
+                        ? '2px solid #4A7C4E' 
+                        : '2px solid #e0e0e0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      backgroundColor: tempLifestyles.includes(lifestyle) 
+                        ? '#e8f5e9' 
+                        : '#fff',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={tempLifestyles.includes(lifestyle)}
+                      onChange={() => handleToggleLifestyle(lifestyle)}
+                      style={{ 
+                        marginRight: '8px',
+                        width: '18px',
+                        height: '18px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <span style={{ fontSize: '14px' }}>{lifestyle}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '24px' }}>
+                <button
+                  className="cancel-btn"
+                  onClick={handleCloseDietaryLifestyleModal}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="modal-signin-btn"
+                  onClick={handleSaveDietaryLifestyle}
+                >
+                  Save Changes
                 </button>
               </div>
             </div>

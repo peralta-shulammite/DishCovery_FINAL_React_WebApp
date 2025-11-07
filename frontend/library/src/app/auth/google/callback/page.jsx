@@ -23,7 +23,7 @@ function GoogleCallbackInner() {
     setVerificationError('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+      const response = await fetch(`${API_BASE_URL}/auth/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: verificationCode }),
@@ -60,7 +60,7 @@ function GoogleCallbackInner() {
 
   const handleResendCode = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
+      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -110,7 +110,7 @@ function GoogleCallbackInner() {
 
         setStatus(`Authenticating with Google (${mode})...`);
 
-        const response = await fetch(`${API_BASE_URL}/api/auth/google/callback`, {
+        const response = await fetch(`${API_BASE_URL}/auth/google/callback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code, state: stateParam }),
@@ -128,24 +128,40 @@ function GoogleCallbackInner() {
           return;
         }
 
+        // Handle 404 - No account found (gracefully, no console error)
+        if (response.status === 404) {
+          setError(data.message || 'No account found. Please sign up first.');
+          return; // Don't throw error, just show message
+        }
+
         if (!response.ok) {
           throw new Error(data.message || 'Authentication failed');
         }
 
         setStatus('Login successful! Redirecting...');
+        console.log('💾 Saving user data to localStorage:', data.user);
         localStorage.setItem('token', data.token);
         localStorage.setItem('isAdmin', 'false');
         localStorage.setItem('userType', 'user');
         localStorage.setItem('userId', data.user.userId);
         localStorage.setItem('userEmail', data.user.email);
         localStorage.setItem('googleAuth', 'true');
+        if (data.user.firstName) localStorage.setItem('userFirstName', data.user.firstName);
+        if (data.user.lastName) localStorage.setItem('userLastName', data.user.lastName);
         sessionStorage.setItem('userJustLoggedIn', 'true');
+        console.log('✅ User data saved, redirecting to home...');
         setTimeout(() => router.push('/user/home'), 1000);
 
       } catch (error) {
-        console.error('Callback error:', error);
+        // Only log errors that aren't handled gracefully above
+        if (error.message !== 'No account found. Please sign up first.') {
+          console.error('Callback error:', error);
+        }
         setError(error.message || 'Authentication failed');
-        setTimeout(() => router.push('/user/home'), 3000);
+        // Don't auto-redirect for graceful errors
+        if (error.message !== 'No account found. Please sign up first.') {
+          setTimeout(() => router.push('/user/home'), 3000);
+        }
       }
     };
 

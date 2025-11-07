@@ -139,31 +139,34 @@ router.post('/register', async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    const existing = await connection.query('SELECT * FROM users WHERE email = ?', [email]);
+    const [existingRows] = await connection.query('SELECT * FROM users WHERE email = ?', [email]);
     
-    if (existing[0].length > 0) {
-      if (existing[0][0].email_verified) {
+    if (existingRows.length > 0) {
+      if (existingRows[0].email_verified) {
         await connection.rollback();
         return res.status(400).json({ message: 'Email already registered. Please log in instead.' });
       } else {
-        await connection.query('DELETE FROM pending_requests WHERE user_id = ?', [existing[0][0].user_id]);
-        await connection.query('DELETE FROM users WHERE user_id = ?', [existing[0][0].user_id]);
-        console.log(`Deleted unverified account for ${email}`);
+        await connection.query('DELETE FROM pending_requests WHERE user_id = ?', [existingRows[0].user_id]);
+        await connection.query('DELETE FROM users WHERE user_id = ?', [existingRows[0].user_id]);
+        console.log(`🗑️ Deleted unverified account for ${email}`);
       }
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const result = await connection.query(
+    const [result] = await connection.query(
       'INSERT INTO users (email, password_hash, first_name, last_name, email_verified, is_active, is_new_user) VALUES (?, ?, ?, ?, 0, 1, 1)',
       [email, passwordHash, firstName, lastName]
     );
+
+    const userId = result.insertId;
+    console.log(`✅ User created with ID: ${userId}`);
 
     const verificationCode = generateVerificationCode();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await connection.query(
       'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
-      [result[0].insertId, 'email_verification', verificationCode, 'pending', expiresAt]
+      [userId, 'email_verification', verificationCode, 'pending', expiresAt]
     );
 
     await sendVerificationEmail(email, verificationCode, firstName);
@@ -172,7 +175,7 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({
       message: 'Registration successful! Please check your email for verification code.',
-      userId: result[0].insertId,
+      userId: userId,
       requiresVerification: true,
       email
     });
@@ -191,7 +194,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const users = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (users[0].length === 0)
+    if (users.length === 0)
       return res.status(401).json({ message: 'Invalid email or password' });
 
     const user = users[0];
@@ -250,7 +253,14 @@ router.post('/login', async (req, res) => {
 // VERIFY - 100% BULLETPROOF
 // VERIFY - 100% BULLETPROOF & FIXED
 router.post('/verify', async (req, res) => {
-  const { email, code } = req.body;
+  let { email, code } = req.body;
+  
+  // CRITICAL FIX: Trim whitespace from email and code (copy-paste from email can add spaces)
+  email = email ? email.trim() : '';
+  code = code ? code.trim() : '';
+  
+  console.log(`🔍 Verification attempt for email: "${email}", code: "${code}"`);
+  console.log(`📏 Code length: ${code.length} characters`);
 
   if (!email || !code) {
     return res.status(400).json({ message: 'Email and code are required' });
@@ -267,12 +277,16 @@ router.post('/verify', async (req, res) => {
       [email]
     );
 
+    console.log(`📊 Query result: ${userRows ? userRows.length : 0} user(s) found`);
+
     if (!userRows || userRows.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ message: 'User not found' });
+      console.log(`❌ User not found for email: ${email}`);
+      return res.status(404).json({ message: 'Email not found. Please sign up again.' });
     }
 
     const userId = userRows[0].user_id;
+    console.log(`✅ User found with ID: ${userId}`);
 
     // FIX 2: Correct destructuring
     const [requestRows] = await connection.query(

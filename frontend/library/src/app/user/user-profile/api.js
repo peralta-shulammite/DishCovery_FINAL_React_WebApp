@@ -1,20 +1,31 @@
 // API service for user profile
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
 
+// Debug log to verify API_BASE_URL
+console.log('🔧 User Profile API Base URL:', API_BASE_URL);
+
 const getAuthToken = () => {
   return localStorage.getItem('token');
+};
+
+// Cache-busting headers to force fresh API calls
+const getCacheBustingHeaders = () => {
+  return {
+    'Authorization': `Bearer ${getAuthToken()}`,
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  };
 };
 
 export const profileAPI = {
   // Fetch user's dietary preferences
   getDietaryPreferences: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/user-profile/dietary`, {
+      const response = await fetch(`${API_BASE_URL}/user-profile/dietary?_=${Date.now()}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
-          'Content-Type': 'application/json'
-        }
+        headers: getCacheBustingHeaders()
       });
 
       if (!response.ok) {
@@ -29,15 +40,37 @@ export const profileAPI = {
     }
   },
 
+  // 🆕 Fetch all available dietary categories from database
+  getAllCategories: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/dietary-restrictions/public?_=${Date.now()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching all categories:', error);
+      throw error;
+    }
+  },
+
   // Fetch user's basic info
   getUserInfo: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/user-profile/info`, {
+      const response = await fetch(`${API_BASE_URL}/user-profile/info?_=${Date.now()}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
-          'Content-Type': 'application/json'
-        }
+        headers: getCacheBustingHeaders()
       });
 
       if (!response.ok) {
@@ -128,6 +161,31 @@ export const profileAPI = {
       console.error('Error updating dietary preferences:', error);
       throw error;
     }
+  },
+
+  // Change password
+  changePassword: async (currentPassword, newPassword) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/user-profile/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error changing password:', error);
+      throw error;
+    }
   }
 };
 
@@ -163,12 +221,9 @@ export const feedbackAPI = {
   // Get user's feedback history with all replies
   getMyFeedback: async (limit = 10, offset = 0) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback/my-feedback?limit=${limit}&offset=${offset}`, {
+      const response = await fetch(`${API_BASE_URL}/feedback/my-feedback?limit=${limit}&offset=${offset}&_=${Date.now()}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
-          'Content-Type': 'application/json'
-        }
+        headers: getCacheBustingHeaders()
       });
 
       if (!response.ok) {
@@ -186,12 +241,9 @@ export const feedbackAPI = {
   // Get unread reply count
   getUnreadCount: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback/unread-count`, {
+      const response = await fetch(`${API_BASE_URL}/feedback/unread-count?_=${Date.now()}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
-          'Content-Type': 'application/json'
-        }
+        headers: getCacheBustingHeaders()
       });
 
       if (!response.ok) {
@@ -210,7 +262,7 @@ export const feedbackAPI = {
   },
 
   // Mark feedback reply as read
-  markAsRead: async (feedback_id) => {
+  markAsRead: async (feedbackId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/feedback/${feedbackId}/mark-read`, {
         method: 'PUT',
@@ -234,7 +286,7 @@ export const feedbackAPI = {
   },
 
   // Delete feedback
-  deleteFeedback: async (feedback_id) => {
+  deleteFeedback: async (feedbackId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/feedback/${feedbackId}`, {
         method: 'DELETE',
