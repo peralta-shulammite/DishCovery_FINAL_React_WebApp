@@ -42,6 +42,7 @@ const IngredientScanner = () => {
   const [isLiveDetecting, setIsLiveDetecting] = useState(false);
   const [newIngredient, setNewIngredient] = useState('');
   const [backendError, setBackendError] = useState(null);
+  const smoothedDetectionsRef = useRef([]);
 
   const handleGoBack = () => {
     window.history.back();
@@ -87,6 +88,75 @@ const IngredientScanner = () => {
     return null;
   };
 
+  // Helper function to draw rounded rectangle
+  const drawRoundedRect = (ctx, x, y, width, height, radius) => {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  };
+
+  // Smooth detections using exponential moving average
+  const smoothDetections = useCallback((newDetections) => {
+    const confidenceThreshold = 0.75;
+    const filtered = newDetections.filter(det => det.confidence >= confidenceThreshold);
+    
+    if (filtered.length === 0) {
+      // If no high-confidence detections, gradually fade out existing ones
+      smoothedDetectionsRef.current = smoothedDetectionsRef.current.map(det => ({
+        ...det,
+        confidence: det.confidence * 0.8
+      })).filter(det => det.confidence > 0.1);
+      return smoothedDetectionsRef.current;
+    }
+
+    // Match new detections with existing ones by position and class
+    const matched = filtered.map(newDet => {
+      const existing = smoothedDetectionsRef.current.find(existingDet => {
+        const [x1, y1, x2, y2] = existingDet.bbox;
+        const [nx1, ny1, nx2, ny2] = newDet.bbox;
+        const centerX = (x1 + x2) / 2;
+        const centerY = (y1 + y2) / 2;
+        const newCenterX = (nx1 + nx2) / 2;
+        const newCenterY = (ny1 + ny2) / 2;
+        const distance = Math.sqrt(
+          Math.pow(centerX - newCenterX, 2) + Math.pow(centerY - newCenterY, 2)
+        );
+        const maxDistance = Math.max(x2 - x1, y2 - y1) * 0.5;
+        return existingDet.class_name === newDet.class_name && distance < maxDistance;
+      });
+
+      if (existing) {
+        // Smooth the bbox using exponential moving average (alpha = 0.3 for stability)
+        const alpha = 0.3;
+        const [ex1, ey1, ex2, ey2] = existing.bbox;
+        const [nx1, ny1, nx2, ny2] = newDet.bbox;
+        const smoothedBbox = [
+          ex1 * (1 - alpha) + nx1 * alpha,
+          ey1 * (1 - alpha) + ny1 * alpha,
+          ex2 * (1 - alpha) + nx2 * alpha,
+          ey2 * (1 - alpha) + ny2 * alpha
+        ];
+        return {
+          ...newDet,
+          bbox: smoothedBbox,
+          confidence: Math.max(existing.confidence * 0.9, newDet.confidence)
+        };
+      }
+      return newDet;
+    });
+
+    smoothedDetectionsRef.current = matched;
+    return matched;
+  }, []);
+
   // Draw bounding boxes on canvas
   const drawBoundingBoxes = useCallback(() => {
     if (!bboxCanvasRef.current || !imageRef.current || detections.length === 0) return;
@@ -100,27 +170,43 @@ const IngredientScanner = () => {
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    detections.forEach((det) => {
+    // Filter by confidence > 75%
+    const highConfidenceDetections = detections.filter(det => det.confidence >= 0.75);
+
+    highConfidenceDetections.forEach((det) => {
       const [x1, y1, x2, y2] = det.bbox;
       const width = x2 - x1;
       const height = y2 - y1;
+      const radius = 8; // Rounded corner radius
 
-      // Draw box
-      ctx.strokeStyle = det.db_matched ? '#4CAF50' : '#FF9800';
+      // Draw filled rounded rectangle with light green translucent fill
+      ctx.fillStyle = 'rgba(76, 175, 80, 0.12)'; // #4CAF50 at ~12% opacity
+      drawRoundedRect(ctx, x1, y1, width, height, radius);
+      ctx.fill();
+
+      // Draw rounded rectangle stroke
+      ctx.strokeStyle = '#4CAF50'; // Medium green
       ctx.lineWidth = 3;
-      ctx.strokeRect(x1, y1, width, height);
+      drawRoundedRect(ctx, x1, y1, width, height, radius);
+      ctx.stroke();
 
-      // Draw label background
+      // Draw label background (rounded rectangle)
       const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
-      ctx.font = '14px Arial';
+      ctx.font = 'bold 14px Arial';
       const textWidth = ctx.measureText(label).width;
+      const labelHeight = 22;
+      const labelPadding = 8;
+      const labelX = x1;
+      const labelY = y1 - labelHeight - 4;
+      const labelRadius = 6;
       
-      ctx.fillStyle = det.db_matched ? '#4CAF50' : '#FF9800';
-      ctx.fillRect(x1, y1 - 20, textWidth + 10, 20);
+      ctx.fillStyle = '#4CAF50';
+      drawRoundedRect(ctx, labelX, labelY, textWidth + labelPadding * 2, labelHeight, labelRadius);
+      ctx.fill();
 
       // Draw label text
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(label, x1 + 5, y1 - 5);
+      ctx.fillText(label, labelX + labelPadding, labelY + labelHeight - 6);
     });
   }, [detections]);
 
@@ -133,7 +219,7 @@ const IngredientScanner = () => {
 
   // Draw live bounding boxes on video feed
   const drawLiveBoxes = useCallback(() => {
-    if (!liveCanvasRef.current || !videoRef.current || liveDetections.length === 0) return;
+    if (!liveCanvasRef.current || !videoRef.current) return;
 
     const canvas = liveCanvasRef.current;
     const video = videoRef.current;
@@ -144,27 +230,48 @@ const IngredientScanner = () => {
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    liveDetections.forEach((det) => {
+    // Use smoothed detections for stable display
+    const detectionsToDraw = liveDetections.length > 0 ? liveDetections : smoothedDetectionsRef.current;
+    
+    // Filter by confidence > 75%
+    const highConfidenceDetections = detectionsToDraw.filter(det => det.confidence >= 0.75);
+
+    if (highConfidenceDetections.length === 0) return;
+
+    highConfidenceDetections.forEach((det) => {
       const [x1, y1, x2, y2] = det.bbox;
       const width = x2 - x1;
       const height = y2 - y1;
+      const radius = 8; // Rounded corner radius
 
-      // Draw box
-      ctx.strokeStyle = det.db_matched ? '#4CAF50' : '#FF9800';
+      // Draw filled rounded rectangle with light green translucent fill
+      ctx.fillStyle = 'rgba(76, 175, 80, 0.12)'; // #4CAF50 at ~12% opacity
+      drawRoundedRect(ctx, x1, y1, width, height, radius);
+      ctx.fill();
+
+      // Draw rounded rectangle stroke
+      ctx.strokeStyle = '#4CAF50'; // Medium green
       ctx.lineWidth = 3;
-      ctx.strokeRect(x1, y1, width, height);
+      drawRoundedRect(ctx, x1, y1, width, height, radius);
+      ctx.stroke();
 
-      // Draw label background
+      // Draw label background (rounded rectangle)
       const label = `${det.class_name} ${(det.confidence * 100).toFixed(0)}%`;
       ctx.font = 'bold 16px Arial';
       const textWidth = ctx.measureText(label).width;
+      const labelHeight = 24;
+      const labelPadding = 10;
+      const labelX = x1;
+      const labelY = y1 - labelHeight - 4;
+      const labelRadius = 6;
       
-      ctx.fillStyle = det.db_matched ? '#4CAF50' : '#FF9800';
-      ctx.fillRect(x1, y1 - 25, textWidth + 12, 25);
+      ctx.fillStyle = '#4CAF50';
+      drawRoundedRect(ctx, labelX, labelY, textWidth + labelPadding * 2, labelHeight, labelRadius);
+      ctx.fill();
 
       // Draw label text
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(label, x1 + 6, y1 - 6);
+      ctx.fillText(label, labelX + labelPadding, labelY + labelHeight - 6);
     });
   }, [liveDetections]);
 
@@ -196,15 +303,21 @@ const IngredientScanner = () => {
           if (imageDataUrl) {
             const blob = await (await fetch(imageDataUrl)).blob();
             const result = await detectIngredientsBackend(blob, true);
-            setLiveDetections(result.detections || []);
+            const rawDetections = result.detections || [];
+            
+            // Apply smoothing to detections
+            const smoothed = smoothDetections(rawDetections);
+            setLiveDetections(smoothed);
           }
         } catch (error) {
           console.log('Live detection error (will retry):', error.message);
-          setLiveDetections([]);
+          // On error, fade out existing detections
+          const faded = smoothDetections([]);
+          setLiveDetections(faded);
         } finally {
           setIsLiveDetecting(false);
         }
-      }, 1500); // Detect every 1.5 seconds
+      }, 150); // Detect at ~6.7 FPS (150ms interval) for smooth real-time detection
 
       return () => {
         if (liveDetectionInterval.current) {
@@ -212,7 +325,7 @@ const IngredientScanner = () => {
         }
       };
     }
-  }, [cameraState, showModal, isScanning, isLiveDetecting]);
+  }, [cameraState, showModal, isScanning, isLiveDetecting, smoothDetections]);
 
   // Draw live boxes when detections update
   useEffect(() => {
@@ -445,6 +558,9 @@ const IngredientScanner = () => {
     setScannedIngredients([]);
     setDetections([]);
     setBackendError(null);
+    // Reset smoothed detections when modal closes
+    smoothedDetectionsRef.current = [];
+    setLiveDetections([]);
   };
 
   const closeHelpModal = () => {
