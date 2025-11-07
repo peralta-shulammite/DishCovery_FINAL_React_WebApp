@@ -1,6 +1,6 @@
 // DishCovery Service Worker
-const CACHE_NAME = 'dishcovery-v3';
-const RUNTIME_CACHE = 'dishcovery-runtime-v3';
+const CACHE_NAME = 'dishcovery-v4';
+const RUNTIME_CACHE = 'dishcovery-runtime-v4';
 
 // Assets to cache on install
 const PRECACHE_URLS = [

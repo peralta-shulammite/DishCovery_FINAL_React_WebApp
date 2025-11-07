@@ -116,16 +116,36 @@ export default function DishCoveryLanding() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    const userEmail = localStorage.getItem('userEmail');
+    
+    console.log('🔍 Checking login state:', { hasToken: !!token, userId, userEmail });
+    
     if (token) {
+      console.log('✅ Token found, user is logged in!');
       setDishCoveryIsLoggedIn(true);
+      
+      // Set basic user info from localStorage immediately
+      if (userId && userEmail) {
+        setDishCoveryUser({
+          userId: userId,
+          email: userEmail,
+        });
+      }
+      
+      // Then try to fetch full profile (but don't fail login if it errors)
       api.getProfile()
         .then((userData) => {
+          console.log('✅ Profile loaded:', userData);
           setDishCoveryUser(userData);
         })
-        .catch(() => {
-          setDishCoveryIsLoggedIn(false);
-          setDishCoveryUser(null);
+        .catch((error) => {
+          console.warn('⚠️ Failed to load profile, but keeping user logged in:', error.message);
+          // Don't set isLoggedIn to false - token is still valid
         });
+    } else {
+      console.log('❌ No token found, user not logged in');
+      setDishCoveryIsLoggedIn(false);
     }
     
     // Load Google OAuth script
@@ -253,10 +273,13 @@ const dishCoveryHandleSignInSubmit = async (e) => {
         window.location.reload();
       }
     } catch (error) {
-      console.error('❌ Login error:', error);
-      if (error.message.includes('Google')) {
+      // Special handling for Google OAuth accounts - don't log error to console
+      if (error.isGoogleAuthError || error.message.includes('Google')) {
         setDishCoveryPassword('');
+        setDishCoveryError('This account uses Google Sign-In. Please click "Continue with Google" below.');
+        return; // Don't log or show generic error
       }
+      console.error('❌ Login error:', error);
       setDishCoveryError(error.message);
     }
   };
@@ -269,6 +292,11 @@ const dishCoveryHandleSignInSubmit = async (e) => {
     }
     try {
       await api.signUp(dishCoveryFirstName, dishCoveryLastName, dishCoveryEmail, dishCoveryPassword);
+      
+      // CRITICAL FIX: Store the email in localStorage for verification
+      localStorage.setItem('pendingVerificationEmail', dishCoveryEmail.trim());
+      console.log(`💾 Saved pending email for verification: ${dishCoveryEmail.trim()}`);
+      
       setDishCoveryShowSignUpModal(false);
       setDishCoveryShowOneMoreStepModal(true);
       setDishCoveryError('');
@@ -282,13 +310,17 @@ const dishCoveryHandleSignInSubmit = async (e) => {
     e.preventDefault();
 
     const pendingEmail = localStorage.getItem('pendingVerificationEmail');
-  if (!pendingEmail) {
-    setDishCoveryError('Email not found. Please sign up again.');
-    return;
-  }
+    if (!pendingEmail) {
+      setDishCoveryError('Email not found. Please sign up again.');
+      return;
+    }
+
+    // CRITICAL FIX: Trim whitespace from verification code (copy-paste from email can add spaces)
+    const trimmedCode = dishCoveryVerificationCode.trim();
+    console.log(`📋 Verifying with email: "${pendingEmail}", code: "${trimmedCode}" (length: ${trimmedCode.length})`);
 
     try {
-      const data = await api.verify(dishCoveryEmail, dishCoveryVerificationCode);
+      const data = await api.verify(pendingEmail, trimmedCode);
       setDishCoveryUser(data.user);
       setDishCoveryIsLoggedIn(true);
       dishCoveryCloseModal();
@@ -1005,20 +1037,54 @@ const dishCoveryBottomRecipes = [
               value={dishCoveryEmail}
               onChange={(e) => setDishCoveryEmail(e.target.value)}
             />
-            <input
-              type="password"
-              className="modal-input"
-              placeholder="Password"
-              value={dishCoveryPassword}
-              onChange={(e) => setDishCoveryPassword(e.target.value)}
-            />
-            <input
-              type="password"
-              className="modal-input"
-              placeholder="Confirm Password"
-              value={dishCoveryConfirmPassword}
-              onChange={(e) => setDishCoveryConfirmPassword(e.target.value)}
-            />
+            <div className="password-input-container">
+              <input
+                type={dishCoveryShowPassword ? "text" : "password"}
+                className="modal-input"
+                placeholder="Password"
+                value={dishCoveryPassword}
+                onChange={(e) => setDishCoveryPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="toggle-password-btn"
+                onClick={() => setDishCoveryShowPassword(!dishCoveryShowPassword)}
+              >
+                {dishCoveryShowPassword ? (
+                  <svg viewBox="0 0 24 24" className="eye-icon">
+                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="eye-icon">
+                    <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+            <div className="password-input-container">
+              <input
+                type={dishCoveryShowPassword ? "text" : "password"}
+                className="modal-input"
+                placeholder="Confirm Password"
+                value={dishCoveryConfirmPassword}
+                onChange={(e) => setDishCoveryConfirmPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="toggle-password-btn"
+                onClick={() => setDishCoveryShowPassword(!dishCoveryShowPassword)}
+              >
+                {dishCoveryShowPassword ? (
+                  <svg viewBox="0 0 24 24" className="eye-icon">
+                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="eye-icon">
+                    <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+                  </svg>
+                )}
+              </button>
+            </div>
             <div className="modal-terms">
               <input
                 type="checkbox"

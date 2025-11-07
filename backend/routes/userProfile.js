@@ -1,6 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 import authenticateToken from '../middleware/auth.js';
+import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -64,14 +65,15 @@ router.get('/dietary', authenticateToken, async (req, res) => {
     `, [userId]);
 
     // Organize data by category
-    const dietaryRestrictions = [];
+    // Category 1 (Allergy) + Category 2 (Intolerance) = Medical Conditions
+    // Category 3 (Dietary Lifestyle) = Preferred Diets
+    const dietaryRestrictions = []; // Empty - not used, replaced by medicalConditions
     const medicalConditions = [];
     const preferredDiets = [];
 
     restrictions.forEach(item => {
-      if (item.category_name === 'Allergy') {
-        dietaryRestrictions.push(item.restriction_name);
-      } else if (item.category_name === 'Intolerance') {
+      if (item.category_name === 'Allergy' || item.category_name === 'Intolerance') {
+        // Both Allergy and Intolerance go to Medical Conditions
         medicalConditions.push(item.restriction_name);
       } else if (item.category_name === 'Dietary Lifestyle') {
         preferredDiets.push(item.restriction_name);
@@ -114,7 +116,7 @@ router.get('/info', authenticateToken, async (req, res) => {
     console.log('📥 Fetching user info for user ID:', userId);
     
     const users = await db.query(`
-      SELECT user_id, email, first_name, last_name, profile_picture_url, created_at, last_login
+      SELECT user_id, email, first_name, last_name, profile_picture_url, created_at, last_login, google_id, password_hash
       FROM users
       WHERE user_id = ?
     `, [userId]);
@@ -128,12 +130,15 @@ router.get('/info', authenticateToken, async (req, res) => {
     }
 
     const user = users[0];
+    const isGoogleUser = !!user.google_id && !user.password_hash;
+    
     console.log('✅ User info fetched:', { 
       userId: user.user_id, 
       firstName: user.first_name,
       lastName: user.last_name,
       email: user.email,
-      hasProfilePicture: !!user.profile_picture_url
+      hasProfilePicture: !!user.profile_picture_url,
+      isGoogleUser: isGoogleUser
     });
 
     res.json({
@@ -145,7 +150,9 @@ router.get('/info', authenticateToken, async (req, res) => {
         lastName: user.last_name,
         profilePicture: user.profile_picture_url,
         createdAt: user.created_at,
-        lastLogin: user.last_login
+        lastLogin: user.last_login,
+        googleId: user.google_id,
+        hasPassword: !!user.password_hash
       }
     });
 
@@ -372,6 +379,123 @@ router.put('/dietary', authenticateToken, async (req, res) => {
     if (connection) {
       connection.release();
     }
+  }
+});
+
+// PUT change password (supports both manual users and Google users adding password)
+router.put('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    console.log('🔒 Attempting to change/set password for user:', userId);
+
+    // Validate new password is provided
+    if (!newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password is required'
+      });
+    }
+
+    // Validate new password strength
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 8 characters long'
+      });
+    }
+
+    const hasUpper = /[A-Z]/.test(newPassword);
+    const hasLower = /[a-z]/.test(newPassword);
+    const hasNumber = /\d/.test(newPassword);
+
+    if (!hasUpper || !hasLower || !hasNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+      });
+    }
+
+    // Get current password hash and Google ID
+    const users = await db.query(
+      'SELECT password_hash, google_id FROM users WHERE user_id = ?',
+      [userId]
+    );
+
+    if (!users || users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const user = users[0];
+    const isGoogleUser = !!user.google_id && !user.password_hash;
+
+    // CASE 1: Google user setting password for the first time (enable manual login)
+    if (isGoogleUser) {
+      console.log('✨ Google user setting password for first time - enabling manual login');
+      
+      // Google users don't need current password since they don't have one
+      const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+      await db.query(
+        'UPDATE users SET password_hash = ? WHERE user_id = ?',
+        [newPasswordHash, userId]
+      );
+
+      console.log('✅ Password set successfully for Google user:', userId);
+
+      return res.json({
+        success: true,
+        message: 'Password set successfully! You can now log in with email and password.',
+        isGoogleUser: true
+      });
+    }
+
+    // CASE 2: Manual user changing existing password
+    if (!currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is required'
+      });
+    }
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+    
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await db.query(
+      'UPDATE users SET password_hash = ? WHERE user_id = ?',
+      [newPasswordHash, userId]
+    );
+
+    console.log('✅ Password changed successfully for user:', userId);
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+      isGoogleUser: false
+    });
+
+  } catch (error) {
+    console.error('❌ Error changing password:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to change password',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

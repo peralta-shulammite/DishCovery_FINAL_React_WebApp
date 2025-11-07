@@ -41,7 +41,7 @@ const dbHost = process.env.DB_HOST || '127.0.0.1';
 const dbPort = parseInt(process.env.DB_PORT) || 3306;
 const dbUser = process.env.DB_USER || 'root';
 
-// Create MySQL pool
+// Create MySQL pool with enhanced reconnection settings
 const pool = mysql.createPool({
   host: dbHost,
   port: dbPort,
@@ -53,7 +53,29 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 0,
+  // Add connection timeout and retry settings
+  connectTimeout: 60000, // 60 seconds
+  acquireTimeout: 60000, // 60 seconds
+  timeout: 60000, // 60 seconds
+  // Automatically remove broken connections
+  removeNodeErrorCount: 5,
+  // Retry failed connections
+  retryStrategy: function(options) {
+    if (options.error && options.error.code === 'ECONNRESET') {
+      return 5000; // Retry after 5 seconds
+    }
+    if (options.error && options.error.code === 'ENOTFOUND') {
+      return undefined; // Stop retrying
+    }
+    if (options.total_retry_time > 1000 * 60 * 60) {
+      return undefined; // Stop retrying after 1 hour
+    }
+    if (options.attempt > 10) {
+      return undefined; // Stop after 10 attempts
+    }
+    return Math.min(options.attempt * 100, 3000); // Exponential backoff
+  }
 });
 
 // Test connection on startup
@@ -92,40 +114,49 @@ const testConnection = async () => {
 
 // Custom db object with query method
 const db = {
-  // Custom query method with smart logging
-  query: async (sql, params = []) => {
+  // Custom query method with smart logging and reconnection
+  query: async (sql, params = [], retries = 3) => {
     const isDevelopment = process.env.NODE_ENV !== 'production';
     
-    try {
-      // Only log in development mode or for errors
-      if (isDevelopment) {
-        const shortSql = sql.length > 100 ? sql.substring(0, 100) + '...' : sql;
-        console.log('🔍 Query:', shortSql);
-        if (params && params.length) {
-          console.log('📝 Params:', params);
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        // Only log in development mode or for errors
+        if (isDevelopment) {
+          const shortSql = sql.length > 100 ? sql.substring(0, 100) + '...' : sql;
+          console.log('🔍 Query:', shortSql);
+          if (params && params.length) {
+            console.log('📝 Params:', params);
+          }
         }
+        
+        // Execute query
+        const [results] = await pool.query(sql, params);
+        
+        // Log success in development
+        if (isDevelopment) {
+          const rowCount = results.length || results.affectedRows || 0;
+          console.log(`✅ Success: ${rowCount} row(s)`);
+        }
+        
+        return results;
+      } catch (error) {
+        // Handle connection reset errors with retry
+        if ((error.code === 'ECONNRESET' || error.code === 'PROTOCOL_CONNECTION_LOST') && attempt < retries) {
+          console.warn(`⚠️ Connection lost, retrying... (Attempt ${attempt}/${retries})`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Wait before retry
+          continue; // Retry
+        }
+        
+        // Always log errors
+        console.error('❌ Database query error:', error.message);
+        console.error('🔍 Failed query:', sql.length > 200 ? sql.substring(0, 200) + '...' : sql);
+        if (params && params.length) {
+          console.error('📝 Parameters:', params);
+        }
+        console.error('💡 Error code:', error.code);
+        console.error('💡 SQL State:', error.sqlState);
+        throw error;
       }
-      
-      // Execute query
-      const [results] = await pool.query(sql, params);
-      
-      // Log success in development
-      if (isDevelopment) {
-        const rowCount = results.length || results.affectedRows || 0;
-        console.log(`✅ Success: ${rowCount} row(s)`);
-      }
-      
-      return results;
-    } catch (error) {
-      // Always log errors
-      console.error('❌ Database query error:', error.message);
-      console.error('🔍 Failed query:', sql.length > 200 ? sql.substring(0, 200) + '...' : sql);
-      if (params && params.length) {
-        console.error('📝 Parameters:', params);
-      }
-      console.error('💡 Error code:', error.code);
-      console.error('💡 SQL State:', error.sqlState);
-      throw error;
     }
   },
   
