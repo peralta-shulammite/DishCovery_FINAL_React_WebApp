@@ -58,7 +58,7 @@ export default function GetStarted() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      fetch(`${API_BASE_URL}/api/users/profile`, {
+      fetch(`${API_BASE_URL}/users/profile`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => {
