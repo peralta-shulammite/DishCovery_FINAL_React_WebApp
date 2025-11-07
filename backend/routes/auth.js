@@ -176,6 +176,72 @@ const sendVerificationEmail = async (email, code, firstName = '') => {
   }
 };
 
+// Send password reset email using SendGrid HTTP API or Gmail SMTP fallback
+const sendPasswordResetEmail = async (email, code, firstName = '') => {
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333;">
+      <div style="max-width:600px;margin:0 auto;padding:20px;">
+        <h2 style="background:#667eea;color:white;padding:15px;border-radius:10px 10px 0 0;text-align:center;">
+          🔑 Password Reset Request
+        </h2>
+        <div style="background:#f9f9f9;padding:20px;border-radius:0 0 10px 10px;">
+          <p>Hi ${firstName || 'there'}!</p>
+          <p>We received a request to reset your DishCovery password. Use the code below to reset it:</p>
+          <div style="background:white;border:2px dashed #667eea;padding:15px;text-align:center;font-size:28px;font-weight:bold;color:#667eea;">
+            ${code}
+          </div>
+          <p><strong>This code will expire in 15 minutes.</strong></p>
+          <p>If you didn't request a password reset, please ignore this email and your password will remain unchanged.</p>
+          <p style="margin-top:30px;padding-top:20px;border-top:1px solid #ddd;font-size:12px;color:#888;">
+            For security reasons, never share this code with anyone.
+          </p>
+          <p style="font-size:12px;color:#888;">© 2025 DishCovery. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>`;
+
+  try {
+    // Use SendGrid HTTP API (works on Render - no SMTP ports needed!)
+    if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
+      const msg = {
+        to: email,
+        from: {
+          email: process.env.SENDGRID_FROM_EMAIL,
+          name: 'DishCovery'
+        },
+        subject: '🔑 Reset Your DishCovery Password',
+        html: emailHtml
+      };
+
+      await sgMail.send(msg);
+      console.log(`✅ Password reset email sent via SendGrid HTTP API to ${email}`);
+      return true;
+    }
+
+    // Fallback to Gmail SMTP (local development only)
+    if (gmailTransporter) {
+      const mailOptions = {
+        from: `"DishCovery" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: '🔑 Reset Your DishCovery Password',
+        html: emailHtml
+      };
+
+      await gmailTransporter.sendMail(mailOptions);
+      console.log(`✅ Password reset email sent via Gmail SMTP to ${email}`);
+      return true;
+    }
+
+    throw new Error('No email service configured');
+  } catch (error) {
+    console.error('❌ Password reset email send error:', error);
+    throw new Error('Failed to send password reset email');
+  }
+};
+
 // REGISTER
 router.post('/register', async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
@@ -461,6 +527,213 @@ router.post('/resend-verification', async (req, res) => {
   } catch (error) {
     console.error('Resend verification error:', error);
     res.status(500).json({ message: 'Failed to resend code', error: error.message });
+  }
+});
+
+// ========================================
+// 🔑 FORGOT PASSWORD - Request Reset
+// ========================================
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  
+  console.log('🔑 Password reset request for:', email);
+  
+  if (!email) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Email is required' 
+    });
+  }
+
+  try {
+    // Check if user exists
+    const users = await pool.query(
+      'SELECT user_id, email, first_name, google_id, password_hash FROM users WHERE email = ?',
+      [email]
+    );
+    
+    // Always return success to prevent email enumeration attacks
+    // But only send email if user exists
+    if (users.length === 0 || users[0].length === 0) {
+      console.log('⚠️ Password reset requested for non-existent email:', email);
+      return res.json({ 
+        success: true, 
+        message: 'If this email exists, a password reset link has been sent.' 
+      });
+    }
+
+    const user = users[0][0] || users[0];
+    
+    // Check if user is Google-only (no password set)
+    if (user.google_id && !user.password_hash) {
+      console.log('⚠️ Password reset requested for Google-only account:', email);
+      return res.status(400).json({
+        success: false,
+        message: 'This account uses Google Sign-In only. Please use "Continue with Google" to log in.',
+        useGoogleLogin: true
+      });
+    }
+
+    // Expire old password reset requests
+    await pool.query(
+      'UPDATE pending_requests SET status = ? WHERE user_id = ? AND request_type = ? AND status = ?',
+      ['expired', user.user_id, 'password_reset', 'pending']
+    );
+
+    // Generate 6-digit reset code
+    const resetCode = generateVerificationCode();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Store reset request
+    await pool.query(
+      'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
+      [user.user_id, 'password_reset', resetCode, 'pending', expiresAt]
+    );
+
+    // Send reset email
+    await sendPasswordResetEmail(email, resetCode, user.first_name);
+
+    console.log('✅ Password reset code sent to:', email);
+    
+    res.json({ 
+      success: true, 
+      message: 'Password reset code sent to your email. Please check your inbox.',
+      email: email
+    });
+  } catch (error) {
+    console.error('❌ Forgot password error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error. Please try again later.' 
+    });
+  }
+});
+
+// ========================================
+// 🔑 RESET PASSWORD - Verify Code & Update Password
+// ========================================
+router.post('/reset-password', async (req, res) => {
+  let { email, code, newPassword } = req.body;
+  
+  // Trim inputs
+  email = email ? email.trim() : '';
+  code = code ? code.trim() : '';
+  
+  console.log('🔑 Password reset attempt for:', email);
+
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Email, code, and new password are required' 
+    });
+  }
+
+  // Validate password strength
+  if (newPassword.length < 8) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must be at least 8 characters long'
+    });
+  }
+
+  const hasUpper = /[A-Z]/.test(newPassword);
+  const hasLower = /[a-z]/.test(newPassword);
+  const hasNumber = /\d/.test(newPassword);
+
+  if (!hasUpper || !hasLower || !hasNumber) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Get user
+    const [userRows] = await connection.query(
+      'SELECT user_id FROM users WHERE email = ?',
+      [email]
+    );
+
+    if (!userRows || userRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    const userId = userRows[0].user_id;
+
+    // Verify reset code
+    const [requestRows] = await connection.query(
+      `SELECT * FROM pending_requests 
+       WHERE user_id = ? 
+         AND request_data = ? 
+         AND status = 'pending' 
+         AND request_type = 'password_reset'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId, code]
+    );
+
+    if (!requestRows || requestRows.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid or expired reset code' 
+      });
+    }
+
+    const request = requestRows[0];
+    const requestTime = new Date(request.created_at);
+    const minutesAgo = (Date.now() - requestTime.getTime()) / 60000;
+
+    // Check if code expired (15 minutes)
+    if (minutesAgo > 15) {
+      await connection.rollback();
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Reset code has expired. Please request a new one.' 
+      });
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await connection.query(
+      'UPDATE users SET password_hash = ? WHERE user_id = ?',
+      [passwordHash, userId]
+    );
+
+    // Mark reset request as completed
+    await connection.query(
+      'UPDATE pending_requests SET status = ? WHERE user_id = ? AND request_type = ? AND status = ?',
+      ['completed', userId, 'password_reset', 'pending']
+    );
+
+    await connection.commit();
+
+    console.log('✅ Password reset successful for user:', userId);
+
+    res.json({
+      success: true,
+      message: 'Password reset successful! You can now log in with your new password.'
+    });
+
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('❌ Reset password error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error. Please try again later.' 
+    });
+  } finally {
+    if (connection) connection.release();
   }
 });
 
