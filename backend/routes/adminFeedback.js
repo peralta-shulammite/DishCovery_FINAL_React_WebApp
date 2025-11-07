@@ -6,6 +6,12 @@ const router = express.Router();
 
 // Middleware to verify admin access
 const verifyAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+  }
   if (!req.user.isAdmin) {
     return res.status(403).json({
       success: false,
@@ -14,6 +20,13 @@ const verifyAdmin = (req, res, next) => {
   }
   next();
 };
+
+// ========================================
+// 🧪 TEST ROUTE (no auth) - Remove after testing
+// ========================================
+router.get('/test', (req, res) => {
+  res.json({ success: true, message: 'Route is working!' });
+});
 
 // Apply authentication and admin verification to all routes
 router.use(authenticateToken);
