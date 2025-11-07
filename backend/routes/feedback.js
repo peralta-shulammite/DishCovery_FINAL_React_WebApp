@@ -223,6 +223,36 @@ router.put('/:id/mark-read', authenticateToken, async (req, res) => {
 });
 
 // ========================================
+// 🔔 GET UNREAD COUNT
+// ========================================
+router.get('/unread-count', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('🔔 Fetching unread count for user:', userId);
+
+    const result = await db.query(
+      'SELECT COUNT(*) as unreadCount FROM feedback WHERE user_id = ? AND unread_by_user = 1',
+      [userId]
+    );
+
+    const unreadCount = result[0].unreadCount || 0;
+    console.log('✅ Unread count:', unreadCount);
+
+    res.json({
+      success: true,
+      data: { unreadCount }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching unread count:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch unread count',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================
 // 🗑️ DELETE USER'S OWN FEEDBACK
 // ========================================
 router.delete('/:id', authenticateToken, async (req, res) => {

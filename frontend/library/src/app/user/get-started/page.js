@@ -75,8 +75,8 @@ export default function GetStarted() {
     const loadRestrictions = async () => {
       try {
         console.log('📥 Loading restrictions from database...');
-        console.log('API URL:', `${API_BASE_URL}/api/dietary-restrictions/public`);
-        const response = await fetch(`${API_BASE_URL}/api/dietary-restrictions/public`);
+        console.log('API URL:', `${API_BASE_URL}/dietary-restrictions/public`);
+        const response = await fetch(`${API_BASE_URL}/dietary-restrictions/public`);
         console.log('Response status:', response.status);
         if (response.ok) {
           const result = await response.json();
@@ -125,7 +125,7 @@ export default function GetStarted() {
       if (cookingFor === 'Others') {
         try {
           setLoading(true);
-          const response = await fetch(`${API_BASE_URL}/api/profile/member`, {
+          const response = await fetch(`${API_BASE_URL}/profile/member`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${getAuthToken()}`,
@@ -178,7 +178,7 @@ export default function GetStarted() {
       };
 
       // Call the API
-      const response = await fetch(`${API_BASE_URL}/api/dietary-restrictions/user/save`, {
+      const response = await fetch(`${API_BASE_URL}/dietary-restrictions/user/save`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,

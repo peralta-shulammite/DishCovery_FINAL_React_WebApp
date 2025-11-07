@@ -4,6 +4,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5
 const handleResponse = async (response) => {
   if (!response.ok) {
     const errorData = await response.json();
+    // Special handling for Google OAuth accounts - don't log error to console
+    if (errorData.useGoogleLogin || errorData.message?.includes('Google')) {
+      const error = new Error(errorData.message || 'Something went wrong');
+      error.isGoogleAuthError = true; // Flag for special handling
+      throw error;
+    }
     throw new Error(errorData.message || 'Something went wrong');
   }
   return response.json();
@@ -20,7 +26,7 @@ const api = {
       nonce: Math.random().toString(36).substring(2)  
     }));  
     console.log('Clicking LOGIN with Google');  
-    window.location.href = `${API_BASE_URL}/api/auth/google?state=${state}`;  
+    window.location.href = `${API_BASE_URL}/auth/google?state=${state}`;  
   },  
   
   signUpWithGoogle: () => {  
@@ -29,7 +35,7 @@ const api = {
       nonce: Math.random().toString(36).substring(2)  
     }));  
     console.log('Clicking SIGNUP with Google');  
-    window.location.href = `${API_BASE_URL}/api/auth/google?state=${state}`;  
+    window.location.href = `${API_BASE_URL}/auth/google?state=${state}`;  
   },  
 
   // ===================================================
@@ -45,7 +51,7 @@ const api = {
       try {
         console.log('👑 Trying admin login first (admin-like email)...');
         
-        const adminResponse = await fetch(`${API_BASE_URL}/api/admin-auth/login`, {
+        const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
@@ -75,7 +81,7 @@ const api = {
     try {
       console.log('👤 Trying user login...');
       
-      const userResponse = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const userResponse = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -101,7 +107,7 @@ const api = {
       if (!isLikelyAdmin) {
         try {
           console.log('🔄 Last resort: trying admin login...');
-          const adminResponse = await fetch(`${API_BASE_URL}/api/admin-auth/login`, {
+          const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
@@ -134,7 +140,7 @@ const api = {
 
   signUp: async (firstName, lastName, email, password) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName, lastName, email, password }),
@@ -155,7 +161,7 @@ const api = {
 
   verify: async (email, verificationCode) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+      const response = await fetch(`${API_BASE_URL}/auth/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: verificationCode }),
@@ -182,7 +188,7 @@ const api = {
 
   resendVerificationCode: async (email) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
+      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -197,22 +203,36 @@ const api = {
     }
   },
 
+  // Get user profile (check if logged in)
   getProfile: async () => {
-    const token = localStorage.getItem('token');
-    const isAdmin = localStorage.getItem('isAdmin') === 'true';
-    
-    if (!token) throw new Error('No token found');
-    
-    const endpoint = isAdmin ? '/api/admin-auth/profile' : '/api/users/profile';
-    
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-    return handleResponse(response);
+    try {
+      const token = localStorage.getItem('token');
+      const isAdmin = localStorage.getItem('isAdmin') === 'true';
+      
+      if (!token) {
+        throw new Error('No token found');
+      }
+
+      const endpoint = isAdmin ? '/admin-auth/profile' : '/user-profile/info';
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile');
+      }
+
+      const data = await response.json();
+      return data.data || data; // Handle different response formats
+    } catch (error) {
+      console.error('❌ Get profile error:', error);
+      throw error;
+    }
   },
 
   logout: async () => {
@@ -224,7 +244,7 @@ const api = {
     console.log('🚪 Logging out user...', { isAdmin, userId, userType });
 
     try {
-      const endpoint = isAdmin ? '/api/admin-auth/logout' : '/api/auth/logout';
+      const endpoint = isAdmin ? '/admin-auth/logout' : '/auth/logout';
       
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
