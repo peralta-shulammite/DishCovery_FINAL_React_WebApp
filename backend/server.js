@@ -42,6 +42,7 @@ const PORT = process.env.PORT || 5000;
 // CORS with regex for Vercel previews
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:3001",
   "https://dishcovery-frontend-tau.vercel.app",
   /\.vercel\.app$/
 ];

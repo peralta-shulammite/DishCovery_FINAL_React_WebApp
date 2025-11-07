@@ -10,18 +10,15 @@ export default function GetStarted() {
   const [cookingFor, setCookingFor] = useState('Myself');
   const [personName, setPersonName] = useState('');
   const [dietaryData, setDietaryData] = useState({
-    dietaryRestrictions: [],
     excludedIngredients: '',
     preferredDiets: [],
     medicalConditions: [],
   });
   const [customInputs, setCustomInputs] = useState({
-    dietaryRestrictions: '',
     preferredDiets: '',
     medicalConditions: '',
   });
   const [feedbackMessages, setFeedbackMessages] = useState({
-    dietaryRestrictions: '',
     preferredDiets: '',
     medicalConditions: '',
   });
@@ -78,15 +75,28 @@ export default function GetStarted() {
     const loadRestrictions = async () => {
       try {
         console.log('📥 Loading restrictions from database...');
+        console.log('API URL:', `${API_BASE_URL}/api/dietary-restrictions/public`);
         const response = await fetch(`${API_BASE_URL}/api/dietary-restrictions/public`);
+        console.log('Response status:', response.status);
         if (response.ok) {
           const result = await response.json();
-          if (result.success) {
+          console.log('API Response:', result);
+          if (result.success && result.data) {
+            console.log('Setting restrictions:', result.data);
             setApiRestrictions(result.data);
-            console.log('✅ Loaded restrictions from database');
+            console.log('✅ Loaded restrictions from database:', {
+              dietaryRestrictions: result.data.dietaryRestrictions?.length || 0,
+              preferredDiets: result.data.preferredDiets?.length || 0,
+              medicalConditions: result.data.medicalConditions?.length || 0
+            });
+          } else {
+            console.warn('⚠️ API response missing success or data:', result);
           }
+        } else {
+          console.error('❌ API request failed:', response.status, response.statusText);
         }
       } catch (error) {
+        console.error('❌ Error loading restrictions:', error);
         console.log('Using fallback restrictions');
       }
     };
@@ -161,7 +171,7 @@ export default function GetStarted() {
       // Prepare data for API
       const saveData = {
         memberId: memberId,
-        dietaryRestrictions: dietaryData.dietaryRestrictions,
+        dietaryRestrictions: [], // No longer used - replaced by medicalConditions
         medicalConditions: dietaryData.medicalConditions,
         preferredDiets: dietaryData.preferredDiets,
         excludedIngredients: dietaryData.excludedIngredients.split(',').map(item => item.trim()).filter(item => item)
@@ -243,17 +253,13 @@ export default function GetStarted() {
 
   // Category options with API data and fallback
   const categoryOptions = {
-    dietaryRestrictions: apiRestrictions.dietaryRestrictions.length > 0 
-      ? apiRestrictions.dietaryRestrictions 
-      : ['Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Gluten-Free', 'Dairy-Free', 'Nut-Free', 'Shellfish-Free'],
-    
-    preferredDiets: apiRestrictions.preferredDiets.length > 0 
-      ? apiRestrictions.preferredDiets 
+    preferredDiets: apiRestrictions.preferredDiets.length > 0
+      ? apiRestrictions.preferredDiets
       : ['Keto', 'Vegan', 'Low-Carb', 'Low-Sodium', 'Paleo', 'Mediterranean', 'Intermittent Fasting'],
-    
-    medicalConditions: apiRestrictions.medicalConditions.length > 0 
-      ? apiRestrictions.medicalConditions 
-      : ['Hypertension', 'Diabetes', 'High Cholesterol', 'Heart Disease', 'PCOS', 'Acid Reflux']
+
+    medicalConditions: apiRestrictions.medicalConditions.length > 0
+      ? apiRestrictions.medicalConditions
+      : ['Dairy allergy', 'Egg allergy', 'Fish allergy', 'Legume allergy', 'Nut allergy', 'Peanut allergy', 'Sesame allergy', 'Shellfish allergy', 'Soy allergy', 'Wheat allergy', 'Celiac disease', 'Lactose intolerance']
   };
 
   const renderStep1 = () => (
@@ -364,12 +370,12 @@ export default function GetStarted() {
       )}
       
       <div className="form-sections">
-        {/* Dietary Restrictions */}
+        {/* Medical Conditions */}
         {renderDietarySection(
-          'Dietary Restrictions',
-          'dietaryRestrictions',
-          'Select all dietary restrictions that apply',
-          'Can\'t find your restriction? Send it to us'
+          'Medical Conditions (Allergies & Intolerances)',
+          'medicalConditions',
+          'Select all allergies and intolerances that apply',
+          'Can\'t find your condition? Send it to us'
         )}
 
         {/* Excluded Ingredients */}
@@ -390,18 +396,10 @@ export default function GetStarted() {
 
         {/* Preferred Diets */}
         {renderDietarySection(
-          'Preferred Diets',
+          'Dietary Lifestyle Tags',
           'preferredDiets',
           'Select your preferred dietary approaches',
           'Don\'t see your diet? Let us know'
-        )}
-
-        {/* Medical Conditions */}
-        {renderDietarySection(
-          'Medical Conditions',
-          'medicalConditions',
-          'Select any relevant medical conditions',
-          'Still missing something? Tell us here'
         )}
       </div>
 
@@ -461,16 +459,13 @@ export default function GetStarted() {
               <strong>Name:</strong> {personName}
             </div>
             <div className="summary-item">
-              <strong>Dietary Restrictions:</strong> {dietaryData.dietaryRestrictions.join(', ') || 'None'}
+              <strong>Medical Conditions (Allergies & Intolerances):</strong> {dietaryData.medicalConditions.join(', ') || 'None'}
             </div>
             <div className="summary-item">
               <strong>Excluded Ingredients:</strong> {dietaryData.excludedIngredients || 'None'}
             </div>
             <div className="summary-item">
-              <strong>Preferred Diets:</strong> {dietaryData.preferredDiets.join(', ') || 'None'}
-            </div>
-            <div className="summary-item">
-              <strong>Medical Conditions:</strong> {dietaryData.medicalConditions.join(', ') || 'None'}
+              <strong>Dietary Lifestyle Tags:</strong> {dietaryData.preferredDiets.join(', ') || 'None'}
             </div>
           </div>
           <div className="nav-buttons">

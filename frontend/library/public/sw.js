@@ -1,6 +1,6 @@
 // DishCovery Service Worker
-const CACHE_NAME = 'dishcovery-v2';
-const RUNTIME_CACHE = 'dishcovery-runtime-v2';
+const CACHE_NAME = 'dishcovery-v3';
+const RUNTIME_CACHE = 'dishcovery-runtime-v3';
 
 // Assets to cache on install
 const PRECACHE_URLS = [
@@ -58,6 +58,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const url = new URL(event.request.url);
+  
+  // NEVER cache API calls or Next.js bundles - always fetch fresh
+  if (url.pathname.startsWith('/_next/') || 
+      url.pathname.startsWith('/api/') ||
+      url.pathname.includes('webpack') ||
+      url.pathname.includes('.hot-update.')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // For other requests, use cache-first strategy
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
@@ -76,7 +88,7 @@ self.addEventListener('fetch', (event) => {
             // Clone the response
             const responseToCache = response.clone();
 
-            // Cache runtime requests
+            // Cache runtime requests (only static assets)
             caches.open(RUNTIME_CACHE)
               .then((cache) => {
                 cache.put(event.request, responseToCache);

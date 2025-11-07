@@ -31,7 +31,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const result = await db.query(
       `INSERT INTO feedback (user_id, message, priority, status, unread_by_admin, unread_by_user)
-       VALUES (?, ?, ?, 'Pending', 1, 0)`,
+       VALUES (?, ?, ?, 'pending', 1, 0)`,
       [userId, feedbackMessage.trim(), feedbackPriority]
     );
 
