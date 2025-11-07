@@ -194,6 +194,52 @@ const api = {
     }
   },
 
+  // ===================================================
+  // FORGOT PASSWORD & RESET PASSWORD
+  // ===================================================
+  
+  forgotPassword: async (email) => {
+    try {
+      console.log('🔑 Requesting password reset for:', email);
+      
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      
+      const data = await handleResponse(response);
+      console.log('✅ Password reset code sent');
+      return data;
+    } catch (error) {
+      console.error('❌ Forgot password error:', error);
+      throw error;
+    }
+  },
+
+  resetPassword: async (email, code, newPassword) => {
+    try {
+      console.log('🔑 Resetting password for:', email);
+      
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: email.trim(), 
+          code: code.trim(), 
+          newPassword 
+        }),
+      });
+      
+      const data = await handleResponse(response);
+      console.log('✅ Password reset successful');
+      return data;
+    } catch (error) {
+      console.error('❌ Reset password error:', error);
+      throw error;
+    }
+  },
+
   // Get user profile (check if logged in)
   getProfile: async () => {
     try {
@@ -217,13 +263,20 @@ const api = {
       });
 
       if (!response.ok) {
+        // Silently handle 404 errors (expected when token is invalid)
+        if (response.status === 404) {
+          throw new Error('Token verification failed');
+        }
         throw new Error('Failed to fetch profile');
       }
 
       const data = await response.json();
       return data.data || data; // Handle different response formats
     } catch (error) {
-      console.error('❌ Get profile error:', error);
+      // Only log unexpected errors
+      if (error.message !== 'No token found' && error.message !== 'Token verification failed') {
+        console.error('❌ Get profile error:', error);
+      }
       throw error;
     }
   },
@@ -248,14 +301,25 @@ const api = {
       });
       
       if (!response.ok) {
+        // Silently clear invalid token without logging error
+        localStorage.removeItem('token');
         throw new Error('Token verification failed');
       }
       
       const data = await response.json();
-      console.log('✅ Token verified:', data.user);
-      return data.user; // { userId, email, firstName, lastName, isAdmin, isGoogleUser }
+      if (data.success && data.user) {
+        console.log('✅ Valid token found, user is logged in!');
+        return data.user; // { userId, email, firstName, lastName, isAdmin, isGoogleUser }
+      } else {
+        localStorage.removeItem('token');
+        throw new Error('Invalid token response');
+      }
     } catch (error) {
-      console.error('❌ Token verification error:', error);
+      // Only log unexpected errors (network errors, etc.)
+      if (error.message !== 'Token verification failed' && error.message !== 'No token found') {
+        console.error('❌ Token verification error:', error);
+      }
+      // Always clear token on verification failure
       localStorage.removeItem('token');
       throw error;
     }
