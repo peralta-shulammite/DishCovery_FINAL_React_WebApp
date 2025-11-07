@@ -567,10 +567,53 @@ const IngredientScanner = () => {
     setShowHelpModal(false);
   };
 
-  const generateRecipe = () => {
+  const generateRecipe = async () => {
     const selectedIngredients = scannedIngredients.filter(i => i.selected);
     
-    // Send ingredient IDs (for database matching) and names (for display)
+    if (selectedIngredients.length === 0) {
+      alert('Please select at least one ingredient!');
+      return;
+    }
+
+    console.log('🍳 Generating recipe and saving to pantry...');
+
+    // ✅ AUTO-SAVE SCANNED INGREDIENTS TO PANTRY
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (token) {
+        console.log('💾 Saving scanned ingredients to pantry...');
+        
+        const response = await fetch(`${API_BASE_URL}/pantry/save-scanned-ingredients`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            scannedIngredients: selectedIngredients.map(ing => ({
+              ingredient_id: ing.ingredient_id,
+              name: ing.name,
+              quantity: ing.quantity || 1,
+              confidence: ing.confidence || 0,
+              db_matched: ing.db_matched || false
+            }))
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`✅ Saved ${result.savedCount} ingredients to pantry!`);
+        } else {
+          console.warn('⚠️ Failed to save to pantry, continuing anyway...');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error saving to pantry:', error);
+      // Don't block recipe generation if pantry save fails
+    }
+
+    // Continue with recipe generation
     const ingredientIds = selectedIngredients
       .filter(ing => ing.ingredient_id !== null)
       .map(ing => ing.ingredient_id);

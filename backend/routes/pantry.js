@@ -163,6 +163,95 @@ router.get('/my-selection', authenticateToken, async (req, res) => {
   }
 });
 
+// Save scanned ingredients from AI scanner to user's pantry
+router.post('/save-scanned-ingredients', authenticateToken, async (req, res) => {
+  try {
+    const { scannedIngredients } = req.body;
+    const userId = req.user.userId;
+
+    console.log('🔍 Saving scanned ingredients to pantry for user:', userId);
+    console.log('📋 Scanned ingredients data:', scannedIngredients);
+
+    if (!scannedIngredients || !Array.isArray(scannedIngredients)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid scanned ingredients data'
+      });
+    }
+
+    let savedCount = 0;
+    let skippedCount = 0;
+
+    // Save each scanned ingredient
+    for (const ingredient of scannedIngredients) {
+      const { 
+        ingredient_id, 
+        name, 
+        quantity = 1, 
+        confidence = 0, 
+        db_matched = false 
+      } = ingredient;
+
+      // Only save if ingredient has a valid database ID
+      if (ingredient_id && ingredient_id !== null) {
+        try {
+          // Check if this ingredient already exists for this user
+          const existing = await pool.query(`
+            SELECT scan_id 
+            FROM user_scanned_ingredients 
+            WHERE user_id = ? AND ingredient_id = ?
+          `, [userId, ingredient_id]);
+
+          if (existing.length > 0) {
+            // Update existing entry
+            await pool.query(`
+              UPDATE user_scanned_ingredients 
+              SET 
+                scan_method = 'ai_scan',
+                confidence_score = ?,
+                scanned_at = NOW(),
+                used_for_recipe = 0
+              WHERE user_id = ? AND ingredient_id = ?
+            `, [confidence, userId, ingredient_id]);
+            console.log(`  ✓ Updated: ${name} (ID: ${ingredient_id})`);
+          } else {
+            // Insert new entry
+            await pool.query(`
+              INSERT INTO user_scanned_ingredients 
+              (user_id, ingredient_id, scan_method, confidence_score, scanned_at, used_for_recipe) 
+              VALUES (?, ?, 'ai_scan', ?, NOW(), 0)
+            `, [userId, ingredient_id, confidence]);
+            console.log(`  ✓ Saved: ${name} (ID: ${ingredient_id})`);
+          }
+          savedCount++;
+        } catch (err) {
+          console.error(`  ✗ Error saving ${name}:`, err.message);
+          skippedCount++;
+        }
+      } else {
+        console.log(`  ⊘ Skipped: ${name} (no database match)`);
+        skippedCount++;
+      }
+    }
+
+    console.log(`✅ Pantry update complete: ${savedCount} saved, ${skippedCount} skipped`);
+    res.json({ 
+      success: true, 
+      message: `Saved ${savedCount} ingredients to your pantry`,
+      savedCount,
+      skippedCount
+    });
+
+  } catch (error) {
+    console.error('❌ Error saving scanned ingredients to pantry:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to save scanned ingredients to pantry',
+      error: error.message 
+    });
+  }
+});
+
 // Generate recipes based on selected ingredients
 router.post('/generate-recipe', authenticateToken, async (req, res) => {
   try {
