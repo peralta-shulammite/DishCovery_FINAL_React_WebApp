@@ -132,78 +132,9 @@ const AnalyticsContent = () => {
         </div>
       </div>
 
-      {/* Key Performance Indicators */}
-      <div className="kpi-section">
-        <h3>Key Performance Indicators</h3>
-        <div className="kpi-grid">
-          <CircularProgress 
-            percentage={conversionMetrics.userRetention} 
-            label="User Retention" 
-            color="#2E7D32" 
-            borderColor="#2E7D32" 
-          />
-          <CircularProgress 
-            percentage={conversionMetrics.requestCompletion} 
-            label="Request Completion" 
-            color="#e91e63" 
-            borderColor="#e91e63" 
-          />
-          <CircularProgress 
-            percentage={conversionMetrics.recipeEngagement} 
-            label="Recipe Engagement" 
-            color="#9c27b0" 
-            borderColor="#9c27b0" 
-          />
-          <CircularProgress 
-            percentage={conversionMetrics.filterUsage} 
-            label="Filter Usage" 
-            color="#ff9800" 
-            borderColor="#ff9800" 
-          />
-        </div>
-      </div>
-
       {/* Charts Grid */}
       <div className="charts-grid">
         
-        {/* User Growth Over Time - Simple Bar Chart */}
-        <div className="chart-card full-width">
-          <div className="chart-header">
-            <h3>User Growth Over Time</h3>
-            <div className="chart-legend-custom">
-              <span className="legend-item"><span className="legend-dot" style={{background: '#2E7D32'}}></span> Total Users</span>
-              <span className="legend-item"><span className="legend-dot" style={{background: '#e91e63'}}></span> Active Users</span>
-              <span className="legend-item"><span className="legend-dot" style={{background: '#9c27b0'}}></span> New Users</span>
-            </div>
-          </div>
-          <div className="simple-chart">
-            <div className="chart-bars-container">
-              {userGrowthData.map((week, index) => (
-                <div key={index} className="chart-bar-group">
-                  <div className="bar-stack">
-                    <div 
-                      className="bar-segment" 
-                      style={{ height: `${(week.users / 2000) * 100}%`, background: '#2E7D32', opacity: 0.3 }}
-                      title={`Total: ${week.users}`}
-                    ></div>
-                    <div 
-                      className="bar-segment" 
-                      style={{ height: `${(week.active / 2000) * 100}%`, background: '#e91e63', opacity: 0.5, position: 'absolute', bottom: 0 }}
-                      title={`Active: ${week.active}`}
-                    ></div>
-                    <div 
-                      className="bar-segment" 
-                      style={{ height: `${(week.new / 2000) * 100}%`, background: '#9c27b0', position: 'absolute', bottom: 0 }}
-                      title={`New: ${week.new}`}
-                    ></div>
-                  </div>
-                  <div className="bar-label">{week.date}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
         {/* Dietary Filter Distribution - Donut Chart */}
         <div className="chart-card">
           <div className="chart-header">
@@ -364,41 +295,6 @@ const AnalyticsContent = () => {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Insights & Recommendations */}
-        <div className="insights-card full-width">
-          <h3>Key Insights & Recommendations</h3>
-          <div className="insights-grid">
-            <div className="insight-item positive">
-              <div className="insight-icon">📈</div>
-              <div className="insight-content">
-                <h4>Strong User Growth</h4>
-                <p>User base increased by 51% over the last 6 weeks. Active users up 60%.</p>
-              </div>
-            </div>
-            <div className="insight-item warning">
-              <div className="insight-icon">⚠️</div>
-              <div className="insight-content">
-                <h4>Peak Hour Load</h4>
-                <p>6pm shows highest activity (312 users). Consider scaling server resources.</p>
-              </div>
-            </div>
-            <div className="insight-item info">
-              <div className="insight-icon">💡</div>
-              <div className="insight-content">
-                <h4>Filter Preference Trend</h4>
-                <p>Vegetarian filter usage up 40% this month. Recommend adding more vegetarian recipes.</p>
-              </div>
-            </div>
-            <div className="insight-item positive">
-              <div className="insight-icon">✅</div>
-              <div className="insight-content">
-                <h4>High Completion Rate</h4>
-                <p>68% request completion rate indicates efficient admin workflow.</p>
-              </div>
-            </div>
           </div>
         </div>
 

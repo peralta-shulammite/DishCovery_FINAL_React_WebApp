@@ -9,7 +9,7 @@ export const adminUsersAPI = {
   // Get all users
   getAllUsers: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -32,7 +32,7 @@ export const adminUsersAPI = {
   // Activate user
   activateUser: async (userId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/activate`, {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/activate`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -55,7 +55,7 @@ export const adminUsersAPI = {
   // Deactivate user
   deactivateUser: async (userId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/deactivate`, {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/deactivate`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -78,7 +78,7 @@ export const adminUsersAPI = {
   // Delete user
   deleteUser: async (userId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
