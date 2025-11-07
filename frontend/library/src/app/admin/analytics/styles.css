@@ -1,0 +1,1064 @@
+/* Import Poppins font - matching dashboard */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+/* Analytics Page Styles - Matching Dashboard Theme */
+
+.analytics-content {
+  padding: 0;
+  background: #f9fafb;
+  min-height: 100vh;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Notification - Matching Dashboard */
+.analytics-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 400px;
+  min-width: 250px;
+}
+
+.analytics-notification.success {
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+}
+
+.analytics-notification.info {
+  background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%);
+}
+
+.analytics-notification.error {
+  background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Header Section - Matching Dashboard Controls */
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.header-left h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #1f2937;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+.subtitle {
+  margin: 4px 0 0 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+}
+
+.header-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.date-range-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.date-range-selector label {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+.date-range-selector select {
+  padding: 6px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: 'Poppins', sans-serif;
+  min-width: 110px;
+}
+
+.date-range-selector select:hover {
+  background: #f8fafc;
+  border-color: #d1d5db;
+}
+
+.date-range-selector select:focus {
+  outline: none;
+  border-color: #2E7D32;
+  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
+}
+
+.export-analytics-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #2E7D32;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.3s;
+  font-family: 'Poppins', sans-serif;
+}
+
+.export-analytics-btn:hover {
+  background: #1b5e20;
+}
+
+.export-analytics-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* KPI Section - Matching Dashboard Stat Cards */
+.kpi-section {
+  margin-bottom: 30px;
+}
+
+.kpi-section h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  color: #1f2937;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+/* Circular Progress - Enhanced with dashboard style */
+.circular-progress {
+  position: relative;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  border-left: 4px solid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.3s, box-shadow 0.3s;
+  min-height: 140px;
+  justify-content: center;
+}
+
+.circular-progress:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.progress-ring {
+  width: 100px;
+  height: 100px;
+  transform: rotate(-90deg);
+}
+
+.progress-ring-bg {
+  fill: none;
+  stroke: #f1f5f9;
+  stroke-width: 8;
+}
+
+.progress-ring-fill {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s ease-in-out;
+}
+
+.progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.progress-percentage {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+  font-family: 'Poppins', sans-serif;
+}
+
+.progress-label {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 4px;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Charts Grid - Matching Dashboard Content Grid */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 25px;
+}
+
+.chart-card {
+  background: white;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s, box-shadow 0.3s;
+  position: relative;
+}
+
+.chart-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+.chart-card.full-width {
+  grid-column: 1 / -1;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.chart-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #1f2937;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+.chart-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+}
+
+.chart-legend-custom {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* Custom Tooltip */
+.custom-tooltip {
+  background: white;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tooltip-label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #111827;
+}
+
+.custom-tooltip p {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+}
+
+/* Pie Legend - Matching Dashboard Lists */
+.pie-legend {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.2s;
+}
+
+.pie-legend-item:hover {
+  background: #f8fafc;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-name {
+  flex: 1;
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+}
+
+.legend-percentage {
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  min-width: 40px;
+  text-align: right;
+}
+
+.legend-value {
+  font-size: 13px;
+  color: #64748b;
+  background: #e8f5e8;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+}
+
+/* Status Breakdown List - Matching Dashboard */
+.status-breakdown-list {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.breakdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.breakdown-status {
+  width: 100px;
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+}
+
+.breakdown-bar-container {
+  flex: 1;
+  height: 20px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.breakdown-bar {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.5s ease-in-out;
+}
+
+.breakdown-percentage {
+  width: 50px;
+  text-align: right;
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Insights Card - Matching Dashboard Notifications */
+.insights-card {
+  background: white;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.insights-card h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  color: #1f2937;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 15px;
+}
+
+.insight-item {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  border-left: 4px solid;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: #f8fafc;
+}
+
+.insight-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.insight-item.positive {
+  border-color: #2E7D32;
+  background: #f0fdf4;
+}
+
+.insight-item.warning {
+  border-color: #ff9800;
+  background: #fffbeb;
+}
+
+.insight-item.info {
+  border-color: #1976d2;
+  background: #eff6ff;
+}
+
+.insight-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.insight-content h4 {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  color: #1f2937;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+.insight-content p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+  font-family: 'Poppins', sans-serif;
+}
+
+
+/* Simple Bar Chart Styles - Dashboard Theme */
+.simple-chart {
+  padding: 15px 0;
+}
+
+.chart-bars-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 240px;
+  gap: 12px;
+  padding: 15px;
+  border-bottom: 2px solid #e5e7eb;
+  border-left: 2px solid #e5e7eb;
+}
+
+.chart-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.bar-segment {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.3s ease;
+}
+
+.bar-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Responsive Design - Matching Dashboard */
+@media (max-width: 1200px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .chart-card.full-width {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .analytics-content {
+    padding: 0;
+  }
+
+  .analytics-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px;
+  }
+
+  .header-left h2 {
+    font-size: 18px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+  }
+
+  .header-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .date-range-selector {
+    width: 100%;
+  }
+
+  .date-range-selector label {
+    font-size: 13px;
+  }
+
+  .date-range-selector select {
+    flex: 1;
+    font-size: 12px;
+  }
+
+  .export-analytics-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .circular-progress {
+    padding: 15px;
+    min-height: 120px;
+  }
+
+  .kpi-section {
+    margin-bottom: 20px;
+  }
+
+  .kpi-section h3 {
+    font-size: 16px;
+    margin-bottom: 15px;
+  }
+
+  .charts-grid {
+    gap: 15px;
+  }
+
+  .chart-card {
+    padding: 20px;
+  }
+
+  .chart-header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+  }
+
+  .chart-header h3 {
+    font-size: 16px;
+  }
+
+  .chart-subtitle {
+    font-size: 12px;
+  }
+
+  .chart-legend-custom {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .insights-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .insight-item {
+    padding: 12px;
+  }
+
+  .insight-icon {
+    font-size: 20px;
+  }
+
+  .insight-content h4 {
+    font-size: 13px;
+  }
+
+  .insight-content p {
+    font-size: 12px;
+  }
+  
+  .analytics-notification {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    max-width: calc(100% - 32px);
+    font-size: 13px;
+    padding: 12px 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-ring {
+    width: 90px;
+    height: 90px;
+  }
+
+  .progress-percentage {
+    font-size: 20px;
+  }
+
+  .progress-label {
+    font-size: 12px;
+  }
+
+  .analytics-notification {
+    font-size: 12px;
+    padding: 10px 16px;
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    max-width: calc(100% - 24px);
+  }
+}
+
+/* Simple Bar Chart Styles */
+.simple-chart {
+  padding: 1rem 0;
+}
+
+.chart-bars-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 250px;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+  border-left: 2px solid #e5e7eb;
+}
+
+.chart-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bar-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.bar-segment {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.3s ease;
+}
+
+.bar-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Donut Chart Styles - Dashboard Theme */
+.donut-chart-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem 0;
+}
+
+.donut-chart {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.donut-chart:hover {
+  transform: scale(1.05);
+}
+
+.donut-hole {
+  width: 110px;
+  height: 110px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.donut-total {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+  font-family: 'Poppins', sans-serif;
+}
+
+.donut-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+}
+
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.pie-legend-item:hover {
+  background: #f9fafb;
+}
+
+.legend-percentage {
+  font-size: 0.9rem;
+  color: #111827;
+  font-weight: 700;
+  min-width: 40px;
+}
+
+/* Status Bar Chart - Dashboard Theme */
+.status-chart {
+  padding: 15px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.status-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  font-family: 'Poppins', sans-serif;
+}
+
+.status-count {
+  font-size: 13px;
+  color: #64748b;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+}
+
+.status-bar-bg {
+  height: 28px;
+  background: #f8fafc;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #f1f5f9;
+}
+
+.status-bar-fill {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  border-radius: 8px;
+  transition: width 0.8s ease-in-out;
+  animation: fillBar 1s ease-in-out;
+}
+
+@keyframes fillBar {
+  from {
+    width: 0%;
+  }
+}
+
+.bar-percentage {
+  color: white;
+  font-weight: 600;
+  font-size: 12px;
+  font-family: 'Poppins', sans-serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.status-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid #f1f5f9;
+}
+
+.summary-stat {
+  text-align: center;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.summary-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+  font-family: 'Poppins', sans-serif;
+}
+
+.summary-label {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 4px;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Line Chart SVG - Dashboard Theme */
+.line-chart-container {
+  padding: 15px 0;
+}
+
+.line-chart-svg {
+  width: 100%;
+  height: auto;
+}
+
+.line-chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #64748b;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+}
+
+.legend-line {
+  width: 24px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* Horizontal Bar Chart - Dashboard Theme */
+.bar-chart-horizontal {
+  padding: 15px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.h-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.h-bar-label {
+  width: 60px;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+  text-align: right;
+  font-family: 'Poppins', sans-serif;
+}
+
+.h-bar-container {
+  flex: 1;
+  height: 28px;
+  background: #f8fafc;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #f1f5f9;
+}
+
+.h-bar-fill {
+  height: 100%;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  transition: width 0.8s ease-in-out;
+  animation: fillHBar 1s ease-in-out;
+}
+
+@keyframes fillHBar {
+  from {
+    width: 0%;
+  }
+}
+
+.h-bar-value {
+  color: white;
+  font-weight: 600;
+  font-size: 12px;
+  font-family: 'Poppins', sans-serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive adjustments for charts - Dashboard Theme */
+@media (max-width: 768px) {
+  .chart-bars-container {
+    height: 200px;
+    gap: 8px;
+    padding: 12px;
+  }
+  
+  .donut-chart {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .donut-hole {
+    width: 90px;
+    height: 90px;
+  }
+
+  .donut-total {
+    font-size: 20px;
+  }
+
+  .donut-label {
+    font-size: 11px;
+  }
+  
+  .line-chart-legend {
+    gap: 12px;
+  }
+  
+  .h-bar-label {
+    width: 50px;
+    font-size: 12px;
+  }
+
+  .h-bar-container {
+    height: 24px;
+  }
+
+  .status-bar-bg {
+    height: 24px;
+  }
+
+  .bar-label {
+    font-size: 11px;
+  }
+}

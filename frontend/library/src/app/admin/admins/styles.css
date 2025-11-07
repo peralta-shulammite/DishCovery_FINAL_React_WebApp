@@ -271,6 +271,8 @@ body {
 .btn-edit {
   background: #3b82f6;
   color: white;
+  min-width: 70px;
+  justify-content: center;
 }
 
 .btn-edit:hover {
@@ -280,6 +282,8 @@ body {
 .btn-toggle {
   background: #f59e0b;
   color: white;
+  min-width: 95px;
+  justify-content: center;
 }
 
 .btn-toggle:hover {
@@ -289,6 +293,8 @@ body {
 .btn-delete {
   background: #ef4444;
   color: white;
+  min-width: 80px;
+  justify-content: center;
 }
 
 .btn-delete:hover {
