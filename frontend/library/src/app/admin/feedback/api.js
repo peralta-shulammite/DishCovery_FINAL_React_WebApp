@@ -1,5 +1,5 @@
 // API service for admin feedback management
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
 const getAuthToken = () => {
   return localStorage.getItem('token');
@@ -11,7 +11,7 @@ export const adminFeedbackAPI = {
   // ========================================
   getStats: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/feedback/stats`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/feedback/stats`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -47,7 +47,7 @@ export const adminFeedbackAPI = {
       if (filters.limit) params.append('limit', filters.limit);
       if (filters.offset) params.append('offset', filters.offset);
 
-      const response = await fetch(`${API_BASE_URL}/admin/feedback?${params.toString()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/feedback?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -72,7 +72,7 @@ export const adminFeedbackAPI = {
   // ========================================
   getFeedbackById: async (feedbackId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/feedback/${feedbackId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -97,7 +97,7 @@ export const adminFeedbackAPI = {
   // ========================================
   replyToFeedback: async (feedbackId, replyMessage, updateStatus = 'replied') => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}/reply`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/feedback/${feedbackId}/reply`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -124,7 +124,7 @@ export const adminFeedbackAPI = {
   // ========================================
   markAsRead: async (feedbackId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}/mark-read`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/feedback/${feedbackId}/mark-read`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -149,7 +149,7 @@ export const adminFeedbackAPI = {
   // ========================================
   markAsUnread: async (feedbackId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}/mark-unread`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/feedback/${feedbackId}/mark-unread`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -174,7 +174,7 @@ export const adminFeedbackAPI = {
   // ========================================
   updatePriority: async (feedbackId, priority) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}/priority`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/feedback/${feedbackId}/priority`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -201,7 +201,7 @@ export const adminFeedbackAPI = {
   // ========================================
   updateStatus: async (feedbackId, status) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/feedback/${feedbackId}/status`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
@@ -228,7 +228,7 @@ export const adminFeedbackAPI = {
   // ========================================
   deleteFeedback: async (feedbackId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/feedback/${feedbackId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,

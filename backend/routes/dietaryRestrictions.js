@@ -88,10 +88,15 @@ router.get('/public', async (req, res) => {
       groupedRestrictions[category].push(restriction.restriction_name);
     });
     
+    // Combine Allergy and Intolerance into medicalConditions
+    const allergies = groupedRestrictions['Allergy'] || [];
+    const intolerances = groupedRestrictions['Intolerance'] || [];
+    const medicalConditions = [...allergies, ...intolerances];
+    
     const result = {
-      dietaryRestrictions: groupedRestrictions['Allergy'] || [],
+      dietaryRestrictions: [], // Empty - no longer used, replaced by medicalConditions
       preferredDiets: groupedRestrictions['Dietary Lifestyle'] || [],
-      medicalConditions: groupedRestrictions['Intolerance'] || []
+      medicalConditions: medicalConditions
     };
     
     console.log(`✅ Found ${restrictions.length} active restrictions`);

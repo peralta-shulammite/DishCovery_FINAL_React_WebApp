@@ -194,7 +194,7 @@ router.post('/login', async (req, res) => {
     if (users[0].length === 0)
       return res.status(401).json({ message: 'Invalid email or password' });
 
-    const user = users[0][0];
+    const user = users[0];
 
     // FIX: Check if user registered via Google OAuth (no password)
     if (!user.password_hash || user.password_hash === null) {
@@ -551,30 +551,38 @@ router.post('/google/callback', async (req, res) => {
 
       const result = await connection.query(
         `INSERT INTO users (email, google_id, first_name, last_name, profile_picture_url, email_verified, is_active, is_new_user)
-         VALUES (?, ?, ?, ?, ?, 0, 1, 1)`,
+         VALUES (?, ?, ?, ?, ?, 1, 1, 1)`,
         [email, googleId, given_name, family_name, picture]
       );
 
       const newUserId = result[0].insertId;
-      const verificationCode = generateVerificationCode();
-
-      // FIXED: Code valid for 10 minutes
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
       await connection.query(
-        'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
-        [newUserId, 'email_verification', verificationCode, 'pending', expiresAt]
+        'UPDATE users SET last_login = NOW(), last_activity = NOW() WHERE user_id = ?',
+        [newUserId]
       );
 
-      await sendVerificationEmail(email, verificationCode, given_name);
+      const token = jwt.sign({
+        userId: newUserId,
+        email: email,
+        firstName: given_name,
+        lastName: family_name,
+        isAdmin: false
+      }, JWT_SECRET, { expiresIn: '24h' });
 
-      console.log(`Google signup: ${email} created`);
+      console.log(`Google signup successful: ${email}`);
       await connection.commit();
       return res.json({
         success: true,
-        message: 'Account created! Check your email for verification.',
-        requiresVerification: true,
-        email
+        message: 'Google signup successful',
+        token,
+        user: {
+          userId: newUserId,
+          email: email,
+          firstName: given_name,
+          lastName: family_name,
+          picture
+        }
       });
     }
 

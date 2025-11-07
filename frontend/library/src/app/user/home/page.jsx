@@ -230,16 +230,16 @@ const dishCoveryHandleSignInSubmit = async (e) => {
     try {
       console.log('🔐 Processing login for:', dishCoveryEmail);
       const data = await api.signIn(dishCoveryEmail, dishCoveryPassword);
-      
+
       if (data.isAdmin) {
         console.log('👑 Admin login detected, redirecting to admin dashboard');
         setDishCoveryUser(data.user);
         setDishCoveryIsLoggedIn(true);
         dishCoveryCloseModal();
-        
+
         // Set flag for admin notification
         sessionStorage.setItem('adminJustLoggedIn', 'true');
-        
+
         // Redirect to your existing admin dashboard
         window.location.href = '/admin/dashboard';
       } else {
@@ -247,14 +247,17 @@ const dishCoveryHandleSignInSubmit = async (e) => {
         setDishCoveryUser(data.user);
         setDishCoveryIsLoggedIn(true);
         dishCoveryCloseModal();
-        
+
         sessionStorage.setItem('userJustLoggedIn', 'true');
-        
+
         // Reload page to trigger toast
         window.location.reload();
       }
     } catch (error) {
       console.error('❌ Login error:', error);
+      if (error.message.includes('Google')) {
+        setDishCoveryPassword('');
+      }
       setDishCoveryError(error.message);
     }
   };
