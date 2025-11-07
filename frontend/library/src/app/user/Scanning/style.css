@@ -1419,7 +1419,7 @@ body {
   left: 0;
   pointer-events: none;
 }
-/* Live Detection Canvas Overlay - ONLY ADDITION */
+/* Live Detection Canvas Overlay - FIXED */
 .live-bbox-canvas {
   position: absolute;
   top: 0;
