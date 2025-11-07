@@ -125,8 +125,15 @@ def resize_image(image, max_size=224):
     logger.info(f"🔄 Resizing from {width}x{height} to {new_width}x{new_height}")
     return image.resize((new_width, new_height), Image.LANCZOS)
 
+@app.post("/scan")
+async def scan_ingredients(file: UploadFile = File(...)):
+    """Scan endpoint - alias for detect endpoint used by frontend"""
+    # Detect if this is a live frame (filename hint)
+    is_live = file.filename and 'live-frame' in file.filename
+    return await detect_ingredients(file, is_live=is_live)
+
 @app.post("/detect")
-async def detect_ingredients(file: UploadFile = File(...)):
+async def detect_ingredients(file: UploadFile = File(...), is_live: bool = False):
     # Check if model is still loading
     if model_loading:
         raise HTTPException(
@@ -147,15 +154,31 @@ async def detect_ingredients(file: UploadFile = File(...)):
         if image.mode != 'RGB':
             image = image.convert('RGB')
         
-        logger.info(f"🖼️ Original image: {image.size}, mode: {image.mode}")
+        # Store original dimensions
+        original_width, original_height = image.size
         
-        # Resize to save memory (reduced from 640 to 224 for free tier)
-        image = resize_image(image, max_size=224)
-        logger.info(f"✅ Resized image: {image.size}")
+        # 🚀 OPTIMIZATION: Skip verbose logging for live frames
+        if not is_live:
+            logger.info(f"🖼️ Original image: {original_width}x{original_height}, mode: {image.mode}")
+        
+        # 🚀 OPTIMIZATION: Skip resizing for already-small live frames (faster!)
+        if original_width <= 224 or original_height <= 224:
+            resized_image = image
+            resized_width, resized_height = original_width, original_height
+        else:
+            resized_image = resize_image(image, max_size=224)
+            resized_width, resized_height = resized_image.size
+            
+        if not is_live:
+            logger.info(f"✅ Resized image: {resized_width}x{resized_height}")
+        
+        # Calculate scale factors to convert bbox back to original size
+        scale_x = original_width / resized_width
+        scale_y = original_height / resized_height
         
         # Run detection with lower confidence threshold
         results = model.predict(
-            image, 
+            resized_image, 
             conf=0.20,  # Lower threshold to detect more
             iou=0.45, 
             verbose=False,
@@ -170,14 +193,34 @@ async def detect_ingredients(file: UploadFile = File(...)):
                 conf = float(boxes.conf[i])
                 cls = int(boxes.cls[i])
                 
+                # Scale pixel coordinates back to original image size
+                pixel_box = [
+                    box[0] * scale_x,  # x1
+                    box[1] * scale_y,  # y1
+                    box[2] * scale_x,  # x2
+                    box[3] * scale_y   # y2
+                ]
+                
+                # Return NORMALIZED coordinates (0-1 range) based on ORIGINAL image
+                # This makes frontend scaling super simple: just multiply by display dimensions!
+                normalized_box = [
+                    pixel_box[0] / original_width,   # x1_normalized
+                    pixel_box[1] / original_height,  # y1_normalized
+                    pixel_box[2] / original_width,   # x2_normalized
+                    pixel_box[3] / original_height   # y2_normalized
+                ]
+                
                 detections.append({
-                    "bbox": box,
+                    "bbox": pixel_box,  # Pixel coords relative to captured frame
+                    "bbox_normalized": normalized_box,  # Normalized (0-1) coords
                     "confidence": round(conf, 3),
                     "class_id": cls,
                     "class_name": model.names[cls]
                 })
         
-        logger.info(f"✅ Detected {len(detections)} ingredients")
+        # 🚀 OPTIMIZATION: Skip logging for live frames
+        if not is_live:
+            logger.info(f"✅ Detected {len(detections)} ingredients")
         
         # Force garbage collection after detection
         gc.collect()
@@ -187,7 +230,11 @@ async def detect_ingredients(file: UploadFile = File(...)):
             "device": device,
             "num_detections": len(detections),
             "detections": detections,
-            "class_names": model.names
+            "class_names": model.names,
+            "image_dimensions": {
+                "original": {"width": original_width, "height": original_height},
+                "resized": {"width": resized_width, "height": resized_height}
+            }
         })
         
     except Exception as e:
