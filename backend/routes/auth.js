@@ -12,6 +12,12 @@ const router = express.Router();
 
 // Configuration
 const JWT_SECRET = process.env.JWT_SECRET || "dishcovery123";
+
+// ⚠️ Security warning for production
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === "dishcovery123") {
+  console.warn('⚠️⚠️⚠️ WARNING: Using default JWT_SECRET in production! Set JWT_SECRET environment variable!');
+}
+
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -30,6 +36,7 @@ router.get('/verify-token', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     console.log('🔐 Verifying token for user:', userId);
+    console.log('🔍 Token payload:', req.user);
     
     // ✅ FETCH USER DATA FROM DATABASE (NOT FROM JWT!)
     const users = await pool.query(`
@@ -50,7 +57,15 @@ router.get('/verify-token', authenticateToken, async (req, res) => {
       WHERE u.user_id = ?
     `, [userId]);
     
-    if (users.length === 0) {
+    console.log('📊 Query result:', { 
+      isArray: Array.isArray(users), 
+      length: users?.length, 
+      type: typeof users,
+      firstResult: users?.[0] ? 'exists' : 'null'
+    });
+    
+    if (!users || users.length === 0) {
+      console.warn('⚠️ User not found in database for userId:', userId);
       return res.status(404).json({ 
         success: false, 
         message: 'User not found' 
@@ -58,7 +73,11 @@ router.get('/verify-token', authenticateToken, async (req, res) => {
     }
     
     const user = users[0];
-    console.log('✅ User verified:', { email: user.email, isAdmin: user.is_admin });
+    console.log('✅ User verified:', { 
+      userId: user.user_id,
+      email: user.email, 
+      isAdmin: user.is_admin 
+    });
     
     res.json({
       success: true,
@@ -73,9 +92,11 @@ router.get('/verify-token', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Token verification error:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ 
       success: false, 
-      message: 'Server error during verification' 
+      message: 'Server error during verification',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

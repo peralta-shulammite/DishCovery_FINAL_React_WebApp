@@ -1,6 +1,11 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET || "dishcovery123";
+
+// ⚠️ Security warning for production
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === "dishcovery123") {
+  console.warn('⚠️⚠️⚠️ WARNING: Using default JWT_SECRET in production! Set JWT_SECRET environment variable!');
+}
 
 const authenticateToken = (req, res, next) => {
   // 📝 Enhanced logging for debugging
