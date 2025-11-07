@@ -503,10 +503,11 @@ body {
 
 .enhanced-table th,
 .enhanced-table td {
-  padding: 10px;
+  padding: 16px 12px;
   text-align: left;
   border-bottom: 1px solid #f1f5f9;
   font-family: 'Poppins', sans-serif;
+  line-height: 1.6;
 }
 
 .enhanced-table th {
@@ -516,11 +517,13 @@ body {
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .enhanced-table td {
   font-size: 14px;
   color: #6b7280;
+  vertical-align: middle;
 }
 
 .checkbox-col {
