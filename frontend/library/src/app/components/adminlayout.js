@@ -80,6 +80,12 @@ const AdminLayout = ({ children, currentPage = 'Dashboard', onLogout }) => {
     </svg>
   );
 
+  const AnalyticsIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+    </svg>
+  );
+
   const RecipeIcon = () => (
     <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
       <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
@@ -176,6 +182,19 @@ const AdminLayout = ({ children, currentPage = 'Dashboard', onLogout }) => {
           >
             <span className="nav-icon"><DashboardIcon /></span>
             <span className="nav-text">Dashboard</span>
+          </div>
+
+          <div 
+            className={`nav-item ${currentPage === 'Analytics' ? 'active' : ''}`}
+            onClick={(e) => {
+              e.preventDefault();
+              console.log('Analytics clicked');
+              handleNavigation('/admin/analytics');
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            <span className="nav-icon"><AnalyticsIcon /></span>
+            <span className="nav-text">Analytics</span>
           </div>
           
           <div className="nav-section-header">Account Management</div>
