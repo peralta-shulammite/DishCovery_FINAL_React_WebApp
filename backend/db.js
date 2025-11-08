@@ -147,7 +147,13 @@ const db = {
           continue; // Retry
         }
         
-        // Always log errors
+        // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
+        if (error.code === 'ER_NO_SUCH_TABLE' || error.sqlState === '42S02') {
+          // Table doesn't exist - this is fine, just throw without logging
+          throw error;
+        }
+        
+        // Always log other errors
         console.error('❌ Database query error:', error.message);
         console.error('🔍 Failed query:', sql.length > 200 ? sql.substring(0, 200) + '...' : sql);
         if (params && params.length) {
@@ -211,4 +217,6 @@ process.on('SIGTERM', async () => {
 // Run test connection on startup
 testConnection();
 
+// Export both db wrapper and pool for flexibility
+export { pool };
 export default db;

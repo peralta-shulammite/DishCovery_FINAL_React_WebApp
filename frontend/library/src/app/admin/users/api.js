@@ -87,14 +87,24 @@ export const adminUsersAPI = {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Try to get error message from response
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (parseError) {
+          // If JSON parse fails, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       return data;
     } catch (error) {
       console.error('Error deleting user:', error);
-      throw error;
+      // Re-throw with more context
+      throw new Error(error.message || 'Failed to delete user');
     }
   }
 };
