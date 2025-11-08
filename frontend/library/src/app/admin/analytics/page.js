@@ -7,53 +7,141 @@ const AnalyticsContent = () => {
   const [dateRange, setDateRange] = useState('Last 30 Days');
   const [selectedMetric, setSelectedMetric] = useState('all');
   const [notification, setNotification] = useState({ show: false, message: '', type: 'info' });
-
-  // Sample data for charts - Replace with actual API calls
-  const userGrowthData = [
-    { date: 'Week 1', users: 1240, active: 890, new: 85 },
-    { date: 'Week 2', users: 1350, active: 920, new: 110 },
-    { date: 'Week 3', users: 1480, active: 1050, new: 130 },
-    { date: 'Week 4', users: 1620, active: 1150, new: 140 },
-    { date: 'Week 5', users: 1750, active: 1280, new: 130 },
-    { date: 'Week 6', users: 1876, active: 1420, new: 126 }
-  ];
-
-  const filterDistributionData = [
-    { name: 'Vegetarian', value: 2341, percentage: 31 },
-    { name: 'Gluten-Free', value: 1876, percentage: 25 },
-    { name: 'Dairy-Free', value: 1543, percentage: 20 },
-    { name: 'Keto', value: 1234, percentage: 16 },
-    { name: 'Vegan', value: 987, percentage: 8 }
-  ];
-
-  const requestStatusData = [
-    { status: 'Completed', count: 456, percentage: 68 },
-    { status: 'Processing', count: 142, percentage: 21 },
-    { status: 'Pending', count: 73, percentage: 11 }
-  ];
-
-  const ingredientTrendsData = [
-    { month: 'Jan', chicken: 320, avocado: 280, quinoa: 240, salmon: 200 },
-    { month: 'Feb', chicken: 350, avocado: 310, quinoa: 260, salmon: 220 },
-    { month: 'Mar', chicken: 380, avocado: 340, quinoa: 290, salmon: 240 },
-    { month: 'Apr', chicken: 420, avocado: 370, quinoa: 320, salmon: 270 },
-    { month: 'May', chicken: 456, avocado: 398, quinoa: 342, salmon: 289 }
-  ];
-
-  const userActivityByHour = [
-    { hour: '12am', users: 45 },
-    { hour: '3am', users: 23 },
-    { hour: '6am', users: 78 },
-    { hour: '9am', users: 156 },
-    { hour: '12pm', users: 289 },
-    { hour: '3pm', users: 234 },
-    { hour: '6pm', users: 312 },
-    { hour: '9pm', users: 245 }
-  ];
-
+  const [loading, setLoading] = useState(true);
+  
+  // Real data states
+  const [filterDistributionData, setFilterDistributionData] = useState([]);
+  const [requestStatusData, setRequestStatusData] = useState([]);
+  const [userGrowthData, setUserGrowthData] = useState([]);
+  const [ingredientTrendsData, setIngredientTrendsData] = useState([]);
+  const [userActivityByHour, setUserActivityByHour] = useState([]);
+  const [totalUses, setTotalUses] = useState(0);
+  const [totalRequests, setTotalRequests] = useState(0);
+  const [completionRate, setCompletionRate] = useState(0);
+  
+  // API Base URL - Use same pattern as other API files for consistency
+  const getApiBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      // Client-side: check if we're on Vercel
+      if (window.location.hostname.includes('vercel.app')) {
+        return 'https://dishcovery-backend-wvhn.onrender.com/api';
+      }
+      // For localhost testing, always use localhost
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000/api';
+      }
+    }
+    // Fallback to environment variable or localhost
+    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  };
+  
+  const API_BASE_URL = getApiBaseUrl();
+  
+  const getAuthToken = () => {
+    return localStorage.getItem('token');
+  };
+  
+  // Fetch analytics data from backend
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      setLoading(true);
+      try {
+        const token = getAuthToken();
+        if (!token) {
+          throw new Error('No authentication token found. Please log in again.');
+        }
+        
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+        
+        const url = `${API_BASE_URL}/admin/analytics?dateRange=${encodeURIComponent(dateRange)}`;
+        console.log('📊 [ANALYTICS] Fetching from:', url);
+        console.log('📊 [ANALYTICS] Date range:', dateRange);
+        
+        const response = await fetch(url, { headers });
+        
+        if (!response.ok) {
+          // Try to get error message from response
+          let errorMessage = `HTTP error! status: ${response.status}`;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+            console.error('❌ [ANALYTICS] Error response:', errorData);
+          } catch (parseError) {
+            errorMessage = response.statusText || errorMessage;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          // Set filter distribution data
+          setFilterDistributionData(data.data.filterDistribution || []);
+          setTotalUses(data.data.totalUses || 0);
+          
+          // Set request status data
+          setRequestStatusData(data.data.requestStatus || []);
+          setTotalRequests(data.data.totalRequests || 0);
+          setCompletionRate(data.data.completionRate || 0);
+          
+          // Set user growth data
+          setUserGrowthData(data.data.userGrowth || []);
+          
+          // Set ingredient trends data
+          setIngredientTrendsData(data.data.ingredientTrends || []);
+          
+          // Set user activity by hour
+          setUserActivityByHour(data.data.userActivityByHour || []);
+          
+          console.log('✅ [ANALYTICS] Analytics data fetched successfully');
+          console.log('✅ [ANALYTICS] Data received:', {
+            filterDistribution: data.data.filterDistribution?.length || 0,
+            requestStatus: data.data.requestStatus?.length || 0,
+            userGrowth: data.data.userGrowth?.length || 0,
+            ingredientTrends: data.data.ingredientTrends?.length || 0,
+            userActivity: data.data.userActivityByHour?.length || 0
+          });
+        } else {
+          throw new Error(data.message || 'Failed to fetch analytics data');
+        }
+      } catch (error) {
+        console.error('❌ [ANALYTICS] Error fetching analytics:', error);
+        console.error('❌ [ANALYTICS] Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        });
+        
+        // Show user-friendly error message
+        let errorMessage = error.message || 'Failed to load analytics data';
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = 'Cannot connect to backend server. Make sure the backend is running on http://localhost:5000';
+        } else if (error.message.includes('401') || error.message.includes('403')) {
+          errorMessage = 'Authentication failed. Please log in again.';
+        } else if (error.message.includes('500')) {
+          errorMessage = 'Server error. Check backend logs for details.';
+        }
+        
+        setNotification({ 
+          show: true, 
+          message: `Error: ${errorMessage}`, 
+          type: 'error' 
+        });
+        setTimeout(() => setNotification({ show: false, message: '', type: 'info' }), 8000);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAnalyticsData();
+  }, [dateRange]);
+  
   const conversionMetrics = {
     userRetention: 78,
-    requestCompletion: 68,
+    requestCompletion: completionRate,
     recipeEngagement: 84,
     filterUsage: 92
   };
@@ -95,6 +183,16 @@ const AnalyticsContent = () => {
       </div>
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="analytics-content">
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <p>Loading analytics data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="analytics-content">
@@ -143,16 +241,14 @@ const AnalyticsContent = () => {
           </div>
           <div className="donut-chart-container">
             <div className="donut-chart" style={{
-              background: `conic-gradient(
-                ${COLORS[0]} 0% 31%,
-                ${COLORS[1]} 31% 56%,
-                ${COLORS[2]} 56% 76%,
-                ${COLORS[3]} 76% 92%,
-                ${COLORS[4]} 92% 100%
-              )`
+              background: filterDistributionData.length > 0 ? `conic-gradient(${filterDistributionData.map((item, index) => {
+                const startPercent = filterDistributionData.slice(0, index).reduce((sum, i) => sum + i.percentage, 0);
+                const endPercent = startPercent + item.percentage;
+                return `${COLORS[index % COLORS.length]} ${startPercent}% ${endPercent}%`;
+              }).join(', ')})` : 'conic-gradient(#e5e7eb 0% 100%)'
             }}>
               <div className="donut-hole">
-                <div className="donut-total">7,981</div>
+                <div className="donut-total">{totalUses.toLocaleString()}</div>
                 <div className="donut-label">Total Uses</div>
               </div>
             </div>
@@ -195,11 +291,11 @@ const AnalyticsContent = () => {
           </div>
           <div className="status-summary">
             <div className="summary-stat">
-              <div className="summary-number">671</div>
+              <div className="summary-number">{totalRequests.toLocaleString()}</div>
               <div className="summary-label">Total Requests</div>
             </div>
             <div className="summary-stat">
-              <div className="summary-number">68%</div>
+              <div className="summary-number">{completionRate}%</div>
               <div className="summary-label">Completion Rate</div>
             </div>
           </div>
@@ -212,65 +308,97 @@ const AnalyticsContent = () => {
             <p className="chart-subtitle">Monthly request patterns for popular ingredients</p>
           </div>
           <div className="line-chart-container">
-            <svg viewBox="0 0 500 200" className="line-chart-svg">
-              {/* Grid lines */}
-              <line x1="50" y1="20" x2="50" y2="170" stroke="#e5e7eb" strokeWidth="1"/>
-              <line x1="50" y1="170" x2="480" y2="170" stroke="#e5e7eb" strokeWidth="1"/>
-              {[0, 1, 2, 3, 4].map(i => (
-                <line key={i} x1="50" y1={20 + i * 37.5} x2="480" y2={20 + i * 37.5} stroke="#f3f4f6" strokeWidth="1"/>
-              ))}
-              
-              {/* Chicken line */}
-              <polyline
-                points="50,100 136,85 222,70 308,50 394,35 480,20"
-                fill="none"
-                stroke="#2E7D32"
-                strokeWidth="3"
-              />
-              {/* Avocado line */}
-              <polyline
-                points="50,110 136,95 222,80 308,65 394,55 480,40"
-                fill="none"
-                stroke="#e91e63"
-                strokeWidth="3"
-              />
-              {/* Quinoa line */}
-              <polyline
-                points="50,120 136,105 222,95 308,80 394,70 480,60"
-                fill="none"
-                stroke="#9c27b0"
-                strokeWidth="3"
-              />
-              {/* Salmon line */}
-              <polyline
-                points="50,130 136,120 222,110 308,100 394,90 480,80"
-                fill="none"
-                stroke="#ff9800"
-                strokeWidth="3"
-              />
-              
-              {/* X-axis labels */}
-              {['Jan', 'Feb', 'Mar', 'Apr', 'May'].map((month, i) => (
-                <text key={month} x={50 + i * 86} y="190" fontSize="12" fill="#6b7280" textAnchor="middle">{month}</text>
-              ))}
-            </svg>
+            {ingredientTrendsData.length > 0 ? (
+              <svg viewBox="0 0 500 200" className="line-chart-svg">
+                {/* Grid lines */}
+                <line x1="50" y1="20" x2="50" y2="170" stroke="#e5e7eb" strokeWidth="1"/>
+                <line x1="50" y1="170" x2="480" y2="170" stroke="#e5e7eb" strokeWidth="1"/>
+                {[0, 1, 2, 3, 4].map(i => (
+                  <line key={i} x1="50" y1={20 + i * 37.5} x2="480" y2={20 + i * 37.5} stroke="#f3f4f6" strokeWidth="1"/>
+                ))}
+                
+                {/* Dynamic ingredient lines */}
+                {(() => {
+                  // Get all unique ingredient keys from the data (excluding 'month')
+                  const ingredientKeys = Object.keys(ingredientTrendsData[0] || {}).filter(key => key !== 'month');
+                  
+                  // Calculate max value for scaling
+                  const maxValue = Math.max(
+                    ...ingredientTrendsData.flatMap(month => 
+                      ingredientKeys.map(key => month[key] || 0)
+                    )
+                  ) || 1;
+                  
+                  // Chart dimensions
+                  const chartWidth = 430; // 480 - 50
+                  const chartHeight = 150; // 170 - 20
+                  const chartStartX = 50;
+                  const chartStartY = 20;
+                  const chartEndY = 170;
+                  
+                  // Generate points for each ingredient
+                  return ingredientKeys.slice(0, 4).map((ingredientKey, index) => {
+                    const points = ingredientTrendsData.map((month, monthIndex) => {
+                      const value = month[ingredientKey] || 0;
+                      const x = chartStartX + (monthIndex / (ingredientTrendsData.length - 1 || 1)) * chartWidth;
+                      const y = chartEndY - (value / maxValue) * chartHeight;
+                      return `${x},${y}`;
+                    }).join(' ');
+                    
+                    return (
+                      <polyline
+                        key={ingredientKey}
+                        points={points}
+                        fill="none"
+                        stroke={COLORS[index % COLORS.length]}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    );
+                  });
+                })()}
+                
+                {/* X-axis labels */}
+                {ingredientTrendsData.map((month, i) => (
+                  <text 
+                    key={i} 
+                    x={50 + (i / (ingredientTrendsData.length - 1 || 1)) * 430} 
+                    y="190" 
+                    fontSize="12" 
+                    fill="#6b7280" 
+                    textAnchor="middle"
+                  >
+                    {month.month}
+                  </text>
+                ))}
+              </svg>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                No ingredient trend data available
+              </div>
+            )}
             <div className="line-chart-legend">
-              <div className="legend-row">
-                <span style={{background: '#2E7D32'}} className="legend-line"></span>
-                <span>Chicken Breast</span>
-              </div>
-              <div className="legend-row">
-                <span style={{background: '#e91e63'}} className="legend-line"></span>
-                <span>Avocado</span>
-              </div>
-              <div className="legend-row">
-                <span style={{background: '#9c27b0'}} className="legend-line"></span>
-                <span>Quinoa</span>
-              </div>
-              <div className="legend-row">
-                <span style={{background: '#ff9800'}} className="legend-line"></span>
-                <span>Salmon</span>
-              </div>
+              {(() => {
+                if (ingredientTrendsData.length === 0) return null;
+                const ingredientKeys = Object.keys(ingredientTrendsData[0] || {}).filter(key => key !== 'month');
+                return ingredientKeys.slice(0, 4).map((ingredientKey, index) => {
+                  // Format ingredient name (replace underscores with spaces, capitalize)
+                  const formattedName = ingredientKey
+                    .replace(/_/g, ' ')
+                    .replace(/\b\w/g, l => l.toUpperCase());
+                  
+                  return (
+                    <div key={ingredientKey} className="legend-row">
+                      <span 
+                        style={{background: COLORS[index % COLORS.length]}} 
+                        className="legend-line"
+                      ></span>
+                      <span>{formattedName}</span>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
