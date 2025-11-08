@@ -16,9 +16,9 @@ router.get('/', authenticateToken, async (req, res) => {
       SELECT 
         ingredient_id as id,
         ingredient_name as name,
-        ingredient_type as type,
-        category,
-        categ_role,
+        COALESCE(ingredient_type, '') as type,
+        COALESCE(category, '') as category,
+        COALESCE(categ_role, '') as categ_role,
         nutritional_data,
         is_active,
         created_at as dateAdded,
@@ -48,16 +48,9 @@ router.get('/', authenticateToken, async (req, res) => {
         nutritionalData = {};
       }
 
-      // Use categ_role if available, otherwise fallback to category
-      let role = ingredient.categ_role || ingredient.category;
-      
-      // Swap if data is reversed: if type is empty but category has type-like value
-      let type = ingredient.type;
-      let category = ingredient.category;
-      
       // Normalize plural forms to singular
       const normalizeType = (value) => {
-        if (!value) return null;
+        if (!value || value.trim() === '') return null;
         const pluralToSingular = {
           'Vegetables': 'Vegetable',
           'Fruits': 'Fruit',
@@ -70,27 +63,36 @@ router.get('/', authenticateToken, async (req, res) => {
         return pluralToSingular[value] || value;
       };
       
+      // Get type from ingredient_type column (primary source)
+      let type = ingredient.type ? String(ingredient.type).trim() : null;
+      let category = ingredient.category ? String(ingredient.category).trim() : null;
+      let role = ingredient.categ_role ? String(ingredient.categ_role).trim() : null;
+      
+      // If type is empty/null but category has type-like value, use category as type
       if (!type && category && typeLikeValues.includes(category)) {
-        // Category has type value, swap them
         type = normalizeType(category);
-        // Use categ_role if available, otherwise set default
+        // Set role from categ_role or default
         role = ingredient.categ_role || 'Main Ingredient';
-      } else if (type && roleLikeValues.includes(type)) {
-        // Type has role value, swap them
-        const temp = type;
-        type = normalizeType(category) || null;
-        role = temp || (ingredient.categ_role || 'Main Ingredient');
-      } else {
-        // Normalize type to singular
-        type = normalizeType(type);
-        // Use categ_role if available, otherwise use category
-        role = ingredient.categ_role || category || 'Other';
+      } 
+      // If type has role-like value (data is reversed), swap them
+      else if (type && roleLikeValues.includes(type)) {
+        // Type actually contains role value, swap
+        const tempType = type;
+        type = category && typeLikeValues.includes(category) ? normalizeType(category) : null;
+        role = tempType || ingredient.categ_role || 'Main Ingredient';
+      } 
+      // Normal case: type exists and is valid
+      else {
+        // Normalize type to singular if it exists
+        type = type ? normalizeType(type) : null;
+        // Use categ_role if available, otherwise use category (if it's a role value)
+        role = role || (category && roleLikeValues.includes(category) ? category : null) || 'Other';
       }
 
-      return {
+      const result = {
         id: ingredient.id,
         name: ingredient.name,
-        type: type || null,
+        type: type || null, // Always return type if it exists, null otherwise
         category: role || 'Other', // category field in response maps to role
         image: nutritionalData.image || null,
         usedInRecipes: ingredient.usedInRecipes || 0,
@@ -98,6 +100,13 @@ router.get('/', authenticateToken, async (req, res) => {
         status: ingredient.is_active ? 'Active' : 'Inactive',
         dateAdded: ingredient.dateAdded
       };
+      
+      // Debug logging (only in development)
+      if (process.env.NODE_ENV !== 'production' && !result.type && ingredient.name) {
+        console.log(`⚠️  Missing type for ${ingredient.name}: ingredient_type="${ingredient.type}", category="${category}", categ_role="${role}"`);
+      }
+      
+      return result;
     });
 
     res.json({ success: true, ingredients: transformedIngredients });
