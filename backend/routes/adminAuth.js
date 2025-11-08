@@ -41,7 +41,11 @@ const authenticateAdminToken = async (req, res, next) => {
 // POST /api/admin-auth/login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    let { email, password } = req.body || {};
+    
+    // Normalize email: trim whitespace and convert to lowercase for consistency
+    email = email ? email.trim().toLowerCase() : '';
+    
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
@@ -58,7 +62,7 @@ router.post('/login', async (req, res) => {
         role,
         is_active
       FROM admin_users
-      WHERE email = ? AND (is_active = 1 OR is_active IS NULL)
+      WHERE LOWER(TRIM(email)) = ? AND (is_active = 1 OR is_active IS NULL)
       LIMIT 1
     `;
     
