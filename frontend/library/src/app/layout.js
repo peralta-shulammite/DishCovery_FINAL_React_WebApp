@@ -65,6 +65,44 @@ export default function RootLayout({ children }) {
         {children}
         <script dangerouslySetInnerHTML={{
           __html: `
+            // 🆕 FIX: Clear stale user data on every page load to prevent random user instances
+            (function() {
+              try {
+                const token = localStorage.getItem('token');
+                const currentUserId = localStorage.getItem('currentUserId');
+                const storedUserId = localStorage.getItem('userId');
+                
+                // If we have a token, verify it matches stored user data
+                if (token) {
+                  // If there's a mismatch between currentUserId and stored userId, clear everything
+                  if (currentUserId && storedUserId && currentUserId !== storedUserId) {
+                    console.log('🧹 Detected user mismatch - clearing all data');
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    // Force page reload to get fresh data
+                    window.location.reload();
+                    return;
+                  }
+                  
+                  // If token exists but no user data, clear token (stale session)
+                  if (!currentUserId && !storedUserId) {
+                    console.log('🧹 Token exists but no user data - clearing stale session');
+                    localStorage.clear();
+                    sessionStorage.clear();
+                  }
+                } else {
+                  // No token but user data exists - clear it
+                  if (currentUserId || storedUserId) {
+                    console.log('🧹 No token but user data exists - clearing stale data');
+                    localStorage.clear();
+                    sessionStorage.clear();
+                  }
+                }
+              } catch (e) {
+                console.warn('Error checking user data:', e);
+              }
+            })();
+            
             if ('serviceWorker' in navigator) {
               // Prevent multiple registrations
               if (window.serviceWorkerRegistered) {

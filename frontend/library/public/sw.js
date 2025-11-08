@@ -1,6 +1,6 @@
 // DishCovery Service Worker
-const CACHE_NAME = 'dishcovery-v6'; // Updated to force cache refresh (v6 = no user data caching)
-const RUNTIME_CACHE = 'dishcovery-runtime-v6';
+const CACHE_NAME = 'dishcovery-v7'; // Updated to force cache refresh (v7 = aggressive no-cache for user pages)
+const RUNTIME_CACHE = 'dishcovery-runtime-v7';
 
 // Assets to cache on install (ONLY static assets, NO user-specific pages)
 const PRECACHE_URLS = [
@@ -69,6 +69,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
   // NEVER cache API calls, Next.js bundles, or user-specific pages - always fetch fresh
+  // Also check for any user-related data in headers or URL
   if (url.pathname.startsWith('/_next/') || 
       url.pathname.startsWith('/api/') ||
       url.pathname.includes('webpack') ||
@@ -79,8 +80,22 @@ self.addEventListener('fetch', (event) => {
       // Don't cache pages with query parameters (might be user-specific)
       url.search.includes('token') ||
       url.search.includes('userId') ||
-      url.search.includes('_rsc')) {
-    event.respondWith(fetch(event.request));
+      url.search.includes('_rsc') ||
+      url.search.includes('user') ||
+      // Don't cache HTML pages that might contain user data
+      url.pathname.endsWith('.html') ||
+      (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'))) {
+    // Force network-only for user pages - never use cache
+    event.respondWith(
+      fetch(event.request, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      })
+    );
     return;
   }
 

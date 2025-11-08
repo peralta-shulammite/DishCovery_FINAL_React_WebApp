@@ -121,18 +121,58 @@ export default function DishCoveryLanding() {
   }, []);
 
   useEffect(() => {
+    // 🆕 FIX: Clear any stale user data on page load to prevent random user instances
+    const clearStaleUserData = () => {
+      // Check if there's a mismatch between token and stored user data
+      const token = localStorage.getItem('token');
+      const storedUserId = localStorage.getItem('userId');
+      const storedUserEmail = localStorage.getItem('userEmail');
+      
+      // If we have a token but no user data, or if user data exists without a valid token, clear everything
+      if ((token && !storedUserId && !storedUserEmail) || (!token && (storedUserId || storedUserEmail))) {
+        console.log('🧹 Clearing stale user data - mismatch detected');
+        localStorage.clear();
+        sessionStorage.clear();
+        // Force Service Worker cache clear
+        if ('serviceWorker' in navigator && 'caches' in window) {
+          caches.keys().then(cacheNames => {
+            return Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
+          });
+        }
+        return true; // Data was cleared
+      }
+      return false; // No clearing needed
+    };
+    
+    // Clear stale data first
+    const wasCleared = clearStaleUserData();
+    
     const token = localStorage.getItem('token');
     
     // ✅ SECURITY FIX: Validate token format before using it
-    if (token && token.length > 10 && token.split('.').length === 3) {
+    if (token && token.length > 10 && token.split('.').length === 3 && !wasCleared) {
       setDishCoveryIsLoggedIn(true);
       
       // Fetch full profile from backend (token is verified server-side)
+      // Add cache-busting timestamp to prevent stale data
       api.getProfile()
         .then((userData) => {
           console.log('✅ Profile loaded successfully');
-          setDishCoveryUser(userData);
-          setDishCoveryIsLoggedIn(true);
+          // 🆕 FIX: Verify user data matches token before setting state
+          if (userData && userData.userId) {
+            // Store current user ID to detect mismatches
+            localStorage.setItem('currentUserId', userData.userId.toString());
+            localStorage.setItem('currentUserEmail', userData.email || '');
+            setDishCoveryUser(userData);
+            setDishCoveryIsLoggedIn(true);
+          } else {
+            // Invalid user data - clear everything
+            console.warn('⚠️ Invalid user data received - clearing auth');
+            localStorage.clear();
+            sessionStorage.clear();
+            setDishCoveryIsLoggedIn(false);
+            setDishCoveryUser(null);
+          }
         })
         .catch((error) => {
           // Silently handle expired/invalid tokens (expected behavior)
@@ -157,8 +197,8 @@ export default function DishCoveryLanding() {
           }
         });
     } else {
-      if (token) {
-        // Silently clear malformed tokens
+      if (token || wasCleared) {
+        // Silently clear malformed tokens or if we cleared stale data
         localStorage.clear();
         sessionStorage.clear();
       }
