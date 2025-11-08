@@ -30,7 +30,7 @@ const DietaryRestrictionsManagementContent = () => {
     visibility: 'Public',
   });
 
-  const categories = ['Allergy', 'Intolerance', 'Dietary Lifestyle'].sort();
+  const categories = ['Allergy', 'Intolerance'].sort();
   const statuses = ['Active', 'Inactive'];
 
   // Fetch dietary restrictions from database

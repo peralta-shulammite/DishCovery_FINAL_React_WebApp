@@ -58,15 +58,57 @@ export default function GetStarted() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      fetch(`${API_BASE_URL}/users/profile`, {
+      // Check if user has already completed onboarding
+      fetch(`${API_BASE_URL}/user-profile/dietary`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch profile');
+        if (!res.ok) throw new Error('Failed to fetch dietary preferences');
         return res.json();
       })
-      .then(data => setUserProfile(data))
-      .catch(err => console.error('Failed to load user profile:', err));
+      .then(dietaryData => {
+        // If user has medical conditions or excluded ingredients, they've completed onboarding
+        const hasCompleted = (dietaryData.data?.medicalConditions?.length > 0) || 
+                            (dietaryData.data?.excludedIngredients?.length > 0);
+        
+        // Only redirect if they're not a new signup (check sessionStorage)
+        const isNewSignup = sessionStorage.getItem('newUserSignup') === 'true';
+        
+        if (hasCompleted && !isNewSignup) {
+          console.log('✅ User has completed onboarding, redirecting to home...');
+          window.location.href = '/user/home';
+          return;
+        }
+        
+        // Load user profile for display
+        return fetch(`${API_BASE_URL}/users/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      })
+      .then(res => {
+        if (res && res.ok) {
+          return res.json();
+        }
+        return null;
+      })
+      .then(data => {
+        if (data) setUserProfile(data);
+      })
+      .catch(err => {
+        // If error fetching dietary preferences, assume they haven't completed onboarding
+        console.log('User has not completed onboarding yet');
+        
+        // Still try to load profile
+        fetch(`${API_BASE_URL}/users/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch profile');
+          return res.json();
+        })
+        .then(data => setUserProfile(data))
+        .catch(err => console.error('Failed to load user profile:', err));
+      });
     }
   }, []);
 
@@ -169,12 +211,18 @@ export default function GetStarted() {
       console.log('💾 Saving dietary profile...');
       
       // Prepare data for API
+      // Process excluded ingredients: split by comma, trim whitespace, filter empty strings
+      const excludedIngredientsList = dietaryData.excludedIngredients
+        .split(',')
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
+      
       const saveData = {
         memberId: memberId,
         dietaryRestrictions: [], // No longer used - replaced by medicalConditions
         medicalConditions: dietaryData.medicalConditions,
-        preferredDiets: dietaryData.preferredDiets,
-        excludedIngredients: dietaryData.excludedIngredients.split(',').map(item => item.trim()).filter(item => item)
+        preferredDiets: [], // Dietary Lifestyle Tags removed
+        excludedIngredients: excludedIngredientsList // Process and save excluded ingredients
       };
 
       // Call the API
@@ -197,6 +245,10 @@ export default function GetStarted() {
       if (result.success) {
         console.log('✅ Profile saved successfully');
         setIsSaved(true);
+        
+        // Clear new user signup flag since onboarding is complete
+        sessionStorage.removeItem('newUserSignup');
+        
         setTimeout(() => {
           window.location.href = '/user/home';
         }, 2000);
@@ -259,7 +311,7 @@ export default function GetStarted() {
 
     medicalConditions: apiRestrictions.medicalConditions.length > 0
       ? apiRestrictions.medicalConditions
-      : ['Dairy allergy', 'Egg allergy', 'Fish allergy', 'Legume allergy', 'Nut allergy', 'Peanut allergy', 'Sesame allergy', 'Shellfish allergy', 'Soy allergy', 'Wheat allergy', 'Celiac disease', 'Lactose intolerance']
+      : ['Allergy To Nuts', 'Allergy To Shellfishes', 'Allergy To Eggs', 'Allergy To Soy', 'Allergy To Dairy', 'Allergy To Sesame Seeds', 'Allergy To Legumes', 'Gluten Intolerance', 'Lactose Intolerance']
   };
 
   const renderStep1 = () => (
@@ -393,14 +445,6 @@ export default function GetStarted() {
             }))}
           />
         </div>
-
-        {/* Preferred Diets */}
-        {renderDietarySection(
-          'Dietary Lifestyle Tags',
-          'preferredDiets',
-          'Select your preferred dietary approaches',
-          'Don\'t see your diet? Let us know'
-        )}
       </div>
 
       <div className="nav-buttons">
