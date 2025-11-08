@@ -434,8 +434,8 @@ const UserManagementContent = () => {
       'Favorite Count',
       'Last Login',
       'Status',
-      'Medical Conditions',
-      'Dietary Lifestyle'
+      'Medical Conditions'
+      // 'Dietary Lifestyle' removed - category removed
     ];
 
     const csvRows = [
@@ -447,7 +447,7 @@ const UserManagementContent = () => {
         const favoriteCount = u.recipesSaved || 0;
         const lastLogin = u.lastActive || 'Never';
         const medicalConditions = (u.medicalConditions || []).join('; ') || 'None';
-        const dietaryLifestyle = (u.dietaryLifestyle || []).join('; ') || 'None';
+        // dietaryLifestyle removed - category removed
 
         return [
           u.id,
@@ -458,8 +458,8 @@ const UserManagementContent = () => {
           favoriteCount,
           lastLogin,
           u.status,
-          medicalConditions,
-          dietaryLifestyle
+          medicalConditions
+          // dietaryLifestyle removed
         ].map(escapeCSV).join(',');
       })
     ];
@@ -1274,41 +1274,6 @@ const UserManagementContent = () => {
                     </div>
                   </div>
 
-                  <div className="preference-group-fixed">
-                    <h3 className="preference-group-label" style={{ 
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      color: '#2E7D32',
-                      fontFamily: 'Poppins, sans-serif',
-                      margin: '0 0 8px 0'
-                    }}>Dietary Lifestyle</h3>
-                    <div className="tags-container-fixed" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {(selectedUser?.dietaryLifestyle && selectedUser.dietaryLifestyle.length > 0) || (selectedUser?.excludedIngredients && selectedUser.excludedIngredients.length > 0) ? (
-                        (selectedUser?.dietaryLifestyle || selectedUser?.excludedIngredients || []).map((diet) => (
-                          <div 
-                            key={diet} 
-                            className="tag-fixed diet-tag-fixed" 
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '4px 8px',
-                              borderRadius: '12px',
-                              fontSize: '10px',
-                              fontWeight: '500',
-                              background: 'rgba(46, 125, 50, 0.1)',
-                              color: '#2E7D32',
-                              border: '1px solid rgba(46, 125, 50, 0.2)'
-                            }}
-                          >
-                            <span>{diet}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <span style={{ color: '#999', fontSize: '14px' }}>No preferred diets set</span>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
 

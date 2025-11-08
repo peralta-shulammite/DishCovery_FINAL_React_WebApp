@@ -165,6 +165,37 @@ export default function DishCoveryLanding() {
             localStorage.setItem('currentUserEmail', userData.email || '');
             setDishCoveryUser(userData);
             setDishCoveryIsLoggedIn(true);
+            
+            // Check if user needs to complete onboarding
+            // Check dietary preferences to see if onboarding is complete
+            const checkOnboarding = async () => {
+              try {
+                const dietaryRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/user-profile/dietary`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (dietaryRes.ok) {
+                  const dietaryData = await dietaryRes.json();
+                  const hasCompleted = (dietaryData.data?.medicalConditions?.length > 0) || 
+                                      (dietaryData.data?.excludedIngredients?.length > 0);
+                  
+                  if (!hasCompleted) {
+                    console.log('🆕 User has not completed onboarding, redirecting to get-started...');
+                    window.location.href = '/user/get-started';
+                  }
+                } else {
+                  // If error, assume they haven't completed onboarding
+                  console.log('🆕 User has not completed onboarding, redirecting to get-started...');
+                  window.location.href = '/user/get-started';
+                }
+              } catch (err) {
+                // If error, assume they haven't completed onboarding
+                console.log('🆕 User has not completed onboarding, redirecting to get-started...');
+                window.location.href = '/user/get-started';
+              }
+            };
+            
+            checkOnboarding();
           } else {
             // Invalid user data - clear everything
             console.warn('⚠️ Invalid user data received - clearing auth');
@@ -324,7 +355,7 @@ const dishCoveryHandleSignInSubmit = async (e) => {
         // Redirect to your existing admin dashboard
         window.location.href = '/admin/dashboard';
       } else {
-        console.log('👤 Regular user login, staying on main page');
+        console.log('👤 Regular user login, checking onboarding status...');
         setDishCoveryUser(data.user);
         setDishCoveryIsLoggedIn(true);
         dishCoveryCloseModal();
@@ -1103,11 +1134,7 @@ const dishCoveryBottomRecipes = [
             <button className="modal-signin-btn" onClick={dishCoveryHandleSignInSubmit}>Sign In</button>
             <div className="modal-or">or</div>
             <div className="social-buttons">
-              <button className="social-btn fb" onClick={dishCoveryHandleSocialLogin}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/>
-                </svg>
-              </button>
+              {/* Facebook login removed */}
               <button className="social-btn google" onClick={dishCoveryHandleGoogleLogin}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.20-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -1330,11 +1357,7 @@ const dishCoveryBottomRecipes = [
             <button className="modal-signup-btn" disabled={!dishCoveryIsChecked} onClick={dishCoveryHandleSignUpSubmit}>Sign up</button>
             <div className="modal-or">or</div>
             <div className="social-buttons">
-              <button className="social-btn fb" onClick={dishCoveryHandleSocialLogin}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/>
-                </svg>
-              </button>
+              {/* Facebook login removed */}
               {/* ✅ FIXED: Changed from dishCoveryHandleGoogleLogin to dishCoveryHandleGoogleSignup */}
               <button className="social-btn google" onClick={dishCoveryHandleGoogleSignup}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

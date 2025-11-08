@@ -72,12 +72,12 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
     const usersWithDetails = await Promise.all(users.map(async (user) => {
       let restrictions = [];
       let excludedIngredients = [];
-      let preferredDiets = [];
       let medicalConditions = [];
+      // preferredDiets removed - dietary lifestyle category removed
 
       // Get user restrictions with category information (matching user profile page logic)
       // Category 1 (Allergy) + Category 2 (Intolerance) = Medical Conditions
-      // Category 3 (Dietary Lifestyle) = Dietary Lifestyle
+      // Dietary Lifestyle removed - no longer needed
       try {
         const result = await pool.query(`
           SELECT 
@@ -92,15 +92,13 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
         // Extract rows from mysql2 result format
         const restrictionsData = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
         
-        // Organize by category (matching user profile page logic)
+        // Organize by category (only medical conditions)
         restrictionsData.forEach(item => {
           if (item.category_name === 'Allergy' || item.category_name === 'Intolerance') {
             // Both Allergy and Intolerance go to Medical Conditions
             medicalConditions.push(item.restriction_name);
-          } else if (item.category_name === 'Dietary Lifestyle') {
-            // Dietary Lifestyle goes to preferredDiets (which we'll use as Dietary Lifestyle)
-            preferredDiets.push(item.restriction_name);
           }
+          // Dietary Lifestyle category removed - no longer processed
         });
       } catch (err) {
         // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
@@ -111,7 +109,7 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
         }
       }
 
-      // Try to get excluded ingredients (these are also part of Dietary Lifestyle)
+      // Try to get excluded ingredients (no longer used for dietary lifestyle)
       try {
         const result = await pool.query(`
           SELECT i.ingredient_name
@@ -122,12 +120,6 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
         // Extract rows from mysql2 result format
         const excludedData = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
         excludedIngredients = excludedData.map(e => e.ingredient_name);
-        // Also add to preferredDiets as they represent Dietary Lifestyle
-        excludedIngredients.forEach(ing => {
-          if (!preferredDiets.includes(ing)) {
-            preferredDiets.push(ing);
-          }
-        });
       } catch (err) {
         // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
         if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
@@ -151,10 +143,10 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
         lastActive: lastActiveText,
         joinedDate: joinedDateText,
         restrictions: [], // Not used anymore
-        excludedIngredients: excludedIngredients, // Used for Dietary Lifestyle display
+        excludedIngredients: excludedIngredients,
         diets: [], // Not used anymore (removed from UI)
         medicalConditions: medicalConditions, // From restrictions with category 'Allergy' or 'Intolerance'
-        dietaryLifestyle: preferredDiets, // From restrictions with category 'Dietary Lifestyle' + excluded ingredients
+        dietaryLifestyle: [], // Dietary lifestyle removed - no longer needed
         recipesViewed: 0, // TODO: Implement if recipe views are tracked
         recipesSaved: 0, // TODO: Implement if saved recipes are tracked
         ingredientsScanned: 0, // TODO: Implement if ingredient scans are tracked
@@ -466,10 +458,12 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
     // Delete related data first (foreign key constraints) - wrapped in try-catch to handle missing tables
     // NOTE: feedback_replies references feedback_id, not user_id directly, so we delete feedback_replies BEFORE feedback
     // NOTE: user_restrictions MUST be deleted before users (has foreign key constraint)
+    // NOTE: user_members MUST be deleted before users (has foreign key constraint)
     const tablesToClean = [
       'pending_requests',  // ⚠️ IMPORTANT: Must be first due to foreign key constraints
       'notifications',  // 🆕 Added: Delete user notifications (has CASCADE but manual delete is safer)
       'user_scanned_ingredients',
+      'user_members',  // 🆕 CRITICAL: Delete family members (has foreign key constraint)
       'user_restrictions',  // ⚠️ CRITICAL: Must be deleted before users (has foreign key constraint)
       'user_dietary_restrictions',
       'user_excluded_ingredients', 
@@ -511,6 +505,63 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       }
     }
     
+    // 🆕 CRITICAL: Explicitly delete user_members FIRST (before other tables)
+    // This table has a foreign key constraint to users and MUST be deleted before users
+    // Also delete member-related restrictions and ingredients
+    try {
+      console.log(`  🔍 Attempting to clean user_members (CRITICAL - has FK constraint)...`);
+      
+      // First, get all member_ids for this user
+      const [memberRows] = await connection.query(
+        'SELECT member_id FROM user_members WHERE user_id = ?',
+        [id]
+      );
+      
+      if (memberRows && memberRows.length > 0) {
+        const memberIds = memberRows.map(m => m.member_id);
+        const memberPlaceholders = memberIds.map(() => '?').join(',');
+        
+        // Delete member-related restrictions
+        try {
+          await connection.query(
+            `DELETE FROM user_restrictions WHERE member_id IN (${memberPlaceholders})`,
+            memberIds
+          );
+          console.log(`  ✓ Cleaned user_restrictions for ${memberIds.length} members`);
+        } catch (memberRestErr) {
+          console.log(`  ⚠️ Could not delete member restrictions: ${memberRestErr.message}`);
+        }
+        
+        // Delete member-related excluded ingredients
+        try {
+          await connection.query(
+            `DELETE FROM user_excluded_ingredients WHERE member_id IN (${memberPlaceholders})`,
+            memberIds
+          );
+          console.log(`  ✓ Cleaned user_excluded_ingredients for ${memberIds.length} members`);
+        } catch (memberIngErr) {
+          console.log(`  ⚠️ Could not delete member ingredients: ${memberIngErr.message}`);
+        }
+      }
+      
+      // Now delete the members themselves
+      const [deleteMembersResult] = await connection.query(
+        'DELETE FROM user_members WHERE user_id = ?',
+        [id]
+      );
+      const affectedRows = deleteMembersResult?.affectedRows || (Array.isArray(deleteMembersResult) ? deleteMembersResult.length : 0);
+      console.log(`  ✓ Cleaned user_members: ${affectedRows} rows deleted`);
+    } catch (err) {
+      if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+        console.log(`  ⚠️ Table user_members doesn't exist, skipping`);
+      } else if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === '23000' || err.sqlState === '23000') {
+        console.error(`  ❌ CRITICAL: Foreign key constraint error in user_members:`, err.message);
+        criticalError = `Cannot delete user: user_members has foreign key constraints. ${err.message}`;
+      } else {
+        console.error(`  ❌ Error deleting user_members:`, err.message);
+      }
+    }
+    
     // 🆕 CRITICAL: Explicitly delete user_restrictions FIRST (before other tables)
     // This table has a foreign key constraint to users and MUST be deleted before users
     // Based on best practices: Delete child records before parent to prevent FK constraint violations
@@ -535,7 +586,7 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       }
     }
     
-    // If we already have a critical error from user_restrictions, skip the loop
+    // If we already have a critical error from user_members or user_restrictions, skip the loop
     if (criticalError) {
       await connection.rollback();
       return res.status(400).json({
@@ -544,8 +595,8 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       });
     }
     
-    // Clean up all other tables in order (excluding user_restrictions since we already handled it)
-    const tablesToCleanFiltered = tablesToClean.filter(table => table !== 'user_restrictions');
+    // Clean up all other tables in order (excluding user_members and user_restrictions since we already handled them)
+    const tablesToCleanFiltered = tablesToClean.filter(table => table !== 'user_members' && table !== 'user_restrictions');
     
     for (const table of tablesToCleanFiltered) {
       try {
@@ -1048,11 +1099,11 @@ router.delete('/bulk/delete', authenticateToken, adminAuth, async (req, res) => 
     }
 
     // Delete related data for all users in batch
+    // NOTE: user_members and user_restrictions are handled separately due to FK constraints
     const tablesToClean = [
       'pending_requests',
       'notifications',
       'user_scanned_ingredients',
-      'user_restrictions',
       'user_dietary_restrictions',
       'user_excluded_ingredients',
       'user_preferred_diets',
@@ -1082,7 +1133,54 @@ router.delete('/bulk/delete', authenticateToken, adminAuth, async (req, res) => 
       }
     }
 
-    // Delete user_restrictions first (has FK constraint)
+    // Delete user_members first (has FK constraint) - also delete member-related data
+    try {
+      // First, get all member_ids for these users
+      const [memberRows] = await connection.query(
+        `SELECT member_id FROM user_members WHERE user_id IN (${placeholders})`,
+        userIds
+      );
+      
+      if (memberRows && memberRows.length > 0) {
+        const memberIds = memberRows.map(m => m.member_id);
+        const memberPlaceholders = memberIds.map(() => '?').join(',');
+        
+        // Delete member-related restrictions
+        try {
+          await connection.query(
+            `DELETE FROM user_restrictions WHERE member_id IN (${memberPlaceholders})`,
+            memberIds
+          );
+          console.log(`  ✓ Cleaned user_restrictions for ${memberIds.length} members`);
+        } catch (memberRestErr) {
+          console.log(`  ⚠️ Could not delete member restrictions: ${memberRestErr.message}`);
+        }
+        
+        // Delete member-related excluded ingredients
+        try {
+          await connection.query(
+            `DELETE FROM user_excluded_ingredients WHERE member_id IN (${memberPlaceholders})`,
+            memberIds
+          );
+          console.log(`  ✓ Cleaned user_excluded_ingredients for ${memberIds.length} members`);
+        } catch (memberIngErr) {
+          console.log(`  ⚠️ Could not delete member ingredients: ${memberIngErr.message}`);
+        }
+      }
+      
+      // Now delete the members themselves
+      await connection.query(
+        `DELETE FROM user_members WHERE user_id IN (${placeholders})`,
+        userIds
+      );
+      console.log(`  ✓ Cleaned user_members`);
+    } catch (err) {
+      if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== '42S02') {
+        console.warn(`  ⚠️ Skipped user_members: ${err.message}`);
+      }
+    }
+
+    // Delete user_restrictions (has FK constraint)
     try {
       await connection.query(
         `DELETE FROM user_restrictions WHERE user_id IN (${placeholders})`,

@@ -187,13 +187,13 @@ export const transformRecipeForDatabase = (recipeData) => {
 
   // Verification data for recipe_verification table
   const verification = {
-    verification_status: 'AI-generated',
+    verification_status: 'Checked by: Nutritionist',
     verifier_name: null,
     verifier_credentials: null,
     verified_at: null
   };
 
-  if (recipeData.verificationStatus && recipeData.verificationStatus !== 'AI-generated') {
+  if (recipeData.verificationStatus && recipeData.verificationStatus.startsWith('Checked by:')) {
     // Parse "Checked by: Nutritionist" format
     if (recipeData.verificationStatus.includes('Checked by:')) {
       const parts = recipeData.verificationStatus.split(':');
@@ -205,8 +205,8 @@ export const transformRecipeForDatabase = (recipeData) => {
       verification.verification_status = recipeData.verificationStatus;
     }
     
-    verification.verifier_name = recipeData.verifierName || null;
-    verification.verifier_credentials = recipeData.verifierCredentials || null;
+    verification.verifier_name = null;
+    verification.verifier_credentials = null;
     verification.verified_at = new Date();
   }
 

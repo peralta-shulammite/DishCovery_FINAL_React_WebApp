@@ -187,15 +187,10 @@ const transformRecipeData = (recipeData) => {
     healthTags: Array.isArray(recipeData.healthTags)
       ? recipeData.healthTags
       : [],
-    dietaryLifestyleTags: Array.isArray(recipeData.dietaryLifestyleTags)
-      ? recipeData.dietaryLifestyleTags
-      : [],
     medicalConditions: Array.isArray(recipeData.medicalConditions)
       ? recipeData.medicalConditions
       : [],
-    verificationStatus: recipeData.verificationStatus || 'AI-generated',
-    verifierName: recipeData.verifierName || '',
-    verifierCredentials: recipeData.verifierCredentials || ''
+    verificationStatus: recipeData.verificationStatus || 'Checked by: Nutritionist'
   };
 };
 
@@ -209,7 +204,6 @@ export const recipeAPI = {
     
     if (filters.search) params.append('search', filters.search);
     if (filters.status && filters.status !== 'All') {
-      if (filters.status === 'AI-generated') params.append('status', 'inactive');
       if (filters.status === 'Verified') params.append('status', 'active');
     }
     if (filters.mealType && filters.mealType !== 'All') params.append('mealType', filters.mealType);
