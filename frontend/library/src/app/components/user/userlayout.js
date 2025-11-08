@@ -2,6 +2,10 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import './userlayout.css';
+import { notificationsAPI } from '../../user/utils/notificationsAPI';
+
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
 
 export default function UserLayout({ children, isLoggedIn, user, onSignInClick, onLogout }) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -17,39 +21,75 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     avatar: false,
   });
 
-  // Sample notification messages (in a real app, this would come from an API)
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      from: 'Admin',
-      subject: 'Welcome to DishCovery!',
-      text: 'Thank you for joining DishCovery. We are excited to help you discover amazing recipes!',
-      timestamp: '2 hours ago',
-      isRead: false,
-    },
-    {
-      id: 2,
-      from: 'Admin',
-      subject: 'New Features Available',
-      text: 'Check out our new pantry management feature to track your ingredients more efficiently.',
-      timestamp: '1 day ago',
-      isRead: true,
-    },
-    {
-      id: 3,
-      from: 'Admin',
-      subject: 'Recipe Recommendation Update',
-      text: 'Our AI has been updated to provide even better recipe recommendations based on your preferences.',
-      timestamp: '3 days ago',
-      isRead: true,
-    },
-  ]);
-
-  const unreadCount = messages.filter(msg => !msg.isRead).length;
+  // 🆕 Real notifications from API
+  const [messages, setMessages] = useState([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const handleHover = (element, isHover) => {
     setHoverStates((prev) => ({ ...prev, [element]: isHover }));
   };
+
+  // 🆕 Load notifications from API
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (!isLoggedIn) return;
+      
+      try {
+        setLoadingNotifications(true);
+        console.log('📥 Loading notifications from API...');
+        
+        const response = await notificationsAPI.getNotifications(20);
+        
+        if (response && response.success && response.data) {
+          // Transform API data to match UI format
+          const formattedNotifications = response.data.map(notification => {
+            const createdDate = new Date(notification.created_at);
+            const now = new Date();
+            const diffMs = now - createdDate;
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffHours / 24);
+            
+            let timestamp;
+            if (diffHours < 1) {
+              timestamp = 'Just now';
+            } else if (diffHours < 24) {
+              timestamp = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            } else {
+              timestamp = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+            }
+            
+            return {
+              id: notification.id,
+              from: notification.from_name || 'Admin',
+              fromRole: notification.from_role || 'ADMIN',
+              subject: notification.subject,
+              text: notification.body,
+              timestamp: timestamp,
+              isRead: notification.is_read === 1,
+              type: notification.type
+            };
+          });
+          
+          setMessages(formattedNotifications);
+          console.log('✅ Notifications loaded:', formattedNotifications.length);
+        }
+        
+        // Load unread count
+        const count = await notificationsAPI.getUnreadCount();
+        setUnreadCount(count);
+        
+      } catch (error) {
+        console.error('❌ Error loading notifications:', error);
+        setMessages([]);
+        setUnreadCount(0);
+      } finally {
+        setLoadingNotifications(false);
+      }
+    };
+    
+    loadNotifications();
+  }, [isLoggedIn]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -82,36 +122,143 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     window.location.href = '/user/home'; // redirect properly
   };
 
-  const handleDeleteMessage = (messageId) => {
-    setMessages(messages.filter(msg => msg.id !== messageId));
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      // Optimistically remove from UI
+      setMessages(messages.filter(msg => msg.id !== messageId));
+      setUnreadCount(prev => {
+        const message = messages.find(msg => msg.id === messageId);
+        return message && !message.isRead ? Math.max(0, prev - 1) : prev;
+      });
+      
+      // Call API
+      await notificationsAPI.deleteNotification(messageId);
+      console.log('✅ Notification deleted');
+    } catch (error) {
+      console.error('❌ Error deleting notification:', error);
+      // Reload notifications on error
+      const response = await notificationsAPI.getNotifications(20);
+      if (response && response.success) {
+        const formatted = response.data.map(n => ({
+          id: n.id,
+          from: n.from_name || 'Admin',
+          fromRole: n.from_role || 'ADMIN',
+          subject: n.subject,
+          text: n.body,
+          timestamp: 'Recently',
+          isRead: n.is_read === 1
+        }));
+        setMessages(formatted);
+      }
+    }
   };
 
-  const handleToggleRead = (messageId) => {
-    setMessages(messages.map(msg => 
-      msg.id === messageId ? { ...msg, isRead: !msg.isRead } : msg
-    ));
-  };
-
+  // 🆕 Handle Reply Button Click
   const handleReplyClick = (messageId) => {
     setReplyingTo(messageId);
     setReplyText('');
   };
 
-  const handleSendReply = (messageId) => {
-    if (replyText.trim()) {
-      // In a real app, send reply to backend
-      console.log(`Reply to message ${messageId}: ${replyText}`);
-      alert('Reply sent successfully!');
-      setReplyingTo(null);
-      setReplyText('');
-    }
-  };
-
+  // 🆕 Handle Cancel Reply
   const handleCancelReply = () => {
     setReplyingTo(null);
     setReplyText('');
   };
-  
+
+  // 🆕 Handle Send Reply - Creates feedback entry
+  const handleSendReply = async (messageId) => {
+    if (!replyText.trim()) {
+      alert('⚠️ Please enter a reply message');
+      return;
+    }
+
+    if (replyText.trim().length < 10) {
+      alert('⚠️ Reply must be at least 10 characters long');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('❌ Authentication required');
+        return;
+      }
+
+      console.log('📤 Sending reply as feedback...');
+
+      // Get the original notification to include context
+      const originalMessage = messages.find(msg => msg.id === messageId);
+      const contextMessage = `[In reply to: "${originalMessage?.subject || 'notification'}"]\n\n${replyText.trim()}`;
+
+      // Submit as feedback to admin
+      const response = await fetch(`${API_BASE_URL}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          feedbackMessage: contextMessage,
+          priority: 'medium'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send reply');
+      }
+
+      const result = await response.json();
+      console.log('✅ Reply sent as feedback:', result);
+
+      // Mark original notification as read
+      await notificationsAPI.markAsRead(messageId);
+
+      // Update UI
+      setMessages(messages.map(msg => 
+        msg.id === messageId ? { ...msg, isRead: true } : msg
+      ));
+
+      // Clear reply state
+      setReplyingTo(null);
+      setReplyText('');
+
+      alert('✅ Your reply has been sent to the admin!');
+
+    } catch (error) {
+      console.error('❌ Error sending reply:', error);
+      alert(`❌ Failed to send reply: ${error.message}`);
+    }
+  };
+
+  const handleToggleRead = async (messageId) => {
+    const message = messages.find(msg => msg.id === messageId);
+    if (!message) return;
+    
+    try {
+      // Optimistically update UI
+      setMessages(messages.map(msg => 
+        msg.id === messageId ? { ...msg, isRead: !msg.isRead } : msg
+      ));
+      setUnreadCount(prev => message.isRead ? prev + 1 : Math.max(0, prev - 1));
+      
+      // Call API
+      if (message.isRead) {
+        await notificationsAPI.markAsUnread(messageId);
+        console.log('✅ Marked as unread');
+      } else {
+        await notificationsAPI.markAsRead(messageId);
+        console.log('✅ Marked as read');
+      }
+    } catch (error) {
+      console.error('❌ Error toggling read status:', error);
+      // Revert on error
+      setMessages(messages.map(msg => 
+        msg.id === messageId ? { ...msg, isRead: message.isRead } : msg
+      ));
+      setUnreadCount(prev => message.isRead ? Math.max(0, prev - 1) : prev + 1);
+    }
+  };
 
   const navLinks = [
     { name: 'Home', href: '/user/home' },
@@ -395,9 +542,15 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
                         <div className="reply-section">
                           <textarea
                             className="reply-input"
-                            placeholder="Type your reply..."
+                            placeholder="Type your reply... (Ctrl+Enter to send)"
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && e.ctrlKey) {
+                                e.preventDefault();
+                                handleSendReply(message.id);
+                              }
+                            }}
                           />
                           <div className="reply-actions">
                             <button 

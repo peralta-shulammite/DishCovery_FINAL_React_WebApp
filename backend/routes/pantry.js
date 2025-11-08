@@ -163,6 +163,99 @@ router.get('/my-selection', authenticateToken, async (req, res) => {
   }
 });
 
+// 🆕 GET user's pantry (scanned ingredients)
+router.get('/my-pantry', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('🗂️ Fetching pantry for user:', userId);
+
+    const pantryItems = await pool.query(`
+      SELECT 
+        usi.scan_id,
+        usi.ingredient_id,
+        i.ingredient_name as name,
+        i.category,
+        usi.scanned_at,
+        usi.confidence_score,
+        i.nutritional_data
+      FROM user_scanned_ingredients usi
+      JOIN ingredients i ON usi.ingredient_id = i.ingredient_id
+      WHERE usi.user_id = ?
+      ORDER BY usi.scanned_at DESC
+    `, [userId]);
+
+    // Transform with images
+    const transformedPantry = pantryItems.map(item => {
+      let nutritionalData = {};
+      try {
+        nutritionalData = JSON.parse(item.nutritional_data || '{}');
+      } catch (e) {
+        nutritionalData = {};
+      }
+
+      return {
+        id: item.ingredient_id,
+        scan_id: item.scan_id,
+        name: item.name,
+        category: item.category || 'Other',
+        image: nutritionalData.image || `https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=200&fit=crop`,
+        scanned_at: item.scanned_at,
+        confidence: item.confidence_score
+      };
+    });
+
+    console.log(`✅ Found ${transformedPantry.length} pantry items`);
+    res.json({ 
+      success: true, 
+      pantry: transformedPantry 
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching pantry:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch pantry',
+      error: error.message 
+    });
+  }
+});
+
+// 🆕 DELETE ingredient from pantry
+router.delete('/my-pantry/:ingredientId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { ingredientId } = req.params;
+
+    console.log(`🗑️ Removing ingredient ${ingredientId} from pantry for user ${userId}`);
+
+    const result = await pool.query(`
+      DELETE FROM user_scanned_ingredients 
+      WHERE user_id = ? AND ingredient_id = ?
+    `, [userId, ingredientId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ingredient not found in pantry'
+      });
+    }
+
+    console.log('✅ Ingredient removed from pantry');
+    res.json({ 
+      success: true, 
+      message: 'Ingredient removed from pantry' 
+    });
+
+  } catch (error) {
+    console.error('❌ Error removing from pantry:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to remove ingredient',
+      error: error.message 
+    });
+  }
+});
+
 // Save scanned ingredients from AI scanner to user's pantry
 router.post('/save-scanned-ingredients', authenticateToken, async (req, res) => {
   try {

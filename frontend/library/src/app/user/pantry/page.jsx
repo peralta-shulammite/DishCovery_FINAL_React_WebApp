@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import './styles.css';
-import UserLayout from '../../components/user/userlayout'
+import UserLayout from '../../components/user/userlayout';
+import { pantryAPI } from '../utils/pantryAPI';
 
 // Backend API service integrated directly
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
@@ -132,6 +133,10 @@ export default function DishCoveryPantry() {
   const [dishCoverySaving, setDishCoverySaving] = useState(false);
   const [dishCoveryGenerating, setDishCoveryGenerating] = useState(false);
   
+  // 🆕 My Pantry (scanned ingredients) states
+  const [myPantry, setMyPantry] = useState([]);
+  const [loadingPantry, setLoadingPantry] = useState(false);
+  
   // Request ingredient modal
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestFormData, setRequestFormData] = useState({
@@ -237,6 +242,41 @@ export default function DishCoveryPantry() {
       console.log('Auth redirect disabled for testing - using mock user');
     }
   }, [router]);
+
+  // 🆕 Load MY PANTRY (scanned ingredients)
+  useEffect(() => {
+    const loadMyPantry = async () => {
+      if (!dishCoveryIsLoggedIn) return;
+      
+      try {
+        setLoadingPantry(true);
+        const result = await pantryAPI.getMyPantry();
+        setMyPantry(result.pantry || []);
+        console.log('✅ Loaded My Pantry:', result.pantry?.length || 0, 'items');
+      } catch (error) {
+        console.error('❌ Error loading My Pantry:', error);
+      } finally {
+        setLoadingPantry(false);
+      }
+    };
+
+    loadMyPantry();
+  }, [dishCoveryIsLoggedIn]);
+
+  // 🆕 Remove ingredient from My Pantry
+  const handleRemoveFromPantry = async (ingredientId) => {
+    try {
+      console.log('🗑️ Removing ingredient:', ingredientId);
+      await pantryAPI.removeFromPantry(ingredientId);
+      
+      // Update UI optimistically
+      setMyPantry(prev => prev.filter(item => item.id !== ingredientId));
+      console.log('✅ Ingredient removed from pantry');
+    } catch (error) {
+      console.error('❌ Error removing from pantry:', error);
+      alert('Failed to remove ingredient. Please try again.');
+    }
+  };
 
   // Load ingredients from backend with fallback
   useEffect(() => {
@@ -495,6 +535,90 @@ export default function DishCoveryPantry() {
             </div>
           )}
         </div>
+
+        {/* 🆕 MY PANTRY SECTION - Scanned Ingredients */}
+        {myPantry.length > 0 && (
+          <div className="my-pantry-section" style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '16px',
+            padding: '24px',
+            marginBottom: '32px',
+            color: 'white'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2V7h-4v2h2z"/>
+              </svg>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '600' }}>My Scanned Pantry</h2>
+                <p style={{ margin: '4px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
+                  {myPantry.length} ingredient{myPantry.length > 1 ? 's' : ''} from scanning
+                </p>
+              </div>
+            </div>
+
+            {loadingPantry ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
+                {myPantry.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      backdropFilter: 'blur(10px)',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      position: 'relative',
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    }}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '8px',
+                        objectFit: 'cover',
+                        marginBottom: '8px'
+                      }}
+                    />
+                    <span style={{ fontSize: '13px', fontWeight: '500', textAlign: 'center', marginBottom: '8px' }}>
+                      {item.name}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveFromPantry(item.id)}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.9)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        color: 'white',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(220, 38, 38, 1)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)'}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                      </svg>
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="pantry-search-section">
           <div className="search-and-filter-container">

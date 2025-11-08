@@ -1,6 +1,6 @@
 // api.js - Database connection functions for admin dietary restrictions
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
 
 // Get auth token from localStorage
 const getAuthToken = () => {
@@ -73,7 +73,7 @@ export const dietaryRestrictionsAPI = {
     if (filters.offset) params.append('offset', filters.offset);
 
     const queryString = params.toString();
-    const endpoint = `/api/dietary-restrictions/admin${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/dietary-restrictions/admin${queryString ? `?${queryString}` : ''}`;
     
     console.log('Fetching dietary restrictions from endpoint:', endpoint);
     
@@ -91,7 +91,7 @@ export const dietaryRestrictionsAPI = {
   // Get specific dietary restriction by ID
   getById: async (id) => {
     console.log('Getting dietary restriction by ID:', id);
-    const response = await apiCall(`/api/dietary-restrictions/admin/${id}`);
+    const response = await apiCall(`/dietary-restrictions/admin/${id}`);
     return response.data;
   },
 
@@ -110,7 +110,7 @@ export const dietaryRestrictionsAPI = {
 
     console.log('Sending API data:', apiData);
 
-    const response = await apiCall('/api/dietary-restrictions/admin', {
+    const response = await apiCall('/dietary-restrictions/admin', {
       method: 'POST',
       body: JSON.stringify(apiData)
     });
@@ -132,7 +132,7 @@ export const dietaryRestrictionsAPI = {
 
     console.log('Sending update data:', apiData);
 
-    const response = await apiCall(`/api/dietary-restrictions/admin/${id}`, {
+    const response = await apiCall(`/dietary-restrictions/admin/${id}`, {
       method: 'PUT',
       body: JSON.stringify(apiData)
     });
@@ -144,7 +144,7 @@ export const dietaryRestrictionsAPI = {
   delete: async (id) => {
     console.log('Deleting dietary restriction:', id);
 
-    const response = await apiCall(`/api/dietary-restrictions/admin/${id}`, {
+    const response = await apiCall(`/dietary-restrictions/admin/${id}`, {
       method: 'DELETE'
     });
 
@@ -155,7 +155,7 @@ export const dietaryRestrictionsAPI = {
   getPendingRequests: async () => {
     console.log('Getting pending dietary restriction requests');
     
-    const response = await apiCall('/api/dietary-restrictions/admin/pending-requests');
+    const response = await apiCall('/dietary-restrictions/admin/pending-requests');
     
     if (response.success && response.data) {
       console.log('Real API response - pending requests loaded from database');
@@ -170,7 +170,7 @@ export const dietaryRestrictionsAPI = {
   approveRequest: async (requestData) => {
     console.log('Approving request:', requestData);
     
-    const response = await apiCall(`/api/dietary-restrictions/admin/approve-request/${requestData.id}`, {
+    const response = await apiCall(`/dietary-restrictions/admin/approve-request/${requestData.id}`, {
       method: 'POST'
     });
 
@@ -181,7 +181,7 @@ export const dietaryRestrictionsAPI = {
   rejectRequest: async (requestId) => {
     console.log('Rejecting request:', requestId);
 
-    const response = await apiCall(`/api/dietary-restrictions/admin/pending-requests/${requestId}`, {
+    const response = await apiCall(`/dietary-restrictions/admin/pending-requests/${requestId}`, {
       method: 'DELETE'
     });
 
@@ -192,7 +192,7 @@ export const dietaryRestrictionsAPI = {
   toggleStatus: async (id) => {
     console.log('Toggling status for dietary restriction:', id);
 
-    const response = await apiCall(`/api/dietary-restrictions/admin/${id}/toggle-status`, {
+    const response = await apiCall(`/dietary-restrictions/admin/${id}/toggle-status`, {
       method: 'PATCH'
     });
 
@@ -202,14 +202,14 @@ export const dietaryRestrictionsAPI = {
   // Get dietary restrictions statistics
   getStats: async () => {
     console.log('Getting dietary restrictions statistics');
-    const response = await apiCall('/api/dietary-restrictions/admin/stats/overview');
+    const response = await apiCall('/dietary-restrictions/admin/stats/overview');
     return response.data;
   },
 
   // Test API connection
   test: async () => {
     console.log('Testing API connection...');
-    const response = await apiCall('/api/dietary-restrictions/admin');
+    const response = await apiCall('/dietary-restrictions/admin');
     return {
       success: true,
       message: 'API connection successful',

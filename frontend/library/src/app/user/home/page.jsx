@@ -137,15 +137,18 @@ export default function DishCoveryLanding() {
         .catch((error) => {
           // Silently handle expired/invalid tokens (expected behavior)
           if (error.message === 'Token verification failed' || error.message === 'No token found') {
-            console.log('ℹ️ No valid session found');
+            console.log('ℹ️ No valid session found - clearing auth');
+            // Only clear on explicit token failures
+            localStorage.clear();
+            sessionStorage.clear();
+            setDishCoveryIsLoggedIn(false);
+            setDishCoveryUser(null);
           } else {
-            console.warn('⚠️ Failed to load profile:', error.message);
+            // Network error or backend unavailable - DON'T logout user
+            console.warn('⚠️ Failed to load profile (keeping session):', error.message);
+            // Keep user logged in, just don't fetch profile
+            setDishCoveryIsLoggedIn(true);
           }
-          // Token might be expired or invalid - clear it
-          localStorage.clear();
-          sessionStorage.clear();
-          setDishCoveryIsLoggedIn(false);
-          setDishCoveryUser(null);
         });
     } else {
       if (token) {
@@ -255,6 +258,10 @@ export default function DishCoveryLanding() {
 
 const dishCoveryHandleSignInSubmit = async (e) => {
     e.preventDefault();
+    
+    // Clear any previous errors
+    setDishCoveryError('');
+    
     try {
       console.log('🔐 Processing login for:', dishCoveryEmail);
       const data = await api.signIn(dishCoveryEmail, dishCoveryPassword);
@@ -288,8 +295,19 @@ const dishCoveryHandleSignInSubmit = async (e) => {
         setDishCoveryError('This account uses Google Sign-In. Please click "Continue with Google" below.');
         return; // Don't log or show generic error
       }
-      console.error('❌ Login error:', error);
-      setDishCoveryError(error.message);
+      
+      // Handle login errors gracefully
+      console.log('⚠️ Login failed:', error.message); // Changed from console.error to console.log
+      
+      // Set user-friendly error message
+      if (error.message.includes('Invalid email or password')) {
+        setDishCoveryError('Invalid email or password. Please try again.');
+        setDishCoveryPassword(''); // Clear password field
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        setDishCoveryError('Network error. Please check your connection and try again.');
+      } else {
+        setDishCoveryError(error.message || 'Login failed. Please try again.');
+      }
     }
   };
 
@@ -977,16 +995,32 @@ const dishCoveryBottomRecipes = [
               className="modal-input"
               placeholder="Enter your email address"
               value={dishCoveryEmail}
-              onChange={(e) => setDishCoveryEmail(e.target.value)}
+              onChange={(e) => {
+                setDishCoveryEmail(e.target.value);
+                setDishCoveryError(''); // Clear error when user starts typing
+              }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  dishCoveryHandleSignInSubmit(e);
+                }
+              }}
             />
               <div className="password-input-container">
                 <input
                   type={dishCoveryShowPassword ? "text" : "password"}
                   className="modal-input"
                   value={dishCoveryPassword}
-                  onChange={(e) => setDishCoveryPassword(e.target.value)}
+                  onChange={(e) => {
+                    setDishCoveryPassword(e.target.value);
+                    setDishCoveryError(''); // Clear error when user starts typing
+                  }}
                   placeholder="Password"
                   required
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      dishCoveryHandleSignInSubmit(e);
+                    }
+                  }}
                 />
                 <button
                   type="button"
@@ -1057,6 +1091,11 @@ const dishCoveryBottomRecipes = [
                   value={dishCoveryResetEmail}
                   onChange={(e) => setDishCoveryResetEmail(e.target.value)}
                   required
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      dishCoveryHandleForgotPasswordSubmit(e);
+                    }
+                  }}
                 />
                 {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
                 <button className="modal-signin-btn" onClick={dishCoveryHandleForgotPasswordSubmit}>
@@ -1075,6 +1114,11 @@ const dishCoveryBottomRecipes = [
                   onChange={(e) => setDishCoveryResetCode(e.target.value)}
                   maxLength="6"
                   required
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      dishCoveryHandleForgotPasswordSubmit(e);
+                    }
+                  }}
                 />
                 <input
                   type="password"
@@ -1083,6 +1127,11 @@ const dishCoveryBottomRecipes = [
                   value={dishCoveryNewPassword}
                   onChange={(e) => setDishCoveryNewPassword(e.target.value)}
                   required
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      dishCoveryHandleForgotPasswordSubmit(e);
+                    }
+                  }}
                 />
                 <input
                   type="password"
@@ -1091,6 +1140,11 @@ const dishCoveryBottomRecipes = [
                   value={dishCoveryConfirmNewPassword}
                   onChange={(e) => setDishCoveryConfirmNewPassword(e.target.value)}
                   required
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      dishCoveryHandleForgotPasswordSubmit(e);
+                    }
+                  }}
                 />
                 {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
                 <button className="modal-signin-btn" onClick={dishCoveryHandleForgotPasswordSubmit}>
@@ -1123,6 +1177,11 @@ const dishCoveryBottomRecipes = [
               placeholder="First Name"
               value={dishCoveryFirstName}
               onChange={(e) => setDishCoveryFirstName(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  dishCoveryHandleSignUpSubmit(e);
+                }
+              }}
             />
             <input
               type="text"
@@ -1130,6 +1189,11 @@ const dishCoveryBottomRecipes = [
               placeholder="Last Name"
               value={dishCoveryLastName}
               onChange={(e) => setDishCoveryLastName(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  dishCoveryHandleSignUpSubmit(e);
+                }
+              }}
             />
             <input
               type="text"
@@ -1137,6 +1201,11 @@ const dishCoveryBottomRecipes = [
               placeholder="Email"
               value={dishCoveryEmail}
               onChange={(e) => setDishCoveryEmail(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  dishCoveryHandleSignUpSubmit(e);
+                }
+              }}
             />
             <div className="password-input-container">
               <input
@@ -1145,6 +1214,11 @@ const dishCoveryBottomRecipes = [
                 placeholder="Password"
                 value={dishCoveryPassword}
                 onChange={(e) => setDishCoveryPassword(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    dishCoveryHandleSignUpSubmit(e);
+                  }
+                }}
               />
               <button
                 type="button"
@@ -1169,6 +1243,11 @@ const dishCoveryBottomRecipes = [
                 placeholder="Confirm Password"
                 value={dishCoveryConfirmPassword}
                 onChange={(e) => setDishCoveryConfirmPassword(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    dishCoveryHandleSignUpSubmit(e);
+                  }
+                }}
               />
               <button
                 type="button"
@@ -1236,6 +1315,11 @@ const dishCoveryBottomRecipes = [
               placeholder="Verification Code"
               value={dishCoveryVerificationCode}
               onChange={(e) => setDishCoveryVerificationCode(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  dishCoveryHandleVerifySubmit(e);
+                }
+              }}
             />
             <div className="modal-terms">
               <input

@@ -868,4 +868,286 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// 🆕 FAVORITES ENDPOINTS
+
+// Add recipe to favorites
+router.post('/favorites/add', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { recipeId } = req.body;
+
+    console.log(`💖 Adding recipe ${recipeId} to favorites for user ${userId}`);
+
+    if (!recipeId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Recipe ID is required'
+      });
+    }
+
+    // Check if already favorited
+    const existing = await db.query(`
+      SELECT * FROM user_favorites 
+      WHERE user_id = ? AND recipe_id = ?
+    `, [userId, recipeId]);
+
+    if (existing.length > 0) {
+      return res.json({
+        success: true,
+        message: 'Recipe already in favorites',
+        alreadyExists: true
+      });
+    }
+
+    // Add to favorites
+    await db.query(`
+      INSERT INTO user_favorites (user_id, recipe_id, favorited_at)
+      VALUES (?, ?, NOW())
+    `, [userId, recipeId]);
+
+    console.log('✅ Recipe added to favorites');
+    res.json({
+      success: true,
+      message: 'Recipe added to favorites'
+    });
+
+  } catch (error) {
+    console.error('❌ Error adding to favorites:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add to favorites',
+      error: error.message
+    });
+  }
+});
+
+// Remove recipe from favorites
+router.delete('/favorites/:recipeId', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { recipeId } = req.params;
+
+    console.log(`💔 Removing recipe ${recipeId} from favorites for user ${userId}`);
+
+    const result = await db.query(`
+      DELETE FROM user_favorites 
+      WHERE user_id = ? AND recipe_id = ?
+    `, [userId, recipeId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Recipe not found in favorites'
+      });
+    }
+
+    console.log('✅ Recipe removed from favorites');
+    res.json({
+      success: true,
+      message: 'Recipe removed from favorites'
+    });
+
+  } catch (error) {
+    console.error('❌ Error removing from favorites:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to remove from favorites',
+      error: error.message
+    });
+  }
+});
+
+// Get user's favorites
+router.get('/favorites', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log(`📚 Fetching favorites for user ${userId}`);
+
+    const favorites = await db.query(`
+      SELECT 
+        r.recipe_id,
+        r.recipe_name,
+        r.description,
+        r.prep_time,
+        r.cook_time,
+        r.total_time,
+        r.servings,
+        r.difficulty_level,
+        r.calories_per_serving,
+        r.image_url,
+        r.meal_type,
+        r.dish_type,
+        r.is_popular,
+        uf.favorited_at
+      FROM user_favorites uf
+      JOIN recipes r ON uf.recipe_id = r.recipe_id
+      WHERE uf.user_id = ? AND r.is_active = 1
+      ORDER BY uf.favorited_at DESC
+    `, [userId]);
+
+    // Transform recipes
+    const transformedFavorites = favorites.map(recipe => transformRecipeForFrontend(recipe));
+
+    console.log(`✅ Found ${transformedFavorites.length} favorite recipes`);
+    res.json({
+      success: true,
+      favorites: transformedFavorites,
+      count: transformedFavorites.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching favorites:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch favorites',
+      error: error.message
+    });
+  }
+});
+
+// 🆕 ENHANCED RECIPE FILTERING WITH DIETARY & MEDICAL CONDITIONS
+
+// Get recipes filtered by user preferences and scanned ingredients
+router.post('/filter', auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { 
+      scannedIngredients = [], 
+      pantryIngredients = [],
+      limit = 20,
+      offset = 0
+    } = req.body;
+
+    console.log('🔍 Filtering recipes for user:', userId);
+    console.log('📋 Scanned ingredients:', scannedIngredients);
+    console.log('🗂️ Pantry ingredients:', pantryIngredients);
+
+    // Get user's dietary restrictions (allergies, medical conditions)
+    const restrictions = await db.query(`
+      SELECT r.restriction_id, r.restriction_name, r.restriction_type
+      FROM user_restrictions ur
+      JOIN restrictions r ON ur.restriction_id = r.restriction_id
+      WHERE ur.user_id = ? AND ur.status = 'active'
+    `, [userId]);
+
+    console.log(`🚫 User has ${restrictions.length} active restrictions`);
+
+    // Get user's dietary lifestyle preferences
+    const lifestyles = await db.query(`
+      SELECT l.lifestyle_id, l.lifestyle_name
+      FROM user_lifestyles ul
+      JOIN lifestyles l ON ul.lifestyle_id = l.lifestyle_id
+      WHERE ul.user_id = ? AND ul.status = 'active'
+    `, [userId]);
+
+    console.log(`🥗 User has ${lifestyles.length} dietary lifestyles`);
+
+    // Build base query
+    let query = `
+      SELECT DISTINCT
+        r.recipe_id,
+        r.recipe_name,
+        r.description,
+        r.prep_time,
+        r.cook_time,
+        r.total_time,
+        r.servings,
+        r.difficulty_level,
+        r.calories_per_serving,
+        r.image_url,
+        r.meal_type,
+        r.dish_type,
+        r.is_popular
+      FROM recipes r
+      WHERE r.is_active = 1
+    `;
+
+    const queryParams = [];
+
+    // Filter by scanned ingredients if provided
+    if (scannedIngredients.length > 0) {
+      query += `
+        AND EXISTS (
+          SELECT 1 FROM recipe_ingredients ri
+          WHERE ri.recipe_id = r.recipe_id
+          AND ri.ingredient_id IN (${scannedIngredients.map(() => '?').join(',')})
+        )
+      `;
+      queryParams.push(...scannedIngredients);
+    }
+
+    // Filter by pantry ingredients if provided
+    if (pantryIngredients.length > 0 && scannedIngredients.length === 0) {
+      query += `
+        AND EXISTS (
+          SELECT 1 FROM recipe_ingredients ri
+          WHERE ri.recipe_id = r.recipe_id
+          AND ri.ingredient_id IN (${pantryIngredients.map(() => '?').join(',')})
+        )
+      `;
+      queryParams.push(...pantryIngredients);
+    }
+
+    // Exclude recipes with restricted ingredients
+    if (restrictions.length > 0) {
+      const restrictionIds = restrictions.map(r => r.restriction_id);
+      query += `
+        AND NOT EXISTS (
+          SELECT 1 FROM recipe_restrictions rr
+          WHERE rr.recipe_id = r.recipe_id
+          AND rr.restriction_id IN (${restrictionIds.map(() => '?').join(',')})
+        )
+      `;
+      queryParams.push(...restrictionIds);
+    }
+
+    // Filter by dietary lifestyle preferences (e.g., Vegan, Vegetarian)
+    if (lifestyles.length > 0) {
+      const lifestyleIds = lifestyles.map(l => l.lifestyle_id);
+      query += `
+        AND EXISTS (
+          SELECT 1 FROM recipe_lifestyles rl
+          WHERE rl.recipe_id = r.recipe_id
+          AND rl.lifestyle_id IN (${lifestyleIds.map(() => '?').join(',')})
+        )
+      `;
+      queryParams.push(...lifestyleIds);
+    }
+
+    // Order by popularity and add pagination
+    query += `
+      ORDER BY r.is_popular DESC, r.recipe_name ASC
+      LIMIT ? OFFSET ?
+    `;
+    queryParams.push(parseInt(limit), parseInt(offset));
+
+    console.log('🔎 Executing filtered recipe query...');
+    const recipes = await db.query(query, queryParams);
+
+    // Transform recipes
+    const transformedRecipes = recipes.map(recipe => transformRecipeForFrontend(recipe));
+
+    console.log(`✅ Found ${transformedRecipes.length} filtered recipes`);
+    res.json({
+      success: true,
+      recipes: transformedRecipes,
+      count: transformedRecipes.length,
+      filters: {
+        restrictions: restrictions.map(r => r.restriction_name),
+        lifestyles: lifestyles.map(l => l.lifestyle_name),
+        scannedIngredients: scannedIngredients.length,
+        pantryIngredients: pantryIngredients.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error filtering recipes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to filter recipes',
+      error: error.message
+    });
+  }
+});
+
 export default router;
