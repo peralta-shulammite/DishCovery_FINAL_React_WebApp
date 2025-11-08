@@ -128,7 +128,15 @@ const IngredientManagement = () => {
           adminIngredientsService.getPendingIngredients().catch(() => ({ pendingIngredients: [] }))
         ]);
         
-        setIngredients(ingredientsResult.ingredients || []);
+        const loadedIngredients = ingredientsResult.ingredients || [];
+        
+        // Debug: Log ingredients with missing types
+        const missingTypes = loadedIngredients.filter(ing => !ing.type);
+        if (missingTypes.length > 0) {
+          console.warn(`⚠️  ${missingTypes.length} ingredients missing type:`, missingTypes.map(ing => ing.name));
+        }
+        
+        setIngredients(loadedIngredients);
         setPendingIngredients(pendingResult.pendingIngredients || []);
       } catch (error) {
         console.error('Error loading ingredients:', error);
