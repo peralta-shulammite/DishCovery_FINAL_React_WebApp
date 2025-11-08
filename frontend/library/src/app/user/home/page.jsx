@@ -143,6 +143,11 @@ export default function DishCoveryLanding() {
             sessionStorage.clear();
             setDishCoveryIsLoggedIn(false);
             setDishCoveryUser(null);
+          } else if (error.message === 'Backend endpoint not found') {
+            // Backend endpoint not found (404) - DON'T logout user, might be temporary
+            console.warn('⚠️ Backend endpoint not found (404) - keeping session:', error.message);
+            // Keep user logged in, just don't fetch profile
+            setDishCoveryIsLoggedIn(true);
           } else {
             // Network error or backend unavailable - DON'T logout user
             console.warn('⚠️ Failed to load profile (keeping session):', error.message);
@@ -995,6 +1000,7 @@ const dishCoveryBottomRecipes = [
               className="modal-input"
               placeholder="Enter your email address"
               value={dishCoveryEmail}
+              autoComplete="off"
               onChange={(e) => {
                 setDishCoveryEmail(e.target.value);
                 setDishCoveryError(''); // Clear error when user starts typing
@@ -1010,6 +1016,7 @@ const dishCoveryBottomRecipes = [
                   type={dishCoveryShowPassword ? "text" : "password"}
                   className="modal-input"
                   value={dishCoveryPassword}
+                  autoComplete="new-password"
                   onChange={(e) => {
                     setDishCoveryPassword(e.target.value);
                     setDishCoveryError(''); // Clear error when user starts typing

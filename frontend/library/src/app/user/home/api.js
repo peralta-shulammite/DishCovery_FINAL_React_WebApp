@@ -1,5 +1,5 @@
 // api.js - Enhanced Authentication API with Google OAuth
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
 
 const handleResponse = async (response) => {
   if (!response.ok) {
@@ -300,9 +300,20 @@ const api = {
         }
       });
       
+      // Handle 404 gracefully - might be backend issue, don't clear token
+      if (response.status === 404) {
+        console.warn('⚠️ Verify-token endpoint not found (404) - backend might be updating. Keeping session.');
+        // Don't clear token on 404 - might be temporary backend issue
+        throw new Error('Backend endpoint not found');
+      }
+      
       if (!response.ok) {
-        // Silently clear invalid token without logging error
-        localStorage.removeItem('token');
+        // Only clear token on actual auth failures (401, 403)
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('token');
+          throw new Error('Token verification failed');
+        }
+        // For other errors, don't clear token
         throw new Error('Token verification failed');
       }
       
@@ -315,12 +326,14 @@ const api = {
         throw new Error('Invalid token response');
       }
     } catch (error) {
+      // Only clear token on actual auth failures, not network/404 errors
+      if (error.message === 'Token verification failed' || error.message === 'Invalid token response') {
+        localStorage.removeItem('token');
+      }
       // Only log unexpected errors (network errors, etc.)
-      if (error.message !== 'Token verification failed' && error.message !== 'No token found') {
+      if (error.message !== 'Token verification failed' && error.message !== 'No token found' && error.message !== 'Backend endpoint not found') {
         console.error('❌ Token verification error:', error);
       }
-      // Always clear token on verification failure
-      localStorage.removeItem('token');
       throw error;
     }
   },
