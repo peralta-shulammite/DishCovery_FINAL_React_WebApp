@@ -41,7 +41,7 @@ const dbHost = process.env.DB_HOST || '127.0.0.1';
 const dbPort = parseInt(process.env.DB_PORT) || 3306;
 const dbUser = process.env.DB_USER || 'root';
 
-// Create MySQL pool with enhanced reconnection settings
+// Create MySQL pool with enhanced reconnection settings for Aiven
 const pool = mysql.createPool({
   host: dbHost,
   port: dbPort,
@@ -54,19 +54,25 @@ const pool = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  // Add connection timeout and retry settings
+  // Add connection timeout and retry settings (optimized for Aiven)
   connectTimeout: 60000, // 60 seconds
   acquireTimeout: 60000, // 60 seconds
   timeout: 60000, // 60 seconds
   // Automatically remove broken connections
   removeNodeErrorCount: 5,
-  // Retry failed connections
+  // Retry failed connections (optimized for Aiven connection issues)
   retryStrategy: function(options) {
     if (options.error && options.error.code === 'ECONNRESET') {
       return 5000; // Retry after 5 seconds
     }
+    if (options.error && options.error.code === 'PROTOCOL_CONNECTION_LOST') {
+      return 5000; // Retry after 5 seconds for lost connections
+    }
+    if (options.error && options.error.code === 'ETIMEDOUT') {
+      return 5000; // Retry after 5 seconds for timeout
+    }
     if (options.error && options.error.code === 'ENOTFOUND') {
-      return undefined; // Stop retrying
+      return undefined; // Stop retrying for DNS errors
     }
     if (options.total_retry_time > 1000 * 60 * 60) {
       return undefined; // Stop retrying after 1 hour
