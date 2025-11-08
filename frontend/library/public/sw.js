@@ -1,6 +1,6 @@
 // DishCovery Service Worker
-const CACHE_NAME = 'dishcovery-v5'; // Updated to force cache refresh
-const RUNTIME_CACHE = 'dishcovery-runtime-v5';
+const CACHE_NAME = 'dishcovery-v6'; // Updated to force cache refresh (v6 = no user data caching)
+const RUNTIME_CACHE = 'dishcovery-runtime-v6';
 
 // Assets to cache on install (ONLY static assets, NO user-specific pages)
 const PRECACHE_URLS = [
@@ -33,15 +33,24 @@ self.addEventListener('activate', (event) => {
   console.log('Service Worker: Activating...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
+      // Delete ALL old caches to force fresh start (including user data caches)
       return Promise.all(
-        cacheNames
-          .filter((cacheName) => cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE)
-          .map((cacheName) => {
-            console.log('Service Worker: Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          })
+        cacheNames.map((cacheName) => {
+          console.log('Service Worker: Deleting old cache:', cacheName);
+          return caches.delete(cacheName);
+        })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => {
+      // Force claim all clients immediately
+      return self.clients.claim();
+    }).then(() => {
+      // Notify all clients that cache is cleared
+      return self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'CACHE_CLEARED' });
+        });
+      });
+    })
   );
 });
 

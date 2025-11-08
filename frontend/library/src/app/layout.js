@@ -72,35 +72,46 @@ export default function RootLayout({ children }) {
               }
               
               window.addEventListener('load', function() {
-                // Check if service worker is already registered
+                // Unregister ALL old service workers first to force fresh start
                 navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                  if (registrations.length > 0) {
-                    console.log('Service Worker already registered');
-                    window.serviceWorkerRegistered = true;
+                  // Unregister all old service workers
+                  return Promise.all(registrations.map(function(registration) {
+                    console.log('Unregistering old Service Worker:', registration.scope);
+                    return registration.unregister();
+                  }));
+                }).then(function() {
+                  // Clear all caches
+                  if ('caches' in window) {
+                    return caches.keys().then(function(cacheNames) {
+                      return Promise.all(cacheNames.map(function(cacheName) {
+                        console.log('Clearing cache:', cacheName);
+                        return caches.delete(cacheName);
+                      }));
+                    });
+                  }
+                }).then(function() {
+                  // Wait a bit before registering new service worker
+                  return new Promise(function(resolve) {
+                    setTimeout(resolve, 100);
+                  });
+                }).then(function() {
+                  // Register new service worker
+                  return navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                }).then(function(registration) {
+                  console.log('Service Worker registered successfully:', registration.scope);
+                  window.serviceWorkerRegistered = true;
+                  
+                  // Force update on next page load
+                  registration.update();
+                }).catch(function(err) {
+                  // Handle abort errors gracefully (page navigation during registration)
+                  if (err.name === 'AbortError' || err.message.includes('aborted')) {
+                    console.log('Service Worker registration aborted (page navigation)');
                     return;
                   }
-                  
-                  // Register service worker with error handling
-                  navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then(function(registration) {
-                      console.log('Service Worker registered successfully:', registration.scope);
-                      window.serviceWorkerRegistered = true;
-                    })
-                    .catch(function(err) {
-                      // Handle abort errors gracefully (page navigation during registration)
-                      if (err.name === 'AbortError' || err.message.includes('aborted')) {
-                        console.log('Service Worker registration aborted (page navigation)');
-                        return;
-                      }
-                      // Only log actual errors
-                      if (err.name !== 'AbortError') {
-                        console.warn('Service Worker registration failed:', err.name, err.message);
-                      }
-                    });
-                }).catch(function(err) {
-                  // Silently handle errors during registration check
+                  // Only log actual errors
                   if (err.name !== 'AbortError') {
-                    console.warn('Service Worker check failed:', err.name);
+                    console.warn('Service Worker registration failed:', err.name, err.message);
                   }
                 });
               });
