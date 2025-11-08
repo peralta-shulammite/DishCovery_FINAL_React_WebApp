@@ -241,8 +241,43 @@ const RecipeManagement = () => {
         return ingredients || [{ ingredient: '', alternative: '' }];
       };
 
+      // Validate and fix images when loading recipe
+      const validateImages = (images) => {
+        if (!images) return [];
+        if (Array.isArray(images)) {
+          return images.filter(img => {
+            if (!img) return false;
+            // Filter out invalid/truncated base64 strings
+            if (typeof img === 'string') {
+              if (img.startsWith('http://') || img.startsWith('https://')) {
+                return true; // Valid URL
+              }
+              if (img.startsWith('data:image')) {
+                const base64Part = img.split(',')[1];
+                return base64Part && base64Part.length > 10; // Valid base64
+              }
+              // If it's a partial base64, try to reconstruct
+              if (img.length > 10 && /^[A-Za-z0-9+/=]+$/.test(img.substring(0, 100))) {
+                return true; // Looks like valid base64
+              }
+            }
+            return false; // Invalid image
+          }).map(img => {
+            // Reconstruct partial base64 strings
+            if (typeof img === 'string' && !img.startsWith('data:') && !img.startsWith('http')) {
+              if (/^[A-Za-z0-9+/=]+$/.test(img.substring(0, 100))) {
+                return `data:image/jpeg;base64,${img}`;
+              }
+            }
+            return img;
+          });
+        }
+        return images ? [images] : [];
+      };
+
       setFormData({
         ...fullRecipe,
+        images: validateImages(fullRecipe.images || fullRecipe.image_url ? [fullRecipe.image_url] : []),
         ingredients: {
           main: convertIngredients(fullRecipe.ingredients.main),
           condiments: convertIngredients(fullRecipe.ingredients.condiments),
@@ -1011,17 +1046,60 @@ const RecipeManagement = () => {
                   {/* Image Preview with Remove Button */}
                   {formData.images.length > 0 && (
                     <div className="image-preview" style={{ marginTop: '15px' }}>
-                      {formData.images.map((image, index) => (
-                        <div key={index} style={{ position: 'relative', display: 'inline-block', margin: '5px' }}>
-                          <img
-                            src={image}
-                            alt={`Preview ${index + 1}`}
-                            className="preview-image"
-                            onError={(e) => {
-                              e.target.style.border = '2px solid red';
-                              e.target.alt = 'Failed to load';
-                            }}
-                          />
+                      {formData.images.map((image, index) => {
+                        // Validate and fix image URL
+                        const getImageSrc = (img) => {
+                          if (!img) return null;
+                          
+                          // If it's already a valid URL (http/https), use it
+                          if (typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))) {
+                            return img;
+                          }
+                          
+                          // If it's a base64 string, validate it
+                          if (typeof img === 'string' && img.startsWith('data:image')) {
+                            // Check if base64 string is complete (ends with valid base64 characters)
+                            const base64Part = img.split(',')[1];
+                            if (base64Part && base64Part.length > 10) {
+                              return img;
+                            }
+                            // If truncated, return null to show placeholder
+                            return null;
+                          }
+                          
+                          // If it's a partial base64 string (starts with base64 chars but no data: prefix)
+                          if (typeof img === 'string' && img.length > 0 && !img.includes('://')) {
+                            // Try to reconstruct as data URL if it looks like base64
+                            if (/^[A-Za-z0-9+/=]+$/.test(img.substring(0, 100))) {
+                              return `data:image/jpeg;base64,${img}`;
+                            }
+                          }
+                          
+                          return null;
+                        };
+                        
+                        const imageSrc = getImageSrc(image);
+                        const placeholder = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="150"%3E%3Crect fill="%23f3f4f6" width="200" height="150"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="14" text-anchor="middle" x="100" y="75"%3EInvalid Image%3C/text%3E%3C/svg%3E';
+                        
+                        return (
+                          <div key={index} style={{ position: 'relative', display: 'inline-block', margin: '5px' }}>
+                            <img
+                              src={imageSrc || placeholder}
+                              alt={`Preview ${index + 1}`}
+                              className="preview-image"
+                              style={{ 
+                                width: '150px', 
+                                height: '150px', 
+                                objectFit: 'cover',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px'
+                              }}
+                              onError={(e) => {
+                                e.target.src = placeholder;
+                                e.target.style.border = '2px solid red';
+                                e.target.alt = 'Failed to load';
+                              }}
+                            />
                           <button
                             type="button"
                             onClick={() => handleRemoveImage(index)}
