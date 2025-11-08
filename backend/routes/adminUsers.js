@@ -323,11 +323,12 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
 
     // Delete related data first (foreign key constraints) - wrapped in try-catch to handle missing tables
     // NOTE: feedback_replies references feedback_id, not user_id directly, so we delete feedback_replies BEFORE feedback
+    // NOTE: user_restrictions MUST be deleted before users (has foreign key constraint)
     const tablesToClean = [
       'pending_requests',  // ⚠️ IMPORTANT: Must be first due to foreign key constraints
       'notifications',  // 🆕 Added: Delete user notifications (has CASCADE but manual delete is safer)
       'user_scanned_ingredients',
-      'user_restrictions',  // 🆕 Added: Delete user_restrictions (has foreign key constraint to users)
+      'user_restrictions',  // ⚠️ CRITICAL: Must be deleted before users (has foreign key constraint)
       'user_dietary_restrictions',
       'user_excluded_ingredients', 
       'user_preferred_diets',
@@ -368,8 +369,45 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       }
     }
     
-    for (const table of tablesToClean) {
+    // 🆕 CRITICAL: Explicitly delete user_restrictions FIRST (before other tables)
+    // This table has a foreign key constraint to users and MUST be deleted before users
+    // Based on best practices: Delete child records before parent to prevent FK constraint violations
+    try {
+      console.log(`  🔍 Attempting to clean user_restrictions (CRITICAL - has FK constraint)...`);
+      const [deleteRestrictionsResult] = await connection.query(
+        'DELETE FROM user_restrictions WHERE user_id = ?',
+        [id]
+      );
+      const affectedRows = deleteRestrictionsResult?.affectedRows || (Array.isArray(deleteRestrictionsResult) ? deleteRestrictionsResult.length : 0);
+      console.log(`  ✓ Cleaned user_restrictions: ${affectedRows} rows deleted`);
+    } catch (err) {
+      if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+        console.log(`  ⚠️ Table user_restrictions doesn't exist, skipping`);
+      } else if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === '23000' || err.sqlState === '23000') {
+        console.error(`  ❌ CRITICAL: Foreign key constraint error in user_restrictions:`, err.message);
+        criticalError = `Cannot delete user: user_restrictions has foreign key constraints. ${err.message}`;
+      } else {
+        console.error(`  ❌ Error deleting user_restrictions:`, err.message);
+        // For non-FK errors, don't set criticalError but log it
+        // This allows the loop to continue and try other tables
+      }
+    }
+    
+    // If we already have a critical error from user_restrictions, skip the loop
+    if (criticalError) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: criticalError
+      });
+    }
+    
+    // Clean up all other tables in order (excluding user_restrictions since we already handled it)
+    const tablesToCleanFiltered = tablesToClean.filter(table => table !== 'user_restrictions');
+    
+    for (const table of tablesToCleanFiltered) {
       try {
+        console.log(`  🔍 Attempting to clean ${table}...`);
         const [deleteResult] = await connection.query(`DELETE FROM ${table} WHERE user_id = ?`, [id]);
         // DELETE queries return result object with affectedRows property
         const affectedRows = deleteResult?.affectedRows || (Array.isArray(deleteResult) ? deleteResult.length : 0);
@@ -401,8 +439,53 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       });
     }
     
+    // 🆕 VERIFICATION: Double-check that user_restrictions is empty before deleting user
+    // This prevents the foreign key constraint error from becoming a loop
+    try {
+      const [checkRestrictions] = await connection.query(
+        'SELECT COUNT(*) as count FROM user_restrictions WHERE user_id = ?',
+        [id]
+      );
+      const restrictionCount = checkRestrictions[0]?.count || 0;
+      
+      if (restrictionCount > 0) {
+        console.warn(`  ⚠️ Warning: user_restrictions still has ${restrictionCount} rows. Attempting to delete again...`);
+        // Try to delete again
+        const [retryDelete] = await connection.query(
+          'DELETE FROM user_restrictions WHERE user_id = ?',
+          [id]
+        );
+        const retryAffected = retryDelete?.affectedRows || (Array.isArray(retryDelete) ? retryDelete.length : 0);
+        console.log(`  ✓ Retry deleted ${retryAffected} rows from user_restrictions`);
+        
+        // Check again
+        const [checkAgain] = await connection.query(
+          'SELECT COUNT(*) as count FROM user_restrictions WHERE user_id = ?',
+          [id]
+        );
+        const finalCount = checkAgain[0]?.count || 0;
+        
+        if (finalCount > 0) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Cannot delete user: user_restrictions table still has ${finalCount} row(s) referencing this user. Please check database constraints.`
+          });
+        }
+      }
+    } catch (checkErr) {
+      if (checkErr.code === 'ER_NO_SUCH_TABLE' || checkErr.code === '42S02') {
+        // Table doesn't exist, that's fine
+        console.log(`  ℹ️ user_restrictions table doesn't exist, skipping verification`);
+      } else {
+        console.warn(`  ⚠️ Warning: Could not verify user_restrictions deletion:`, checkErr.message);
+        // Continue anyway - the delete might have worked
+      }
+    }
+    
     // Delete the user
     try {
+      console.log(`  🔍 Attempting to delete user from users table...`);
       const [deleteUserResult] = await connection.query('DELETE FROM users WHERE user_id = ?', [id]);
       const userDeleted = deleteUserResult?.affectedRows || (Array.isArray(deleteUserResult) ? deleteUserResult.length : 0);
       if (userDeleted === 0) {
@@ -417,10 +500,17 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       // Check for foreign key constraint errors when deleting user
       if (deleteErr.code === 'ER_ROW_IS_REFERENCED_2' || deleteErr.code === '23000' || deleteErr.sqlState === '23000') {
         await connection.rollback();
+        
+        // 🆕 Provide helpful error message with solution
+        const errorMessage = deleteErr.sqlMessage || deleteErr.message;
+        const tableMatch = errorMessage.match(/`(\w+)`/);
+        const tableName = tableMatch ? tableMatch[1] : 'unknown table';
+        
         return res.status(400).json({
           success: false,
-          message: `Cannot delete user: User is still referenced by other records. ${deleteErr.message}`,
-          error: process.env.NODE_ENV === 'development' ? deleteErr.message : 'Foreign key constraint violation'
+          message: `Cannot delete user: User is still referenced by ${tableName}. Please ensure all related records are deleted first.`,
+          error: process.env.NODE_ENV === 'development' ? deleteErr.message : 'Foreign key constraint violation',
+          hint: `The ${tableName} table still has records referencing this user. This usually means the table needs to be added to the cleanup list or the deletion order needs to be adjusted.`
         });
       }
       // Re-throw other errors to be caught by outer catch
