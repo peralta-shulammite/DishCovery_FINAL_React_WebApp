@@ -151,21 +151,21 @@ router.get('/', authenticateToken, async (req, res) => {
           role = category;
         }
       }
-      // PRIORITY 4: Default fallback
+      // PRIORITY 4: Default fallback - assign default type to prevent null types
       else {
-        type = null;
+        type = 'Other'; // Default type instead of null
         role = role || 'Other';
       }
       
-      // Debug: Log if type is still missing (only first few)
-      if (!type && ingredient.name && ingredients.indexOf(ingredient) < 5) {
-        console.log(`⚠️  [${ingredient.name}] Missing type - ingredient_type: "${ingredient.type || 'NULL'}", category: "${ingredient.category || 'NULL'}", categ_role: "${ingredient.categ_role || 'NULL'}"`);
+      // Ensure type is never null - assign default if still missing
+      if (!type || type === null) {
+        type = 'Other';
       }
 
       const result = {
         id: ingredient.id,
         name: ingredient.name,
-        type: type || null, // Always return type if it exists, null otherwise
+        type: type || 'Other', // Always return a type, default to 'Other' if missing
         category: role || 'Other', // category field in response maps to role
         image: nutritionalData.image || null,
         usedInRecipes: ingredient.usedInRecipes || 0,
@@ -173,11 +173,6 @@ router.get('/', authenticateToken, async (req, res) => {
         status: ingredient.is_active ? 'Active' : 'Inactive',
         dateAdded: ingredient.dateAdded
       };
-      
-      // Debug logging (always log missing types for troubleshooting)
-      if (!result.type && ingredient.name) {
-        console.log(`⚠️  Missing type for ${ingredient.name}: ingredient_type="${ingredient.type || 'NULL'}", category="${category || 'NULL'}", categ_role="${role || 'NULL'}"`);
-      }
       
       return result;
     });

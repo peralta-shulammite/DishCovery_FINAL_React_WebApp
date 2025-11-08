@@ -295,28 +295,6 @@ body {
   font-size: 16px;
 }
 
-.priority-badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-  font-family: 'Poppins', sans-serif;
-}
-
-.priority-high {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.priority-medium {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.priority-low {
-  background: #f3f4f6;
-  color: #6b7280;
-}
 
 .replied-badge {
   background: #dcfce7;
@@ -718,7 +696,6 @@ body {
     gap: 4px;
   }
 
-  .priority-badge,
   .replied-badge {
     padding: 2px 6px;
     font-size: 10px;
@@ -898,7 +875,6 @@ body {
     transform: none !important;
   }
 
-  .priority-badge,
   .replied-badge {
     border: 1px solid currentColor !important;
   }
