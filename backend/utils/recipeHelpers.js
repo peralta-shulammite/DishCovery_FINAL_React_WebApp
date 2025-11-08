@@ -35,7 +35,14 @@ export const transformRecipeForDB = (frontendData) => {
     ingredients: frontendData.ingredients || { main: [], condiments: [], optional: [] },
     restrictions: restrictions,
     verification: {
-      status: frontendData.verificationStatus === 'Checked by: Nutritionist' ? 'Nutritionist' : (frontendData.verificationStatus || 'Nutritionist'),
+      // Shorten "Checked by: X" to just "X" to fit database column
+      status: (() => {
+        const status = frontendData.verificationStatus || 'Checked by: Nutritionist';
+        if (status.startsWith('Checked by: ')) {
+          return status.replace('Checked by: ', '').trim();
+        }
+        return status;
+      })(),
       verifierName: null,
       verifierCredentials: null
     }
@@ -69,7 +76,16 @@ export const transformRecipeForFrontend = (dbData) => {
     healthTags: dbData.healthTags || [],
     medicalConditions: medicalConditions,
     ingredients: dbData.ingredients || { main: [], condiments: [], optional: [] },
-    verificationStatus: dbData.verificationStatus || (dbData.verification_status === 'Nutritionist' ? 'Checked by: Nutritionist' : (dbData.verification_status || 'Checked by: Nutritionist')), // Convert 'Nutritionist' back to 'Checked by: Nutritionist' for display
+    // Convert short status back to "Checked by: X" format for display
+    verificationStatus: (() => {
+      const status = dbData.verificationStatus || dbData.verification_status || 'Nutritionist';
+      // If it's already in "Checked by: X" format, return as is
+      if (status.startsWith('Checked by: ')) {
+        return status;
+      }
+      // Otherwise, convert short format to display format
+      return `Checked by: ${status}`;
+    })(),
     engagement: dbData.engagement || { tried: 0, saved: 0 },
     rating: dbData.average_rating || dbData.rating || 4.5,
     created_at: dbData.created_at,
