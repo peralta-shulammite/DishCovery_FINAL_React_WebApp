@@ -23,8 +23,23 @@ const IngredientManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
-  // Backend API integration
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  // Backend API integration - Works for both localhost and Vercel
+  const getApiBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      // Client-side: check if we're on Vercel
+      if (window.location.hostname.includes('vercel.app')) {
+        return 'https://dishcovery-backend-wvhn.onrender.com/api';
+      }
+      // For localhost testing, always use localhost
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000/api';
+      }
+    }
+    // Fallback to environment variable or localhost
+    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  };
+
+  const API_BASE_URL = getApiBaseUrl();
   const API_URL = API_BASE_URL; // ✅ FIXED: No need to append /api again
 
   const adminIngredientsService = {
@@ -130,10 +145,14 @@ const IngredientManagement = () => {
         
         const loadedIngredients = ingredientsResult.ingredients || [];
         
-        // Debug: Log ingredients with missing types
+        // Debug: Log ingredients with missing types (should not happen after backend fix)
         const missingTypes = loadedIngredients.filter(ing => !ing.type);
         if (missingTypes.length > 0) {
           console.warn(`⚠️  ${missingTypes.length} ingredients missing type:`, missingTypes.map(ing => ing.name));
+          // Auto-assign default type for any missing types
+          missingTypes.forEach(ing => {
+            ing.type = 'Other';
+          });
         }
         
         setIngredients(loadedIngredients);

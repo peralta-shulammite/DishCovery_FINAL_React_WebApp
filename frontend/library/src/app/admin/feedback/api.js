@@ -1,11 +1,17 @@
 // API service for admin feedback management
-// Fix: Use correct backend URL for Vercel deployment
+// Fix: Use correct backend URL for Vercel deployment and localhost
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
+    // Client-side: check if we're on Vercel
     if (window.location.hostname.includes('vercel.app')) {
       return 'https://dishcovery-backend-wvhn.onrender.com/api';
     }
+    // For localhost testing, always use localhost
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    }
   }
+  // Fallback to environment variable or localhost
   return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
 };
 
@@ -49,7 +55,6 @@ export const adminFeedbackAPI = {
       const params = new URLSearchParams();
       
       if (filters.sortBy) params.append('sortBy', filters.sortBy);
-      if (filters.priority && filters.priority !== 'all') params.append('priority', filters.priority);
       if (filters.status && filters.status !== 'all') params.append('status', filters.status);
       if (filters.fromDate) params.append('fromDate', filters.fromDate);
       if (filters.toDate) params.append('toDate', filters.toDate);
@@ -175,33 +180,6 @@ export const adminFeedbackAPI = {
       return data;
     } catch (error) {
       console.error('Error marking feedback as unread:', error);
-      throw error;
-    }
-  },
-
-  // ========================================
-  // 🎯 UPDATE PRIORITY
-  // ========================================
-  updatePriority: async (feedbackId, priority) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}/priority`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ priority })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error updating priority:', error);
       throw error;
     }
   },
