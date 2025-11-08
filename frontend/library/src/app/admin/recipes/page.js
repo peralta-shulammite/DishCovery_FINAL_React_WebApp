@@ -1124,8 +1124,9 @@ const RecipeManagement = () => {
                           >
                             ×
                           </button>
-                        </div>
-                      ))}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   <small style={{ color: '#666', display: 'block', marginTop: '8px' }}>
