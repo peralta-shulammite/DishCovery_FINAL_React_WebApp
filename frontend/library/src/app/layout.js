@@ -33,10 +33,11 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" style={{ colorScheme: 'light' }} data-theme="light">
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#2E7D32" />
+        <meta name="color-scheme" content="light" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -65,6 +66,44 @@ export default function RootLayout({ children }) {
         {children}
         <script dangerouslySetInnerHTML={{
           __html: `
+            // FORCE LIGHT MODE - Disable dark mode completely (client-side only)
+            if (typeof window !== 'undefined') {
+              (function() {
+                // Force light mode on HTML element (only style, no attributes to avoid hydration mismatch)
+                document.documentElement.style.colorScheme = 'light';
+                
+                // Override prefers-color-scheme media query
+                const style = document.createElement('style');
+                style.textContent = \`
+                  :root {
+                    color-scheme: light !important;
+                  }
+                  html {
+                    color-scheme: light !important;
+                  }
+                  body {
+                    background-color: #ffffff !important;
+                    color: #171717 !important;
+                  }
+                  @media (prefers-color-scheme: dark) {
+                    :root {
+                      color-scheme: light !important;
+                      --background: #ffffff !important;
+                      --foreground: #171717 !important;
+                    }
+                    html {
+                      color-scheme: light !important;
+                    }
+                    body {
+                      background-color: #ffffff !important;
+                      color: #171717 !important;
+                    }
+                  }
+                \`;
+                document.head.appendChild(style);
+              })();
+            }
+            
             // 🆕 BULLETPROOF FIX: Ultra-conservative session management - NEVER auto-logout unless token is expired
             (function() {
               try {
