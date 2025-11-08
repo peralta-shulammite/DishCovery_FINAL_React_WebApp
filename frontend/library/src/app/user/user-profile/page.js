@@ -84,17 +84,17 @@ export default function UserProfilePage() {
   // Dietary preferences states
   const [dishCoveryMedicalConditions, setDishCoveryMedicalConditions] = useState([]);
   const [dishCoveryAllergens, setDishCoveryAllergens] = useState([]);
-  const [dishCoveryPreferredDiet, setDishCoveryPreferredDiet] = useState([]);
+  // dishCoveryPreferredDiet removed - dietary lifestyle category removed
   const [loadingDietaryData, setLoadingDietaryData] = useState(true);
   const [loadingUserInfo, setLoadingUserInfo] = useState(true);
 
   // 🆕 Modal states for dietary preferences
   const [showMedicalConditionsModal, setShowMedicalConditionsModal] = useState(false);
-  const [showDietaryLifestyleModal, setShowDietaryLifestyleModal] = useState(false);
+  // showDietaryLifestyleModal removed - dietary lifestyle category removed
   const [availableMedicalConditions, setAvailableMedicalConditions] = useState([]);
-  const [availableLifestyles, setAvailableLifestyles] = useState([]);
+  // availableLifestyles removed - dietary lifestyle category removed
   const [tempMedicalConditions, setTempMedicalConditions] = useState([]);
-  const [tempLifestyles, setTempLifestyles] = useState([]);
+  // tempLifestyles removed - dietary lifestyle category removed
 
   // Last opened recipe - loaded from localStorage
   const [dishCoveryLastOpenedRecipe, setDishCoveryLastOpenedRecipe] = useState(null);
@@ -190,18 +190,15 @@ export default function UserProfilePage() {
         const response = await profileAPI.getDietaryPreferences();
         
         if (response && response.success && response.data) {
-          const { dietaryRestrictions, medicalConditions, preferredDiets } = response.data;
+          const { medicalConditions } = response.data;
           
           // Category 1 (Allergy) + Category 2 (Intolerance) = Medical Conditions
-          // Category 3 (Dietary Lifestyle) = Allergens & Dietary Restrictions + Preferred Diets
-          setDishCoveryAllergens(preferredDiets || []); // Changed from dietaryRestrictions to preferredDiets
+          // Category 3 (Dietary Lifestyle) removed - no longer used
           setDishCoveryMedicalConditions(medicalConditions || []);
-          setDishCoveryPreferredDiet(preferredDiets || []);
+          setDishCoveryAllergens([]); // No longer used
           
           console.log('✅ Dietary data loaded successfully:', {
-            allergens: preferredDiets?.length || 0,
-            conditions: medicalConditions?.length || 0,
-            diets: preferredDiets?.length || 0
+            conditions: medicalConditions?.length || 0
           });
         }
       } catch (error) {
@@ -282,17 +279,14 @@ export default function UserProfilePage() {
         
         if (response && response.success && response.data) {
           // medicalConditions contains Category 1 (Allergy) + Category 2 (Intolerance)
-          // preferredDiets contains Category 3 (Dietary Lifestyle)
+          // preferredDiets removed - Category 3 (Dietary Lifestyle) removed
           const medicalConditions = response.data.medicalConditions || [];
-          const lifestyles = response.data.preferredDiets || [];
           
           // The backend returns arrays of strings, not objects
           setAvailableMedicalConditions(medicalConditions);
-          setAvailableLifestyles(lifestyles);
           
           console.log('✅ Available categories loaded:', {
-            medicalConditions: medicalConditions,
-            lifestyles: lifestyles
+            medicalConditions: medicalConditions
           });
         }
       } catch (error) {
@@ -629,20 +623,14 @@ export default function UserProfilePage() {
     setShowMedicalConditionsModal(true);
   };
 
-  const handleOpenDietaryLifestyleModal = () => {
-    setTempLifestyles([...dishCoveryPreferredDiet]);
-    setShowDietaryLifestyleModal(true);
-  };
+  // handleOpenDietaryLifestyleModal removed - dietary lifestyle category removed
 
   const handleCloseMedicalConditionsModal = () => {
     setShowMedicalConditionsModal(false);
     setTempMedicalConditions([]);
   };
 
-  const handleCloseDietaryLifestyleModal = () => {
-    setShowDietaryLifestyleModal(false);
-    setTempLifestyles([]);
-  };
+  // handleCloseDietaryLifestyleModal removed - dietary lifestyle category removed
 
   const handleToggleMedicalCondition = (condition) => {
     setTempMedicalConditions(prev => {
@@ -654,15 +642,7 @@ export default function UserProfilePage() {
     });
   };
 
-  const handleToggleLifestyle = (lifestyle) => {
-    setTempLifestyles(prev => {
-      if (prev.includes(lifestyle)) {
-        return prev.filter(l => l !== lifestyle);
-      } else {
-        return [...prev, lifestyle];
-      }
-    });
-  };
+  // handleToggleLifestyle removed - dietary lifestyle category removed
 
   const handleSaveMedicalConditions = async () => {
     try {
@@ -671,7 +651,7 @@ export default function UserProfilePage() {
       await profileAPI.updateDietaryPreferences({
         dietaryRestrictions: [], // Empty - not used
         medicalConditions: tempMedicalConditions,
-        preferredDiets: dishCoveryPreferredDiet,
+        // preferredDiets removed - dietary lifestyle category removed
         excludedIngredients: []
       });
       
@@ -685,27 +665,7 @@ export default function UserProfilePage() {
     }
   };
 
-  const handleSaveDietaryLifestyle = async () => {
-    try {
-      console.log('💾 Saving dietary lifestyle...', tempLifestyles);
-      
-      await profileAPI.updateDietaryPreferences({
-        dietaryRestrictions: [], // Empty - not used
-        medicalConditions: dishCoveryMedicalConditions,
-        preferredDiets: tempLifestyles,
-        excludedIngredients: []
-      });
-      
-      setDishCoveryPreferredDiet(tempLifestyles);
-      setDishCoveryAllergens(tempLifestyles); // Keep in sync
-      setShowDietaryLifestyleModal(false);
-      console.log('✅ Dietary lifestyle saved successfully');
-      alert('Dietary lifestyle updated successfully!');
-    } catch (error) {
-      console.error('❌ Error saving dietary lifestyle:', error);
-      alert('Failed to save dietary lifestyle. Please try again.');
-    }
-  };
+  // handleSaveDietaryLifestyle removed - dietary lifestyle category removed
 
   const dishCoveryHandleDeactivateAccount = () => {
     console.log('Account deactivated');
@@ -719,9 +679,9 @@ export default function UserProfilePage() {
       setDishCoveryMedicalConditions(newConditions);
       
       await profileAPI.updateDietaryPreferences({
-        dietaryRestrictions: dishCoveryAllergens,
+        dietaryRestrictions: [],
         medicalConditions: newConditions,
-        preferredDiets: dishCoveryPreferredDiet,
+        // preferredDiets removed - dietary lifestyle category removed
         excludedIngredients: []
       });
       
@@ -739,9 +699,9 @@ export default function UserProfilePage() {
       setDishCoveryAllergens(newAllergens);
       
       await profileAPI.updateDietaryPreferences({
-        dietaryRestrictions: newAllergens,
+        dietaryRestrictions: [],
         medicalConditions: dishCoveryMedicalConditions,
-        preferredDiets: dishCoveryPreferredDiet,
+        // preferredDiets removed - dietary lifestyle category removed
         excludedIngredients: []
       });
       
@@ -1287,36 +1247,7 @@ export default function UserProfilePage() {
                             </div>
                           </div>
 
-                          <div className="preference-group-fixed">
-                            <h3 className="preference-group-label">Dietary Lifestyle</h3>
-                            <div className="tags-container-fixed">
-                              {dishCoveryPreferredDiet.length > 0 ? (
-                                dishCoveryPreferredDiet.map((diet) => (
-                                  <div key={diet} className="tag-fixed diet-tag-fixed">
-                                    <span>{diet}</span>
-                                    {dishCoveryEditingPreferences && (
-                                      <button
-                                        onClick={() => dishCoveryRemoveDiet(diet)}
-                                        className="tag-remove-fixed"
-                                      >
-                                        ×
-                                      </button>
-                                    )}
-                                  </div>
-                                ))
-                              ) : (
-                                <span style={{ color: '#999', fontSize: '14px' }}>No preferred diets set</span>
-                              )}
-                              {dishCoveryEditingPreferences && (
-                                <button 
-                                  className="add-tag-btn-fixed"
-                                  onClick={handleOpenDietaryLifestyleModal}
-                                >
-                                  + Add
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                          {/* Dietary Lifestyle section removed - category removed */}
                         </div>
                       )}
                     </div>
@@ -1744,85 +1675,7 @@ export default function UserProfilePage() {
           </div>
         )}
 
-        {/* 🆕 DIETARY LIFESTYLE MODAL */}
-        {showDietaryLifestyleModal && (
-          <div
-            className="modal-overlay"
-            onClick={handleCloseDietaryLifestyleModal}
-          >
-            <div 
-              className="modal-content" 
-              onClick={(e) => e.stopPropagation()}
-              style={{ maxWidth: '600px', maxHeight: '80vh', overflow: 'auto' }}
-            >
-              <button
-                className="close-btn"
-                onClick={handleCloseDietaryLifestyleModal}
-              >
-                ×
-              </button>
-              <h2 className="modal-title">Dietary Lifestyle</h2>
-              <p className="modal-subtitle">
-                Select your dietary preferences
-              </p>
-              
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-                gap: '12px',
-                marginTop: '20px'
-              }}>
-                {availableLifestyles.map((lifestyle) => (
-                  <label 
-                    key={lifestyle}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '12px',
-                      border: tempLifestyles.includes(lifestyle) 
-                        ? '2px solid #4A7C4E' 
-                        : '2px solid #e0e0e0',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      backgroundColor: tempLifestyles.includes(lifestyle) 
-                        ? '#e8f5e9' 
-                        : '#fff',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={tempLifestyles.includes(lifestyle)}
-                      onChange={() => handleToggleLifestyle(lifestyle)}
-                      style={{ 
-                        marginRight: '8px',
-                        width: '18px',
-                        height: '18px',
-                        cursor: 'pointer'
-                      }}
-                    />
-                    <span style={{ fontSize: '14px' }}>{lifestyle}</span>
-                  </label>
-                ))}
-              </div>
-
-              <div className="modal-actions" style={{ marginTop: '24px' }}>
-                <button
-                  className="cancel-btn"
-                  onClick={handleCloseDietaryLifestyleModal}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="modal-signin-btn"
-                  onClick={handleSaveDietaryLifestyle}
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Dietary Lifestyle Modal removed - category removed */}
       </div>
     </UserLayout>
   );

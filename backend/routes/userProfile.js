@@ -66,18 +66,17 @@ router.get('/dietary', authenticateToken, async (req, res) => {
 
     // Organize data by category
     // Category 1 (Allergy) + Category 2 (Intolerance) = Medical Conditions
-    // Category 3 (Dietary Lifestyle) = Preferred Diets
+    // Dietary Lifestyle removed - no longer needed
     const dietaryRestrictions = []; // Empty - not used, replaced by medicalConditions
     const medicalConditions = [];
-    const preferredDiets = [];
+    const preferredDiets = []; // Empty - dietary lifestyle removed
 
     restrictions.forEach(item => {
       if (item.category_name === 'Allergy' || item.category_name === 'Intolerance') {
         // Both Allergy and Intolerance go to Medical Conditions
         medicalConditions.push(item.restriction_name);
-      } else if (item.category_name === 'Dietary Lifestyle') {
-        preferredDiets.push(item.restriction_name);
       }
+      // Dietary Lifestyle category removed - no longer processed
     });
 
     const excludedList = excludedIngredients.map(item => item.ingredient_name);
@@ -116,7 +115,7 @@ router.get('/info', authenticateToken, async (req, res) => {
     console.log('📥 Fetching user info for user ID:', userId);
     
     const users = await db.query(`
-      SELECT user_id, email, first_name, last_name, profile_picture_url, created_at, last_login, google_id, password_hash
+      SELECT user_id, email, first_name, last_name, profile_picture_url, created_at, last_login, google_id, password_hash, is_new_user
       FROM users
       WHERE user_id = ?
     `, [userId]);
@@ -132,13 +131,22 @@ router.get('/info', authenticateToken, async (req, res) => {
     const user = users[0];
     const isGoogleUser = !!user.google_id && !user.password_hash;
     
+    // Check if user has completed onboarding (has dietary preferences)
+    const [restrictionsResult] = await db.query(
+      'SELECT COUNT(*) as count FROM user_restrictions WHERE user_id = ? AND member_id IS NULL',
+      [userId]
+    );
+    const hasCompletedOnboarding = restrictionsResult[0]?.count > 0 || user.is_new_user === 0;
+    
     console.log('✅ User info fetched:', { 
       userId: user.user_id, 
       firstName: user.first_name,
       lastName: user.last_name,
       email: user.email,
       hasProfilePicture: !!user.profile_picture_url,
-      isGoogleUser: isGoogleUser
+      isGoogleUser: isGoogleUser,
+      isNewUser: user.is_new_user === 1,
+      hasCompletedOnboarding: hasCompletedOnboarding
     });
 
     res.json({
@@ -152,7 +160,9 @@ router.get('/info', authenticateToken, async (req, res) => {
         createdAt: user.created_at,
         lastLogin: user.last_login,
         googleId: user.google_id,
-        hasPassword: !!user.password_hash
+        hasPassword: !!user.password_hash,
+        isNewUser: user.is_new_user === 1,
+        hasCompletedOnboarding: hasCompletedOnboarding
       }
     });
 
@@ -294,7 +304,8 @@ router.put('/dietary', authenticateToken, async (req, res) => {
   
   try {
     const userId = req.user.userId;
-    const { dietaryRestrictions, medicalConditions, preferredDiets, excludedIngredients } = req.body;
+    const { dietaryRestrictions, medicalConditions, excludedIngredients } = req.body;
+    // preferredDiets removed - dietary lifestyle category removed
 
     console.log('📝 Updating dietary preferences for user:', userId);
 
@@ -315,11 +326,11 @@ router.put('/dietary', authenticateToken, async (req, res) => {
         [userId]
       );
 
-      // Get restriction IDs from restriction_name
+      // Get restriction IDs from restriction_name (only medical conditions - dietary lifestyle removed)
       const allRestrictions = [
         ...(dietaryRestrictions || []),
-        ...(medicalConditions || []),
-        ...(preferredDiets || [])
+        ...(medicalConditions || [])
+        // preferredDiets removed - dietary lifestyle category removed
       ];
 
       if (allRestrictions.length > 0) {
@@ -351,6 +362,13 @@ router.put('/dietary', authenticateToken, async (req, res) => {
           }
         }
       }
+
+      // Mark user as having completed onboarding (set is_new_user to 0)
+      await connection.query(
+        'UPDATE users SET is_new_user = 0 WHERE user_id = ?',
+        [userId]
+      );
+      console.log('✅ User marked as having completed onboarding');
 
       // Commit transaction
       await connection.commit();

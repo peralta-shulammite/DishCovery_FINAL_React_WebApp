@@ -1032,15 +1032,7 @@ router.post('/filter', auth, async (req, res) => {
 
     console.log(`🚫 User has ${restrictions.length} active restrictions`);
 
-    // Get user's dietary lifestyle preferences
-    const lifestyles = await db.query(`
-      SELECT l.lifestyle_id, l.lifestyle_name
-      FROM user_lifestyles ul
-      JOIN lifestyles l ON ul.lifestyle_id = l.lifestyle_id
-      WHERE ul.user_id = ? AND ul.status = 'active'
-    `, [userId]);
-
-    console.log(`🥗 User has ${lifestyles.length} dietary lifestyles`);
+    // Dietary lifestyle preferences removed - no longer needed
 
     // Build base query
     let query = `
@@ -1101,18 +1093,7 @@ router.post('/filter', auth, async (req, res) => {
       queryParams.push(...restrictionIds);
     }
 
-    // Filter by dietary lifestyle preferences (e.g., Vegan, Vegetarian)
-    if (lifestyles.length > 0) {
-      const lifestyleIds = lifestyles.map(l => l.lifestyle_id);
-      query += `
-        AND EXISTS (
-          SELECT 1 FROM recipe_lifestyles rl
-          WHERE rl.recipe_id = r.recipe_id
-          AND rl.lifestyle_id IN (${lifestyleIds.map(() => '?').join(',')})
-        )
-      `;
-      queryParams.push(...lifestyleIds);
-    }
+    // Dietary lifestyle filtering removed - no longer needed
 
     // Order by popularity and add pagination
     query += `

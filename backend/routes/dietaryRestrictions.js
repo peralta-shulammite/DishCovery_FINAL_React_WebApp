@@ -95,7 +95,7 @@ router.get('/public', async (req, res) => {
     
     const result = {
       dietaryRestrictions: [], // Empty - no longer used, replaced by medicalConditions
-      preferredDiets: groupedRestrictions['Dietary Lifestyle'] || [],
+      preferredDiets: [], // Empty - category_id 3 removed
       medicalConditions: medicalConditions
     };
     
@@ -140,15 +140,14 @@ router.post('/user/save', authenticateToken, async (req, res) => {
       memberId = null, 
       dietaryRestrictions = [], 
       excludedIngredients = [],
-      medicalConditions = [],
-      preferredDiets = []
+      medicalConditions = []
+      // preferredDiets removed - dietary lifestyle category removed
     } = req.body;
 
     console.log('📊 Parsed Data:', {
       memberId,
       dietaryRestrictionsCount: dietaryRestrictions.length,
       medicalConditionsCount: medicalConditions.length,
-      preferredDietsCount: preferredDiets.length,
       excludedIngredientsCount: excludedIngredients.length
     });
 
@@ -184,8 +183,9 @@ router.post('/user/save', authenticateToken, async (req, res) => {
       console.log('✅ Deleted existing user restrictions');
     }
 
-    // 2. Insert dietary restrictions
-    const allRestrictions = [...dietaryRestrictions, ...medicalConditions, ...preferredDiets];
+    // 2. Insert dietary restrictions (only medical conditions - dietary lifestyle removed)
+    const allRestrictions = [...dietaryRestrictions, ...medicalConditions];
+    // preferredDiets removed - dietary lifestyle category removed
     console.log(`\n📋 Processing ${allRestrictions.length} restrictions...`);
     
     let processedCount = 0;
@@ -268,6 +268,13 @@ router.post('/user/save', authenticateToken, async (req, res) => {
 
     console.log(`\n📊 Ingredients Summary:`);
     console.log(`   ✅ Successfully added: ${ingredientsAdded}`);
+
+    // Mark user as having completed onboarding (set is_new_user to 0)
+    await connection.query(
+      'UPDATE users SET is_new_user = 0 WHERE user_id = ?',
+      [req.user.userId]
+    );
+    console.log('✅ User marked as having completed onboarding');
 
     // Commit transaction
     console.log('\n💾 Committing transaction...');

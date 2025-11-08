@@ -24,7 +24,6 @@ const RecipeManagement = () => {
   const [recipes, setRecipes] = useState([]);
 
   // Restrictions state
-  const [availableDietaryLifestyle, setAvailableDietaryLifestyle] = useState([]);
   const [availableMedicalConditions, setAvailableMedicalConditions] = useState([]);
   const [restrictionsLoading, setRestrictionsLoading] = useState(true);
 
@@ -47,9 +46,7 @@ const RecipeManagement = () => {
     dietaryLifestyleTags: [],
     medicalConditions: [],
     servings: '2',
-    verificationStatus: 'AI-generated',
-    verifierName: '',
-    verifierCredentials: ''
+    verificationStatus: 'Checked by: Nutritionist'
   });
 
   const mealTypes = ['Breakfast', 'Dessert', 'Dinner', 'Heavy Meal', 'Light Meal', 'Lunch', 'Smoothie', 'Snack'].sort();
@@ -78,18 +75,52 @@ const RecipeManagement = () => {
       console.log('Fetched restrictions:', result);
 
       if (result.success && result.data) {
-        // Category ID 3 = Dietary Lifestyle
-        const dietaryLifestyle = result.data['Dietary Lifestyle'] || [];
         // Category ID 1 and 2 = Allergy and Intolerance (Medical Conditions)
         const allergies = result.data['Allergy'] || [];
         const intolerances = result.data['Intolerance'] || [];
         const medicalConditions = [...allergies, ...intolerances];
 
-        setAvailableDietaryLifestyle(dietaryLifestyle.map(r => r.name));
-        setAvailableMedicalConditions(medicalConditions.map(r => r.name));
+        // Handle both array of objects and array of strings
+        const medicalConditionNames = medicalConditions.map(r => {
+          if (typeof r === 'string') {
+            return r;
+          } else if (r && r.name) {
+            return r.name;
+          } else if (r && r.restriction_name) {
+            return r.restriction_name;
+          }
+          return r;
+        }).filter(Boolean);
 
-        console.log('Dietary Lifestyle:', dietaryLifestyle);
-        console.log('Medical Conditions:', medicalConditions);
+        // Sort medical conditions to match the standard order
+        const standardOrder = [
+          'Allergy To Nuts',
+          'Allergy To Shellfishes',
+          'Allergy To Eggs',
+          'Allergy To Soy',
+          'Allergy To Dairy',
+          'Allergy To Sesame Seeds',
+          'Allergy To Legumes',
+          'Gluten Intolerance',
+          'Lactose Intolerance'
+        ];
+        
+        const sortedConditions = medicalConditionNames.sort((a, b) => {
+          // Normalize for comparison (case-insensitive)
+          const normalizedA = a.trim();
+          const normalizedB = b.trim();
+          const indexA = standardOrder.findIndex(item => item.toLowerCase() === normalizedA.toLowerCase());
+          const indexB = standardOrder.findIndex(item => item.toLowerCase() === normalizedB.toLowerCase());
+          if (indexA === -1 && indexB === -1) return normalizedA.localeCompare(normalizedB);
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          return indexA - indexB;
+        });
+
+        setAvailableMedicalConditions(sortedConditions);
+
+        console.log('Medical Conditions loaded:', sortedConditions.length, 'items');
+        console.log('Medical Conditions:', sortedConditions);
       }
     } catch (err) {
       console.error('Error fetching restrictions:', err);
@@ -217,14 +248,10 @@ const RecipeManagement = () => {
           condiments: convertIngredients(fullRecipe.ingredients.condiments),
           optional: convertIngredients(fullRecipe.ingredients.optional)
         },
-        dietaryLifestyleTags: fullRecipe.dietaryLifestyleTags || [],
         medicalConditions: fullRecipe.medicalConditions || [],
-        verifierName: fullRecipe.verificationStatus.includes('Checked by')
-          ? fullRecipe.verificationStatus.split(': ')[1].split(', ')[0]
-          : '',
-        verifierCredentials: fullRecipe.verificationStatus.includes('Checked by')
-          ? fullRecipe.verificationStatus.split(', ')[1] || ''
-          : ''
+        verificationStatus: fullRecipe.verificationStatus && fullRecipe.verificationStatus !== 'AI-generated'
+          ? fullRecipe.verificationStatus
+          : 'Checked by: Nutritionist'
       });
       
     } catch (error) {
@@ -290,12 +317,9 @@ const RecipeManagement = () => {
         optional: [{ ingredient: '', alternative: '' }]
       },
       dietaryTags: [],
-      dietaryLifestyleTags: [],
       medicalConditions: [],
       servings: '2',
-      verificationStatus: 'AI-generated',
-      verifierName: '',
-      verifierCredentials: ''
+      verificationStatus: 'Checked by: Nutritionist'
     });
     setEditingRecipeId(null);
   };
@@ -394,7 +418,6 @@ const RecipeManagement = () => {
     
     const matchesMealType = mealTypeFilter === 'All' || recipe?.mealType === mealTypeFilter;
     const matchesStatus = statusFilter === 'All' || 
-                         (statusFilter === 'AI-generated' && recipe?.verificationStatus === 'AI-generated') ||
                          (statusFilter === 'Verified' && (recipe?.verificationStatus || '').includes('Checked by'));
     const matchesHealth = healthFilter === 'All' || (recipe?.healthTags || []).includes(healthFilter);
     
@@ -694,10 +717,7 @@ const RecipeManagement = () => {
         const ingredientsStr = allIngredients.join('; ') || 'N/A';
 
         // Combine dietary tags
-        const dietaryTags = [
-          ...(recipe.dietaryTags || []),
-          ...(recipe.dietaryLifestyleTags || [])
-        ].join('; ') || 'None';
+        const dietaryTags = (recipe.dietaryTags || []).join('; ') || 'None';
 
         const prepTime = recipe.prep_time ? `${recipe.prep_time} minutes` : 'N/A';
         const favorites = recipe.engagement?.saved || 0;
@@ -1115,28 +1135,6 @@ const RecipeManagement = () => {
                 </div>
 
                 <div className="form-section">
-                  <label className="form-label">Dietary Lifestyle Tags</label>
-                  {restrictionsLoading ? (
-                    <p style={{ fontSize: '14px', color: '#64748b' }}>Loading dietary restrictions...</p>
-                  ) : availableDietaryLifestyle.length === 0 ? (
-                    <p style={{ fontSize: '14px', color: '#dc2626' }}>No dietary lifestyle restrictions available. Please add them in the dietary restrictions management page.</p>
-                  ) : (
-                    <div className="tag-grid">
-                      {availableDietaryLifestyle.map(tag => (
-                        <button
-                          key={tag}
-                          type="button"
-                          className={`tag-btn ${formData.dietaryLifestyleTags.includes(tag) ? 'active' : ''}`}
-                          onClick={() => toggleTag('dietaryLifestyleTags', tag)}
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="form-section">
                   <label className="form-label">Medical Conditions (Allergies & Intolerances)</label>
                   {restrictionsLoading ? (
                     <p style={{ fontSize: '14px', color: '#64748b' }}>Loading medical conditions...</p>
@@ -1173,43 +1171,18 @@ const RecipeManagement = () => {
                 </div>
 
                 <div className="form-section">
-                  <label className="form-label">Verification Status</label>
+                  <label className="form-label">Verification Status *</label>
                   <select
                     className="form-select"
                     value={formData.verificationStatus}
                     onChange={(e) => setFormData({...formData, verificationStatus: e.target.value})}
+                    required
                   >
-                    <option value="AI-generated">AI-generated</option>
                     <option value="Checked by: Nutritionist">Checked by: Nutritionist</option>
                     <option value="Checked by: Dietitian">Checked by: Dietitian</option>
                     <option value="Checked by: Doctor">Checked by: Doctor</option>
                   </select>
                 </div>
-
-                {formData.verificationStatus !== 'AI-generated' && (
-                  <>
-                    <div className="form-section">
-                      <label className="form-label">Verifier Name</label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        value={formData.verifierName}
-                        onChange={(e) => setFormData({...formData, verifierName: e.target.value})}
-                        placeholder="Enter verifier's name"
-                      />
-                    </div>
-                    <div className="form-section">
-                      <label className="form-label">Credentials</label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        value={formData.verifierCredentials}
-                        onChange={(e) => setFormData({...formData, verifierCredentials: e.target.value})}
-                        placeholder="Enter credentials"
-                      />
-                    </div>
-                  </>
-                )}
 
                 <div className="form-actions">
                   <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)}>
@@ -1271,18 +1244,6 @@ const RecipeManagement = () => {
                 </div>
 
                 <div className="recipe-tags-display">
-                  <div className="tag-group">
-                    <h4>Dietary Lifestyle Tags:</h4>
-                    <div className="tags">
-                      {(selectedRecipe.dietaryLifestyleTags || []).length > 0 ? (
-                        selectedRecipe.dietaryLifestyleTags.map(tag => (
-                          <span key={tag} className="tag dietary">{tag}</span>
-                        ))
-                      ) : (
-                        <span className="tag servings">None</span>
-                      )}
-                    </div>
-                  </div>
                   <div className="tag-group">
                     <h4>Medical Conditions (Allergies & Intolerances):</h4>
                     <div className="tags">
