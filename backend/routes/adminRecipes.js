@@ -350,15 +350,11 @@ router.get('/:id', async (req, res) => {
     `;
     const restrictionsResults = await pool.query(restrictionsQuery, [parseInt(id)]);
 
-    // Separate restrictions by category
-    const dietaryLifestyleTags = [];
+    // Separate restrictions by category (only medical conditions)
     const medicalConditions = [];
 
     restrictionsResults.forEach(res => {
-      if (res.category_id === 3) {
-        // Dietary Lifestyle
-        dietaryLifestyleTags.push(res.restriction_name);
-      } else if (res.category_id === 1 || res.category_id === 2) {
+      if (res.category_id === 1 || res.category_id === 2) {
         // Allergy (1) or Intolerance (2)
         medicalConditions.push(res.restriction_name);
       }
@@ -370,7 +366,6 @@ router.get('/:id', async (req, res) => {
       dietaryTags,
       healthTags,
       ingredients,
-      dietaryLifestyleTags,
       medicalConditions
     });
 

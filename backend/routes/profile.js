@@ -51,16 +51,23 @@ router.post('/restrictions', authenticateToken, async (req, res) => {
   try {
     const { memberId, allergies, healthConditions, dietPreferences } = req.body;
     
-    // Map frontend names to database IDs
-    const restrictionMap = {
-      'Nuts': 1, 'Seafood': 2, 'Eggs': 3, 'Dairy': 4, 'Soy': 5, 'Gluten': 6,
-      'Diabetes': 7, 'Hypertension': 8, 'High Cholesterol': 9, 
-      'Lactose Intolerance': 10, 'Gluten Intolerance': 11,
-      'Vegetarian': 12, 'Vegan': 13, 'Keto': 14, 'Low-Carb': 15, 'Low-Sodium': 16
-    };
-
+    // Get restriction IDs from database by name (using new standard medical conditions)
     const allRestrictions = [...allergies, ...healthConditions, ...dietPreferences];
-    const restrictionIds = allRestrictions.map(name => restrictionMap[name]).filter(id => id);
+    const restrictionIds = [];
+    
+    // Look up restriction IDs from database
+    for (const restrictionName of allRestrictions) {
+      if (!restrictionName || restrictionName.trim() === '') continue;
+      
+      const [rows] = await pool.query(
+        'SELECT restriction_id FROM restrictions WHERE restriction_name = ? AND is_active = 1',
+        [restrictionName.trim()]
+      );
+      
+      if (rows && rows.length > 0) {
+        restrictionIds.push(rows[0].restriction_id);
+      }
+    }
 
     // Delete existing restrictions
     await pool.query(`

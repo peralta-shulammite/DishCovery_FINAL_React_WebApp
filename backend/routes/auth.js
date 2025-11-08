@@ -382,6 +382,13 @@ router.post('/login', async (req, res) => {
 
     await pool.query('UPDATE users SET last_login = NOW() WHERE user_id = ?', [user.user_id]);
 
+    // Check if user has completed onboarding (has dietary preferences)
+    const [restrictionsResult] = await pool.query(
+      'SELECT COUNT(*) as count FROM user_restrictions WHERE user_id = ? AND member_id IS NULL',
+      [user.user_id]
+    );
+    const hasCompletedOnboarding = restrictionsResult[0]?.count > 0 || user.is_new_user === 0;
+
     res.json({
       success: true,
       token,
@@ -390,7 +397,9 @@ router.post('/login', async (req, res) => {
         id: user.user_id,
         email: user.email,
         firstName: user.first_name,
-        lastName: user.last_name
+        lastName: user.last_name,
+        isNewUser: user.is_new_user === 1,
+        hasCompletedOnboarding: hasCompletedOnboarding
       }
     });
   } catch (error) {
@@ -470,7 +479,7 @@ router.post('/verify', async (req, res) => {
 
     // FIX 3: Correct destructuring
     const [fullUserRows] = await connection.query(
-      'SELECT user_id, email, first_name, last_name FROM users WHERE user_id = ?',
+      'SELECT user_id, email, first_name, last_name, is_new_user FROM users WHERE user_id = ?',
       [userId]
     );
 
@@ -489,6 +498,13 @@ router.post('/verify', async (req, res) => {
       isAdmin: false
     }, JWT_SECRET, { expiresIn: '24h' });
 
+    // Check if user has completed onboarding (has dietary preferences)
+    const [restrictionsResult] = await connection.query(
+      'SELECT COUNT(*) as count FROM user_restrictions WHERE user_id = ? AND member_id IS NULL',
+      [userId]
+    );
+    const hasCompletedOnboarding = restrictionsResult[0]?.count > 0 || user.is_new_user === 0;
+
     await connection.commit();
 
     return res.json({
@@ -500,7 +516,9 @@ router.post('/verify', async (req, res) => {
         id: user.user_id,
         email: user.email,
         firstName: user.first_name,
-        lastName: user.last_name
+        lastName: user.last_name,
+        isNewUser: user.is_new_user === 1,
+        hasCompletedOnboarding: hasCompletedOnboarding
       }
     });
 
@@ -885,6 +903,13 @@ router.post('/google/callback', async (req, res) => {
         [existingUser.user_id]
       );
 
+      // Check if user has completed onboarding (has dietary preferences)
+      const [restrictionsResult] = await connection.query(
+        'SELECT COUNT(*) as count FROM user_restrictions WHERE user_id = ? AND member_id IS NULL',
+        [existingUser.user_id]
+      );
+      const hasCompletedOnboarding = restrictionsResult[0]?.count > 0 || existingUser.is_new_user === 0;
+
       const token = jwt.sign({
         userId: existingUser.user_id,
         email: existingUser.email,
@@ -904,7 +929,9 @@ router.post('/google/callback', async (req, res) => {
           email: existingUser.email,
           firstName: existingUser.first_name || given_name,
           lastName: existingUser.last_name || family_name,
-          picture
+          picture,
+          isNewUser: existingUser.is_new_user === 1,
+          hasCompletedOnboarding: hasCompletedOnboarding
         }
       });
     }
@@ -919,40 +946,36 @@ router.post('/google/callback', async (req, res) => {
         });
       }
 
+      // Create user with email_verified = 0 (requires verification)
       const result = await connection.query(
         `INSERT INTO users (email, google_id, first_name, last_name, profile_picture_url, email_verified, is_active, is_new_user)
-         VALUES (?, ?, ?, ?, ?, 1, 1, 1)`,
+         VALUES (?, ?, ?, ?, ?, 0, 1, 1)`,
         [email, googleId, given_name, family_name, picture]
       );
 
       const newUserId = result[0].insertId;
 
+      // Generate verification code
+      const verificationCode = generateVerificationCode();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Store verification code in pending_requests
       await connection.query(
-        'UPDATE users SET last_login = NOW(), last_activity = NOW() WHERE user_id = ?',
-        [newUserId]
+        'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
+        [newUserId, 'email_verification', verificationCode, 'pending', expiresAt]
       );
 
-      const token = jwt.sign({
-        userId: newUserId,
-        email: email,
-        firstName: given_name,
-        lastName: family_name,
-        isAdmin: false
-      }, JWT_SECRET, { expiresIn: '24h' });
+      // Send verification email
+      await sendVerificationEmail(email, verificationCode, given_name);
 
-      console.log(`Google signup successful: ${email}`);
       await connection.commit();
-      return res.json({
-        success: true,
-        message: 'Google signup successful',
-        token,
-        user: {
-          userId: newUserId,
-          email: email,
-          firstName: given_name,
-          lastName: family_name,
-          picture
-        }
+
+      console.log(`📧 Google signup - verification code sent to ${email}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your email. A verification code has been sent.',
+        requiresVerification: true,
+        email: email
       });
     }
 

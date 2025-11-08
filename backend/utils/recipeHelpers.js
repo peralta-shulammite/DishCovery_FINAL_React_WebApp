@@ -4,13 +4,11 @@
  * Transform frontend recipe data to database format
  */
 export const transformRecipeForDB = (frontendData) => {
-  // Combine dietary lifestyle tags and medical conditions into restrictions array
-  const dietaryLifestyleTags = frontendData.dietaryLifestyleTags || [];
+  // Use only medical conditions for restrictions array
   const medicalConditions = frontendData.medicalConditions || [];
-  const restrictions = [...dietaryLifestyleTags, ...medicalConditions];
+  const restrictions = [...medicalConditions];
 
   console.log('📦 transformRecipeForDB - Combining restrictions:');
-  console.log('   - Dietary Lifestyle Tags:', dietaryLifestyleTags);
   console.log('   - Medical Conditions:', medicalConditions);
   console.log('   - Combined Restrictions:', restrictions);
 
@@ -37,9 +35,9 @@ export const transformRecipeForDB = (frontendData) => {
     ingredients: frontendData.ingredients || { main: [], condiments: [], optional: [] },
     restrictions: restrictions,
     verification: {
-      status: frontendData.verificationStatus || 'AI-generated',
-      verifierName: frontendData.verifierName || null,
-      verifierCredentials: frontendData.verifierCredentials || null
+      status: frontendData.verificationStatus || 'Checked by: Nutritionist',
+      verifierName: null,
+      verifierCredentials: null
     }
   };
 };
@@ -48,8 +46,7 @@ export const transformRecipeForDB = (frontendData) => {
  * Transform database recipe data to frontend format
  */
 export const transformRecipeForFrontend = (dbData) => {
-  // Separate restrictions by category
-  const dietaryLifestyleTags = dbData.dietaryLifestyleTags || [];
+  // Use only medical conditions
   const medicalConditions = dbData.medicalConditions || [];
 
   return {
@@ -70,12 +67,9 @@ export const transformRecipeForFrontend = (dbData) => {
     images: dbData.images || [dbData.image_url].filter(Boolean),
     dietaryTags: dbData.dietaryTags || [],
     healthTags: dbData.healthTags || [],
-    dietaryLifestyleTags: dietaryLifestyleTags,
     medicalConditions: medicalConditions,
     ingredients: dbData.ingredients || { main: [], condiments: [], optional: [] },
-    verificationStatus: dbData.verificationStatus || dbData.verification_status || 'AI-generated',
-    verifierName: dbData.verifierName || dbData.verifier_name || '',
-    verifierCredentials: dbData.verifierCredentials || dbData.verifier_credentials || '',
+    verificationStatus: dbData.verificationStatus || dbData.verification_status || 'Checked by: Nutritionist',
     engagement: dbData.engagement || { tried: 0, saved: 0 },
     rating: dbData.average_rating || dbData.rating || 4.5,
     created_at: dbData.created_at,
