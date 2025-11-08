@@ -39,6 +39,7 @@ import {
 import { recipeAPI, favoritesAPI } from './api';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
+import { saveLastOpenedRecipe } from '../utils/recipeTracker';
 
 const RecipePage = () => {
   const dishCoveryTopRef = useRef(null);
@@ -495,6 +496,9 @@ const RecipePage = () => {
     setShowAlternatives({});
     setShowScrollIndicator(true);
     document.body.style.overflow = 'hidden';
+    
+    // 🆕 Track as last opened recipe for profile
+    saveLastOpenedRecipe(recipe);
     
     if (recipe.id && (!recipe.instructions || recipe.instructions.length === 0)) {
       const detailedRecipe = await fetchRecipeDetails(recipe.id);

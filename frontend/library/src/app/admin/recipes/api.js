@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
 
 const getAuthToken = () => {
   return localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
@@ -185,7 +185,7 @@ const transformRecipeData = (recipeData) => {
 
 export const recipeAPI = {
   test: async () => {
-    return await apiCall('/api/admin/recipes/test');
+    return await apiCall('/admin/recipes/test');
   },
 
   getAll: async (filters = {}) => {
@@ -201,14 +201,14 @@ export const recipeAPI = {
     if (filters.offset) params.append('offset', filters.offset);
 
     const queryString = params.toString();
-    const endpoint = `/api/admin/recipes${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/admin/recipes${queryString ? `?${queryString}` : ''}`;
     
     const response = await apiCall(endpoint);
     return response.data || [];
   },
 
   getById: async (id) => {
-    const response = await apiCall(`/api/admin/recipes/${id}`);
+    const response = await apiCall(`/admin/recipes/${id}`);
     return response.data;
   },
 
@@ -217,7 +217,7 @@ export const recipeAPI = {
     
     console.log('Creating recipe with data:', apiData);
 
-    const response = await apiCall('/api/admin/recipes', {
+    const response = await apiCall('/admin/recipes', {
       method: 'POST',
       body: JSON.stringify(apiData)
     });
@@ -234,7 +234,7 @@ export const recipeAPI = {
     
     console.log('Updating recipe with data:', apiData);
 
-    const response = await apiCall(`/api/admin/recipes/${id}`, {
+    const response = await apiCall(`/admin/recipes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(apiData)
     });
@@ -248,7 +248,7 @@ export const recipeAPI = {
   },
 
   delete: async (id) => {
-    const response = await apiCall(`/api/admin/recipes/${id}`, {
+    const response = await apiCall(`/admin/recipes/${id}`, {
       method: 'DELETE'
     });
     
@@ -261,13 +261,13 @@ export const recipeAPI = {
   },
 
   toggleStatus: async (id) => {
-    return await apiCall(`/api/admin/recipes/${id}/toggle-status`, {
+    return await apiCall(`/admin/recipes/${id}/toggle-status`, {
       method: 'PATCH'
     });
   },
 
   getStats: async () => {
-    const response = await apiCall('/api/admin/recipes/stats/overview');
+    const response = await apiCall('/admin/recipes/stats/overview');
     return response.data;
   }
 };

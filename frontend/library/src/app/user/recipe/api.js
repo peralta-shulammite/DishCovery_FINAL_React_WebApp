@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
 
 const getAuthToken = () => {
   return localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -108,7 +108,7 @@ export const recipeAPI = {
       if (filters.offset) params.append('offset', filters.offset);
 
       const queryString = params.toString();
-      const endpoint = `/api/recipes${queryString ? `?${queryString}` : ''}`;
+      const endpoint = `/recipes${queryString ? `?${queryString}` : ''}`;
       
       console.log('Fetching from endpoint:', endpoint);
       
@@ -138,7 +138,7 @@ export const recipeAPI = {
     try {
       console.log('Getting recipe details for ID:', recipeId);
       
-      const response = await apiCall(`/api/recipes/${recipeId}/details`);
+      const response = await apiCall(`/recipes/${recipeId}/details`);
       if (response && (response.success || response.data)) {
         return response;
       }
@@ -159,7 +159,7 @@ export const recipeAPI = {
     try {
       console.log('Getting all dietary tags');
       
-      const response = await apiCall('/api/recipes/tags/all');
+      const response = await apiCall('/recipes/tags/all');
       if (response && (response.success || response.data)) {
         return response;
       }
@@ -178,7 +178,7 @@ export const recipeAPI = {
       if (filters.limit) params.append('limit', filters.limit);
       if (filters.offset) params.append('offset', filters.offset);
 
-      const response = await apiCall(`/api/recipes/search?${params.toString()}`);
+      const response = await apiCall(`/recipes/search?${params.toString()}`);
       if (response && (response.success || response.data)) {
         return response;
       }
@@ -192,7 +192,7 @@ export const recipeAPI = {
   checkForUpdates: async () => {
     try {
       const lastSync = localStorage.getItem('lastRecipeSync');
-      const response = await apiCall(`/api/recipes?limit=1`);
+      const response = await apiCall(`/recipes?limit=1`);
       
       if (response && response.timestamp) {
         const needsUpdate = !lastSync || new Date(response.timestamp) > new Date(lastSync);

@@ -1,16 +1,104 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
 import api from '../../user/home/api'; 
 
 const DashboardContent = () => {
+  const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState('This Week');
   const [statusFilter, setStatusFilter] = useState('All');
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+  
+  // 🆕 Real Data States
+  const [dashboardStats, setDashboardStats] = useState({
+    newUsers: 0,
+    activeUsers: 0,
+    pendingRequests: 0
+  });
+  const [popularFilters, setPopularFilters] = useState([]);
+  const [topIngredients, setTopIngredients] = useState([]);
+  const [loading, setLoading] = useState(true);
 
 
-// Check if user just logged in
+// API Base URL
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  
+  const getAuthToken = () => {
+    return localStorage.getItem('token');
+  };
+
+  // 🆕 Fetch Real Dashboard Data
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        const token = getAuthToken();
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+
+        // Fetch User Stats
+        const usersResponse = await fetch(`${API_BASE_URL}/admin/users`, { headers });
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          if (usersData.success && usersData.stats) {
+            setDashboardStats({
+              newUsers: usersData.stats.newUsers || 0,
+              activeUsers: usersData.stats.activeUsers || 0,
+              pendingRequests: 0 // TODO: Add pending requests endpoint
+            });
+          }
+        }
+
+        // Fetch Dietary Filters
+        const dietaryResponse = await fetch(`${API_BASE_URL}/dietary-restrictions/admin`, { headers });
+        if (dietaryResponse.ok) {
+          const dietaryData = await dietaryResponse.json();
+          if (dietaryData.success && dietaryData.data) {
+            // Sort by usage and take top 5
+            const sorted = dietaryData.data
+              .filter(d => d.isActive)
+              .sort((a, b) => b.userCount - a.userCount)
+              .slice(0, 5)
+              .map(d => ({
+                filter: d.name,
+                usage: d.userCount
+              }));
+            setPopularFilters(sorted);
+          }
+        }
+
+        // Fetch Top Ingredients (from admin ingredients endpoint)
+        const ingredientsResponse = await fetch(`${API_BASE_URL}/admin/ingredients`, { headers });
+        if (ingredientsResponse.ok) {
+          const ingredientsData = await ingredientsResponse.json();
+          if (ingredientsData.success && ingredientsData.data) {
+            // Sort by usage and take top 5
+            const sorted = ingredientsData.data
+              .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
+              .slice(0, 5)
+              .map(ing => ({
+                ingredient: ing.name || ing.ingredient_name,
+                requests: ing.usageCount || ing.usage_count || 0
+              }));
+            setTopIngredients(sorted);
+          }
+        }
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  // Check if user just logged in
   useEffect(() => {
     // Only access sessionStorage in the browser
     if (typeof window !== 'undefined') {
@@ -27,28 +115,6 @@ const DashboardContent = () => {
       }
     }
   }, []);
-  
-  const dashboardStats = {
-    newUsers: 324,
-    activeUsers: 1876,
-    pendingRequests: 23
-  };
-
-  const popularFilters = [
-    { filter: 'Vegetarian', usage: 2341 },
-    { filter: 'Gluten-Free', usage: 1876 },
-    { filter: 'Dairy-Free', usage: 1543 },
-    { filter: 'Keto', usage: 1234 },
-    { filter: 'Vegan', usage: 987 }
-  ];
-
-  const topIngredients = [
-    { ingredient: 'Chicken Breast', requests: 456 },
-    { ingredient: 'Avocado', requests: 398 },
-    { ingredient: 'Quinoa', requests: 342 },
-    { ingredient: 'Salmon', requests: 289 },
-    { ingredient: 'Sweet Potato', requests: 234 }
-  ];
 
   const notifications = [
     { id: 1, type: 'restriction', message: 'New dietary restriction request: "Low FODMAP"', time: '2 hours ago' },
@@ -57,34 +123,29 @@ const DashboardContent = () => {
     { id: 4, type: 'user', message: 'User feedback: Recipe recommendations not accurate', time: '1 day ago' }
   ];
 
-  const pendingRequests = [
-    { id: 'REQ001', type: 'Dietary Restriction', request: 'Paleo + Autoimmune Protocol', user: 'Sarah Johnson', status: 'Pending', priority: 'High' },
-    { id: 'REQ002', type: 'Ingredient', request: 'Monk Fruit Sweetener', user: 'Mike Chen', status: 'Processing', priority: 'Medium' },
-    { id: 'REQ003', type: 'Dietary Restriction', request: 'Carnivore Diet', user: 'Alex Rodriguez', status: 'Pending', priority: 'Low' },
-    { id: 'REQ004', type: 'Ingredient', request: 'Jackfruit', user: 'Emma Wilson', status: 'Processing', priority: 'Medium' },
-    { id: 'REQ005', type: 'Recipe Type', request: 'Air Fryer Recipes', user: 'David Brown', status: 'Pending', priority: 'High' }
-  ];
-
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'Pending': return 'status-pending';
-      case 'Processing': return 'status-processing';
-      case 'Completed': return 'status-completed';
-      default: return 'status-pending';
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch(priority) {
-      case 'High': return 'priority-high';
-      case 'Medium': return 'priority-medium';
-      case 'Low': return 'priority-low';
-      default: return 'priority-medium';
-    }
-  };
-
+  // 🆕 Handle View button clicks - Navigate to admin pages
   const handleViewClick = (section) => {
-    console.log(`Navigate to ${section} page`);
+    console.log(`Navigating to ${section} page...`);
+    
+    switch(section) {
+      case 'dietary-filters':
+        router.push('/admin/dietary-restrictions');
+        break;
+      case 'ingredients':
+        router.push('/admin/ingredients');
+        break;
+      case 'notifications':
+        router.push('/admin/feedback');
+        break;
+      case 'recipes':
+        router.push('/admin/recipes');
+        break;
+      case 'users':
+        router.push('/admin/users');
+        break;
+      default:
+        console.warn(`No route defined for section: ${section}`);
+    }
   };
 
   const handleExportData = () => {
@@ -107,7 +168,16 @@ const DashboardContent = () => {
         </div>
       )}
       
+      {/* Loading Indicator */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '40px', fontSize: '18px', color: '#666' }}>
+          ⏳ Loading dashboard data from database...
+        </div>
+      )}
+      
       {/* Stats Cards - 3 cards */}
+      {!loading && (
+        <>
       <div className="stats-container">
         <div className="stat-card new-users">
           <div className="stat-number">{dashboardStats.newUsers}</div>
@@ -195,43 +265,9 @@ const DashboardContent = () => {
             ))}
           </div>
         </div>
-
-        {/* Pending Requests */}
-        <div className="content-section pending-requests">
-          <button className="section-view-btn" onClick={() => handleViewClick('pending-requests-table')}>
-            View
-          </button>
-          <h3>Pending User Requests</h3>
-          <div className="table-container">
-            <table className="requests-table">
-              <thead>
-                <tr>
-                  <th>Request ID</th>
-                  <th>Type</th>
-                  <th>Request</th>
-                  <th>User</th>
-                  <th>Status</th>
-                  <th>Priority</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingRequests.map((request) => (
-                  <tr key={request.id}>
-                    <td>{request.id}</td>
-                    <td>{request.type}</td>
-                    <td>{request.request}</td>
-                    <td>{request.user}</td>
-                    <td><span className={`status-badge ${getStatusColor(request.status)}`}>{request.status}</span></td>
-                    <td><span className={`priority-badge ${getPriorityColor(request.priority)}`}>{request.priority}</span></td>
-                    <td><button className="action-btn">Review</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

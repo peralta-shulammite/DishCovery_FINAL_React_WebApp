@@ -192,6 +192,66 @@ export const profileAPI = {
 // ========================================
 // 📝 FEEDBACK API FUNCTIONS - UPDATED TO MATCH NEW BACKEND
 // ========================================
+export const scanAPI = {
+  // Get user's scan history
+  getScanHistory: async (limit = 10) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/scan/history?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching scan history:', error);
+      throw error;
+    }
+  },
+
+  // Delete a scan from history
+  deleteScanHistory: async (scanId) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/scan/history/${scanId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error deleting scan:', error);
+      throw error;
+    }
+  }
+};
+
 export const feedbackAPI = {
   // Submit new feedback
   submitFeedback: async (feedbackMessage, priority = 'medium') => {

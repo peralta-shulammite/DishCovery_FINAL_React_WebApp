@@ -22,8 +22,8 @@ const IngredientManagement = () => {
   const [loading, setLoading] = useState(true);
 
   // Backend API integration
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-  const API_URL = `${API_BASE_URL}/api`;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  const API_URL = API_BASE_URL; // ✅ FIXED: No need to append /api again
 
   const adminIngredientsService = {
     getAuthToken() {

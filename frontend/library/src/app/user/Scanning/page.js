@@ -14,13 +14,21 @@ import {
   faArrowLeft
 } from '@fortawesome/free-solid-svg-icons';
 import './style.css';
+import { pantryAPI } from '../utils/pantryAPI';
+import { recipesAPI } from '../utils/recipesAPI';
 
 // Use your existing env variable name
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
 const IngredientScanner = () => {
+  // ✅ FIXED: Check for mobile in useEffect to avoid SSR error
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    }
+  }, []);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const bboxCanvasRef = useRef(null);
@@ -44,9 +52,67 @@ const IngredientScanner = () => {
   const [backendError, setBackendError] = useState(null);
   const smoothedDetectionsRef = useRef([]);
   const captureResolutionRef = useRef({ width: 0, height: 0 });
+  
+  // 🆕 State for saving to pantry and generating recipes
+  const [isSavingToPantry, setIsSavingToPantry] = useState(false);
+  const [showRecipesModal, setShowRecipesModal] = useState(false);
+  const [filteredRecipes, setFilteredRecipes] = useState([]);
 
   const handleGoBack = () => {
     window.history.back();
+  };
+  
+  // 🆕 Get count of selected ingredients
+  const getSelectedCount = () => {
+    return scannedIngredients.filter(ing => ing.selected).length;
+  };
+  
+  // 🆕 Generate Recipe - Save to pantry then show filtered recipes
+  const generateRecipe = async () => {
+    try {
+      setIsSavingToPantry(true);
+      
+      // Get only SELECTED ingredients that matched the database
+      const selectedIngredients = scannedIngredients.filter(
+        ing => ing.selected && ing.db_matched && ing.ingredient_id
+      );
+      
+      if (selectedIngredients.length === 0) {
+        alert('Please select at least one ingredient that is in the database!');
+        return;
+      }
+      
+      console.log('🍳 Generating recipes with selected ingredients:', selectedIngredients);
+      
+      // Step 1: Save to pantry (no duplicates handled by backend)
+      await pantryAPI.saveScannedIngredients(selectedIngredients);
+      console.log('✅ Saved to pantry successfully!');
+      
+      // Step 2: Get filtered recipes based on these ingredients
+      const ingredientIds = selectedIngredients.map(ing => ing.ingredient_id);
+      const result = await recipesAPI.getFilteredRecipes({
+        scannedIngredients: ingredientIds,
+        limit: 20
+      });
+      
+      console.log('✅ Filtered recipes:', result);
+      
+      if (result.recipes && result.recipes.length > 0) {
+        setFilteredRecipes(result.recipes);
+        setShowRecipesModal(true);
+        alert(`✅ Saved ${selectedIngredients.length} ingredients to pantry!\n📚 Found ${result.recipes.length} recipes!`);
+      } else {
+        alert(`✅ Saved ${selectedIngredients.length} ingredients to pantry!\n\n⚠️ No recipes found yet. Add recipes in the admin panel!`);
+      }
+      
+      setShowModal(false); // Close scanning modal
+      
+    } catch (error) {
+      console.error('❌ Error generating recipes:', error);
+      alert('Failed to generate recipes. Please try again.');
+    } finally {
+      setIsSavingToPantry(false);
+    }
   };
 
   const startCamera = useCallback(async () => {
@@ -1064,9 +1130,17 @@ const IngredientScanner = () => {
                 <button 
                   onClick={generateRecipe} 
                   className="generate-recipe-button"
-                  disabled={getSelectedCount() === 0}
+                  disabled={getSelectedCount() === 0 || isSavingToPantry}
+                  style={{
+                    background: isSavingToPantry ? '#9e9e9e' : '#4CAF50',
+                    cursor: isSavingToPantry ? 'not-allowed' : 'pointer'
+                  }}
                 >
-                  Generate Recipe ({getSelectedCount()} ingredients)
+                  {isSavingToPantry ? (
+                    <>⏳ Saving to Pantry & Finding Recipes...</>
+                  ) : (
+                    <>🍳 Generate Recipe ({getSelectedCount()} ingredients)</>
+                  )}
                 </button>
               </div>
             </div>

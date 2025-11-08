@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
 import { favoritesAPI } from '../recipe/api';
-import { profileAPI, feedbackAPI } from './api';
+import { profileAPI, scanAPI, feedbackAPI } from './api';
 
 // Helper function to construct full image URLs
 const getFullImageUrl = (path) => {
@@ -96,23 +96,11 @@ export default function UserProfilePage() {
   const [tempMedicalConditions, setTempMedicalConditions] = useState([]);
   const [tempLifestyles, setTempLifestyles] = useState([]);
 
-  // Mock data for last opened recipe
-  const [dishCoveryLastOpenedRecipe] = useState({
-    id: 1,
-    name: 'Mediterranean Quinoa Bowl',
-    time: '25 min',
-    difficulty: 'Easy',
-    image: null,
-    lastOpened: '2025-01-28',
-  });
+  // Last opened recipe - loaded from localStorage
+  const [dishCoveryLastOpenedRecipe, setDishCoveryLastOpenedRecipe] = useState(null);
 
-  const [dishCoveryScanHistory] = useState([
-    { id: 1, name: 'Tomatoes', date: '2025-01-28' },
-    { id: 2, name: 'Chicken Breast', date: '2025-01-27' },
-    { id: 3, name: 'Spinach', date: '2025-01-26' },
-    { id: 4, name: 'Bell Peppers', date: '2025-01-25' },
-    { id: 5, name: 'Avocado', date: '2025-01-24' },
-  ]);
+  const [dishCoveryScanHistory, setDishCoveryScanHistory] = useState([]);
+  const [loadingScanHistory, setLoadingScanHistory] = useState(false);
 
   const [dishCoverySavedRecipesPreview, setDishCoverySavedRecipesPreview] = useState([]);
   const [loadingFavorites, setLoadingFavorites] = useState(true);
@@ -224,6 +212,61 @@ export default function UserProfilePage() {
     };
     
     loadDietaryData();
+  }, []);
+
+  // ========================================
+  // 🆕 LOAD LAST OPENED RECIPE FROM LOCALSTORAGE
+  // ========================================
+  useEffect(() => {
+    try {
+      const lastRecipe = localStorage.getItem('lastOpenedRecipe');
+      if (lastRecipe) {
+        const recipe = JSON.parse(lastRecipe);
+        setDishCoveryLastOpenedRecipe(recipe);
+        console.log('✅ Last opened recipe loaded:', recipe.name);
+      }
+    } catch (error) {
+      console.error('❌ Error loading last opened recipe:', error);
+    }
+  }, []);
+
+  // ========================================
+  // 🆕 LOAD SCAN HISTORY FROM API
+  // ========================================
+  useEffect(() => {
+    const loadScanHistory = async () => {
+      try {
+        setLoadingScanHistory(true);
+        console.log('📥 Loading scan history from API...');
+        
+        const response = await scanAPI.getScanHistory(5); // Get last 5 scans
+        
+        if (response && response.success && response.data) {
+          // Transform API data to match UI format
+          const formattedScans = response.data.map(scan => {
+            const scanDate = new Date(scan.date);
+            const ingredientNames = scan.ingredients.map(ing => ing.name).join(', ');
+            
+            return {
+              id: scan.id,
+              name: ingredientNames || 'No ingredients',
+              date: scanDate.toISOString().split('T')[0] // Format as YYYY-MM-DD
+            };
+          });
+          
+          setDishCoveryScanHistory(formattedScans);
+          console.log('✅ Scan history loaded:', formattedScans.length, 'scans');
+        }
+      } catch (error) {
+        console.error('❌ Error loading scan history:', error);
+        // Keep empty array on error
+        setDishCoveryScanHistory([]);
+      } finally {
+        setLoadingScanHistory(false);
+      }
+    };
+    
+    loadScanHistory();
   }, []);
 
   // ========================================
@@ -730,8 +773,39 @@ export default function UserProfilePage() {
     }
   };
 
-  const dishCoveryRemoveScanItem = (id) => {
-    console.log('Remove scan item:', id);
+  const dishCoveryRemoveScanItem = async (id) => {
+    try {
+      console.log('🗑️  Removing scan item:', id);
+      
+      // Optimistically remove from UI
+      setDishCoveryScanHistory((prev) => prev.filter((item) => item.id !== id));
+      
+      // Call API to delete
+      await scanAPI.deleteScanHistory(id);
+      
+      console.log('✅ Scan removed successfully');
+    } catch (error) {
+      console.error('❌ Error removing scan:', error);
+      // Reload scan history on error
+      try {
+        const response = await scanAPI.getScanHistory(5);
+        if (response && response.success && response.data) {
+          const formattedScans = response.data.map(scan => {
+            const scanDate = new Date(scan.date);
+            const ingredientNames = scan.ingredients.map(ing => ing.name).join(', ');
+            return {
+              id: scan.id,
+              name: ingredientNames || 'No ingredients',
+              date: scanDate.toISOString().split('T')[0]
+            };
+          });
+          setDishCoveryScanHistory(formattedScans);
+        }
+      } catch (reloadError) {
+        console.error('❌ Error reloading scan history:', reloadError);
+      }
+      alert('Failed to remove scan. Please try again.');
+    }
   };
 
   return (
@@ -757,32 +831,43 @@ export default function UserProfilePage() {
                   </svg>
                   Last Opened Recipe
                 </h2>
-                <div className="last-recipe-card">
-                  {dishCoveryLastOpenedRecipe.image ? (
-                    <img
-                      src={dishCoveryLastOpenedRecipe.image}
-                      alt={dishCoveryLastOpenedRecipe.name}
-                      className="last-recipe-image"
-                      onError={(e) => { 
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div style={{ display: dishCoveryLastOpenedRecipe.image ? 'none' : 'flex' }}>
-                    <RecipePlaceholder emoji="🥗" size="medium" />
-                  </div>
-                  <div className="last-recipe-info">
-                    <h3 className="last-recipe-name">{dishCoveryLastOpenedRecipe.name}</h3>
-                    <div className="last-recipe-meta">
-                      <span>{dishCoveryLastOpenedRecipe.time}</span>
-                      <span>•</span>
-                      <span>{dishCoveryLastOpenedRecipe.difficulty}</span>
+                {dishCoveryLastOpenedRecipe ? (
+                  <div className="last-recipe-card">
+                    {dishCoveryLastOpenedRecipe.image ? (
+                      <img
+                        src={dishCoveryLastOpenedRecipe.image}
+                        alt={dishCoveryLastOpenedRecipe.name}
+                        className="last-recipe-image"
+                        onError={(e) => { 
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div style={{ display: dishCoveryLastOpenedRecipe.image ? 'none' : 'flex' }}>
+                      <RecipePlaceholder emoji="🥗" size="medium" />
                     </div>
-                    <p className="last-recipe-date">Last opened: {dishCoveryLastOpenedRecipe.lastOpened}</p>
+                    <div className="last-recipe-info">
+                      <h3 className="last-recipe-name">{dishCoveryLastOpenedRecipe.name}</h3>
+                      <div className="last-recipe-meta">
+                        <span>{dishCoveryLastOpenedRecipe.time}</span>
+                        <span>•</span>
+                        <span>{dishCoveryLastOpenedRecipe.difficulty}</span>
+                      </div>
+                      <p className="last-recipe-date">Last opened: {dishCoveryLastOpenedRecipe.lastOpened}</p>
+                    </div>
+                    <button 
+                      className="continue-recipe-btn"
+                      onClick={() => window.location.href = '/user/recipe'}
+                    >
+                      Continue Recipe
+                    </button>
                   </div>
-                  <button className="continue-recipe-btn">Continue Recipe</button>
-                </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '14px' }}>
+                    No recently opened recipes. Start exploring!
+                  </div>
+                )}
               </section>
 
               <section className="activity-section">
@@ -848,22 +933,32 @@ export default function UserProfilePage() {
                   Recent Scans
                 </h2>
                 <div className="scan-history-list">
-                  {dishCoveryScanHistory.map((item) => (
-                    <div key={item.id} className="scan-history-item-minimal">
-                      <div className="scan-item-details">
-                        <span className="scan-item-name">{item.name}</span>
-                        <span className="scan-item-date">{item.date}</span>
-                      </div>
-                      <button
-                        className="remove-scan-btn-minimal"
-                        onClick={() => dishCoveryRemoveScanItem(item.id)}
-                      >
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                        </svg>
-                      </button>
+                  {loadingScanHistory ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '14px' }}>
+                      Loading scan history...
                     </div>
-                  ))}
+                  ) : dishCoveryScanHistory.length > 0 ? (
+                    dishCoveryScanHistory.map((item) => (
+                      <div key={item.id} className="scan-history-item-minimal">
+                        <div className="scan-item-details">
+                          <span className="scan-item-name">{item.name}</span>
+                          <span className="scan-item-date">{item.date}</span>
+                        </div>
+                        <button
+                          className="remove-scan-btn-minimal"
+                          onClick={() => dishCoveryRemoveScanItem(item.id)}
+                        >
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#666', fontSize: '14px' }}>
+                      No scans yet. Start scanning ingredients!
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -1042,6 +1137,11 @@ export default function UserProfilePage() {
                               value={dishCoveryTempFirstName}
                               onChange={(e) => setDishCoveryTempFirstName(e.target.value)}
                               className="form-input-fixed"
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  dishCoveryHandleSaveProfile();
+                                }
+                              }}
                             />
                           </div>
                           <div className="form-group-fixed">
@@ -1051,6 +1151,11 @@ export default function UserProfilePage() {
                               value={dishCoveryTempLastName}
                               onChange={(e) => setDishCoveryTempLastName(e.target.value)}
                               className="form-input-fixed"
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  dishCoveryHandleSaveProfile();
+                                }
+                              }}
                             />
                           </div>
                           <div className="form-group-fixed">
@@ -1060,6 +1165,11 @@ export default function UserProfilePage() {
                               value={dishCoveryTempEmail}
                               onChange={(e) => setDishCoveryTempEmail(e.target.value)}
                               className="form-input-fixed"
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  dishCoveryHandleSaveProfile();
+                                }
+                              }}
                             />
                           </div>
                           <div className="form-actions-fixed">
@@ -1245,6 +1355,11 @@ export default function UserProfilePage() {
                   placeholder="Current Password"
                   value={dishCoveryCurrentPassword}
                   onChange={(e) => setDishCoveryCurrentPassword(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      dishCoveryHandleChangePassword();
+                    }
+                  }}
                 />
               )}
               <input
@@ -1253,6 +1368,11 @@ export default function UserProfilePage() {
                 placeholder={dishCoveryUser.isGoogleUser ? "Password" : "New Password"}
                 value={dishCoveryNewPassword}
                 onChange={(e) => setDishCoveryNewPassword(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    dishCoveryHandleChangePassword();
+                  }
+                }}
               />
               <input
                 type="password"
@@ -1260,6 +1380,11 @@ export default function UserProfilePage() {
                 placeholder={dishCoveryUser.isGoogleUser ? "Confirm Password" : "Confirm New Password"}
                 value={dishCoveryConfirmPassword}
                 onChange={(e) => setDishCoveryConfirmPassword(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    dishCoveryHandleChangePassword();
+                  }
+                }}
               />
               <button className="modal-signin-btn" onClick={dishCoveryHandleChangePassword}>
                 {dishCoveryUser.isGoogleUser ? 'Set Password' : 'Change Password'}
@@ -1289,7 +1414,7 @@ export default function UserProfilePage() {
                 ×
               </button>
               <h2 className="modal-title">Send Feedback</h2>
-              <p className="modal-subtitle">We'd love to hear your thoughts and suggestions</p>
+              <p className="modal-subtitle">We'd love to hear your thoughts and suggestions (Ctrl+Enter to send)</p>
               <textarea
                 className="modal-textarea"
                 placeholder="Share your feedback..."
@@ -1297,6 +1422,12 @@ export default function UserProfilePage() {
                 onChange={(e) => setDishCoveryFeedbackText(e.target.value)}
                 rows="6"
                 disabled={submittingFeedback}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && e.ctrlKey && !submittingFeedback) {
+                    e.preventDefault();
+                    dishCoveryHandleSendFeedback();
+                  }
+                }}
               ></textarea>
               <button 
                 className="modal-signin-btn" 
