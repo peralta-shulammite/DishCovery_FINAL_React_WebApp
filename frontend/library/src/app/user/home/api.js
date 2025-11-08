@@ -300,11 +300,29 @@ const api = {
         }
       });
       
-      // Handle 404 gracefully - might be backend issue, don't clear token
+      // Handle 404 - check if it's "endpoint not found" (HTML) or "user not found" (JSON)
       if (response.status === 404) {
-        console.warn('⚠️ Verify-token endpoint not found (404) - backend might be updating. Keeping session.');
-        // Don't clear token on 404 - might be temporary backend issue
-        throw new Error('Backend endpoint not found');
+        const contentType = response.headers.get('content-type');
+        
+        // If it's JSON, it's "user not found" from backend
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const errorData = await response.json();
+            if (errorData.message === 'User not found') {
+              console.warn('⚠️ User not found in database (might be after signup) - keeping session');
+              // Don't clear token - user might be created but not yet synced
+              throw new Error('User not found in database');
+            }
+          } catch (parseError) {
+            // If JSON parse fails, treat as endpoint not found
+            console.warn('⚠️ Verify-token endpoint not found (404) - backend might be updating. Keeping session.');
+            throw new Error('Backend endpoint not found');
+          }
+        } else {
+          // HTML response = endpoint not found
+          console.warn('⚠️ Verify-token endpoint not found (404 HTML) - backend might be updating. Keeping session.');
+          throw new Error('Backend endpoint not found');
+        }
       }
       
       if (!response.ok) {
@@ -326,12 +344,13 @@ const api = {
         throw new Error('Invalid token response');
       }
     } catch (error) {
-      // Only clear token on actual auth failures, not network/404 errors
+      // Only clear token on actual auth failures, not network/404/user not found errors
       if (error.message === 'Token verification failed' || error.message === 'Invalid token response') {
         localStorage.removeItem('token');
       }
       // Only log unexpected errors (network errors, etc.)
-      if (error.message !== 'Token verification failed' && error.message !== 'No token found' && error.message !== 'Backend endpoint not found') {
+      if (error.message !== 'Token verification failed' && error.message !== 'No token found' && 
+          error.message !== 'Backend endpoint not found' && error.message !== 'User not found in database') {
         console.error('❌ Token verification error:', error);
       }
       throw error;

@@ -143,9 +143,10 @@ export default function DishCoveryLanding() {
             sessionStorage.clear();
             setDishCoveryIsLoggedIn(false);
             setDishCoveryUser(null);
-          } else if (error.message === 'Backend endpoint not found') {
-            // Backend endpoint not found (404) - DON'T logout user, might be temporary
-            console.warn('⚠️ Backend endpoint not found (404) - keeping session:', error.message);
+          } else if (error.message === 'Backend endpoint not found' || error.message === 'User not found in database') {
+            // Backend endpoint not found (404) or user not found - DON'T logout user
+            // This can happen after signup when user isn't synced yet, or backend is updating
+            console.warn('⚠️ Backend issue (keeping session):', error.message);
             // Keep user logged in, just don't fetch profile
             setDishCoveryIsLoggedIn(true);
           } else {
