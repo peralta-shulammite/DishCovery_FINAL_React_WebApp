@@ -65,7 +65,7 @@ export default function RootLayout({ children }) {
         {children}
         <script dangerouslySetInnerHTML={{
           __html: `
-            // 🆕 ROBUST FIX: Smart session management that handles multiple users gracefully
+            // 🆕 BULLETPROOF FIX: Ultra-conservative session management - NEVER auto-logout unless token is expired
             (function() {
               try {
                 const token = localStorage.getItem('token');
@@ -75,7 +75,10 @@ export default function RootLayout({ children }) {
                 // Helper function to decode JWT token (basic decode, no verification)
                 function decodeJWT(token) {
                   try {
-                    const base64Url = token.split('.')[1];
+                    if (!token || typeof token !== 'string') return null;
+                    const parts = token.split('.');
+                    if (parts.length !== 3) return null;
+                    const base64Url = parts[1];
                     if (!base64Url) return null;
                     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
                     const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
@@ -87,91 +90,65 @@ export default function RootLayout({ children }) {
                   }
                 }
                 
-                // Only clear data if there's a REAL security issue, not just different sessions
+                // ONLY clear data if token is expired - that's the ONLY reason to clear
                 if (token) {
                   // Decode token to get the actual user ID from the token
                   const tokenPayload = decodeJWT(token);
                   const tokenUserId = tokenPayload ? (tokenPayload.userId || tokenPayload.id || tokenPayload.sub) : null;
-                  const tokenExp = tokenPayload ? (tokenPayload.exp * 1000) : null; // Convert to milliseconds
+                  const tokenExp = tokenPayload && tokenPayload.exp ? (tokenPayload.exp * 1000) : null; // Convert to milliseconds
                   
-                  // Check if token is expired
+                  // ONLY clear if token is expired - this is the ONLY security check
                   if (tokenExp && Date.now() > tokenExp) {
-                    console.log('🧹 Token expired - clearing stale session');
-                    localStorage.clear();
-                    sessionStorage.clear();
+                    console.log('🧹 Token expired - clearing expired session');
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('currentUserId');
+                    // Don't clear everything - just user-related data
                     return; // Exit early, don't reload
                   }
                   
-                  // Only clear if token user ID doesn't match stored user ID (real security issue)
-                  // This means the token is for a different user than what's stored
-                  if (tokenUserId && storedUserId && tokenUserId.toString() !== storedUserId.toString()) {
-                    console.log('🧹 Security: Token user ID (' + tokenUserId + ') does not match stored user ID (' + storedUserId + ') - clearing data');
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    return; // Exit early, don't reload
-                  }
-                  
-                  // If token has user ID but no stored user ID, store it (normal case)
-                  if (tokenUserId && !storedUserId) {
+                  // If token is valid, always sync user IDs to match token (never clear)
+                  if (tokenUserId) {
+                    // Always update user IDs to match token - this is safe and correct
                     localStorage.setItem('userId', tokenUserId.toString());
                     localStorage.setItem('currentUserId', tokenUserId.toString());
-                    console.log('✅ Stored user ID from token:', tokenUserId);
-                  }
-                  
-                  // If currentUserId and storedUserId differ but token matches, just sync them
-                  // This is normal when different people use the same credentials - each session is valid
-                  if (currentUserId && storedUserId && currentUserId !== storedUserId) {
-                    // Check if either matches the token
-                    if (tokenUserId) {
-                      if (currentUserId.toString() === tokenUserId.toString()) {
-                        // currentUserId matches token, update storedUserId
-                        localStorage.setItem('userId', currentUserId);
-                        console.log('✅ Synced storedUserId to match currentUserId (from token)');
-                      } else if (storedUserId.toString() === tokenUserId.toString()) {
-                        // storedUserId matches token, update currentUserId
-                        localStorage.setItem('currentUserId', storedUserId);
-                        console.log('✅ Synced currentUserId to match storedUserId (from token)');
-                      } else {
-                        // Neither matches token - this is a real issue, but don't clear everything
-                        // Just update to match token
-                        localStorage.setItem('userId', tokenUserId.toString());
-                        localStorage.setItem('currentUserId', tokenUserId.toString());
-                        console.log('✅ Updated user IDs to match token');
-                      }
-                    } else {
-                      // Can't decode token, but both IDs exist - just sync them (prefer currentUserId)
-                      localStorage.setItem('userId', currentUserId);
-                      console.log('✅ Synced user IDs (token decode failed, using currentUserId)');
+                    // Silently sync - don't log unless there's a change
+                    if (storedUserId && storedUserId.toString() !== tokenUserId.toString()) {
+                      console.log('✅ Synced user IDs to match token (user: ' + tokenUserId + ')');
                     }
-                    // Don't clear or reload - just sync
-                    return;
+                  } else if (!tokenUserId && (currentUserId || storedUserId)) {
+                    // Can't decode token but user IDs exist - keep them, don't clear
+                    // Token might be valid but in different format - trust the stored IDs
+                    if (currentUserId && !storedUserId) {
+                      localStorage.setItem('userId', currentUserId);
+                    } else if (storedUserId && !currentUserId) {
+                      localStorage.setItem('currentUserId', storedUserId);
+                    }
+                    // Don't clear anything - be conservative
                   }
                   
-                  // If token exists but no user data, try to extract from token
+                  // If no user IDs but token exists and can decode, store from token
                   if (!currentUserId && !storedUserId && tokenUserId) {
                     localStorage.setItem('userId', tokenUserId.toString());
                     localStorage.setItem('currentUserId', tokenUserId.toString());
-                    console.log('✅ Restored user ID from token');
+                    console.log('✅ Restored user ID from token: ' + tokenUserId);
                   }
                   
-                  // If token exists but no user data and can't decode token, clear token (stale/invalid)
-                  if (!currentUserId && !storedUserId && !tokenUserId) {
-                    console.log('🧹 Token exists but invalid/can\'t decode - clearing stale session');
-                    localStorage.removeItem('token');
-                    // Don't clear everything, just the token
-                  }
+                  // If token exists but can't decode and no user data, just keep token
+                  // Don't clear - token might be valid in different format
+                  // The backend will validate it anyway
                 } else {
-                  // No token - only clear user data if it exists (stale data)
+                  // No token - only clear user IDs if they exist (but keep other data)
                   if (currentUserId || storedUserId) {
-                    console.log('🧹 No token but user data exists - clearing stale data');
                     localStorage.removeItem('userId');
                     localStorage.removeItem('currentUserId');
-                    // Don't clear everything, just user-related data
+                    // Don't clear everything - just user-related data
                   }
                 }
               } catch (e) {
                 console.warn('Error checking user data:', e);
-                // Don't clear on error - be conservative
+                // NEVER clear on error - be ultra-conservative
+                // Errors might be temporary - don't log out user
               }
             })();
             
