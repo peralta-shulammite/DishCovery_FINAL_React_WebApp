@@ -322,6 +322,7 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
     console.log(`✅ User found: ${userCheckRows[0].email}`);
 
     // Delete related data first (foreign key constraints) - wrapped in try-catch to handle missing tables
+    // NOTE: feedback_replies references feedback_id, not user_id directly, so we delete feedback_replies BEFORE feedback
     const tablesToClean = [
       'pending_requests',  // ⚠️ IMPORTANT: Must be first due to foreign key constraints
       'notifications',  // 🆕 Added: Delete user notifications (has CASCADE but manual delete is safer)
@@ -330,11 +331,42 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       'user_excluded_ingredients', 
       'user_preferred_diets',
       'user_medical_conditions',
-      'feedback',
       'user_saved_recipes',
-      'user_pantry_selections'
+      'user_pantry_selections',
+      'feedback'  // Delete feedback after feedback_replies (which references feedback_id)
     ];
-
+    
+    // Track any critical errors during cleanup
+    let criticalError = null;
+    
+    // Delete feedback_replies FIRST (references feedback_id, not user_id directly)
+    // We need to delete feedback_replies for all feedback entries of this user BEFORE deleting feedback
+    try {
+      const [feedbackIds] = await connection.query(
+        'SELECT feedback_id FROM feedback WHERE user_id = ?',
+        [id]
+      );
+      if (feedbackIds && feedbackIds.length > 0) {
+        const feedbackIdList = feedbackIds.map(f => f.feedback_id);
+        const placeholders = feedbackIdList.map(() => '?').join(',');
+        const [deleteRepliesResult] = await connection.query(
+          `DELETE FROM feedback_replies WHERE feedback_id IN (${placeholders})`,
+          feedbackIdList
+        );
+        const affectedRows = deleteRepliesResult?.affectedRows || (Array.isArray(deleteRepliesResult) ? deleteRepliesResult.length : 0);
+        console.log(`  ✓ Cleaned feedback_replies: ${affectedRows} rows deleted`);
+      }
+    } catch (err) {
+      if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+        console.log(`  ⚠️ Table feedback_replies doesn't exist, skipping`);
+      } else if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === '23000' || err.sqlState === '23000') {
+        console.error(`  ❌ Foreign key constraint error in feedback_replies:`, err.message);
+        criticalError = `Cannot delete user: feedback_replies has foreign key constraints. ${err.message}`;
+      } else {
+        console.log(`  ⚠️ Skipped feedback_replies: ${err.message}`);
+      }
+    }
+    
     for (const table of tablesToClean) {
       try {
         const [deleteResult] = await connection.query(`DELETE FROM ${table} WHERE user_id = ?`, [id]);
@@ -342,23 +374,57 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
         const affectedRows = deleteResult?.affectedRows || (Array.isArray(deleteResult) ? deleteResult.length : 0);
         console.log(`  ✓ Cleaned ${table}: ${affectedRows} rows deleted`);
       } catch (err) {
+        // Check for foreign key constraint errors (these are critical)
+        if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === '23000' || err.sqlState === '23000') {
+          console.error(`  ❌ Foreign key constraint error in ${table}:`, err.message);
+          criticalError = `Cannot delete user: ${table} has foreign key constraints. ${err.message}`;
+          // Don't continue - this is a critical error
+          break;
+        }
         // Table might not exist or no data - continue
-        console.log(`  ⚠️ Skipped ${table}: ${err.message}`);
-        // Don't throw - continue with other tables
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log(`  ⚠️ Table ${table} doesn't exist, skipping`);
+        } else {
+          console.log(`  ⚠️ Skipped ${table}: ${err.message}`);
+        }
+        // Don't throw - continue with other tables for non-critical errors
       }
     }
     
-    // Delete the user
-    const [deleteUserResult] = await connection.query('DELETE FROM users WHERE user_id = ?', [id]);
-    const userDeleted = deleteUserResult?.affectedRows || (Array.isArray(deleteUserResult) ? deleteUserResult.length : 0);
-    if (userDeleted === 0) {
+    // If we encountered a critical error, rollback and return
+    if (criticalError) {
       await connection.rollback();
-      return res.status(404).json({
+      return res.status(400).json({
         success: false,
-        message: 'User not found or already deleted'
+        message: criticalError
       });
     }
-    console.log(`✅ User deleted successfully`);
+    
+    // Delete the user
+    try {
+      const [deleteUserResult] = await connection.query('DELETE FROM users WHERE user_id = ?', [id]);
+      const userDeleted = deleteUserResult?.affectedRows || (Array.isArray(deleteUserResult) ? deleteUserResult.length : 0);
+      if (userDeleted === 0) {
+        await connection.rollback();
+        return res.status(404).json({
+          success: false,
+          message: 'User not found or already deleted'
+        });
+      }
+      console.log(`✅ User deleted successfully`);
+    } catch (deleteErr) {
+      // Check for foreign key constraint errors when deleting user
+      if (deleteErr.code === 'ER_ROW_IS_REFERENCED_2' || deleteErr.code === '23000' || deleteErr.sqlState === '23000') {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Cannot delete user: User is still referenced by other records. ${deleteErr.message}`,
+          error: process.env.NODE_ENV === 'development' ? deleteErr.message : 'Foreign key constraint violation'
+        });
+      }
+      // Re-throw other errors to be caught by outer catch
+      throw deleteErr;
+    }
 
     // Commit transaction
     await connection.commit();
@@ -381,10 +447,23 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       sqlMessage: error.sqlMessage,
       stack: error.stack
     });
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to delete user';
+    if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === '23000' || error.sqlState === '23000') {
+      errorMessage = 'Cannot delete user: User is still referenced by other records. Please check related data.';
+    } else if (error.code === 'ER_NO_SUCH_TABLE' || error.code === '42S02') {
+      errorMessage = 'Database table missing. Please contact administrator.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to delete user',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      errorCode: error.code,
+      sqlState: error.sqlState
     });
   } finally {
     // Release connection
