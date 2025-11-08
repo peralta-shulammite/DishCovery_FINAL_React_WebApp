@@ -4,8 +4,17 @@ import Link from 'next/link';
 import './userlayout.css';
 import { notificationsAPI } from '../../user/utils/notificationsAPI';
 
-// API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+// API Base URL - Fix: Use correct backend URL for Vercel deployment
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname.includes('vercel.app')) {
+      return 'https://dishcovery-backend-wvhn.onrender.com/api';
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export default function UserLayout({ children, isLoggedIn, user, onSignInClick, onLogout }) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
