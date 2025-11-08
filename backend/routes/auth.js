@@ -265,7 +265,10 @@ const sendPasswordResetEmail = async (email, code, firstName = '') => {
 
 // REGISTER
 router.post('/register', async (req, res) => {
-  const { firstName, lastName, email, password } = req.body;
+  let { firstName, lastName, email, password } = req.body;
+
+  // Normalize email: trim whitespace and convert to lowercase for consistency
+  email = email ? email.trim().toLowerCase() : '';
 
   if (!firstName || !lastName || !email || !password)
     return res.status(400).json({ message: 'All fields are required' });
@@ -283,7 +286,7 @@ router.post('/register', async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    const [existingRows] = await connection.query('SELECT * FROM users WHERE email = ?', [email]);
+    const [existingRows] = await connection.query('SELECT * FROM users WHERE LOWER(TRIM(email)) = ?', [email]);
     
     if (existingRows.length > 0) {
       if (existingRows[0].email_verified) {
@@ -334,17 +337,29 @@ router.post('/register', async (req, res) => {
 
 // LOGIN - FIXED TO HANDLE GOOGLE OAUTH USERS
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  let { email, password } = req.body;
+
+  // Normalize email: trim whitespace and convert to lowercase for consistency
+  email = email ? email.trim().toLowerCase() : '';
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' });
+  }
 
   try {
     // Handle mysql2 pool.query() which returns [rows, fields] format
-    const usersResult = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    const usersResult = await pool.query('SELECT * FROM users WHERE LOWER(TRIM(email)) = ?', [email]);
     const users = Array.isArray(usersResult) && Array.isArray(usersResult[0]) 
       ? usersResult[0] 
       : (Array.isArray(usersResult) ? usersResult : []);
     
-    if (users.length === 0)
-      return res.status(401).json({ message: 'Invalid email or password' });
+    if (users.length === 0) {
+      console.log(`❌ Login attempt failed: User not found for email: ${email}`);
+      return res.status(401).json({ 
+        message: 'Invalid email or password',
+        hint: 'If you haven\'t registered yet, please sign up first. If you registered with Google, use "Continue with Google" to log in.'
+      });
+    }
 
     const user = users[0];
 
