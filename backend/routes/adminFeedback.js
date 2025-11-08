@@ -51,9 +51,6 @@ router.get('/stats', async (req, res) => {
     const recentResult = await db.query(
       'SELECT COUNT(*) as recent FROM feedback WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
     );
-    const priorityResult = await db.query(`
-      SELECT priority, COUNT(*) as count FROM feedback GROUP BY priority
-    `);
     const statusResult = await db.query(`
       SELECT status, COUNT(*) as count FROM feedback GROUP BY status
     `);
@@ -64,11 +61,9 @@ router.get('/stats', async (req, res) => {
       unread: unreadResult[0].unread,
       unreplied: totalResult[0].total - repliedResult[0].replied,
       recent: recentResult[0].recent,
-      priority: { high: 0, medium: 0, low: 0 },
       status: { pending: 0, replied: 0, resolved: 0, archived: 0 }
     };
 
-    priorityResult.forEach(row => (stats.priority[row.priority] = row.count));
     statusResult.forEach(row => (stats.status[row.status] = row.count));
 
     console.log('✅ Statistics fetched successfully:', stats);
@@ -91,7 +86,6 @@ router.get('/', async (req, res) => {
   try {
     const {
       sortBy = 'newest',
-      priority,
       status,
       fromDate,
       toDate,
@@ -100,14 +94,13 @@ router.get('/', async (req, res) => {
       offset = 0
     } = req.query;
 
-    console.log('📋 Fetching feedback with filters:', { sortBy, priority, status, search });
+    console.log('📋 Fetching feedback with filters:', { sortBy, status, search });
 
     let query = `
       SELECT 
         f.feedback_id,
         f.user_id,
         f.message,
-        f.priority,
         f.status,
         f.unread_by_admin,
         f.unread_by_user,
@@ -125,11 +118,6 @@ router.get('/', async (req, res) => {
     `;
 
     const params = [];
-
-    if (priority && priority !== 'all') {
-      query += ' AND f.priority = ?';
-      params.push(priority);
-    }
 
     if (status) {
       if (status === 'unread') {
@@ -172,9 +160,6 @@ router.get('/', async (req, res) => {
     switch (sortBy) {
       case 'oldest':
         query += ' ORDER BY f.created_at ASC';
-        break;
-      case 'priority':
-        query += ' ORDER BY FIELD(f.priority, "high", "medium", "low"), f.created_at DESC';
         break;
       case 'status':
         query += ' ORDER BY f.status ASC, f.created_at DESC';
@@ -219,7 +204,6 @@ router.get('/', async (req, res) => {
             fullName: `${f.user_first_name} ${f.user_last_name}`
           },
           message: f.message,
-          priority: f.priority,
           status: f.status,
           isRead: f.unread_by_admin === 0,
           isReplied: f.reply_count > 0,
@@ -259,7 +243,6 @@ router.get('/:id', async (req, res) => {
         f.feedback_id,
         f.user_id,
         f.message,
-        f.priority,
         f.status,
         f.unread_by_admin,
         f.unread_by_user,
@@ -308,7 +291,6 @@ router.get('/:id', async (req, res) => {
           fullName: `${feedbackData.user_first_name} ${feedbackData.user_last_name}`
         },
         message: feedbackData.message,
-        priority: feedbackData.priority,
         status: feedbackData.status,
         isRead: feedbackData.unread_by_admin === 0,
         isReplied: replies.length > 0,
@@ -467,52 +449,6 @@ router.put('/:id/mark-unread', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to mark feedback as unread',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// ========================================
-// 🎯 UPDATE FEEDBACK PRIORITY
-// ========================================
-router.put('/:id/priority', async (req, res) => {
-  try {
-    const feedbackId = req.params.id;
-    const { priority } = req.body;
-
-    console.log('🎯 Updating feedback priority:', { feedbackId, priority });
-
-    const validPriorities = ['low', 'medium', 'high'];
-    if (!priority || !validPriorities.includes(priority)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid priority. Must be: low, medium, or high'
-      });
-    }
-
-    const result = await db.query(
-      'UPDATE feedback SET priority = ? WHERE feedback_id = ?',
-      [priority, feedbackId]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Feedback not found'
-      });
-    }
-
-    console.log('✅ Priority updated successfully');
-
-    res.json({
-      success: true,
-      message: 'Priority updated successfully'
-    });
-  } catch (error) {
-    console.error('❌ Error updating priority:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update priority',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

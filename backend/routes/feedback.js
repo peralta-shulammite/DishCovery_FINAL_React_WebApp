@@ -10,9 +10,9 @@ const router = express.Router();
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { feedbackMessage, priority } = req.body;
+    const { feedbackMessage } = req.body;
 
-    console.log('📝 New feedback submission:', { userId, priority });
+    console.log('📝 New feedback submission:', { userId });
 
     if (!feedbackMessage || feedbackMessage.trim().length === 0) {
       return res.status(400).json({ success: false, message: 'Feedback message is required' });
@@ -26,13 +26,10 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Feedback message must not exceed 2000 characters' });
     }
 
-    const validPriorities = ['low', 'medium', 'high'];
-    const feedbackPriority = priority && validPriorities.includes(priority) ? priority : 'medium';
-
     const result = await db.query(
-      `INSERT INTO feedback (user_id, message, priority, status, unread_by_admin, unread_by_user)
-       VALUES (?, ?, ?, 'pending', 1, 0)`,
-      [userId, feedbackMessage.trim(), feedbackPriority]
+      `INSERT INTO feedback (user_id, message, status, unread_by_admin, unread_by_user)
+       VALUES (?, ?, 'pending', 1, 0)`,
+      [userId, feedbackMessage.trim()]
     );
 
     console.log('✅ Feedback submitted successfully:', result.insertId);
@@ -73,7 +70,6 @@ router.get('/my-feedback', authenticateToken, async (req, res) => {
       `SELECT 
         f.feedback_id,
         f.message,
-        f.priority,
         f.status,
         f.unread_by_user,
         f.created_at,
@@ -117,7 +113,6 @@ router.get('/my-feedback', authenticateToken, async (req, res) => {
       return {
         feedbackId: f.feedback_id,
         message: f.message,
-        priority: f.priority,
         status: f.status,
         isReplied,
         hasUnreadReply: f.unread_by_user === 1 && isReplied,

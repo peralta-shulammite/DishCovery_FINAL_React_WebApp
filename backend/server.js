@@ -266,7 +266,6 @@ app.listen(PORT, () => {
   console.log('   - PUT  /api/admin/feedback/:id/mark-read (🔒 Mark as Read)');
   console.log('   - PUT  /api/admin/feedback/:id/mark-unread (🔒 Mark as Unread)');
   console.log('   - DELETE /api/admin/feedback/:id (🔒 Delete Feedback)');
-  console.log('   - PUT  /api/admin/feedback/:id/priority (🔒 Update Priority)');
 });
 
 export default app;

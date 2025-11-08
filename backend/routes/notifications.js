@@ -240,8 +240,8 @@ router.post('/reply', authenticateToken, async (req, res) => {
     // Store reply (you can create a separate replies table or use feedback system)
     // For now, we'll use the feedback system
     await safeQuery(`
-      INSERT INTO feedback (user_id, feedback_message, feedback_type, priority, is_read)
-      VALUES (?, ?, 'notification_reply', 'medium', 0)
+      INSERT INTO feedback (user_id, message, status, unread_by_admin, unread_by_user)
+      VALUES (?, ?, 'pending', 1, 0)
     `, [userId, replyText]);
 
     // Mark original notification as read
