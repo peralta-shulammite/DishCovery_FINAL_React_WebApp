@@ -289,11 +289,16 @@ router.post('/save-scanned-ingredients', authenticateToken, async (req, res) => 
       if (ingredient_id && ingredient_id !== null) {
         try {
           // Check if this ingredient already exists for this user
-          const existing = await pool.query(`
+          const existingResult = await pool.query(`
             SELECT scan_id 
             FROM user_scanned_ingredients 
             WHERE user_id = ? AND ingredient_id = ?
           `, [userId, ingredient_id]);
+          
+          // Handle mysql2 result format [rows, fields]
+          const existing = Array.isArray(existingResult) && Array.isArray(existingResult[0]) 
+            ? existingResult[0] 
+            : (Array.isArray(existingResult) ? existingResult : []);
 
           if (existing.length > 0) {
             // Update existing entry

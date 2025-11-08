@@ -6,6 +6,10 @@ const getApiBaseUrl = () => {
     if (window.location.hostname.includes('vercel.app')) {
       return 'https://dishcovery-backend-wvhn.onrender.com/api';
     }
+    // For localhost testing, always use localhost
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    }
   }
   // Fallback to environment variable or localhost
   return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';

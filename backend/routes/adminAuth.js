@@ -63,68 +63,24 @@ router.post('/login', async (req, res) => {
     `;
     
     // Debug: Log the query execution
-    console.log('🔍 Executing admin query for email:', email);
-    const result = await pool.query(adminQuery, [email]);
-    console.log('📊 Query result structure:', { 
-      resultType: typeof result, 
-      isArray: Array.isArray(result),
-      resultKeys: result ? Object.keys(result) : 'null',
-      resultLength: result?.length
-    });
-    console.log('🔍 Full result object:', JSON.stringify(result, null, 2));
-
-    // Handle different MySQL driver result formats
+    console.log('🔍 [ADMIN AUTH] Executing admin query for email:', email);
+    
+    // Handle mysql2 pool.query() which returns [rows, fields] format
     let rows;
-    
-    console.log('🔍 Attempting to extract rows...');
-    
-    if (Array.isArray(result) && result.length >= 1) {
-      const firstElement = result[0];
-      console.log('🔍 First element type:', typeof firstElement, 'isArray:', Array.isArray(firstElement));
-      console.log('🔍 First element keys:', firstElement ? Object.keys(firstElement) : 'none');
+    try {
+      const result = await pool.query(adminQuery, [email]);
       
-      // Check if it's the format: [{ '0': actualRowsArray }]
-      if (firstElement && typeof firstElement === 'object' && !Array.isArray(firstElement) && firstElement.hasOwnProperty('0')) {
-        rows = firstElement['0'];
-        console.log('🔍 Using result[0]["0"] path, extracted rows:', rows);
-      } 
-      // Check if it's the format: [actualRowsArray, fields]
-      else if (Array.isArray(firstElement)) {
-        rows = firstElement;
-        console.log('🔍 Using result[0] path (direct array)');
-      }
-      // Check if first element has numeric keys (another variation)
-      else if (firstElement && typeof firstElement === 'object') {
-        const keys = Object.keys(firstElement);
-        if (keys.length > 0 && keys[0] === '0') {
-          rows = Object.values(firstElement);
-          console.log('🔍 Using Object.values() path');
-        } else {
-          rows = [firstElement]; // Single row result
-          console.log('🔍 Treating as single row result');
-        }
-      }
-      else {
-        rows = result[0];
-        console.log('🔍 Using fallback result[0] path');
-      }
-    } else if (result && result.rows) {
-      rows = result.rows;
-      console.log('🔍 Using result.rows path');
-    } else {
-      rows = result;
-      console.log('🔍 Using direct result path');
+      // mysql2 pool.query() returns [rows, fields] - extract rows
+      rows = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
+      
+      console.log(`✅ [ADMIN AUTH] Query executed, found ${rows.length} row(s)`);
+    } catch (queryError) {
+      console.error('❌ [ADMIN AUTH] Error executing admin query:', queryError);
+      throw queryError;
     }
 
-    console.log('🔍 Processed rows:', { 
-      rowsType: typeof rows, 
-      isArray: Array.isArray(rows),
-      rowsLength: rows?.length,
-      firstRow: rows?.[0] ? Object.keys(rows[0]) : 'no first row'
-    });
-
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
-      console.log('❌ No admin found for email:', email);
+      console.log('❌ [ADMIN AUTH] No admin found for email:', email);
       return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
     }
 
