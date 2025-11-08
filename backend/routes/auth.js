@@ -39,7 +39,8 @@ router.get('/verify-token', authenticateToken, async (req, res) => {
     console.log('🔍 Token payload:', req.user);
     
     // ✅ FETCH USER DATA FROM DATABASE (NOT FROM JWT!)
-    const users = await pool.query(`
+    // Handle mysql2 pool.query() which returns [rows, fields] format
+    const result = await pool.query(`
       SELECT 
         u.user_id, 
         u.email, 
@@ -56,6 +57,16 @@ router.get('/verify-token', authenticateToken, async (req, res) => {
       FROM users u
       WHERE u.user_id = ?
     `, [userId]);
+    
+    // Handle mysql2 pool.query() format: [rows, fields] or just rows
+    let users;
+    if (Array.isArray(result) && Array.isArray(result[0])) {
+      users = result[0]; // [rows, fields] format
+    } else if (Array.isArray(result)) {
+      users = result; // Just rows format
+    } else {
+      users = [result]; // Single result
+    }
     
     console.log('📊 Query result:', { 
       isArray: Array.isArray(users), 

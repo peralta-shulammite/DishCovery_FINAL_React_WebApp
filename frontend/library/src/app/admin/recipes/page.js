@@ -35,7 +35,7 @@ const RecipeManagement = () => {
     title: '',
     description: '',
     images: [],
-    mealType: 'Light Meal',
+    mealType: ['Light Meal'], // Changed to array for multi-select
     instructions: [''],
     ingredients: {
       main: [{ ingredient: '', alternative: '' }],
@@ -249,6 +249,7 @@ const RecipeManagement = () => {
           optional: convertIngredients(fullRecipe.ingredients.optional)
         },
         medicalConditions: fullRecipe.medicalConditions || [],
+        mealType: Array.isArray(fullRecipe.mealType) ? fullRecipe.mealType : (fullRecipe.mealType ? (typeof fullRecipe.mealType === 'string' && fullRecipe.mealType.includes(',') ? fullRecipe.mealType.split(',').map(t => t.trim()) : [fullRecipe.mealType]) : ['Light Meal']), // Convert to array
         verificationStatus: fullRecipe.verificationStatus && fullRecipe.verificationStatus !== 'AI-generated'
           ? fullRecipe.verificationStatus
           : 'Checked by: Nutritionist'
@@ -309,7 +310,7 @@ const RecipeManagement = () => {
       title: '',
       description: '',
       images: [],
-      mealType: 'Light Meal',
+      mealType: ['Light Meal'], // Changed to array for multi-select
       instructions: [''],
       ingredients: {
         main: [{ ingredient: '', alternative: '' }],
@@ -413,10 +414,12 @@ const RecipeManagement = () => {
       // Search in dietary tags
       (recipe?.dietaryTags && recipe.dietaryTags.some(tag => tag.toLowerCase().includes(searchLower))) ||
       (recipe?.dietaryLifestyleTags && recipe.dietaryLifestyleTags.some(tag => tag.toLowerCase().includes(searchLower))) ||
-      // Search in meal type
-      (recipe?.mealType || '').toLowerCase().includes(searchLower);
+      // Search in meal type (handle both array and string)
+      (Array.isArray(recipe?.mealType) ? recipe.mealType.join(', ') : (recipe?.mealType || '')).toLowerCase().includes(searchLower);
     
-    const matchesMealType = mealTypeFilter === 'All' || recipe?.mealType === mealTypeFilter;
+    // Handle meal type filter for both array and string formats
+    const recipeMealTypes = Array.isArray(recipe?.mealType) ? recipe.mealType : (recipe?.mealType ? [recipe.mealType] : []);
+    const matchesMealType = mealTypeFilter === 'All' || recipeMealTypes.includes(mealTypeFilter) || recipeMealTypes.some(type => type.toLowerCase().includes(mealTypeFilter.toLowerCase()));
     const matchesStatus = statusFilter === 'All' || 
                          (statusFilter === 'Verified' && (recipe?.verificationStatus || '').includes('Checked by'));
     const matchesHealth = healthFilter === 'All' || (recipe?.healthTags || []).includes(healthFilter);
@@ -1054,15 +1057,47 @@ const RecipeManagement = () => {
 
                 <div className="form-section">
                   <label className="form-label">Meal Type *</label>
-                  <select
-                    className="form-select"
-                    value={formData.mealType}
-                    onChange={(e) => setFormData({...formData, mealType: e.target.value})}
-                  >
-                    {mealTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
+                  <p className="section-subtitle" style={{ marginBottom: '10px', color: '#666', fontSize: '14px' }}>
+                    Select all meal types that apply (can select multiple)
+                  </p>
+                  <div className="tag-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', marginTop: '10px' }}>
+                    {mealTypes.map(type => {
+                      const isSelected = Array.isArray(formData.mealType) ? formData.mealType.includes(type) : formData.mealType === type;
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => {
+                            const currentMealTypes = Array.isArray(formData.mealType) ? formData.mealType : [formData.mealType];
+                            const newMealTypes = isSelected
+                              ? currentMealTypes.filter(t => t !== type)
+                              : [...currentMealTypes, type];
+                            setFormData({...formData, mealType: newMealTypes.length > 0 ? newMealTypes : ['Light Meal']});
+                          }}
+                          className={`tag-button ${isSelected ? 'selected' : ''}`}
+                          style={{
+                            padding: '10px 16px',
+                            border: `2px solid ${isSelected ? '#2E7D32' : '#e5e7eb'}`,
+                            borderRadius: '8px',
+                            background: isSelected ? '#2E7D32' : 'white',
+                            color: isSelected ? 'white' : '#333',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: isSelected ? '600' : '500',
+                            transition: 'all 0.2s',
+                            textAlign: 'center'
+                          }}
+                        >
+                          {type}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {Array.isArray(formData.mealType) && formData.mealType.length === 0 && (
+                    <p style={{ color: '#dc2626', fontSize: '12px', marginTop: '5px' }}>
+                      Please select at least one meal type
+                    </p>
+                  )}
                 </div>
 
                 <div className="form-section">
