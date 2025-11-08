@@ -473,15 +473,15 @@ const SettingsContent = () => {
             <div className="template-buttons">
               <button className="action-btn secondary" onClick={() => exportData('Users')}>
                 <DownloadIcon />
-                Export Users (.CSV)
+                Export Data
               </button>
               <button className="action-btn secondary" onClick={() => exportData('Recipes')}>
                 <DownloadIcon />
-                Export Recipes (.CSV)
+                Export Data
               </button>
               <button className="action-btn secondary" onClick={() => exportData('Ingredients')}>
                 <DownloadIcon />
-                Export Ingredients (.CSV)
+                Export Data
               </button>
             </div>
           </div>

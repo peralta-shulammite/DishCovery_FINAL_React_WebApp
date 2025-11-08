@@ -299,6 +299,65 @@ const FeedbackManagementContent = () => {
   const latestFeedback = feedbackList.length > 0 ? feedbackList[0] : null;
 
   // ========================================
+  // 📤 EXPORT DATA
+  // ========================================
+  const ExportIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+      <path d="M8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11 8 15.01z"/>
+    </svg>
+  );
+
+  // Helper function to escape CSV values
+  const escapeCSV = (value) => {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value);
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
+  const handleExportData = () => {
+    // Export feedback data as CSV
+    const headers = [
+      'Feedback ID',
+      'User',
+      'Subject',
+      'Message',
+      'Priority',
+      'Status',
+      'Created At',
+      'Replied At'
+    ];
+
+    const csvRows = [
+      headers.map(escapeCSV).join(','),
+      ...feedbackList.map(feedback => [
+        feedback.feedbackId || feedback.id,
+        feedback.user?.fullName || feedback.user?.email || 'N/A',
+        feedback.subject || 'N/A',
+        feedback.message || 'N/A',
+        feedback.priority || 'medium',
+        feedback.status || 'pending',
+        feedback.createdAt || 'N/A',
+        feedback.repliedAt || 'N/A'
+      ].map(escapeCSV).join(','))
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `feedback-export-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    alert(`Exported ${feedbackList.length} feedback item(s) successfully as CSV.`);
+  };
+
+  // ========================================
   // 🎯 ICONS
   // ========================================
   const SearchIcon = () => (
@@ -412,6 +471,10 @@ const FeedbackManagementContent = () => {
           </div>
           <button className="clear-filters-btn" onClick={clearFilters}>
             Clear All
+          </button>
+          <button className="export-btn" onClick={handleExportData} style={{ marginLeft: 'auto' }}>
+            <ExportIcon />
+            Export Data
           </button>
         </div>
         

@@ -323,12 +323,12 @@
   backdrop-filter: blur(10px);
   border-right: 1px solid rgba(0, 0, 0, 0.03);
   padding: 30px 20px;
-  position: sticky;
-  top: 70px; /* Adjusted to avoid overlap with header */
-  height: calc(100vh - 70px);
-  overflow-y: auto;
-  z-index: 5;
-  align-self: flex-start;
+  position: static !important; /* Explicitly set to static for normal document flow */
+  overflow: visible !important; /* No scrollbar, scrolls with page */
+  height: auto !important; /* Let it grow naturally with content */
+  max-height: none !important; /* Remove any max-height constraints */
+  flex-shrink: 0; /* Don't shrink in flex layout */
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
 }
 
 .about-navigation {
@@ -384,6 +384,16 @@
   display: flex;
   flex: 1;
   margin-top: 70px; /* Offset for fixed header */
+  align-items: flex-start; /* Ensure sidebar aligns to top */
+  gap: 0; /* Remove any gap that might affect sticky */
+  min-height: 0 !important; /* Allow flex children to shrink */
+  height: auto !important; /* Let it grow naturally with content */
+  overflow: visible !important; /* No overflow constraints */
+}
+
+.about-layout aside {
+  position: static !important; /* Explicitly set to static for normal document flow */
+  top: auto !important; /* Remove top positioning */
 }
 
 /* Content */
@@ -667,12 +677,13 @@
 @media (max-width: 1024px) {
   .about-sidebar {
     width: 100%;
-    height: auto;
     border-right: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.03);
     padding: 20px;
-    position: sticky;
-    top: 70px;
+    position: static !important; /* Explicitly set to static for normal document flow */
+    overflow: visible !important; /* No scrollbar, scrolls with page */
+    height: auto !important; /* Let it grow naturally */
+    max-height: none !important; /* Remove any max-height constraints */
   }
   
   .about-content {

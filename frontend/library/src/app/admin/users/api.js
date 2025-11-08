@@ -30,7 +30,8 @@ export const adminUsersAPI = {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -53,7 +54,8 @@ export const adminUsersAPI = {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -76,7 +78,8 @@ export const adminUsersAPI = {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -169,6 +172,128 @@ export const adminUsersAPI = {
       });
       
       // Re-throw with the original error message (don't override it)
+      throw error;
+    }
+  },
+
+  // Bulk actions
+  bulkSendMessage: async (userIds, message) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/bulk/message`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userIds, message })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error sending bulk message:', error);
+      throw error;
+    }
+  },
+
+  bulkSendReminder: async (userIds) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/bulk/reminder`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userIds })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error sending bulk reminder:', error);
+      throw error;
+    }
+  },
+
+  bulkDeactivateUsers: async (userIds) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/bulk/deactivate`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userIds })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error bulk deactivating users:', error);
+      throw error;
+    }
+  },
+
+  bulkDeleteUsers: async (userIds) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/bulk/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userIds })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error bulk deleting users:', error);
+      throw error;
+    }
+  },
+
+  // Save admin notes and send as notification
+  saveAdminNotes: async (userId, notes) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/notes`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ notes })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error saving admin notes:', error);
       throw error;
     }
   }

@@ -37,11 +37,26 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
           u.google_id,
           u.profile_picture_url as profilePicture,
           CASE
-            WHEN u.last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'Active'
+            -- New users (created within 1 month) are Active by default
+            WHEN u.created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN 'Active'
+            -- Users with recent login (within 1 month) are Active
+            WHEN u.last_login IS NOT NULL AND u.last_login >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN 'Active'
+            -- Users created more than 1 month ago with no login or login more than 1 month ago are Inactive
+            -- OR users manually deactivated by admin (last_login set to more than 1 month ago)
             ELSE 'Inactive'
           END as status
         FROM users u
-        ORDER BY u.created_at DESC
+        ORDER BY 
+          CASE
+            -- New users (created within 1 month) are Active by default
+            WHEN u.created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN 1
+            -- Users with recent login (within 1 month) are Active
+            WHEN u.last_login IS NOT NULL AND u.last_login >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN 1
+            -- Users created more than 1 month ago with no login or login more than 1 month ago are Inactive
+            -- OR users manually deactivated by admin (last_login set to more than 1 month ago)
+            ELSE 2
+          END ASC,
+          u.created_at DESC
       `);
       
       // mysql2 pool.query() returns [rows, fields] - extract rows
@@ -60,81 +75,65 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
       let preferredDiets = [];
       let medicalConditions = [];
 
-      // Try to get dietary restrictions (wrapped in try-catch in case tables don't exist)
+      // Get user restrictions with category information (matching user profile page logic)
+      // Category 1 (Allergy) + Category 2 (Intolerance) = Medical Conditions
+      // Category 3 (Dietary Lifestyle) = Dietary Lifestyle
       try {
         const result = await pool.query(`
-          SELECT dr.restriction_name
-          FROM user_dietary_restrictions udr
-          JOIN dietary_restrictions dr ON udr.restriction_id = dr.restriction_id
-          WHERE udr.user_id = ?
+          SELECT 
+            r.restriction_name,
+            rc.category_name,
+            ur.status
+          FROM user_restrictions ur
+          JOIN restrictions r ON ur.restriction_id = r.restriction_id
+          JOIN restriction_categories rc ON r.category_id = rc.category_id
+          WHERE ur.user_id = ? AND ur.member_id IS NULL AND ur.status = 'active'
         `, [user.id]);
         // Extract rows from mysql2 result format
-        restrictions = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
+        const restrictionsData = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
+        
+        // Organize by category (matching user profile page logic)
+        restrictionsData.forEach(item => {
+          if (item.category_name === 'Allergy' || item.category_name === 'Intolerance') {
+            // Both Allergy and Intolerance go to Medical Conditions
+            medicalConditions.push(item.restriction_name);
+          } else if (item.category_name === 'Dietary Lifestyle') {
+            // Dietary Lifestyle goes to preferredDiets (which we'll use as Dietary Lifestyle)
+            preferredDiets.push(item.restriction_name);
+          }
+        });
       } catch (err) {
         // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
         if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
-          restrictions = [];
+          // Tables don't exist - this is fine
         } else {
-          console.log('Note: dietary_restrictions table query failed, skipping');
+          console.log('Note: user_restrictions table query failed, skipping');
         }
       }
 
-      // Try to get excluded ingredients
+      // Try to get excluded ingredients (these are also part of Dietary Lifestyle)
       try {
         const result = await pool.query(`
           SELECT i.ingredient_name
           FROM user_excluded_ingredients uei
           JOIN ingredients i ON uei.ingredient_id = i.ingredient_id
-          WHERE uei.user_id = ?
+          WHERE uei.user_id = ? AND uei.member_id IS NULL
         `, [user.id]);
         // Extract rows from mysql2 result format
-        excludedIngredients = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
+        const excludedData = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
+        excludedIngredients = excludedData.map(e => e.ingredient_name);
+        // Also add to preferredDiets as they represent Dietary Lifestyle
+        excludedIngredients.forEach(ing => {
+          if (!preferredDiets.includes(ing)) {
+            preferredDiets.push(ing);
+          }
+        });
       } catch (err) {
         // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
         if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
           excludedIngredients = [];
         } else {
           console.log('Note: excluded_ingredients table query failed, skipping');
-        }
-      }
-
-      // Try to get preferred diets
-      try {
-        const result = await pool.query(`
-          SELECT pd.diet_name
-          FROM user_preferred_diets upd
-          JOIN preferred_diets pd ON upd.diet_id = pd.diet_id
-          WHERE upd.user_id = ?
-        `, [user.id]);
-        // Extract rows from mysql2 result format
-        preferredDiets = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
-      } catch (err) {
-        // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
-        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
-          preferredDiets = [];
-        } else {
-          console.log('Note: preferred_diets table query failed, skipping');
-        }
-      }
-
-      // Try to get medical conditions
-      try {
-        const result = await pool.query(`
-          SELECT mc.condition_name
-          FROM user_medical_conditions umc
-          JOIN medical_conditions mc ON umc.condition_id = mc.condition_id
-          WHERE umc.user_id = ?
-        `, [user.id]);
-        // Extract rows from mysql2 result format
-        medicalConditions = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
-      } catch (err) {
-        // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
-        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
-          // Table doesn't exist - this is fine, just skip it
-          medicalConditions = [];
-        } else {
-          // Only log unexpected errors
-          console.log('Note: medical_conditions table query failed, skipping');
         }
       }
 
@@ -151,10 +150,11 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
         status: user.status,
         lastActive: lastActiveText,
         joinedDate: joinedDateText,
-        restrictions: restrictions.map(r => r.restriction_name),
-        excludedIngredients: excludedIngredients.map(e => e.ingredient_name),
-        diets: preferredDiets.map(d => d.diet_name),
-        medicalConditions: medicalConditions.map(m => m.condition_name),
+        restrictions: [], // Not used anymore
+        excludedIngredients: excludedIngredients, // Used for Dietary Lifestyle display
+        diets: [], // Not used anymore (removed from UI)
+        medicalConditions: medicalConditions, // From restrictions with category 'Allergy' or 'Intolerance'
+        dietaryLifestyle: preferredDiets, // From restrictions with category 'Dietary Lifestyle' + excluded ingredients
         recipesViewed: 0, // TODO: Implement if recipe views are tracked
         recipesSaved: 0, // TODO: Implement if saved recipes are tracked
         ingredientsScanned: 0, // TODO: Implement if ingredient scans are tracked
@@ -315,8 +315,8 @@ router.put('/:id/deactivate', authenticateToken, adminAuth, async (req, res) => 
       });
     }
 
-    // Set last_login to more than 7 days ago to make them inactive
-    await connection.query('UPDATE users SET last_login = DATE_SUB(NOW(), INTERVAL 8 DAY) WHERE user_id = ?', [id]);
+    // Set last_login to more than 1 month ago to make them inactive (admin manual deactivation)
+    await connection.query('UPDATE users SET last_login = DATE_SUB(NOW(), INTERVAL 2 MONTH) WHERE user_id = ?', [id]);
     await connection.commit();
 
     res.json({
@@ -741,6 +741,532 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       } catch (releaseErr) {
         console.error('❌ Error releasing connection:', releaseErr.message);
       }
+    }
+  }
+});
+
+// ========================================
+// BULK OPERATIONS
+// ========================================
+
+// POST /api/admin/users/bulk/message - Send message to multiple users
+router.post('/bulk/message', authenticateToken, adminAuth, async (req, res) => {
+  let connection;
+  try {
+    const { userIds, message } = req.body;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User IDs array is required'
+      });
+    }
+
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is required'
+      });
+    }
+
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Validate that all users exist
+    const placeholders = userIds.map(() => '?').join(',');
+    const [usersCheck] = await connection.query(
+      `SELECT user_id FROM users WHERE user_id IN (${placeholders})`,
+      userIds
+    );
+
+    if (usersCheck.length !== userIds.length) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Some users not found'
+      });
+    }
+
+    // Insert notifications for each user
+    // Handle case where notifications table might not exist
+    try {
+      const notificationValues = userIds.map(userId => [
+        userId,
+        'Admin Message',
+        message,
+        'admin', // notification_type enum: 'admin', 'system', 'update', 'reminder', 'feedback_reply'
+        0, // is_read
+        'Admin', // sender_name
+        'ADMIN' // sender_role
+      ]);
+      await connection.query(
+        `INSERT INTO notifications (user_id, title, message, notification_type, is_read, sender_name, sender_role) VALUES ?`,
+        [notificationValues]
+      );
+      console.log(`  ✓ Created ${userIds.length} notifications`);
+    } catch (notifError) {
+      if (notifError.code === 'ER_NO_SUCH_TABLE' || notifError.code === '42S02') {
+        console.warn(`  ⚠️ Notifications table doesn't exist, skipping notification creation`);
+        // Continue without notifications - this is not critical
+      } else {
+        throw notifError;
+      }
+    }
+
+    await connection.commit();
+
+    console.log(`✅ [BULK MESSAGE] Sent message to ${userIds.length} users`);
+
+    res.json({
+      success: true,
+      message: `Message sent to ${userIds.length} user(s) successfully`,
+      count: userIds.length
+    });
+
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
+    console.error('❌ [BULK MESSAGE] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send bulk message',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
+// POST /api/admin/users/bulk/reminder - Send reminder to inactive users
+router.post('/bulk/reminder', authenticateToken, adminAuth, async (req, res) => {
+  let connection;
+  try {
+    const { userIds } = req.body;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User IDs array is required'
+      });
+    }
+
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Get inactive users from the provided list
+    const placeholders = userIds.map(() => '?').join(',');
+    const [inactiveUsers] = await connection.query(
+      `SELECT user_id FROM users 
+       WHERE user_id IN (${placeholders}) 
+       AND (last_login < DATE_SUB(NOW(), INTERVAL 7 DAY) OR last_login IS NULL)`,
+      userIds
+    );
+
+    if (inactiveUsers.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'No inactive users found in the selected list'
+      });
+    }
+
+    const inactiveUserIds = inactiveUsers.map(u => u.user_id);
+    const reminderMessage = 'We noticed you haven\'t been active recently. Come back and discover new recipes!';
+
+    // Insert notifications for inactive users
+    // Handle case where notifications table might not exist
+    try {
+      const notificationValues = inactiveUserIds.map(userId => [
+        userId,
+        'Activity Reminder',
+        reminderMessage,
+        'reminder', // notification_type enum: 'admin', 'system', 'update', 'reminder', 'feedback_reply'
+        0, // is_read
+        'Admin', // sender_name
+        'ADMIN' // sender_role
+      ]);
+
+      await connection.query(
+        `INSERT INTO notifications (user_id, title, message, notification_type, is_read, sender_name, sender_role) VALUES ?`,
+        [notificationValues]
+      );
+      console.log(`  ✓ Created ${inactiveUserIds.length} reminder notifications`);
+    } catch (notifError) {
+      if (notifError.code === 'ER_NO_SUCH_TABLE' || notifError.code === '42S02') {
+        console.warn(`  ⚠️ Notifications table doesn't exist, skipping notification creation`);
+        // Continue without notifications - this is not critical
+      } else {
+        throw notifError;
+      }
+    }
+
+    await connection.commit();
+
+    console.log(`✅ [BULK REMINDER] Sent reminders to ${inactiveUserIds.length} inactive users`);
+
+    res.json({
+      success: true,
+      message: `Reminders sent to ${inactiveUserIds.length} inactive user(s)`,
+      count: inactiveUserIds.length,
+      totalSelected: userIds.length
+    });
+
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
+    console.error('❌ [BULK REMINDER] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send bulk reminders',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
+// PUT /api/admin/users/bulk/deactivate - Deactivate multiple users
+router.put('/bulk/deactivate', authenticateToken, adminAuth, async (req, res) => {
+  let connection;
+  try {
+    const { userIds } = req.body;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User IDs array is required'
+      });
+    }
+
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Validate that all users exist
+    const placeholders = userIds.map(() => '?').join(',');
+    const [usersCheck] = await connection.query(
+      `SELECT user_id FROM users WHERE user_id IN (${placeholders})`,
+      userIds
+    );
+
+    if (usersCheck.length !== userIds.length) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Some users not found'
+      });
+    }
+
+    // Set last_login to more than 1 month ago to make them inactive (admin manual deactivation)
+    await connection.query(
+      `UPDATE users SET last_login = DATE_SUB(NOW(), INTERVAL 2 MONTH) WHERE user_id IN (${placeholders})`,
+      userIds
+    );
+
+    await connection.commit();
+
+    console.log(`✅ [BULK DEACTIVATE] Deactivated ${userIds.length} users`);
+
+    res.json({
+      success: true,
+      message: `${userIds.length} user(s) deactivated successfully`,
+      count: userIds.length
+    });
+
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
+    console.error('❌ [BULK DEACTIVATE] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to deactivate users',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
+// DELETE /api/admin/users/bulk/delete - Delete multiple users
+router.delete('/bulk/delete', authenticateToken, adminAuth, async (req, res) => {
+  let connection;
+  try {
+    const { userIds } = req.body;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User IDs array is required'
+      });
+    }
+
+    console.log(`🗑️ [BULK DELETE] Starting bulk deletion for ${userIds.length} users`);
+
+    // Get healthy database connection
+    try {
+      connection = await getHealthyConnection();
+    } catch (connError) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection error. Please try again.',
+        error: process.env.NODE_ENV === 'development' ? connError.message : 'Database connection error',
+        isConnectionError: true
+      });
+    }
+
+    // Set transaction timeout
+    try {
+      await connection.query('SET SESSION innodb_lock_wait_timeout = 30');
+      await connection.query('SET SESSION lock_wait_timeout = 30');
+    } catch (timeoutErr) {
+      console.warn(`⚠️ [BULK DELETE] Failed to set transaction timeouts:`, timeoutErr.message);
+    }
+
+    await connection.beginTransaction();
+
+    // Validate that all users exist
+    const placeholders = userIds.map(() => '?').join(',');
+    const [usersCheck] = await connection.query(
+      `SELECT user_id FROM users WHERE user_id IN (${placeholders})`,
+      userIds
+    );
+
+    if (usersCheck.length !== userIds.length) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Some users not found'
+      });
+    }
+
+    // Delete related data for all users in batch
+    const tablesToClean = [
+      'pending_requests',
+      'notifications',
+      'user_scanned_ingredients',
+      'user_restrictions',
+      'user_dietary_restrictions',
+      'user_excluded_ingredients',
+      'user_preferred_diets',
+      'user_medical_conditions',
+      'user_saved_recipes',
+      'user_pantry_selections'
+    ];
+
+    // Delete feedback_replies first (references feedback_id)
+    try {
+      const [feedbackIds] = await connection.query(
+        `SELECT feedback_id FROM feedback WHERE user_id IN (${placeholders})`,
+        userIds
+      );
+      if (feedbackIds && feedbackIds.length > 0) {
+        const feedbackIdList = feedbackIds.map(f => f.feedback_id);
+        const feedbackPlaceholders = feedbackIdList.map(() => '?').join(',');
+        await connection.query(
+          `DELETE FROM feedback_replies WHERE feedback_id IN (${feedbackPlaceholders})`,
+          feedbackIdList
+        );
+        console.log(`  ✓ Cleaned feedback_replies: ${feedbackIds.length} feedback entries`);
+      }
+    } catch (err) {
+      if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== '42S02') {
+        console.warn(`  ⚠️ Skipped feedback_replies: ${err.message}`);
+      }
+    }
+
+    // Delete user_restrictions first (has FK constraint)
+    try {
+      await connection.query(
+        `DELETE FROM user_restrictions WHERE user_id IN (${placeholders})`,
+        userIds
+      );
+      console.log(`  ✓ Cleaned user_restrictions`);
+    } catch (err) {
+      if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== '42S02') {
+        console.warn(`  ⚠️ Skipped user_restrictions: ${err.message}`);
+      }
+    }
+
+    // Delete other tables
+    for (const table of tablesToClean) {
+      try {
+        await connection.query(
+          `DELETE FROM ${table} WHERE user_id IN (${placeholders})`,
+          userIds
+        );
+        console.log(`  ✓ Cleaned ${table}`);
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          // Table doesn't exist - continue
+        } else {
+          console.warn(`  ⚠️ Skipped ${table}: ${err.message}`);
+        }
+      }
+    }
+
+    // Delete feedback
+    try {
+      await connection.query(
+        `DELETE FROM feedback WHERE user_id IN (${placeholders})`,
+        userIds
+      );
+      console.log(`  ✓ Cleaned feedback`);
+    } catch (err) {
+      if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== '42S02') {
+        console.warn(`  ⚠️ Skipped feedback: ${err.message}`);
+      }
+    }
+
+    // Delete users
+    const [deleteResult] = await connection.query(
+      `DELETE FROM users WHERE user_id IN (${placeholders})`,
+      userIds
+    );
+
+    const deletedCount = deleteResult?.affectedRows || 0;
+
+    if (deletedCount === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'No users were deleted'
+      });
+    }
+
+    await connection.commit();
+
+    console.log(`✅ [BULK DELETE] Deleted ${deletedCount} users successfully`);
+
+    res.json({
+      success: true,
+      message: `${deletedCount} user(s) deleted successfully`,
+      count: deletedCount
+    });
+
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackErr) {
+        console.error('❌ [BULK DELETE] Error during rollback:', rollbackErr);
+      }
+    }
+
+    console.error('❌ [BULK DELETE] Error:', error);
+
+    const isConnectionError = 
+      error.code === 'ECONNRESET' || 
+      error.code === 'PROTOCOL_CONNECTION_LOST' ||
+      error.code === 'ETIMEDOUT' ||
+      error.code === 'ENOTFOUND' ||
+      error.code === 'ECONNREFUSED' ||
+      error.message?.includes('Connection lost') ||
+      error.message?.includes('timeout');
+
+    res.status(isConnectionError ? 503 : 500).json({
+      success: false,
+      message: isConnectionError 
+        ? 'Database connection error. Please try again.' 
+        : 'Failed to delete users',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      isConnectionError
+    });
+  } finally {
+    if (connection) {
+      try {
+        connection.release();
+      } catch (releaseErr) {
+        console.error('❌ [BULK DELETE] Error releasing connection:', releaseErr);
+      }
+    }
+  }
+});
+
+// POST /api/admin/users/:id/notes - Save admin notes and send as notification
+router.post('/:id/notes', authenticateToken, adminAuth, async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    if (!notes || typeof notes !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Notes are required'
+      });
+    }
+
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Check if user exists
+    const [userCheck] = await connection.query('SELECT user_id, email FROM users WHERE user_id = ?', [id]);
+    if (!userCheck || userCheck.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // TODO: If you have an admin_notes table, save the notes here
+    // For now, we'll just send it as a notification
+
+    // Create notification for the user
+    try {
+      await connection.query(
+        `INSERT INTO notifications (user_id, title, message, notification_type, is_read, sender_name, sender_role) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          'Admin Note',
+          notes.trim(),
+          'admin',
+          0,
+          'Admin',
+          'ADMIN'
+        ]
+      );
+      console.log(`  ✓ Created notification for user ${id}`);
+    } catch (notifError) {
+      if (notifError.code === 'ER_NO_SUCH_TABLE' || notifError.code === '42S02') {
+        console.warn(`  ⚠️ Notifications table doesn't exist, skipping notification creation`);
+        // Continue without notifications - this is not critical
+      } else {
+        throw notifError;
+      }
+    }
+
+    await connection.commit();
+
+    console.log(`✅ [ADMIN NOTES] Saved notes and sent notification to user ${id}`);
+
+    res.json({
+      success: true,
+      message: 'Notes saved and notification sent successfully',
+      userId: id
+    });
+
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
+    console.error('❌ [ADMIN NOTES] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to save notes',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  } finally {
+    if (connection) {
+      connection.release();
     }
   }
 });

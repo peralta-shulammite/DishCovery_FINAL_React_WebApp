@@ -151,12 +151,6 @@ const AdminLayout = ({ children, currentPage = 'Dashboard', onLogout }) => {
             <MenuIcon />
           </button>
           <h2 className="app-name header-app-name">DishCovery</h2>
-          <div className="search-container">
-            <input type="text" placeholder="Search..." className="search-input" />
-            <button className="search-btn">
-              <SearchIcon />
-            </button>
-          </div>
         </div>
         <div className="header-right">
           <div className="admin-profile">

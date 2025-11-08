@@ -16,7 +16,9 @@ router.get('/', authenticateToken, async (req, res) => {
       SELECT 
         ingredient_id as id,
         ingredient_name as name,
+        ingredient_type as type,
         category,
+        categ_role,
         nutritional_data,
         is_active,
         created_at as dateAdded,
@@ -27,21 +29,70 @@ router.get('/', authenticateToken, async (req, res) => {
     `);
 
     // Transform the data to match frontend expectations
+    // Note: If ingredient_type is empty but category has type-like values, swap them
+    // Support both singular and plural forms for backward compatibility
+    const typeLikeValues = [
+      'Meat', 'Poultry', 'Fish', 'Seafood', 'Protein', 'Vegetable', 'Vegetables',
+      'Fruit', 'Fruits', 'Grain', 'Dairy', 'Egg', 'Eggs', 'Nut', 'Nuts',
+      'Legume', 'Legumes', 'Herb & Spice', 'Herbs & Spices', 
+      'Citrus Fruit', 'Citrus Fruits', 'Mineral'
+    ];
+    const roleLikeValues = ['Main Ingredient', 'Condiment', 'Spice', 'Additive', 'Other'];
+    
     const transformedIngredients = ingredients.map(ingredient => {
       let nutritionalData = {};
+      
       try {
         nutritionalData = JSON.parse(ingredient.nutritional_data || '{}');
       } catch (e) {
         nutritionalData = {};
       }
 
+      // Use categ_role if available, otherwise fallback to category
+      let role = ingredient.categ_role || ingredient.category;
+      
+      // Swap if data is reversed: if type is empty but category has type-like value
+      let type = ingredient.type;
+      let category = ingredient.category;
+      
+      // Normalize plural forms to singular
+      const normalizeType = (value) => {
+        if (!value) return null;
+        const pluralToSingular = {
+          'Vegetables': 'Vegetable',
+          'Fruits': 'Fruit',
+          'Eggs': 'Egg',
+          'Nuts': 'Nut',
+          'Legumes': 'Legume',
+          'Herbs & Spices': 'Herb & Spice',
+          'Citrus Fruits': 'Citrus Fruit'
+        };
+        return pluralToSingular[value] || value;
+      };
+      
+      if (!type && category && typeLikeValues.includes(category)) {
+        // Category has type value, swap them
+        type = normalizeType(category);
+        // Use categ_role if available, otherwise set default
+        role = ingredient.categ_role || 'Main Ingredient';
+      } else if (type && roleLikeValues.includes(type)) {
+        // Type has role value, swap them
+        const temp = type;
+        type = normalizeType(category) || null;
+        role = temp || (ingredient.categ_role || 'Main Ingredient');
+      } else {
+        // Normalize type to singular
+        type = normalizeType(type);
+        // Use categ_role if available, otherwise use category
+        role = ingredient.categ_role || category || 'Other';
+      }
+
       return {
         id: ingredient.id,
         name: ingredient.name,
-        category: ingredient.category || 'Other',
+        type: type || null,
+        category: role || 'Other', // category field in response maps to role
         image: nutritionalData.image || null,
-        dietaryRestrictions: nutritionalData.dietaryRestrictions || [],
-        dietaryLifestyles: nutritionalData.dietaryLifestyles || [],
         usedInRecipes: ingredient.usedInRecipes || 0,
         usersHave: ingredient.usersHave || 0,
         status: ingredient.is_active ? 'Active' : 'Inactive',
@@ -56,6 +107,21 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Helper function to normalize type to singular
+const normalizeTypeToSingular = (type) => {
+  if (!type) return null;
+  const pluralToSingular = {
+    'Vegetables': 'Vegetable',
+    'Fruits': 'Fruit',
+    'Eggs': 'Egg',
+    'Nuts': 'Nut',
+    'Legumes': 'Legume',
+    'Herbs & Spices': 'Herb & Spice',
+    'Citrus Fruits': 'Citrus Fruit'
+  };
+  return pluralToSingular[type] || type;
+};
+
 // Create new ingredient
 router.post('/', authenticateToken, async (req, res) => {
   try {
@@ -63,7 +129,10 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
-    const { name, category, dietaryRestrictions, dietaryLifestyles, status, image } = req.body;
+    const { name, type, category, status, image } = req.body;
+    
+    // Normalize type to singular
+    const normalizedType = normalizeTypeToSingular(type);
 
     // Check if ingredient already exists
     const existing = await pool.query(
@@ -78,18 +147,35 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
+    // Validate image size if it's a base64 string (max 3MB base64 = ~2.25MB actual)
+    // This allows for efficient handling of multiple images (61+ from Gemini)
+    let processedImage = image || null;
+    if (processedImage && processedImage.startsWith('data:image')) {
+      // Base64 images can be very large, check size
+      const base64Data = processedImage.split(',')[1] || '';
+      const sizeInBytes = (base64Data.length * 3) / 4; // Approximate size
+      const maxSize = 3 * 1024 * 1024; // 3MB (optimized for batch processing)
+      
+      if (sizeInBytes > maxSize) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Image is too large (${(sizeInBytes / 1024 / 1024).toFixed(2)}MB). Maximum size is 3MB. Please compress the image further or use a URL instead.` 
+        });
+      }
+    }
+
     const nutritionalData = JSON.stringify({ 
-      dietaryRestrictions: dietaryRestrictions || [], 
-      dietaryLifestyles: dietaryLifestyles || [], 
-      image: image || null 
+      image: processedImage 
     });
 
     const result = await pool.query(`
-      INSERT INTO ingredients (ingredient_name, category, nutritional_data, is_active)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO ingredients (ingredient_name, ingredient_type, category, categ_role, nutritional_data, is_active)
+      VALUES (?, ?, ?, ?, ?, ?)
     `, [
       name,
-      category || 'Other',
+      normalizedType || null,
+      category || null, // Keep category for backward compatibility
+      category || 'Main Ingredient', // categ_role stores the role
       nutritionalData,
       status === 'Active' ? 1 : 0
     ]);
@@ -97,10 +183,9 @@ router.post('/', authenticateToken, async (req, res) => {
     const newIngredient = {
       id: result.insertId,
       name,
+      type: normalizedType || null,
       category: category || 'Other',
       image: image || null,
-      dietaryRestrictions: dietaryRestrictions || [],
-      dietaryLifestyles: dietaryLifestyles || [],
       status: status === 'Active' ? 'Active' : 'Inactive',
       usedInRecipes: 0,
       usersHave: 0,
@@ -122,7 +207,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, category, dietaryRestrictions, dietaryLifestyles, status, image } = req.body;
+    const { name, type, category, status, image } = req.body;
+    
+    // Normalize type to singular
+    const normalizedType = normalizeTypeToSingular(type);
 
     // Check if another ingredient with this name exists (excluding current one)
     const existing = await pool.query(
@@ -137,19 +225,36 @@ router.put('/:id', authenticateToken, async (req, res) => {
       });
     }
 
+    // Validate image size if it's a base64 string (max 3MB base64 = ~2.25MB actual)
+    // This allows for efficient handling of multiple images (61+ from Gemini)
+    let processedImage = image || null;
+    if (processedImage && processedImage.startsWith('data:image')) {
+      // Base64 images can be very large, check size
+      const base64Data = processedImage.split(',')[1] || '';
+      const sizeInBytes = (base64Data.length * 3) / 4; // Approximate size
+      const maxSize = 3 * 1024 * 1024; // 3MB (optimized for batch processing)
+      
+      if (sizeInBytes > maxSize) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Image is too large (${(sizeInBytes / 1024 / 1024).toFixed(2)}MB). Maximum size is 3MB. Please compress the image further or use a URL instead.` 
+        });
+      }
+    }
+
     const nutritionalData = JSON.stringify({ 
-      dietaryRestrictions: dietaryRestrictions || [], 
-      dietaryLifestyles: dietaryLifestyles || [], 
-      image: image || null 
+      image: processedImage 
     });
 
     await pool.query(`
       UPDATE ingredients 
-      SET ingredient_name = ?, category = ?, nutritional_data = ?, is_active = ?
+      SET ingredient_name = ?, ingredient_type = ?, category = ?, categ_role = ?, nutritional_data = ?, is_active = ?
       WHERE ingredient_id = ?
     `, [
       name,
-      category || 'Other',
+      normalizedType || null,
+      category || null, // Keep category for backward compatibility
+      category || 'Main Ingredient', // categ_role stores the role
       nutritionalData,
       status === 'Active' ? 1 : 0,
       id
@@ -165,10 +270,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const updatedIngredient = {
       id: parseInt(id),
       name,
+      type: normalizedType || null,
       category: category || 'Other',
       image: image || null,
-      dietaryRestrictions: dietaryRestrictions || [],
-      dietaryLifestyles: dietaryLifestyles || [],
       status: status === 'Active' ? 'Active' : 'Inactive',
       usedInRecipes: counts[0]?.usedInRecipes || 0,
       usersHave: counts[0]?.usersHave || 0
@@ -226,9 +330,7 @@ router.get('/pending', authenticateToken, async (req, res) => {
         JSON_UNQUOTE(JSON_EXTRACT(pr.request_data, '$.category')) as suggestedCategory,
         CONCAT('@', u.first_name, '_', u.last_name) as user,
         JSON_UNQUOTE(JSON_EXTRACT(pr.request_data, '$.image')) as image,
-        pr.requested_at as dateRequested,
-        JSON_EXTRACT(pr.request_data, '$.dietaryRestrictions') as dietaryRestrictions,
-        JSON_EXTRACT(pr.request_data, '$.dietaryLifestyles') as dietaryLifestyles
+        pr.requested_at as dateRequested
       FROM pending_requests pr
       JOIN users u ON pr.user_id = u.user_id
       WHERE pr.request_type = 'ingredient_request' AND pr.status = 'pending'
@@ -241,9 +343,7 @@ router.get('/pending', authenticateToken, async (req, res) => {
       suggestedCategory: request.suggestedCategory || 'Other',
       user: request.user,
       image: request.image,
-      dateRequested: request.dateRequested,
-      dietaryRestrictions: request.dietaryRestrictions ? JSON.parse(request.dietaryRestrictions) : [],
-      dietaryLifestyles: request.dietaryLifestyles ? JSON.parse(request.dietaryLifestyles) : []
+      dateRequested: request.dateRequested
     }));
 
     res.json({ success: true, pendingIngredients: transformedRequests });
@@ -260,21 +360,21 @@ router.post('/approve-pending', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
-    const { id, name, suggestedCategory, dietaryRestrictions, dietaryLifestyles, image } = req.body;
+    const { id, name, type, suggestedCategory, image } = req.body;
 
     // Create the ingredient
     const nutritionalData = JSON.stringify({ 
-      dietaryRestrictions: dietaryRestrictions || [], 
-      dietaryLifestyles: dietaryLifestyles || [], 
       image: image || null 
     });
 
     const result = await pool.query(`
-      INSERT INTO ingredients (ingredient_name, category, nutritional_data, is_active)
-      VALUES (?, ?, ?, 1)
+      INSERT INTO ingredients (ingredient_name, ingredient_type, category, categ_role, nutritional_data, is_active)
+      VALUES (?, ?, ?, ?, ?, 1)
     `, [
       name,
-      suggestedCategory || 'Other',
+      type || null,
+      suggestedCategory || null, // Keep category for backward compatibility
+      suggestedCategory || 'Main Ingredient', // categ_role stores the role
       nutritionalData
     ]);
 
@@ -288,10 +388,9 @@ router.post('/approve-pending', authenticateToken, async (req, res) => {
     const newIngredient = {
       id: result.insertId,
       name,
+      type: type || null,
       category: suggestedCategory || 'Other',
       image: image || null,
-      dietaryRestrictions: dietaryRestrictions || [],
-      dietaryLifestyles: dietaryLifestyles || [],
       status: 'Active',
       usedInRecipes: 0,
       usersHave: 1,

@@ -7,7 +7,24 @@ import UserLayout from '../../components/user/userlayout';
 import { pantryAPI } from '../utils/pantryAPI';
 
 // Backend API service integrated directly
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+// Note: API_BASE_URL should NOT include /api to avoid double /api/api/ in URLs
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // Client-side: check if we're on Vercel
+    if (window.location.hostname.includes('vercel.app')) {
+      return 'https://dishcovery-backend-wvhn.onrender.com';
+    }
+    // For localhost testing, always use localhost
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000';
+    }
+  }
+  // Fallback to environment variable or localhost (ensure it doesn't include /api)
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+  return envUrl.replace(/\/api\/?$/, ''); // Remove trailing /api if present
+};
+
+const API_BASE_URL = getApiBaseUrl();
 const API_URL = `${API_BASE_URL}/api`;
 
 const pantryService = {
@@ -171,50 +188,6 @@ export default function DishCoveryPantry() {
     { name: "Favorites", href: "/user/favorites" },
   ];
 
-  // Fallback ingredients for testing (when backend is unavailable)
-  const fallbackIngredients = [
-    // Proteins
-    { id: 1, name: 'Chicken Breast', category: 'Protein', image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=200&h=200&fit=crop' },
-    { id: 2, name: 'Ground Beef', category: 'Protein', image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=200&h=200&fit=crop' },
-    { id: 3, name: 'Salmon', category: 'Protein', image: 'https://images.unsplash.com/photo-1567623103079-74d7d37ad37b?w=200&h=200&fit=crop' },
-    { id: 4, name: 'Eggs', category: 'Protein', image: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop' },
-    { id: 5, name: 'Tofu', category: 'Protein', image: 'https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?w=200&h=200&fit=crop' },
-    { id: 25, name: 'Shrimp', category: 'Protein', image: 'https://images.unsplash.com/photo-1565680018434-b513d5573b07?w=200&h=200&fit=crop' },
-    { id: 26, name: 'Pork Chops', category: 'Protein', image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=200&h=200&fit=crop' },
-    
-    // Vegetables
-    { id: 6, name: 'Onions', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
-    { id: 7, name: 'Garlic', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1498654200943-1088dd4438ae?w=200&h=200&fit=crop' },
-    { id: 8, name: 'Tomatoes', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1546470427-e6e4ec0b3fa0?w=200&h=200&fit=crop' },
-    { id: 9, name: 'Bell Peppers', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1525607551316-4a8e16d1f9ba?w=200&h=200&fit=crop' },
-    { id: 10, name: 'Carrots', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1447175008436-054170c2e979?w=200&h=200&fit=crop' },
-    { id: 11, name: 'Broccoli', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=200&h=200&fit=crop' },
-    { id: 12, name: 'Spinach', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=200&h=200&fit=crop' },
-    { id: 13, name: 'Mushrooms', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
-    { id: 27, name: 'Zucchini', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1507334566648-4e22ee3e6e6a?w=200&h=200&fit=crop' },
-    { id: 28, name: 'Asparagus', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=200&h=200&fit=crop' },
-    
-    // Grains & Starches
-    { id: 14, name: 'Rice', category: 'Grain', image: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=200&h=200&fit=crop' },
-    { id: 15, name: 'Pasta', category: 'Grain', image: 'https://images.unsplash.com/photo-1621996346565-e3dbc6d2c5f7?w=200&h=200&fit=crop' },
-    { id: 16, name: 'Potatoes', category: 'Grain', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
-    { id: 17, name: 'Bread', category: 'Grain', image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop' },
-    { id: 29, name: 'Quinoa', category: 'Grain', image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200&h=200&fit=crop' },
-    
-    // Dairy
-    { id: 18, name: 'Milk', category: 'Dairy', image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200&h=200&fit=crop' },
-    { id: 19, name: 'Cheese', category: 'Dairy', image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop' },
-    { id: 20, name: 'Butter', category: 'Dairy', image: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=200&h=200&fit=crop' },
-    { id: 21, name: 'Yogurt', category: 'Dairy', image: 'https://images.unsplash.com/photo-1571212515416-0d6ce5003db4?w=200&h=200&fit=crop' },
-    { id: 30, name: 'Cream Cheese', category: 'Dairy', image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop' },
-    
-    // Pantry Staples
-    { id: 22, name: 'Olive Oil', category: 'Pantry', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&h=200&fit=crop' },
-    { id: 23, name: 'Salt', category: 'Pantry', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
-    { id: 24, name: 'Black Pepper', category: 'Pantry', image: 'https://images.unsplash.com/photo-1506905025911-1aa6f9364a5e?w=200&h=200&fit=crop' },
-    { id: 31, name: 'Soy Sauce', category: 'Pantry', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&h=200&fit=crop' },
-    { id: 32, name: 'Flour', category: 'Pantry', image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=200&h=200&fit=crop' },
-  ];
 
   // Check authentication status (DISABLED FOR TESTING)
   useEffect(() => {
@@ -278,35 +251,40 @@ export default function DishCoveryPantry() {
     }
   };
 
-  // Load ingredients from backend with fallback
+  // Load ingredients from backend database
   useEffect(() => {
     const loadIngredients = async () => {
+      if (!dishCoveryIsLoggedIn) return;
+      
       try {
         setDishCoveryLoading(true);
         setDishCoveryError(null);
         
-        console.log('Loading pantry ingredients...');
+        console.log('Loading pantry ingredients from database...');
         
-        // Try to load from backend first
+        // Fetch ingredients from database using pantryAPI
+        const response = await pantryAPI.getAvailableIngredients();
+        
+        if (response.success && response.ingredients) {
+          setDishCoveryIngredients(response.ingredients);
+          console.log('✅ Loaded ingredients from database:', response.ingredients.length);
+        } else {
+          throw new Error('No ingredients returned from API');
+        }
+        
+        // Fetch user's selected ingredients
         try {
-          const ingredients = await pantryService.getIngredients();
-          setDishCoveryIngredients(ingredients);
-          
           const userSelection = await pantryService.getUserSelection();
           setDishCoverySelectedIngredients(userSelection);
-          
-          console.log('Loaded ingredients from backend:', ingredients.length);
-        } catch (backendError) {
-          console.warn('Backend unavailable, using fallback ingredients:', backendError.message);
-          // Use fallback ingredients when backend is not available
-          setDishCoveryIngredients(fallbackIngredients);
+        } catch (selectionError) {
+          console.warn('Could not load user selection:', selectionError);
           setDishCoverySelectedIngredients([]);
         }
         
       } catch (error) {
-        console.error('Error loading ingredients:', error);
-        setDishCoveryError('Failed to load ingredients. Using offline mode.');
-        setDishCoveryIngredients(fallbackIngredients);
+        console.error('❌ Error loading ingredients:', error);
+        setDishCoveryError('Failed to load ingredients from database. Please try again later.');
+        setDishCoveryIngredients([]);
       } finally {
         setDishCoveryLoading(false);
       }
@@ -315,16 +293,16 @@ export default function DishCoveryPantry() {
     loadIngredients();
   }, [dishCoveryIsLoggedIn]);
 
-  // Auto-save selection when ingredients change (with fallback for testing)
+  // Auto-save selection when ingredients change
   useEffect(() => {
     const saveSelection = async () => {
       if (!dishCoveryIsLoggedIn || dishCoverySelectedIngredients.length === 0) return;
       
       try {
         await pantryService.saveIngredientSelection(dishCoverySelectedIngredients);
-        console.log('Selection auto-saved to backend');
+        console.log('✅ Selection auto-saved to backend');
       } catch (error) {
-        console.error('Error auto-saving to backend:', error);
+        console.error('❌ Error auto-saving to backend:', error);
         // Fallback: save to localStorage for testing
         localStorage.setItem('selectedIngredients', JSON.stringify(dishCoverySelectedIngredients));
         console.log('Selection saved to localStorage as fallback');

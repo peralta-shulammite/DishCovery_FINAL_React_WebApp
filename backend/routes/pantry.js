@@ -10,12 +10,14 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
   try {
     console.log('📋 Fetching all pantry ingredients...');
     
-    // Get active ingredients from ingredients table
+    // Get active ingredients from ingredients table with image data
     const ingredients = await pool.query(`
       SELECT 
         ingredient_id as id,
         ingredient_name as name,
         category,
+        categ_role,
+        ingredient_type,
         nutritional_data,
         is_active,
         created_at
@@ -27,6 +29,7 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
     // Transform ingredients for frontend
     const transformedIngredients = ingredients.map(ingredient => {
       let nutritionalData = {};
+      
       try {
         nutritionalData = JSON.parse(ingredient.nutritional_data || '{}');
       } catch (e) {
@@ -47,9 +50,7 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
         id: ingredient.id,
         name: ingredient.name,
         category: mappedCategory || 'Other',
-        image: nutritionalData.image || `https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=200&fit=crop`,
-        dietaryRestrictions: nutritionalData.dietaryRestrictions || [],
-        dietaryLifestyles: nutritionalData.dietaryLifestyles || []
+        image: nutritionalData.image || `https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=200&fit=crop`
       };
     });
 
@@ -58,31 +59,11 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error fetching pantry ingredients:', error);
-    
-    // Fallback to sample data if database fails
-    const fallbackIngredients = [
-      { id: 1, name: 'Chicken Breast', category: 'Protein', image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=200&h=200&fit=crop' },
-      { id: 2, name: 'Ground Beef', category: 'Protein', image: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=200&h=200&fit=crop' },
-      { id: 3, name: 'Salmon', category: 'Protein', image: 'https://images.unsplash.com/photo-1567623103079-74d7d37ad37b?w=200&h=200&fit=crop' },
-      { id: 4, name: 'Eggs', category: 'Protein', image: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&h=200&fit=crop' },
-      { id: 5, name: 'Tofu', category: 'Protein', image: 'https://images.unsplash.com/photo-1603105037880-880cd4edfb0d?w=200&h=200&fit=crop' },
-      
-      { id: 6, name: 'Onions', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' },
-      { id: 7, name: 'Garlic', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1498654200943-1088dd4438ae?w=200&h=200&fit=crop' },
-      { id: 8, name: 'Tomatoes', category: 'Vegetable', image: 'https://images.unsplash.com/photo-1546470427-e6e4ec0b3fa0?w=200&h=200&fit=crop' },
-      
-      { id: 14, name: 'Rice', category: 'Grain', image: 'https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=200&h=200&fit=crop' },
-      { id: 15, name: 'Pasta', category: 'Grain', image: 'https://images.unsplash.com/photo-1621996346565-e3dbc6d2c5f7?w=200&h=200&fit=crop' },
-      
-      { id: 18, name: 'Milk', category: 'Dairy', image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200&h=200&fit=crop' },
-      { id: 19, name: 'Cheese', category: 'Dairy', image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop' },
-      
-      { id: 22, name: 'Olive Oil', category: 'Pantry', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&h=200&fit=crop' },
-      { id: 23, name: 'Salt', category: 'Pantry', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&h=200&fit=crop' }
-    ];
-    
-    console.log('⚠️ Database error, using fallback ingredients');
-    res.json({ success: true, ingredients: fallbackIngredients });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch ingredients from database',
+      error: error.message 
+    });
   }
 });
 

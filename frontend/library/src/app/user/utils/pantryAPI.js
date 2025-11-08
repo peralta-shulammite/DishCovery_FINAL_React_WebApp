@@ -102,6 +102,27 @@ export const pantryAPI = {
     }
 
     return await response.json();
+  },
+
+  // Get all available ingredients from database
+  getAvailableIngredients: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('No authentication token found');
+
+    const response = await fetch(`${API_BASE_URL}/pantry/ingredients`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
   }
 };
 

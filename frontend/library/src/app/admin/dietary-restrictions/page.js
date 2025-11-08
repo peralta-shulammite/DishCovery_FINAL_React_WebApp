@@ -376,31 +376,59 @@ const DietaryRestrictionsManagementContent = () => {
         <button
           className="export-btn"
           onClick={() => {
-            const csvContent = [
-              ['ID', 'Name', 'Category', 'Description', 'Status', 'Used By', 'Last Edited', 'Last Edited By'],
-              ...restrictions.map((r) => [
-                r.id,
-                r.name,
-                r.category,
-                r.description,
-                r.status,
-                r.usedBy,
-                r.lastEdited,
-                r.lastEditedBy,
-              ]),
-            ]
-              .map((row) => row.join(','))
-              .join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv' });
+            // Helper function to escape CSV values
+            const escapeCSV = (value) => {
+              if (value === null || value === undefined) return '';
+              const stringValue = String(value);
+              if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                return `"${stringValue.replace(/"/g, '""')}"`;
+              }
+              return stringValue;
+            };
+
+            const exportDate = new Date().toISOString().split('T')[0];
+            const headers = [
+              'Filter Name',
+              'Times Used',
+              'Most Requested Ingredient',
+              'Top Recipe',
+              'Export Date',
+              'Category',
+              'Description',
+              'Status'
+            ];
+
+            const csvRows = [
+              headers.map(escapeCSV).join(','),
+              ...restrictions.map((r) => {
+                const timesUsed = r.usedBy || 0;
+                const mostRequestedIngredient = 'N/A'; // Not available in current data structure
+                const topRecipe = 'N/A'; // Not available in current data structure
+
+                return [
+                  r.name,
+                  timesUsed,
+                  mostRequestedIngredient,
+                  topRecipe,
+                  exportDate,
+                  r.category,
+                  r.description || 'N/A',
+                  r.status
+                ].map(escapeCSV).join(',');
+              })
+            ];
+
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'restrictions.csv';
+            a.download = `dietary-restrictions-export-${exportDate}.csv`;
             a.click();
             URL.revokeObjectURL(url);
           }}
         >
-          Export to CSV
+          Export Data
         </button>
       </div>
 
@@ -417,6 +445,7 @@ const DietaryRestrictionsManagementContent = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '60px' }}>#</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Restriction Name</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Category</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Description</th>
@@ -426,12 +455,15 @@ const DietaryRestrictionsManagementContent = () => {
               </tr>
             </thead>
             <tbody>
-              {currentRestrictions.map((restriction) => (
+              {currentRestrictions.map((restriction, index) => {
+                const rowNumber = (currentPage - 1) * restrictionsPerPage + index + 1;
+                return (
                 <tr
                   key={restriction.id}
                   style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
                   onClick={() => handleEditRestriction(restriction)}
                 >
+                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: '600', fontSize: '14px', color: '#64748b' }}>{rowNumber}</td>
                   <td style={{ padding: '12px', color: '#1f2937' }}>{restriction.name}</td>
                   <td style={{ padding: '12px', color: '#64748b' }}>{restriction.category}</td>
                   <td style={{ padding: '12px', color: '#64748b' }}>{restriction.description}</td>
@@ -468,7 +500,8 @@ const DietaryRestrictionsManagementContent = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

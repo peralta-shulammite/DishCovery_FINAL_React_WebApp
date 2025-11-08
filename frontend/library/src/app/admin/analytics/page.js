@@ -148,12 +148,110 @@ const AnalyticsContent = () => {
 
   const COLORS = ['#2E7D32', '#e91e63', '#9c27b0', '#ff9800', '#1976d2'];
 
+  // Helper function to escape CSV values
+  const escapeCSV = (value) => {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value);
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
   const handleExport = () => {
-    setNotification({ show: true, message: 'Exporting analytics data...', type: 'info' });
-    setTimeout(() => {
-      setNotification({ show: true, message: 'Analytics exported successfully!', type: 'success' });
-      setTimeout(() => setNotification({ show: false, message: '', type: 'info' }), 3000);
-    }, 1500);
+    // Export analytics data as CSV with specified format
+    const exportDate = new Date().toISOString().split('T')[0];
+    const dateRangeFormatted = dateRange.replace(/\s+/g, '_').toLowerCase();
+    const adminName = 'Administrator'; // Get from localStorage or context if available
+    
+    // Calculate filter percentages
+    const filterRows = filterDistributionData.map(filter => ({
+      name: filter.name,
+      count: filter.value || 0,
+      percentage: totalUses > 0 ? ((filter.value || 0) / totalUses * 100).toFixed(1) : '0.0'
+    }));
+
+    // Get most requested ingredient from ingredient trends
+    const mostRequestedIngredient = ingredientTrendsData.length > 0 
+      ? ingredientTrendsData[0].ingredient || 'N/A'
+      : 'N/A';
+    
+    // Get top filter associated with that ingredient (simplified - use first filter)
+    const topFilterAssociated = filterDistributionData.length > 0
+      ? filterDistributionData[0].name || 'N/A'
+      : 'N/A';
+
+    // Build CSV rows
+    const headers = [
+      'Report Date Range',
+      'Total Dietary Filter Uses',
+      'Filter Name',
+      'Filter Use Count',
+      'Filter Percentage',
+      'Total Requests',
+      'Request Status',
+      'Request Count per Status',
+      'Completion Rate',
+      'Most Requested Ingredient',
+      'Top Filter Associated Ingredient',
+      'Exported By (Admin)',
+      'Exported Date'
+    ];
+
+    // Create rows for each filter
+    const csvRows = [headers.map(escapeCSV).join(',')];
+    
+    // Add filter distribution rows
+    filterRows.forEach((filter, index) => {
+      const isFirstRow = index === 0;
+      csvRows.push([
+        isFirstRow ? dateRange : '', // Only show date range in first row
+        isFirstRow ? totalUses : '', // Only show total uses in first row
+        filter.name,
+        filter.count,
+        `${filter.percentage}%`,
+        isFirstRow ? totalRequests : '', // Only show total requests in first row
+        '', // Request status will be in separate rows
+        '', // Request count per status will be in separate rows
+        isFirstRow ? `${completionRate.toFixed(1)}%` : '', // Only show completion rate in first row
+        isFirstRow ? mostRequestedIngredient : '', // Only show in first row
+        isFirstRow ? topFilterAssociated : '', // Only show in first row
+        isFirstRow ? adminName : '', // Only show in first row
+        isFirstRow ? exportDate : '' // Only show in first row
+      ].map(escapeCSV).join(','));
+    });
+
+    // Add request status rows
+    requestStatusData.forEach((status, index) => {
+      const isFirstStatusRow = index === 0;
+      csvRows.push([
+        '', // Empty date range
+        '', // Empty total uses
+        '', // Empty filter name
+        '', // Empty filter count
+        '', // Empty filter percentage
+        '', // Empty total requests (already shown)
+        status.status || 'Unknown',
+        status.count || 0,
+        '', // Empty completion rate (already shown)
+        '', // Empty most requested ingredient
+        '', // Empty top filter
+        '', // Empty admin name
+        '' // Empty export date
+      ].map(escapeCSV).join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `dishcovery_analytics_report_${dateRangeFormatted}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    setNotification({ show: true, message: 'Analytics exported successfully!', type: 'success' });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'info' }), 3000);
   };
 
   const CircularProgress = ({ percentage, label, color, borderColor }) => (
@@ -225,7 +323,7 @@ const AnalyticsContent = () => {
               <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
               <path d="M8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11 8 15.01z"/>
             </svg>
-            Export Report
+            Export Data
           </button>
         </div>
       </div>
