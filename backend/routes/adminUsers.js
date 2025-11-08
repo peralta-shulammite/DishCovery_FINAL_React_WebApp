@@ -327,6 +327,7 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       'pending_requests',  // ⚠️ IMPORTANT: Must be first due to foreign key constraints
       'notifications',  // 🆕 Added: Delete user notifications (has CASCADE but manual delete is safer)
       'user_scanned_ingredients',
+      'user_restrictions',  // 🆕 Added: Delete user_restrictions (has foreign key constraint to users)
       'user_dietary_restrictions',
       'user_excluded_ingredients', 
       'user_preferred_diets',
