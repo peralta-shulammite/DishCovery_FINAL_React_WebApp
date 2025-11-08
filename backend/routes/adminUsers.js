@@ -297,6 +297,66 @@ router.put('/:id/deactivate', authenticateToken, adminAuth, async (req, res) => 
   }
 });
 
+// Helper function to execute query with retry logic for connection errors
+const executeQueryWithRetry = async (connection, query, params = [], maxRetries = 3) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await connection.query(query, params);
+    } catch (error) {
+      const isConnectionError = 
+        error.code === 'ECONNRESET' || 
+        error.code === 'PROTOCOL_CONNECTION_LOST' ||
+        error.code === 'ETIMEDOUT' ||
+        error.message?.includes('Connection lost') ||
+        error.message?.includes('timeout');
+      
+      if (isConnectionError && attempt < maxRetries) {
+        const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 3000);
+        console.warn(`⚠️ Query connection error (attempt ${attempt}/${maxRetries}), retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      throw error;
+    }
+  }
+};
+
+// Helper function to get a healthy database connection with retry logic
+const getHealthyConnection = async (maxRetries = 3) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const connection = await pool.getConnection();
+      
+      // Test connection health with a simple query
+      try {
+        await connection.query('SELECT 1 as health_check');
+        console.log(`✅ Database connection healthy (attempt ${attempt})`);
+        return connection;
+      } catch (healthErr) {
+        connection.release();
+        throw new Error(`Connection health check failed: ${healthErr.message}`);
+      }
+    } catch (error) {
+      const isConnectionError = 
+        error.code === 'ECONNRESET' || 
+        error.code === 'PROTOCOL_CONNECTION_LOST' ||
+        error.code === 'ETIMEDOUT' ||
+        error.code === 'ENOTFOUND' ||
+        error.message?.includes('Connection lost') ||
+        error.message?.includes('timeout');
+      
+      if (isConnectionError && attempt < maxRetries) {
+        const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff, max 5s
+        console.warn(`⚠️ Connection error (attempt ${attempt}/${maxRetries}): ${error.message}. Retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        // Continue to next iteration
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 // DELETE /api/admin/users/:id - Delete a user
 router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
   let connection;
@@ -305,8 +365,13 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
 
     console.log(`🗑️ Attempting to delete user with ID: ${id}`);
 
-    // Get database connection for transaction
-    connection = await pool.getConnection();
+    // Get healthy database connection with retry logic (for Aiven connection issues)
+    connection = await getHealthyConnection();
+    
+    // Set transaction timeout (30 seconds for Aiven)
+    await connection.query('SET SESSION innodb_lock_wait_timeout = 30');
+    await connection.query('SET SESSION lock_wait_timeout = 30');
+    
     await connection.beginTransaction();
 
     // Check if user exists
@@ -483,10 +548,15 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       }
     }
     
-    // Delete the user
+    // Delete the user (with retry logic for connection errors)
     try {
       console.log(`  🔍 Attempting to delete user from users table...`);
-      const [deleteUserResult] = await connection.query('DELETE FROM users WHERE user_id = ?', [id]);
+      const [deleteUserResult] = await executeQueryWithRetry(
+        connection, 
+        'DELETE FROM users WHERE user_id = ?', 
+        [id],
+        3 // max retries
+      );
       const userDeleted = deleteUserResult?.affectedRows || (Array.isArray(deleteUserResult) ? deleteUserResult.length : 0);
       if (userDeleted === 0) {
         await connection.rollback();
@@ -528,8 +598,14 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
   } catch (error) {
     // Rollback transaction on error
     if (connection) {
-      await connection.rollback();
+      try {
+        await connection.rollback();
+        console.log('✅ Transaction rolled back successfully');
+      } catch (rollbackErr) {
+        console.error('❌ Error during rollback:', rollbackErr.message);
+      }
     }
+    
     console.error('❌ Error deleting user:', error);
     console.error('Error details:', {
       message: error.message,
@@ -539,27 +615,55 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       stack: error.stack
     });
     
+    // Check for connection-related errors (common with Aiven)
+    const isConnectionError = 
+      error.code === 'ECONNRESET' || 
+      error.code === 'PROTOCOL_CONNECTION_LOST' ||
+      error.code === 'ETIMEDOUT' ||
+      error.code === 'ENOTFOUND' ||
+      error.code === 'ECONNREFUSED' ||
+      error.message?.includes('Connection lost') ||
+      error.message?.includes('timeout') ||
+      error.message?.includes('Connection closed');
+    
     // Provide more specific error messages
     let errorMessage = 'Failed to delete user';
-    if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === '23000' || error.sqlState === '23000') {
+    let statusCode = 500;
+    
+    if (isConnectionError) {
+      errorMessage = 'Database connection error. Please try again. If the problem persists, contact the administrator.';
+      statusCode = 503; // Service Unavailable
+      console.error('🔌 Connection error detected - this may be an Aiven database connectivity issue');
+    } else if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === '23000' || error.sqlState === '23000') {
       errorMessage = 'Cannot delete user: User is still referenced by other records. Please check related data.';
+      statusCode = 400;
     } else if (error.code === 'ER_NO_SUCH_TABLE' || error.code === '42S02') {
       errorMessage = 'Database table missing. Please contact administrator.';
+      statusCode = 500;
+    } else if (error.code === 'ER_LOCK_WAIT_TIMEOUT' || error.code === 'ER_LOCK_DEADLOCK') {
+      errorMessage = 'Database lock timeout. Please try again in a moment.';
+      statusCode = 503;
     } else if (error.message) {
       errorMessage = error.message;
     }
     
-    res.status(500).json({
+    res.status(statusCode).json({
       success: false,
       message: errorMessage,
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : (isConnectionError ? 'Database connection error' : 'Internal server error'),
       errorCode: error.code,
-      sqlState: error.sqlState
+      sqlState: error.sqlState,
+      isConnectionError: isConnectionError
     });
   } finally {
-    // Release connection
+    // Release connection safely
     if (connection) {
-      connection.release();
+      try {
+        connection.release();
+        console.log('✅ Database connection released');
+      } catch (releaseErr) {
+        console.error('❌ Error releasing connection:', releaseErr.message);
+      }
     }
   }
 });
