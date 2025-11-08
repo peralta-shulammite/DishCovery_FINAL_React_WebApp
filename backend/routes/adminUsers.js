@@ -363,16 +363,49 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(`🗑️ Attempting to delete user with ID: ${id}`);
+    console.log(`🗑️ [DELETE USER] Starting deletion process for user ID: ${id}`);
+    console.log(`🗑️ [DELETE USER] Request received at: ${new Date().toISOString()}`);
 
     // Get healthy database connection with retry logic (for Aiven connection issues)
-    connection = await getHealthyConnection();
+    try {
+      console.log(`🔌 [DELETE USER] Attempting to get healthy database connection...`);
+      connection = await getHealthyConnection();
+      console.log(`✅ [DELETE USER] Database connection established successfully`);
+    } catch (connError) {
+      console.error(`❌ [DELETE USER] Failed to establish database connection after retries:`, connError);
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection error. Please try again. If the problem persists, contact the administrator.',
+        error: process.env.NODE_ENV === 'development' ? connError.message : 'Database connection error',
+        errorCode: connError.code,
+        isConnectionError: true
+      });
+    }
     
     // Set transaction timeout (30 seconds for Aiven)
-    await connection.query('SET SESSION innodb_lock_wait_timeout = 30');
-    await connection.query('SET SESSION lock_wait_timeout = 30');
+    try {
+      await connection.query('SET SESSION innodb_lock_wait_timeout = 30');
+      await connection.query('SET SESSION lock_wait_timeout = 30');
+      console.log(`✅ [DELETE USER] Transaction timeouts configured`);
+    } catch (timeoutErr) {
+      console.warn(`⚠️ [DELETE USER] Failed to set transaction timeouts:`, timeoutErr.message);
+      // Continue anyway - this is not critical
+    }
     
-    await connection.beginTransaction();
+    try {
+      await connection.beginTransaction();
+      console.log(`✅ [DELETE USER] Transaction started`);
+    } catch (txErr) {
+      console.error(`❌ [DELETE USER] Failed to start transaction:`, txErr);
+      connection.release();
+      return res.status(503).json({
+        success: false,
+        message: 'Database transaction error. Please try again.',
+        error: process.env.NODE_ENV === 'development' ? txErr.message : 'Transaction error',
+        errorCode: txErr.code,
+        isConnectionError: true
+      });
+    }
 
     // Check if user exists
     const [userCheckRows] = await connection.query('SELECT * FROM users WHERE user_id = ?', [id]);

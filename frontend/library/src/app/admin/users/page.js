@@ -172,13 +172,28 @@ const UserManagementContent = () => {
     }
 
     try {
+      console.log(`🗑️ Attempting to delete user ${userId} (${username})...`);
       const result = await adminUsersAPI.deleteUser(userId);
-      if (result.success) {
+      
+      if (result && result.success) {
+        console.log('✅ User deleted successfully');
         alert('User deleted successfully!');
         await fetchUsers(); // Refresh the list
+      } else {
+        console.error('❌ Delete user returned unsuccessful result:', result);
+        alert(`Failed to delete user: ${result?.message || 'Unknown error occurred'}`);
       }
     } catch (error) {
-      alert(`Failed to delete user: ${error.message}`);
+      console.error('❌ Error in handleDeleteUser:', error);
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      
+      // Show user-friendly error message
+      const errorMessage = error.message || 'Failed to delete user. Please try again or contact support if the problem persists.';
+      alert(`Failed to delete user: ${errorMessage}`);
     }
   };
 
