@@ -8,11 +8,16 @@ const __dirname = path.dirname(__filename);
 
 // LOAD ENV FIRST - BEFORE ANY OTHER IMPORTS
 const localEnvPath = path.join(__dirname, '.env.local');
+const envPath = path.join(__dirname, '.env');
+
 if (fs.existsSync(localEnvPath)) {
   console.log('📝 Loading .env.local (development)');
   dotenv.config({ path: localEnvPath });
-} else {
+} else if (fs.existsSync(envPath)) {
   console.log('📝 Loading .env (production)');
+  dotenv.config({ path: envPath });
+} else {
+  console.log('⚠️ No .env.local or .env found in backend directory, trying process.cwd()');
   dotenv.config();
 }
 

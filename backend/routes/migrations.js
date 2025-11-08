@@ -1,13 +1,21 @@
 // Migration routes for database migrations
 import express from 'express';
 import authenticateToken from '../middleware/auth.js';
-import runMigration from '../migrations/run_migration.js';
-import runTypeMigration from '../migrations/add_ingredient_type_column.js';
-import runSwapMigration from '../migrations/swap_type_category.js';
-import runCategRoleMigration from '../migrations/add_categ_role_column.js';
-import runNormalize from '../migrations/normalize_type_singular.js';
 
 const router = express.Router();
+
+// Helper function to dynamically load migration (only if file exists)
+async function loadMigration(modulePath) {
+  try {
+    const module = await import(modulePath);
+    return module.default;
+  } catch (error) {
+    if (error.code === 'ERR_MODULE_NOT_FOUND') {
+      return null; // File doesn't exist - this is OK
+    }
+    throw error; // Re-throw other errors
+  }
+}
 
 // Run migration to add dietary_info column
 router.post('/add-dietary-info-column', authenticateToken, async (req, res) => {
@@ -17,6 +25,14 @@ router.post('/add-dietary-info-column', authenticateToken, async (req, res) => {
       return res.status(403).json({ 
         success: false, 
         message: 'Admin access required to run migrations' 
+      });
+    }
+
+    const runMigration = await loadMigration('../migrations/run_migration.js');
+    if (!runMigration) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Migration file not found' 
       });
     }
 
@@ -47,6 +63,14 @@ router.post('/add-ingredient-type-column', authenticateToken, async (req, res) =
       });
     }
 
+    const runTypeMigration = await loadMigration('../migrations/add_ingredient_type_column.js');
+    if (!runTypeMigration) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Migration file not found' 
+      });
+    }
+
     console.log('🔄 Admin requested migration: add-ingredient-type-column');
     await runTypeMigration();
     
@@ -71,6 +95,14 @@ router.post('/swap-type-category', authenticateToken, async (req, res) => {
       return res.status(403).json({ 
         success: false, 
         message: 'Admin access required to run migrations' 
+      });
+    }
+
+    const runSwapMigration = await loadMigration('../migrations/swap_type_category.js');
+    if (!runSwapMigration) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Migration file not found' 
       });
     }
 
@@ -101,6 +133,14 @@ router.post('/add-categ-role-column', authenticateToken, async (req, res) => {
       });
     }
 
+    const runCategRoleMigration = await loadMigration('../migrations/add_categ_role_column.js');
+    if (!runCategRoleMigration) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Migration file not found' 
+      });
+    }
+
     console.log('🔄 Admin requested migration: add-categ-role-column');
     await runCategRoleMigration();
     
@@ -125,6 +165,14 @@ router.post('/normalize-type-singular', authenticateToken, async (req, res) => {
       return res.status(403).json({ 
         success: false, 
         message: 'Admin access required to run migrations' 
+      });
+    }
+
+    const runNormalize = await loadMigration('../migrations/normalize_type_singular.js');
+    if (!runNormalize) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Migration file not found' 
       });
     }
 

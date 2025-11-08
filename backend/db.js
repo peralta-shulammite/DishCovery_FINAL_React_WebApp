@@ -2,14 +2,40 @@
 import mysql from 'mysql2/promise';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
-// LOAD .ENV.LOCAL FIRST BEFORE ANYTHING
-const localEnvPath = path.join(process.cwd(), '.env.local');
+// Get the directory where this file is located
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// LOAD .ENV.LOCAL FIRST BEFORE ANYTHING (use __dirname like server.js)
+// Note: server.js already loads .env, but we load it here too in case db.js is imported directly
+const localEnvPath = path.join(__dirname, '.env.local');
+const envPath = path.join(__dirname, '.env');
+
+console.log('🔍 [DB] Looking for .env files:');
+console.log(`   - .env.local path: ${localEnvPath}`);
+console.log(`   - .env.local exists: ${fs.existsSync(localEnvPath)}`);
+console.log(`   - .env path: ${envPath}`);
+console.log(`   - .env exists: ${fs.existsSync(envPath)}`);
+
 if (fs.existsSync(localEnvPath)) {
-  dotenv.config({ path: localEnvPath });
+  dotenv.config({ path: localEnvPath, override: true });
+  console.log('📝 [DB] Loaded .env.local from:', localEnvPath);
+} else if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath, override: true });
+  console.log('📝 [DB] Loaded .env from:', envPath);
 } else {
-  dotenv.config();
+  // Try loading from process.cwd() as fallback
+  const cwdEnvPath = path.join(process.cwd(), '.env');
+  if (fs.existsSync(cwdEnvPath)) {
+    dotenv.config({ path: cwdEnvPath, override: true });
+    console.log('📝 [DB] Loaded .env from process.cwd():', cwdEnvPath);
+  } else {
+    dotenv.config({ override: false });
+    console.log('⚠️ [DB] No .env.local or .env found, using defaults');
+  }
 }
 
 // Determine SSL configuration
@@ -19,7 +45,7 @@ const useSSL = process.env.DB_SSL === 'true' && !isLocalhost;
 
 if (useSSL) {
   try {
-    const caPath = path.join(process.cwd(), 'certs', 'ca.pem');
+    const caPath = path.join(__dirname, 'certs', 'ca.pem');
     if (fs.existsSync(caPath)) {
       sslConfig = { ca: fs.readFileSync(caPath) };
       console.log('🔒 Using SSL with CA certificate for cloud DB');
@@ -40,6 +66,17 @@ const dbName = process.env.DB_NAME || 'db_dishcovery';
 const dbHost = process.env.DB_HOST || '127.0.0.1';
 const dbPort = parseInt(process.env.DB_PORT) || 3306;
 const dbUser = process.env.DB_USER || 'root';
+
+// Debug: Log what environment variables were loaded
+console.log('\n🔍 [DB] Environment variables check:');
+console.log(`   - DB_HOST from env: ${process.env.DB_HOST || 'NOT SET'}`);
+console.log(`   - DB_PORT from env: ${process.env.DB_PORT || 'NOT SET'}`);
+console.log(`   - DB_USER from env: ${process.env.DB_USER || 'NOT SET'}`);
+console.log(`   - DB_NAME from env: ${process.env.DB_NAME || 'NOT SET'}`);
+console.log(`   - DB_PASSWORD from env: ${process.env.DB_PASSWORD ? 'SET' : 'NOT SET'}`);
+console.log(`   - DB_SSL from env: ${process.env.DB_SSL || 'NOT SET'}`);
+console.log(`   - Using values: ${dbHost}:${dbPort} as ${dbUser} on ${dbName}`);
+console.log('');
 
 // Create MySQL pool with enhanced reconnection settings for Aiven
 const pool = mysql.createPool({

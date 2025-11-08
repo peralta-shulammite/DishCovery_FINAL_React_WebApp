@@ -59,6 +59,8 @@ const api = {
   // ===================================================
   
   signIn: async (email, password) => {
+    // Normalize email: trim whitespace and convert to lowercase
+    email = email ? email.trim().toLowerCase() : '';
     console.log('🔐 Smart login attempt for:', email);
     
     const isLikelyAdmin = email.includes('admin') || email.endsWith('@dishcovery.com');
@@ -146,6 +148,8 @@ const api = {
   },
 
   signUp: async (firstName, lastName, email, password) => {
+    // Normalize email: trim whitespace and convert to lowercase
+    email = email ? email.trim().toLowerCase() : '';
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
