@@ -66,15 +66,43 @@ export default function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{
           __html: `
             if ('serviceWorker' in navigator) {
+              // Prevent multiple registrations
+              if (window.serviceWorkerRegistered) {
+                return;
+              }
+              
               window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js').then(
-                  function(registration) {
-                    console.log('Service Worker registered successfully:', registration.scope);
-                  },
-                  function(err) {
-                    console.log('Service Worker registration failed:', err);
+                // Check if service worker is already registered
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                  if (registrations.length > 0) {
+                    console.log('Service Worker already registered');
+                    window.serviceWorkerRegistered = true;
+                    return;
                   }
-                );
+                  
+                  // Register service worker with error handling
+                  navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then(function(registration) {
+                      console.log('Service Worker registered successfully:', registration.scope);
+                      window.serviceWorkerRegistered = true;
+                    })
+                    .catch(function(err) {
+                      // Handle abort errors gracefully (page navigation during registration)
+                      if (err.name === 'AbortError' || err.message.includes('aborted')) {
+                        console.log('Service Worker registration aborted (page navigation)');
+                        return;
+                      }
+                      // Only log actual errors
+                      if (err.name !== 'AbortError') {
+                        console.warn('Service Worker registration failed:', err.name, err.message);
+                      }
+                    });
+                }).catch(function(err) {
+                  // Silently handle errors during registration check
+                  if (err.name !== 'AbortError') {
+                    console.warn('Service Worker check failed:', err.name);
+                  }
+                });
               });
             }
           `
