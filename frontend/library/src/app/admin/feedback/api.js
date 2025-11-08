@@ -1,5 +1,15 @@
 // API service for admin feedback management
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+// Fix: Use correct backend URL for Vercel deployment
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname.includes('vercel.app')) {
+      return 'https://dishcovery-backend-wvhn.onrender.com/api';
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const getAuthToken = () => {
   return localStorage.getItem('token');
