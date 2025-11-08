@@ -16,14 +16,15 @@
   font-family: var(--font-geist-sans);
 }
 
+/* FORCE LIGHT MODE - Override dark mode styles */
 @media (prefers-color-scheme: dark) {
   .page {
-    --gray-rgb: 255, 255, 255;
-    --gray-alpha-200: rgba(var(--gray-rgb), 0.145);
-    --gray-alpha-100: rgba(var(--gray-rgb), 0.06);
+    --gray-rgb: 0, 0, 0 !important;
+    --gray-alpha-200: rgba(var(--gray-rgb), 0.08) !important;
+    --gray-alpha-100: rgba(var(--gray-rgb), 0.05) !important;
 
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
+    --button-primary-hover: #383838 !important;
+    --button-secondary-hover: #f2f2f2 !important;
   }
 }
 
@@ -161,8 +162,9 @@ a.secondary {
   }
 }
 
+/* FORCE LIGHT MODE - Disable logo inversion */
 @media (prefers-color-scheme: dark) {
   .logo {
-    filter: invert();
+    filter: none !important;
   }
 }

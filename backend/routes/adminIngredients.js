@@ -12,6 +12,8 @@ router.get('/', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
+    // Query to get all ingredients with proper column mapping
+    // ingredient_type = type, categ_role = role, category = legacy (not used)
     const ingredients = await pool.query(`
       SELECT 
         ingredient_id as id,
@@ -27,6 +29,15 @@ router.get('/', authenticateToken, async (req, res) => {
       FROM ingredients i
       ORDER BY ingredient_name
     `);
+    
+    // Debug: Log first few ingredients to verify data
+    if (ingredients.length > 0) {
+      console.log(`📊 Loaded ${ingredients.length} ingredients from database`);
+      const sample = ingredients.slice(0, 3);
+      sample.forEach(ing => {
+        console.log(`  - ${ing.name}: ingredient_type="${ing.type || 'NULL'}", category="${ing.category || 'NULL'}", categ_role="${ing.categ_role || 'NULL'}"`);
+      });
+    }
 
     // Transform the data to match frontend expectations
     // Note: If ingredient_type is empty but category has type-like values, swap them
@@ -64,29 +75,90 @@ router.get('/', authenticateToken, async (req, res) => {
       };
       
       // Get type from ingredient_type column (primary source)
-      let type = ingredient.type ? String(ingredient.type).trim() : null;
-      let category = ingredient.category ? String(ingredient.category).trim() : null;
-      let role = ingredient.categ_role ? String(ingredient.categ_role).trim() : null;
+      // Handle empty strings from COALESCE as null
+      let type = (ingredient.type && String(ingredient.type).trim() !== '') 
+        ? String(ingredient.type).trim() 
+        : null;
+      let category = (ingredient.category && String(ingredient.category).trim() !== '') 
+        ? String(ingredient.category).trim() 
+        : null;
+      let role = (ingredient.categ_role && String(ingredient.categ_role).trim() !== '') 
+        ? String(ingredient.categ_role).trim() 
+        : null;
       
-      // If type is empty/null but category has type-like value, use category as type
-      if (!type && category && typeLikeValues.includes(category)) {
+      // PRIORITY 1: If ingredient_type has data, use it directly (most common case)
+      if (type && type !== '') {
+        // Check if type is actually a role value (data is reversed)
+        if (roleLikeValues.includes(type)) {
+          // Type contains role value, swap with category if category has type value
+          const tempType = type;
+          if (category && typeLikeValues.includes(category)) {
+            type = normalizeType(category);
+            role = tempType || role || 'Main Ingredient';
+            if (ingredients.indexOf(ingredient) < 3) {
+              console.log(`🔄 [${ingredient.name}] Swapped reversed data: ingredient_type="${tempType}" -> type="${type}"`);
+            }
+          } else {
+            // Can't swap, use category as type if available
+            type = null;
+            role = tempType || role || 'Main Ingredient';
+          }
+        } else {
+          // Type is valid, normalize it and use categ_role for role
+          type = normalizeType(type);
+          role = role || (category && roleLikeValues.includes(category) ? category : null) || 'Other';
+        }
+      }
+      // PRIORITY 2: If ingredient_type is empty but category has type-like value, use category as type
+      else if (!type && category && typeLikeValues.includes(category)) {
         type = normalizeType(category);
-        // Set role from categ_role or default
-        role = ingredient.categ_role || 'Main Ingredient';
-      } 
-      // If type has role-like value (data is reversed), swap them
-      else if (type && roleLikeValues.includes(type)) {
-        // Type actually contains role value, swap
-        const tempType = type;
-        type = category && typeLikeValues.includes(category) ? normalizeType(category) : null;
-        role = tempType || ingredient.categ_role || 'Main Ingredient';
-      } 
-      // Normal case: type exists and is valid
+        role = role || 'Main Ingredient';
+        if (ingredients.indexOf(ingredient) < 3) {
+          console.log(`✅ [${ingredient.name}] Using category as type: "${category}" -> "${type}"`);
+        }
+      }
+      // PRIORITY 3: Last resort - try to infer type from category (case-insensitive match)
+      else if (!type && category && category !== '') {
+        if (!roleLikeValues.includes(category)) {
+          // Category might be a type value, try case-insensitive match
+          const categoryLower = category.toLowerCase();
+          const matchedType = typeLikeValues.find(t => t.toLowerCase() === categoryLower);
+          if (matchedType) {
+            type = normalizeType(matchedType);
+            role = role || 'Main Ingredient';
+            if (ingredients.indexOf(ingredient) < 3) {
+              console.log(`🔧 [${ingredient.name}] Inferred type from category: "${category}" -> "${type}"`);
+            }
+          } else {
+            // Try partial match
+            const partialMatch = typeLikeValues.find(t => 
+              categoryLower.includes(t.toLowerCase()) || t.toLowerCase().includes(categoryLower)
+            );
+            if (partialMatch) {
+              type = normalizeType(partialMatch);
+              role = role || 'Main Ingredient';
+              if (ingredients.indexOf(ingredient) < 3) {
+                console.log(`🔧 [${ingredient.name}] Partial match: "${category}" -> "${type}"`);
+              }
+            } else {
+              // Category is not a type, it's probably a role
+              role = category;
+            }
+          }
+        } else {
+          // Category is a role
+          role = category;
+        }
+      }
+      // PRIORITY 4: Default fallback
       else {
-        // Normalize type to singular if it exists
-        type = type ? normalizeType(type) : null;
-        // Use categ_role if available, otherwise use category (if it's a role value)
-        role = role || (category && roleLikeValues.includes(category) ? category : null) || 'Other';
+        type = null;
+        role = role || 'Other';
+      }
+      
+      // Debug: Log if type is still missing (only first few)
+      if (!type && ingredient.name && ingredients.indexOf(ingredient) < 3) {
+        console.log(`⚠️  [${ingredient.name}] Missing type - ingredient_type: "${ingredient.type || 'NULL'}", category: "${category || 'NULL'}", categ_role: "${role || 'NULL'}"`);
       }
 
       const result = {
@@ -101,9 +173,9 @@ router.get('/', authenticateToken, async (req, res) => {
         dateAdded: ingredient.dateAdded
       };
       
-      // Debug logging (only in development)
-      if (process.env.NODE_ENV !== 'production' && !result.type && ingredient.name) {
-        console.log(`⚠️  Missing type for ${ingredient.name}: ingredient_type="${ingredient.type}", category="${category}", categ_role="${role}"`);
+      // Debug logging (always log missing types for troubleshooting)
+      if (!result.type && ingredient.name) {
+        console.log(`⚠️  Missing type for ${ingredient.name}: ingredient_type="${ingredient.type || 'NULL'}", category="${category || 'NULL'}", categ_role="${role || 'NULL'}"`);
       }
       
       return result;
@@ -177,23 +249,28 @@ router.post('/', authenticateToken, async (req, res) => {
       image: processedImage 
     });
 
+    // Frontend sends: type = ingredient type, category = role
+    // Database: ingredient_type = type, categ_role = role, category = null (for backward compatibility)
+    const role = category || 'Main Ingredient'; // category from frontend is actually the role
+    
     const result = await pool.query(`
       INSERT INTO ingredients (ingredient_name, ingredient_type, category, categ_role, nutritional_data, is_active)
       VALUES (?, ?, ?, ?, ?, ?)
     `, [
       name,
-      normalizedType || null,
-      category || null, // Keep category for backward compatibility
-      category || 'Main Ingredient', // categ_role stores the role
+      normalizedType || null, // ingredient_type stores the type
+      null, // category is kept null for backward compatibility (not used anymore)
+      role, // categ_role stores the role (Main Ingredient, Additive, etc.)
       nutritionalData,
       status === 'Active' ? 1 : 0
     ]);
 
+    // Frontend expects: type = ingredient type, category = role
     const newIngredient = {
       id: result.insertId,
       name,
       type: normalizedType || null,
-      category: category || 'Other',
+      category: role, // category in response maps to role
       image: image || null,
       status: status === 'Active' ? 'Active' : 'Inactive',
       usedInRecipes: 0,
@@ -255,15 +332,19 @@ router.put('/:id', authenticateToken, async (req, res) => {
       image: processedImage 
     });
 
+    // Frontend sends: type = ingredient type, category = role
+    // Database: ingredient_type = type, categ_role = role, category = null (for backward compatibility)
+    const role = category || 'Main Ingredient'; // category from frontend is actually the role
+    
     await pool.query(`
       UPDATE ingredients 
       SET ingredient_name = ?, ingredient_type = ?, category = ?, categ_role = ?, nutritional_data = ?, is_active = ?
       WHERE ingredient_id = ?
     `, [
       name,
-      normalizedType || null,
-      category || null, // Keep category for backward compatibility
-      category || 'Main Ingredient', // categ_role stores the role
+      normalizedType || null, // ingredient_type stores the type
+      null, // category is kept null for backward compatibility (not used anymore)
+      role, // categ_role stores the role (Main Ingredient, Additive, etc.)
       nutritionalData,
       status === 'Active' ? 1 : 0,
       id
@@ -276,11 +357,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
         (SELECT COUNT(DISTINCT user_id) FROM user_scanned_ingredients usi WHERE usi.ingredient_id = ?) as usersHave
     `, [id, id]);
 
+    // Frontend expects: type = ingredient type, category = role
     const updatedIngredient = {
       id: parseInt(id),
       name,
       type: normalizedType || null,
-      category: category || 'Other',
+      category: role, // category in response maps to role
       image: image || null,
       status: status === 'Active' ? 'Active' : 'Inactive',
       usedInRecipes: counts[0]?.usedInRecipes || 0,
