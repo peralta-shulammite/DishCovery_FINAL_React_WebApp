@@ -54,7 +54,6 @@ router.get('/my-feedback', async (req, res) => {
       `SELECT 
         f.feedback_id,
         f.message,
-        f.priority,
         f.status,
         f.unread_by_user,
         f.created_at,
@@ -87,7 +86,6 @@ router.get('/my-feedback', async (req, res) => {
         return {
           feedbackId: feedback.feedback_id,
           message: feedback.message,
-          priority: feedback.priority,
           status: feedback.status,
           hasUnreadReplies: feedback.unread_by_user === 1,
           createdAt: feedback.created_at,
@@ -139,7 +137,7 @@ router.get('/my-feedback', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { feedbackMessage, priority = 'medium' } = req.body;
+    const { feedbackMessage } = req.body;
 
     console.log('📝 User submitting feedback:', userId);
 
@@ -158,20 +156,11 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Validate priority
-    const validPriorities = ['low', 'medium', 'high'];
-    if (!validPriorities.includes(priority)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid priority'
-      });
-    }
-
     // Insert feedback
     const result = await db.query(
-      `INSERT INTO feedback (user_id, message, priority, status, unread_by_admin, unread_by_user)
-       VALUES (?, ?, ?, 'pending', 1, 0)`,
-      [userId, feedbackMessage.trim(), priority]
+      `INSERT INTO feedback (user_id, message, status, unread_by_admin, unread_by_user)
+       VALUES (?, ?, 'pending', 1, 0)`,
+      [userId, feedbackMessage.trim()]
     );
 
     console.log('✅ Feedback submitted successfully');

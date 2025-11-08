@@ -369,28 +369,6 @@
   color: #166534;
 }
 
-.priority-badge {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  font-family: 'Poppins', sans-serif;
-}
-
-.priority-high {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.priority-medium {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.priority-low {
-  background: #f3f4f6;
-  color: #6b7280;
-}
 
 .action-btn {
   padding: 8px 16px;

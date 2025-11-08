@@ -14,7 +14,6 @@ const FeedbackManagementContent = () => {
   
   // Filter states
   const [sortBy, setSortBy] = useState('newest');
-  const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -64,7 +63,6 @@ const FeedbackManagementContent = () => {
       setLoading(true);
       const filters = {
         sortBy,
-        priority: priorityFilter,
         status: statusFilter,
         fromDate: dateFrom,
         toDate: dateTo,
@@ -94,7 +92,7 @@ const FeedbackManagementContent = () => {
   useEffect(() => {
     loadStats();
     loadFeedback();
-  }, [sortBy, priorityFilter, statusFilter, dateFrom, dateTo, pagination.offset]);
+  }, [sortBy, statusFilter, dateFrom, dateTo, pagination.offset]);
 
   // Search with debounce
   useEffect(() => {
@@ -210,20 +208,6 @@ const FeedbackManagementContent = () => {
   };
 
   // ========================================
-  // 🎯 UPDATE PRIORITY
-  // ========================================
-  const updatePriority = async (feedbackId, newPriority) => {
-    try {
-      await adminFeedbackAPI.updatePriority(feedbackId, newPriority);
-      await loadFeedback();
-      console.log('✅ Priority updated');
-    } catch (error) {
-      console.error('❌ Error updating priority:', error);
-      alert('Failed to update priority');
-    }
-  };
-
-  // ========================================
   // 🗑️ DELETE FEEDBACK
   // ========================================
   const deleteFeedback = async (feedbackId) => {
@@ -253,7 +237,6 @@ const FeedbackManagementContent = () => {
   // ========================================
   const clearFilters = () => {
     setSortBy('newest');
-    setPriorityFilter('all');
     setStatusFilter('all');
     setDateFrom('');
     setDateTo('');
@@ -264,14 +247,6 @@ const FeedbackManagementContent = () => {
   // ========================================
   // 🎨 HELPER FUNCTIONS
   // ========================================
-  const getPriorityColor = (priority) => {
-    switch(priority) {
-      case 'high': return 'priority-high';
-      case 'medium': return 'priority-medium';
-      case 'low': return 'priority-low';
-      default: return 'priority-medium';
-    }
-  };
 
   const formatTimestamp = (dateString) => {
     const date = new Date(dateString);
@@ -325,7 +300,6 @@ const FeedbackManagementContent = () => {
       'User',
       'Subject',
       'Message',
-      'Priority',
       'Status',
       'Created At',
       'Replied At'
@@ -338,7 +312,6 @@ const FeedbackManagementContent = () => {
         feedback.user?.fullName || feedback.user?.email || 'N/A',
         feedback.subject || 'N/A',
         feedback.message || 'N/A',
-        feedback.priority || 'medium',
         feedback.status || 'pending',
         feedback.createdAt || 'N/A',
         feedback.repliedAt || 'N/A'
@@ -484,18 +457,7 @@ const FeedbackManagementContent = () => {
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
-              <option value="priority">Priority (High to Low)</option>
               <option value="unread">Unread First</option>
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label>Priority:</label>
-            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
-              <option value="all">All Priorities</option>
-              <option value="high">High Priority</option>
-              <option value="medium">Medium Priority</option>
-              <option value="low">Low Priority</option>
             </select>
           </div>
           
@@ -567,9 +529,6 @@ const FeedbackManagementContent = () => {
                 </div>
                 <div className="feedback-status">
                   {!feedback.isRead && <span className="unread-indicator">●</span>}
-                  <span className={`priority-badge ${getPriorityColor(feedback.priority)}`}>
-                    {feedback.priority.charAt(0).toUpperCase() + feedback.priority.slice(1)}
-                  </span>
                   {feedback.isReplied && (
                     <span className="replied-badge">
                       ✓ Replied ({feedback.replyCount})
@@ -597,16 +556,6 @@ const FeedbackManagementContent = () => {
                 >
                   {feedback.isRead ? 'Mark Unread' : 'Mark Read'}
                 </button>
-                <select 
-                  className="action-btn secondary"
-                  value={feedback.priority}
-                  onChange={(e) => updatePriority(feedback.feedbackId, e.target.value)}
-                  style={{ padding: '8px 12px' }}
-                >
-                  <option value="low">Low Priority</option>
-                  <option value="medium">Medium Priority</option>
-                  <option value="high">High Priority</option>
-                </select>
                 <button 
                   className="action-btn danger"
                   onClick={() => deleteFeedback(feedback.feedbackId)}
@@ -661,15 +610,9 @@ const FeedbackManagementContent = () => {
                   {/* Original Feedback Message */}
                   <div className="feedback-message">
                     <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center',
                       marginBottom: '12px'
                     }}>
                       <strong>User's Feedback:</strong>
-                      <span className={`priority-badge ${getPriorityColor(selectedFeedback.priority)}`}>
-                        {selectedFeedback.priority.charAt(0).toUpperCase() + selectedFeedback.priority.slice(1)} Priority
-                      </span>
                     </div>
                     {selectedFeedback.message}
                   </div>
