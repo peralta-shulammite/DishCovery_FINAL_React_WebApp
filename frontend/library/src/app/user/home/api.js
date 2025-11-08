@@ -385,6 +385,22 @@ const api = {
     localStorage.clear();
     sessionStorage.clear();
 
+    // Clear Service Worker cache to remove any cached user data
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'caches' in window) {
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            console.log('🗑️ Clearing Service Worker cache:', cacheName);
+            return caches.delete(cacheName);
+          })
+        );
+      }).then(() => {
+        console.log('✅ Service Worker cache cleared');
+      }).catch((error) => {
+        console.warn('⚠️ Failed to clear Service Worker cache:', error);
+      });
+    }
+
     console.log('✅ Client-side cleanup completed');
 
     if (typeof window !== 'undefined') {

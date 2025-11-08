@@ -1,10 +1,9 @@
 // DishCovery Service Worker
-const CACHE_NAME = 'dishcovery-v4';
-const RUNTIME_CACHE = 'dishcovery-runtime-v4';
+const CACHE_NAME = 'dishcovery-v5'; // Updated to force cache refresh
+const RUNTIME_CACHE = 'dishcovery-runtime-v5';
 
-// Assets to cache on install
+// Assets to cache on install (ONLY static assets, NO user-specific pages)
 const PRECACHE_URLS = [
-  '/user/home',
   '/manifest.json',
   '/android/android-launchericon-192-192.png',
   '/android/android-launchericon-512-512.png',
@@ -60,16 +59,23 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   
-  // NEVER cache API calls or Next.js bundles - always fetch fresh
+  // NEVER cache API calls, Next.js bundles, or user-specific pages - always fetch fresh
   if (url.pathname.startsWith('/_next/') || 
       url.pathname.startsWith('/api/') ||
       url.pathname.includes('webpack') ||
-      url.pathname.includes('.hot-update.')) {
+      url.pathname.includes('.hot-update.') ||
+      // Don't cache user-specific pages (they contain user data)
+      url.pathname.startsWith('/user/') ||
+      url.pathname.startsWith('/admin/') ||
+      // Don't cache pages with query parameters (might be user-specific)
+      url.search.includes('token') ||
+      url.search.includes('userId') ||
+      url.search.includes('_rsc')) {
     event.respondWith(fetch(event.request));
     return;
   }
 
-  // For other requests, use cache-first strategy
+  // For other requests (static assets only), use cache-first strategy
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
@@ -109,5 +115,22 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  
+  // Clear all caches when requested (e.g., on logout)
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    event.waitUntil(
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            console.log('🗑️ Clearing cache:', cacheName);
+            return caches.delete(cacheName);
+          })
+        );
+      }).then(() => {
+        console.log('✅ All caches cleared');
+        event.ports[0].postMessage({ success: true });
+      })
+    );
   }
 });

@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { pool } from '../db.js';
 import authenticateToken from '../middleware/auth.js';
 
 const router = express.Router();
@@ -54,7 +54,12 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
           WHERE udr.user_id = ?
         `, [user.id]);
       } catch (err) {
-        console.log('Note: dietary_restrictions table query failed, skipping');
+        // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          restrictions = [];
+        } else {
+          console.log('Note: dietary_restrictions table query failed, skipping');
+        }
       }
 
       // Try to get excluded ingredients
@@ -66,7 +71,12 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
           WHERE uei.user_id = ?
         `, [user.id]);
       } catch (err) {
-        console.log('Note: excluded_ingredients table query failed, skipping');
+        // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          excludedIngredients = [];
+        } else {
+          console.log('Note: excluded_ingredients table query failed, skipping');
+        }
       }
 
       // Try to get preferred diets
@@ -78,7 +88,12 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
           WHERE upd.user_id = ?
         `, [user.id]);
       } catch (err) {
-        console.log('Note: preferred_diets table query failed, skipping');
+        // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          preferredDiets = [];
+        } else {
+          console.log('Note: preferred_diets table query failed, skipping');
+        }
       }
 
       // Try to get medical conditions
@@ -90,7 +105,14 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
           WHERE umc.user_id = ?
         `, [user.id]);
       } catch (err) {
-        console.log('Note: medical_conditions table query failed, skipping');
+        // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          // Table doesn't exist - this is fine, just skip it
+          medicalConditions = [];
+        } else {
+          // Only log unexpected errors
+          console.log('Note: medical_conditions table query failed, skipping');
+        }
       }
 
       // Format user data
@@ -187,12 +209,17 @@ function formatDate(date) {
 
 // PUT /api/admin/users/:id/activate - Activate a user
 router.put('/:id/activate', authenticateToken, adminAuth, async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
 
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
     // Check if user exists
-    const userCheck = await pool.query('SELECT * FROM users WHERE user_id = ?', [id]);
-    if (userCheck.length === 0) {
+    const [userCheck] = await connection.query('SELECT * FROM users WHERE user_id = ?', [id]);
+    if (!userCheck || userCheck.length === 0) {
+      await connection.rollback();
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -200,7 +227,8 @@ router.put('/:id/activate', authenticateToken, adminAuth, async (req, res) => {
     }
 
     // Update user's last_login to make them active
-    await pool.query('UPDATE users SET last_login = NOW() WHERE user_id = ?', [id]);
+    await connection.query('UPDATE users SET last_login = NOW() WHERE user_id = ?', [id]);
+    await connection.commit();
 
     res.json({
       success: true,
@@ -208,23 +236,35 @@ router.put('/:id/activate', authenticateToken, adminAuth, async (req, res) => {
     });
 
   } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
     console.error('Error activating user:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to activate user',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
 // PUT /api/admin/users/:id/deactivate - Deactivate a user
 router.put('/:id/deactivate', authenticateToken, adminAuth, async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
 
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
     // Check if user exists
-    const userCheck = await pool.query('SELECT * FROM users WHERE user_id = ?', [id]);
-    if (userCheck.length === 0) {
+    const [userCheck] = await connection.query('SELECT * FROM users WHERE user_id = ?', [id]);
+    if (!userCheck || userCheck.length === 0) {
+      await connection.rollback();
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -232,7 +272,8 @@ router.put('/:id/deactivate', authenticateToken, adminAuth, async (req, res) => 
     }
 
     // Set last_login to more than 7 days ago to make them inactive
-    await pool.query('UPDATE users SET last_login = DATE_SUB(NOW(), INTERVAL 8 DAY) WHERE user_id = ?', [id]);
+    await connection.query('UPDATE users SET last_login = DATE_SUB(NOW(), INTERVAL 8 DAY) WHERE user_id = ?', [id]);
+    await connection.commit();
 
     res.json({
       success: true,
@@ -240,36 +281,50 @@ router.put('/:id/deactivate', authenticateToken, adminAuth, async (req, res) => 
     });
 
   } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
     console.error('Error deactivating user:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to deactivate user',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
 // DELETE /api/admin/users/:id - Delete a user
 router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
 
     console.log(`🗑️ Attempting to delete user with ID: ${id}`);
 
+    // Get database connection for transaction
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
     // Check if user exists
-    const userCheck = await pool.query('SELECT * FROM users WHERE user_id = ?', [id]);
-    if (userCheck.length === 0) {
+    const [userCheckRows] = await connection.query('SELECT * FROM users WHERE user_id = ?', [id]);
+    if (!userCheckRows || userCheckRows.length === 0) {
+      await connection.rollback();
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
 
-    console.log(`✅ User found: ${userCheck[0].email}`);
+    console.log(`✅ User found: ${userCheckRows[0].email}`);
 
     // Delete related data first (foreign key constraints) - wrapped in try-catch to handle missing tables
     const tablesToClean = [
       'pending_requests',  // ⚠️ IMPORTANT: Must be first due to foreign key constraints
+      'notifications',  // 🆕 Added: Delete user notifications (has CASCADE but manual delete is safer)
       'user_scanned_ingredients',
       'user_dietary_restrictions',
       'user_excluded_ingredients', 
@@ -282,17 +337,31 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
 
     for (const table of tablesToClean) {
       try {
-        const result = await pool.query(`DELETE FROM ${table} WHERE user_id = ?`, [id]);
-        console.log(`  ✓ Cleaned ${table}: ${result.affectedRows || 0} rows deleted`);
+        const [deleteResult] = await connection.query(`DELETE FROM ${table} WHERE user_id = ?`, [id]);
+        // DELETE queries return result object with affectedRows property
+        const affectedRows = deleteResult?.affectedRows || (Array.isArray(deleteResult) ? deleteResult.length : 0);
+        console.log(`  ✓ Cleaned ${table}: ${affectedRows} rows deleted`);
       } catch (err) {
         // Table might not exist or no data - continue
         console.log(`  ⚠️ Skipped ${table}: ${err.message}`);
+        // Don't throw - continue with other tables
       }
     }
     
     // Delete the user
-    await pool.query('DELETE FROM users WHERE user_id = ?', [id]);
+    const [deleteUserResult] = await connection.query('DELETE FROM users WHERE user_id = ?', [id]);
+    const userDeleted = deleteUserResult?.affectedRows || (Array.isArray(deleteUserResult) ? deleteUserResult.length : 0);
+    if (userDeleted === 0) {
+      await connection.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'User not found or already deleted'
+      });
+    }
     console.log(`✅ User deleted successfully`);
+
+    // Commit transaction
+    await connection.commit();
 
     res.json({
       success: true,
@@ -300,18 +369,28 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
     });
 
   } catch (error) {
+    // Rollback transaction on error
+    if (connection) {
+      await connection.rollback();
+    }
     console.error('❌ Error deleting user:', error);
     console.error('Error details:', {
       message: error.message,
       code: error.code,
       sqlState: error.sqlState,
-      sqlMessage: error.sqlMessage
+      sqlMessage: error.sqlMessage,
+      stack: error.stack
     });
     res.status(500).json({
       success: false,
       message: 'Failed to delete user',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
+  } finally {
+    // Release connection
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
