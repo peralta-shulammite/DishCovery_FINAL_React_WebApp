@@ -35,6 +35,7 @@ import userProfileRouter from './routes/userProfile.js';
 import feedbackRouter from './routes/feedback.js';
 import adminFeedbackRouter from './routes/adminFeedback.js';
 import notificationsRouter from './routes/notifications.js';
+import analyticsRouter from './routes/analytics.js';
 import pool from './db.js';
 
 const app = express();
@@ -83,6 +84,7 @@ app.use('/api/scan', scanRouter);
 app.use('/api/user-profile', userProfileRouter);
 app.use('/api/feedback', feedbackRouter);
 app.use('/api/admin/feedback', adminFeedbackRouter);
+app.use('/api/admin/analytics', analyticsRouter);
 app.use('/api/notifications', notificationsRouter);
 
 // Health check

@@ -130,13 +130,27 @@ const IngredientScanner = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        
+        // Check if we're using a front camera (laptop) - front cameras are often mirrored
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        const isFrontCamera = settings.facingMode === 'user' || 
+                             (settings.facingMode === undefined && !isMobile);
+        
+        // Apply mirroring to video display for front cameras (like a mirror)
+        // But we'll capture the non-mirrored image for backend
+        if (isFrontCamera && videoRef.current) {
+          videoRef.current.style.transform = 'scaleX(-1)';
+          console.log('🪞 Front camera detected - applying mirror transform to video display');
+        }
+        
         setCameraState('available');
       }
     } catch (err) {
       console.error("Error accessing camera:", err);
       setCameraState('denied');
     }
-  }, []);
+  }, [isMobile]);
 
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
@@ -327,6 +341,9 @@ const IngredientScanner = () => {
     const displayWidth = Math.floor(videoRect.width);
     const displayHeight = Math.floor(videoRect.height);
     
+    // Check if video is mirrored (front camera)
+    const isVideoMirrored = video.style.transform === 'scaleX(-1)';
+    
     if (displayWidth === 0 || displayHeight === 0) return;
 
     // Set canvas internal dimensions to match displayed dimensions
@@ -357,7 +374,17 @@ const IngredientScanner = () => {
       
       if (isNormalized) {
         // Simple multiplication by display dimensions
-        const [x1_norm, y1_norm, x2_norm, y2_norm] = bboxNorm;
+        let [x1_norm, y1_norm, x2_norm, y2_norm] = bboxNorm;
+        
+        // If video is mirrored but backend image is not, flip X coordinates
+        if (isVideoMirrored) {
+          // Flip horizontally: x' = 1 - x
+          const tempX1 = x1_norm;
+          const tempX2 = x2_norm;
+          x1_norm = 1 - tempX2; // Swap and flip
+          x2_norm = 1 - tempX1;
+        }
+        
         scaledX1 = x1_norm * displayWidth;
         scaledY1 = y1_norm * displayHeight;
         scaledX2 = x2_norm * displayWidth;
@@ -375,7 +402,17 @@ const IngredientScanner = () => {
         const capturedHeight = captureResolutionRef.current.height;
         if (!capturedWidth || !capturedHeight) return;
         
-        const [x1, y1, x2, y2] = bboxNorm;
+        let [x1, y1, x2, y2] = bboxNorm;
+        
+        // If video is mirrored but backend image is not, flip X coordinates
+        if (isVideoMirrored) {
+          // Flip horizontally: x' = width - x
+          const tempX1 = x1;
+          const tempX2 = x2;
+          x1 = capturedWidth - tempX2; // Swap and flip
+          x2 = capturedWidth - tempX1;
+        }
+        
         const scaleX = displayWidth / capturedWidth;
         const scaleY = displayHeight / capturedHeight;
         scaledX1 = x1 * scaleX;

@@ -18,25 +18,40 @@ const adminAuth = (req, res, next) => {
 // GET /api/admin/users - Get all users with stats and details
 router.get('/', authenticateToken, adminAuth, async (req, res) => {
   try {
+    console.log('👥 [ADMIN USERS] Fetching all users...');
+    console.log('👥 [ADMIN USERS] Request from:', req.headers.origin || 'unknown');
+    
     // Fetch all users with their details
-    const users = await pool.query(`
-      SELECT
-        u.user_id as id,
-        u.first_name,
-        u.last_name,
-        u.email,
-        u.created_at as joinedDate,
-        u.last_login as lastActive,
-        u.email_verified,
-        u.google_id,
-        u.profile_picture_url as profilePicture,
-        CASE
-          WHEN u.last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'Active'
-          ELSE 'Inactive'
-        END as status
-      FROM users u
-      ORDER BY u.created_at DESC
-    `);
+    // Handle mysql2 pool.query() which returns [rows, fields] format
+    let users;
+    try {
+      const result = await pool.query(`
+        SELECT
+          u.user_id as id,
+          u.first_name,
+          u.last_name,
+          u.email,
+          u.created_at as joinedDate,
+          u.last_login as lastActive,
+          u.email_verified,
+          u.google_id,
+          u.profile_picture_url as profilePicture,
+          CASE
+            WHEN u.last_login >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 'Active'
+            ELSE 'Inactive'
+          END as status
+        FROM users u
+        ORDER BY u.created_at DESC
+      `);
+      
+      // mysql2 pool.query() returns [rows, fields] - extract rows
+      users = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
+      
+      console.log(`✅ [ADMIN USERS] Found ${users.length} users`);
+    } catch (queryError) {
+      console.error('❌ [ADMIN USERS] Error fetching users:', queryError);
+      throw queryError;
+    }
 
     // Fetch dietary restrictions for each user
     const usersWithDetails = await Promise.all(users.map(async (user) => {
@@ -47,12 +62,14 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
 
       // Try to get dietary restrictions (wrapped in try-catch in case tables don't exist)
       try {
-        restrictions = await pool.query(`
+        const result = await pool.query(`
           SELECT dr.restriction_name
           FROM user_dietary_restrictions udr
           JOIN dietary_restrictions dr ON udr.restriction_id = dr.restriction_id
           WHERE udr.user_id = ?
         `, [user.id]);
+        // Extract rows from mysql2 result format
+        restrictions = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
       } catch (err) {
         // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
         if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
@@ -64,12 +81,14 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
 
       // Try to get excluded ingredients
       try {
-        excludedIngredients = await pool.query(`
+        const result = await pool.query(`
           SELECT i.ingredient_name
           FROM user_excluded_ingredients uei
           JOIN ingredients i ON uei.ingredient_id = i.ingredient_id
           WHERE uei.user_id = ?
         `, [user.id]);
+        // Extract rows from mysql2 result format
+        excludedIngredients = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
       } catch (err) {
         // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
         if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
@@ -81,12 +100,14 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
 
       // Try to get preferred diets
       try {
-        preferredDiets = await pool.query(`
+        const result = await pool.query(`
           SELECT pd.diet_name
           FROM user_preferred_diets upd
           JOIN preferred_diets pd ON upd.diet_id = pd.diet_id
           WHERE upd.user_id = ?
         `, [user.id]);
+        // Extract rows from mysql2 result format
+        preferredDiets = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
       } catch (err) {
         // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
         if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
@@ -98,12 +119,14 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
 
       // Try to get medical conditions
       try {
-        medicalConditions = await pool.query(`
+        const result = await pool.query(`
           SELECT mc.condition_name
           FROM user_medical_conditions umc
           JOIN medical_conditions mc ON umc.condition_id = mc.condition_id
           WHERE umc.user_id = ?
         `, [user.id]);
+        // Extract rows from mysql2 result format
+        medicalConditions = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
       } catch (err) {
         // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
         if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
@@ -152,8 +175,18 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
       FROM users
       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
     `);
-    const newUsers = newUsersResult[0].count;
+    // Extract rows from mysql2 result format
+    const newUsersRows = Array.isArray(newUsersResult) && Array.isArray(newUsersResult[0]) ? newUsersResult[0] : (Array.isArray(newUsersResult) ? newUsersResult : []);
+    const newUsers = newUsersRows[0]?.count || 0;
 
+    console.log('✅ [ADMIN USERS] Successfully fetched users:', {
+      totalUsers,
+      activeUsers,
+      newUsers,
+      inactiveUsers,
+      usersWithDetails: usersWithDetails.length
+    });
+    
     res.json({
       success: true,
       users: usersWithDetails,
@@ -166,11 +199,22 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('❌ [ADMIN USERS] Error fetching users:', error);
+    console.error('❌ [ADMIN USERS] Error details:', {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+      sqlMessage: error.sqlMessage,
+      stack: error.stack
+    });
+    
     res.status(500).json({
       success: false,
       message: 'Failed to fetch users',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      errorCode: error.code,
+      sqlState: error.sqlState,
+      hint: process.env.NODE_ENV === 'development' ? 'Check backend logs for details' : undefined
     });
   }
 });
