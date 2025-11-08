@@ -15,13 +15,20 @@ const adminAuth = (req, res, next) => {
   next();
 };
 
+// Health check route for analytics (no auth required for testing)
+router.get('/health', (req, res) => {
+  res.json({ success: true, message: 'Analytics route is working', timestamp: new Date().toISOString() });
+});
+
 // GET /api/admin/analytics - Get comprehensive analytics data
 router.get('/', authenticateToken, adminAuth, async (req, res) => {
   try {
     const { dateRange = 'Last 30 Days' } = req.query;
     
+    console.log('📊 [ANALYTICS] Route hit - GET /api/admin/analytics');
     console.log('📊 [ANALYTICS] Fetching analytics data for date range:', dateRange);
     console.log('📊 [ANALYTICS] Request from:', req.headers.origin || 'unknown');
+    console.log('📊 [ANALYTICS] User:', req.user ? { id: req.user.userId || req.user.id, isAdmin: req.user.isAdmin } : 'no user');
     
     // Calculate date range
     let dateFilter = '';

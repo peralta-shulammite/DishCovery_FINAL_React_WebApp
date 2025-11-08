@@ -14,13 +14,14 @@ router.get('/', authenticateToken, async (req, res) => {
 
     // Query to get all ingredients with proper column mapping
     // ingredient_type = type, categ_role = role, category = legacy (not used)
+    // Use NULLIF to convert empty strings to NULL for better handling
     const ingredients = await pool.query(`
       SELECT 
         ingredient_id as id,
         ingredient_name as name,
-        COALESCE(ingredient_type, '') as type,
-        COALESCE(category, '') as category,
-        COALESCE(categ_role, '') as categ_role,
+        NULLIF(TRIM(COALESCE(ingredient_type, '')), '') as type,
+        NULLIF(TRIM(COALESCE(category, '')), '') as category,
+        NULLIF(TRIM(COALESCE(categ_role, '')), '') as categ_role,
         nutritional_data,
         is_active,
         created_at as dateAdded,
@@ -33,7 +34,7 @@ router.get('/', authenticateToken, async (req, res) => {
     // Debug: Log first few ingredients to verify data
     if (ingredients.length > 0) {
       console.log(`📊 Loaded ${ingredients.length} ingredients from database`);
-      const sample = ingredients.slice(0, 3);
+      const sample = ingredients.slice(0, 5);
       sample.forEach(ing => {
         console.log(`  - ${ing.name}: ingredient_type="${ing.type || 'NULL'}", category="${ing.category || 'NULL'}", categ_role="${ing.categ_role || 'NULL'}"`);
       });
@@ -75,38 +76,38 @@ router.get('/', authenticateToken, async (req, res) => {
       };
       
       // Get type from ingredient_type column (primary source)
-      // Handle empty strings from COALESCE as null
-      let type = (ingredient.type && String(ingredient.type).trim() !== '') 
-        ? String(ingredient.type).trim() 
-        : null;
-      let category = (ingredient.category && String(ingredient.category).trim() !== '') 
-        ? String(ingredient.category).trim() 
-        : null;
-      let role = (ingredient.categ_role && String(ingredient.categ_role).trim() !== '') 
-        ? String(ingredient.categ_role).trim() 
-        : null;
+      // ingredient.type is already trimmed and NULLIF converted by SQL query
+      // This means if ingredient_type has data, it will be a string; if NULL, it will be null
+      let type = ingredient.type ? String(ingredient.type).trim() : null;
+      let category = ingredient.category ? String(ingredient.category).trim() : null;
+      let role = ingredient.categ_role ? String(ingredient.categ_role).trim() : null;
       
       // PRIORITY 1: If ingredient_type has data, use it directly (most common case)
-      if (type && type !== '') {
-        // Check if type is actually a role value (data is reversed)
+      // This should catch most cases where database has type data like "Herb & Spice", "Meat", etc.
+      if (type && type !== '' && type !== null) {
+        // Check if type is actually a role value (data is reversed - rare case)
         if (roleLikeValues.includes(type)) {
           // Type contains role value, swap with category if category has type value
           const tempType = type;
           if (category && typeLikeValues.includes(category)) {
             type = normalizeType(category);
             role = tempType || role || 'Main Ingredient';
-            if (ingredients.indexOf(ingredient) < 3) {
-              console.log(`🔄 [${ingredient.name}] Swapped reversed data: ingredient_type="${tempType}" -> type="${type}"`);
-            }
+            console.log(`🔄 [${ingredient.name}] Swapped reversed data: ingredient_type="${tempType}" -> type="${type}"`);
           } else {
-            // Can't swap, use category as type if available
+            // Can't swap, set type to null and use tempType as role
             type = null;
             role = tempType || role || 'Main Ingredient';
+            console.log(`⚠️  [${ingredient.name}] ingredient_type has role value "${tempType}", but no valid type in category`);
           }
         } else {
-          // Type is valid, normalize it and use categ_role for role
+          // Type is valid (like "Herb & Spice", "Meat", "Fish", etc.) - normalize and return
+          // normalizeType will convert plurals to singular, but keep values like "Herb & Spice" as is
           type = normalizeType(type);
           role = role || (category && roleLikeValues.includes(category) ? category : null) || 'Other';
+          // Log successful type extraction for first few ingredients
+          if (ingredients.indexOf(ingredient) < 5) {
+            console.log(`✅ [${ingredient.name}] Using ingredient_type: "${ingredient.type}" -> "${type}"`);
+          }
         }
       }
       // PRIORITY 2: If ingredient_type is empty but category has type-like value, use category as type
@@ -157,8 +158,8 @@ router.get('/', authenticateToken, async (req, res) => {
       }
       
       // Debug: Log if type is still missing (only first few)
-      if (!type && ingredient.name && ingredients.indexOf(ingredient) < 3) {
-        console.log(`⚠️  [${ingredient.name}] Missing type - ingredient_type: "${ingredient.type || 'NULL'}", category: "${category || 'NULL'}", categ_role: "${role || 'NULL'}"`);
+      if (!type && ingredient.name && ingredients.indexOf(ingredient) < 5) {
+        console.log(`⚠️  [${ingredient.name}] Missing type - ingredient_type: "${ingredient.type || 'NULL'}", category: "${ingredient.category || 'NULL'}", categ_role: "${ingredient.categ_role || 'NULL'}"`);
       }
 
       const result = {
