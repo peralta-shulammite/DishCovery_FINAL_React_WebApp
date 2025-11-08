@@ -50,6 +50,7 @@ const IngredientScanner = () => {
   const [isLiveDetecting, setIsLiveDetecting] = useState(false);
   const [newIngredient, setNewIngredient] = useState('');
   const [backendError, setBackendError] = useState(null);
+  const [availableIngredients, setAvailableIngredients] = useState([]); // Cache of all ingredients from database
   const smoothedDetectionsRef = useRef([]);
   const captureResolutionRef = useRef({ width: 0, height: 0 });
   
@@ -84,11 +85,7 @@ const IngredientScanner = () => {
       
       console.log('🍳 Generating recipes with selected ingredients:', selectedIngredients);
       
-      // Step 1: Save to pantry (no duplicates handled by backend)
-      await pantryAPI.saveScannedIngredients(selectedIngredients);
-      console.log('✅ Saved to pantry successfully!');
-      
-      // Step 2: Get filtered recipes based on these ingredients
+      // Get filtered recipes based on these ingredients
       const ingredientIds = selectedIngredients.map(ing => ing.ingredient_id);
       const result = await recipesAPI.getFilteredRecipes({
         scannedIngredients: ingredientIds,
@@ -100,9 +97,9 @@ const IngredientScanner = () => {
       if (result.recipes && result.recipes.length > 0) {
         setFilteredRecipes(result.recipes);
         setShowRecipesModal(true);
-        alert(`✅ Saved ${selectedIngredients.length} ingredients to pantry!\n📚 Found ${result.recipes.length} recipes!`);
+        alert(`📚 Found ${result.recipes.length} recipes!`);
       } else {
-        alert(`✅ Saved ${selectedIngredients.length} ingredients to pantry!\n\n⚠️ No recipes found yet. Add recipes in the admin panel!`);
+        alert('⚠️ No recipes found yet. Add recipes in the admin panel!');
       }
       
       setShowModal(false); // Close scanning modal
@@ -800,18 +797,52 @@ const IngredientScanner = () => {
     );
   };
 
-  const addIngredient = () => {
+  // Search for ingredient in database (case-insensitive, fuzzy matching)
+  const searchIngredientInDatabase = (ingredientName) => {
+    if (!availableIngredients || availableIngredients.length === 0) {
+      return null;
+    }
+
+    const searchName = ingredientName.trim().toLowerCase();
+    
+    // First try exact match (case-insensitive)
+    let match = availableIngredients.find(
+      ing => ing.name.toLowerCase() === searchName
+    );
+    
+    if (match) {
+      return { id: match.id, name: match.name, matched: true };
+    }
+    
+    // Then try fuzzy match (contains)
+    match = availableIngredients.find(
+      ing => ing.name.toLowerCase().includes(searchName) || searchName.includes(ing.name.toLowerCase())
+    );
+    
+    if (match) {
+      return { id: match.id, name: match.name, matched: true };
+    }
+    
+    return { id: null, name: ingredientName.trim(), matched: false };
+  };
+
+  const addIngredient = async () => {
     if (newIngredient.trim()) {
+      const ingredientName = newIngredient.trim();
+      
+      // Search for ingredient in database
+      const searchResult = searchIngredientInDatabase(ingredientName);
+      
       const newId = Math.max(...scannedIngredients.map(i => i.id), 0) + 1;
       setScannedIngredients(prev => [
         ...prev,
         { 
           id: newId, 
-          ingredient_id: null,
-          name: newIngredient.trim(), 
+          ingredient_id: searchResult?.id || null,
+          name: searchResult?.name || ingredientName, 
           quantity: 1,
           selected: true,
-          db_matched: false
+          db_matched: searchResult?.matched || false
         }
       ]);
       setNewIngredient('');
@@ -823,6 +854,23 @@ const IngredientScanner = () => {
       }, 0);
     }
   };
+
+  // Fetch available ingredients from database on component mount
+  useEffect(() => {
+    const fetchAvailableIngredients = async () => {
+      try {
+        const response = await pantryAPI.getAvailableIngredients();
+        if (response.success && response.ingredients) {
+          setAvailableIngredients(response.ingredients);
+        }
+      } catch (error) {
+        console.error('Error fetching available ingredients:', error);
+        // Continue without ingredients cache - search will just return false
+      }
+    };
+    
+    fetchAvailableIngredients();
+  }, []);
 
   const closeModal = () => {
     setShowModal(false);
@@ -1039,30 +1087,15 @@ const IngredientScanner = () => {
                           <div className="ingredient-info">
                             <span className="ingredient-name">{ingredient.name}</span>
                             <span className="ingredient-subtitle">
-                              Quantity: {ingredient.quantity} • {ingredient.confidence && `Confidence: ${(ingredient.confidence * 100).toFixed(1)}% • `}
+                              {ingredient.confidence && `Confidence: ${(ingredient.confidence * 100).toFixed(1)}% • `}
                               {ingredient.db_matched ? (
-                                <span style={{color: '#4CAF50'}}>   <br />  ✓ In Database</span>
+                                <span style={{color: '#4CAF50'}}>✓ In Database</span>
                               ) : (
                                 <span style={{color: '#ff9800'}}>⚠ Not in Database</span>
                               )}
                             </span>
                           </div>
                           <div className="ingredient-actions">
-                            <input
-                              type="number"
-                              min="1"
-                              value={ingredient.quantity}
-                              onChange={(e) => updateQuantity(ingredient.id, parseInt(e.target.value) || 1)}
-                              className="quantity-input"
-                              style={{
-                                width: '60px',
-                                padding: '0.4rem',
-                                border: '1px solid #ddd',
-                                borderRadius: '6px',
-                                fontSize: '0.9rem',
-                                marginRight: '0.5rem'
-                              }}
-                            />
                             <button 
                               className={`select-button ${ingredient.selected ? 'selected' : ''}`}
                               onClick={() => toggleIngredientSelection(ingredient.id)}

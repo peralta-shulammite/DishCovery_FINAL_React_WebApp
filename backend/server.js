@@ -36,6 +36,7 @@ import feedbackRouter from './routes/feedback.js';
 import adminFeedbackRouter from './routes/adminFeedback.js';
 import notificationsRouter from './routes/notifications.js';
 import analyticsRouter from './routes/analytics.js';
+import migrationsRouter from './routes/migrations.js';
 import pool from './db.js';
 
 const app = express();
@@ -65,7 +66,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-app.use(express.json());
+// Increase body size limit to 10MB to support large base64 images
+// This allows handling multiple images efficiently (61+ images from Gemini)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
@@ -86,6 +90,7 @@ app.use('/api/feedback', feedbackRouter);
 app.use('/api/admin/feedback', adminFeedbackRouter);
 app.use('/api/admin/analytics', analyticsRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/migrations', migrationsRouter);
 
 // Health check
 app.use('/api/health', async (req, res) => {
@@ -95,6 +100,66 @@ app.use('/api/health', async (req, res) => {
   } catch (err) {
     res.status(500).json({ status: 'error', db: 'not connected', error: err.message });
   }
+});
+
+// Run migrations on server start (automatically injects SQL)
+import('./migrations/run_migration.js').then(({ default: runMigration }) => {
+  runMigration().catch(err => {
+    console.error('⚠️  Auto-migration failed (this is OK if column already exists):', err.message);
+  });
+}).catch(err => {
+  console.error('⚠️  Could not load migration:', err.message);
+});
+
+// Run ingredient-related migrations
+import('./migrations/add_ingredient_type_column.js').then(({ default: runTypeMigration }) => {
+  runTypeMigration().then(() => {
+    // After adding column, swap the data
+    return import('./migrations/swap_type_category.js').then(({ default: runSwapMigration }) => {
+      return runSwapMigration().then(() => {
+        // After swapping, add categ_role column
+        return import('./migrations/add_categ_role_column.js').then(({ default: runCategRoleMigration }) => {
+          runCategRoleMigration().catch(err => {
+            console.error('⚠️  Auto-categ_role migration failed:', err.message);
+          });
+        });
+      }).catch(err => {
+        console.error('⚠️  Auto-swap migration failed:', err.message);
+      });
+    });
+  }).catch(err => {
+    console.error('⚠️  Auto-migration failed (this is OK if column already exists):', err.message);
+  });
+}).catch(err => {
+  console.error('⚠️  Could not load type migration:', err.message);
+});
+
+// Also run categ_role migration independently (in case it's needed separately)
+import('./migrations/add_categ_role_column.js').then(({ default: runCategRoleMigration }) => {
+  runCategRoleMigration().then(() => {
+    // After adding categ_role, normalize types to singular
+    return import('./migrations/normalize_type_singular.js').then(({ default: runNormalize }) => {
+      runNormalize().catch(err => {
+        console.error('⚠️  Auto-normalize migration failed:', err.message);
+      });
+    });
+  }).catch(err => {
+    // Silently fail if column already exists or other migration is handling it
+    if (!err.message.includes('already exists')) {
+      console.error('⚠️  Auto-categ_role migration check failed:', err.message);
+    }
+  });
+}).catch(err => {
+  // Ignore if migration file doesn't exist or can't be loaded
+});
+
+// Fix nutritional_data column to support large base64 images
+import('./migrations/fix_nutritional_data_column.js').then(({ default: runFixNutritionalData }) => {
+  runFixNutritionalData().catch(err => {
+    console.error('⚠️  Auto-fix nutritional_data migration failed:', err.message);
+  });
+}).catch(err => {
+  // Ignore if migration file doesn't exist or can't be loaded
 });
 
 // Start server

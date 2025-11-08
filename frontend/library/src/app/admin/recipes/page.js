@@ -369,8 +369,29 @@ const RecipeManagement = () => {
   };
 
   const filteredRecipes = recipes.filter(recipe => {
-    const matchesSearch = (recipe?.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (recipe?.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = searchTerm === '' || 
+      (recipe?.title || '').toLowerCase().includes(searchLower) ||
+      (recipe?.description || '').toLowerCase().includes(searchLower) ||
+      // Search in ingredients
+      (recipe?.ingredients?.main && recipe.ingredients.main.some(item => {
+        const ingredient = typeof item === 'string' ? item : item.ingredient;
+        return ingredient.toLowerCase().includes(searchLower);
+      })) ||
+      (recipe?.ingredients?.condiments && recipe.ingredients.condiments.some(item => {
+        const ingredient = typeof item === 'string' ? item : item.ingredient;
+        return ingredient.toLowerCase().includes(searchLower);
+      })) ||
+      (recipe?.ingredients?.optional && recipe.ingredients.optional.some(item => {
+        const ingredient = typeof item === 'string' ? item : item.ingredient;
+        return ingredient.toLowerCase().includes(searchLower);
+      })) ||
+      // Search in dietary tags
+      (recipe?.dietaryTags && recipe.dietaryTags.some(tag => tag.toLowerCase().includes(searchLower))) ||
+      (recipe?.dietaryLifestyleTags && recipe.dietaryLifestyleTags.some(tag => tag.toLowerCase().includes(searchLower))) ||
+      // Search in meal type
+      (recipe?.mealType || '').toLowerCase().includes(searchLower);
+    
     const matchesMealType = mealTypeFilter === 'All' || recipe?.mealType === mealTypeFilter;
     const matchesStatus = statusFilter === 'All' || 
                          (statusFilter === 'AI-generated' && recipe?.verificationStatus === 'AI-generated') ||
@@ -620,10 +641,156 @@ const RecipeManagement = () => {
     </svg>
   );
 
+  const ExportIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+      <path d="M8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11 8 15.01z"/>
+    </svg>
+  );
+
+  // Helper function to escape CSV values
+  const escapeCSV = (value) => {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value);
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
+  const handleExportData = () => {
+    // Export recipes as CSV with recommended columns
+    const headers = [
+      'Recipe ID',
+      'Recipe Name',
+      'Category',
+      'Cuisine',
+      'Ingredients',
+      'Dietary Tags',
+      'Preparation Time',
+      'Number of Favorites',
+      'Date Added',
+      'Created By',
+      'Status',
+      'Servings',
+      'Meal Type'
+    ];
+
+    const csvRows = [
+      headers.map(escapeCSV).join(','),
+      ...filteredRecipes.map(recipe => {
+        // Combine all ingredients
+        const allIngredients = [];
+        if (recipe.ingredients) {
+          ['main', 'condiments', 'optional'].forEach(category => {
+            if (recipe.ingredients[category]) {
+              recipe.ingredients[category].forEach(item => {
+                const ingredient = typeof item === 'string' ? item : item.ingredient;
+                if (ingredient) allIngredients.push(ingredient);
+              });
+            }
+          });
+        }
+        const ingredientsStr = allIngredients.join('; ') || 'N/A';
+
+        // Combine dietary tags
+        const dietaryTags = [
+          ...(recipe.dietaryTags || []),
+          ...(recipe.dietaryLifestyleTags || [])
+        ].join('; ') || 'None';
+
+        const prepTime = recipe.prep_time ? `${recipe.prep_time} minutes` : 'N/A';
+        const favorites = recipe.engagement?.saved || 0;
+        const dateAdded = recipe.created_at || recipe.dateAdded || 'N/A';
+        const createdBy = recipe.verifierName || 'Admin' || 'System';
+        const category = recipe.mealType || 'N/A';
+        const cuisine = recipe.dish_type || 'N/A';
+        const status = recipe.verificationStatus || 'AI-generated';
+        const servings = recipe.servings || 'N/A';
+
+        return [
+          recipe.id,
+          recipe.title,
+          category,
+          cuisine,
+          ingredientsStr,
+          dietaryTags,
+          prepTime,
+          favorites,
+          dateAdded,
+          createdBy,
+          status,
+          servings,
+          recipe.mealType || 'N/A'
+        ].map(escapeCSV).join(',');
+      })
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `recipes-export-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    alert(`Exported ${filteredRecipes.length} recipe(s) successfully as CSV.`);
+  };
+
   return (
     <AdminLayout currentPage="Recipes">
       <div className="dashboard-content">
         <div className="controls-container">
+          <div className="filter-group" style={{ marginBottom: '15px', width: '100%', display: 'flex', alignItems: 'flex-end', gap: '15px' }}>
+            <div style={{ flex: 1, maxWidth: '400px' }}>
+              <label className="filter-label" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>Search Recipes</label>
+              <div className="search-input-container" style={{ position: 'relative', width: '100%' }}>
+                <input
+                  type="text"
+                  placeholder="Search by title, description, or ingredients..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input-field"
+                  style={{
+                    width: '100%',
+                    padding: '10px 40px 10px 15px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontFamily: 'Poppins, sans-serif'
+                  }}
+                />
+                <svg 
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '20px',
+                    height: '20px',
+                    color: '#64748b',
+                    pointerEvents: 'none'
+                  }}
+                  viewBox="0 0 24 24" 
+                  fill="currentColor"
+                >
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <button className="export-btn" onClick={handleExportData}>
+                <ExportIcon />
+                Export Data
+              </button>
+              <button className="export-btn" onClick={handleAddRecipe}>
+                <PlusIcon />
+                Add Recipe
+              </button>
+            </div>
+          </div>
+          
           <div className="status-filters">
             <span className="filter-label">Status:</span>
             <button className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>All</button>
@@ -665,11 +832,6 @@ const RecipeManagement = () => {
               <ListIcon />
             </button>
           </div>
-          
-          <button className="export-btn" onClick={handleAddRecipe}>
-            <PlusIcon />
-            Add Recipe
-          </button>
         </div>
 
         <div className={`recipe-display ${viewMode}`}>

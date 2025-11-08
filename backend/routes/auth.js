@@ -337,7 +337,12 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const users = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    // Handle mysql2 pool.query() which returns [rows, fields] format
+    const usersResult = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    const users = Array.isArray(usersResult) && Array.isArray(usersResult[0]) 
+      ? usersResult[0] 
+      : (Array.isArray(usersResult) ? usersResult : []);
+    
     if (users.length === 0)
       return res.status(401).json({ message: 'Invalid email or password' });
 

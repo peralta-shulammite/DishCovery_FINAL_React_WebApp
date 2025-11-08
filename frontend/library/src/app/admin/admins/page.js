@@ -191,6 +191,64 @@ const AdminManagementPage = () => {
     </svg>
   );
 
+  const ExportIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+      <path d="M8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11 8 15.01z"/>
+    </svg>
+  );
+
+  // Helper function to escape CSV values
+  const escapeCSV = (value) => {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value);
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
+  const handleExportData = () => {
+    // Export admins data as CSV
+    const filteredAdmins = admins.filter(admin => statusFilter === 'All' || admin.status === statusFilter);
+    
+    const headers = [
+      'Admin ID',
+      'Name',
+      'Email',
+      'Role',
+      'Status',
+      'Last Active',
+      'Created Date',
+      'Last Login'
+    ];
+
+    const csvRows = [
+      headers.map(escapeCSV).join(','),
+      ...filteredAdmins.map(admin => [
+        admin.id,
+        admin.name,
+        admin.email,
+        admin.role,
+        admin.status,
+        admin.lastActive,
+        admin.createdDate,
+        admin.lastLogin
+      ].map(escapeCSV).join(','))
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `admins-export-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    alert(`Exported ${filteredAdmins.length} admin(s) successfully as CSV.`);
+  };
+
   return (
     <AdminLayout currentPage="Admins">
       <div>
@@ -209,9 +267,15 @@ const AdminManagementPage = () => {
             <button className={`filter-btn ${statusFilter === 'Active' ? 'active' : ''}`} onClick={() => setStatusFilter('Active')}>Active</button>
             <button className={`filter-btn ${statusFilter === 'Inactive' ? 'active' : ''}`} onClick={() => setStatusFilter('Inactive')}>Inactive</button>
           </div>
-          <button className="permissions-btn" onClick={() => setShowPermissionsModal(true)}>
-            Manage Permissions
-          </button>
+          <div style={{ display: 'flex', gap: '10px', marginLeft: 'auto' }}>
+            <button className="export-btn" onClick={handleExportData}>
+              <ExportIcon />
+              Export Data
+            </button>
+            <button className="permissions-btn" onClick={() => setShowPermissionsModal(true)}>
+              Manage Permissions
+            </button>
+          </div>
         </div>
 
         <div className="admin-table-container">
