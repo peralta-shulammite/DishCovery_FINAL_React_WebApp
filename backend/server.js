@@ -216,6 +216,7 @@ app.listen(PORT, () => {
   console.log('   - POST /api/auth/register');
   console.log('   - POST /api/auth/login');
   console.log('   - POST /api/auth/verify');
+  console.log('   - GET  /api/auth/verify-token (🔒 Verify Token)');
   console.log('   - POST /api/auth/resend-verification (🆕 NEW)');
   console.log('   - GET  /api/auth/google (🆕 NEW - Google OAuth)');
   console.log('   - POST /api/auth/google/callback (🆕 NEW - Google OAuth)');

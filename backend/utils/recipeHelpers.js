@@ -25,7 +25,7 @@ export const transformRecipeForDB = (frontendData) => {
         ((frontendData.prep_time || 0) + (frontendData.cook_time || 0)) || null,
       servings: parseInt(frontendData.servings) || null,
       difficulty_level: frontendData.difficulty || 'Easy',
-      meal_type: frontendData.mealType || 'Light Meal',
+      meal_type: Array.isArray(frontendData.mealType) ? frontendData.mealType.join(', ') : (frontendData.mealType || 'Light Meal'), // Store as comma-separated string
       dish_type: frontendData.dish_type || '',
       is_active: frontendData.is_active !== undefined ? frontendData.is_active : 1
     },
@@ -35,7 +35,7 @@ export const transformRecipeForDB = (frontendData) => {
     ingredients: frontendData.ingredients || { main: [], condiments: [], optional: [] },
     restrictions: restrictions,
     verification: {
-      status: frontendData.verificationStatus || 'Checked by: Nutritionist',
+      status: frontendData.verificationStatus === 'Checked by: Nutritionist' ? 'Nutritionist' : (frontendData.verificationStatus || 'Nutritionist'),
       verifierName: null,
       verifierCredentials: null
     }
@@ -61,7 +61,7 @@ export const transformRecipeForFrontend = (dbData) => {
     total_time: dbData.total_time,
     servings: dbData.servings,
     difficulty: dbData.difficulty_level || dbData.difficulty,
-    mealType: dbData.meal_type || dbData.mealType,
+    mealType: dbData.meal_type ? (typeof dbData.meal_type === 'string' && dbData.meal_type.includes(',') ? dbData.meal_type.split(',').map(t => t.trim()) : [dbData.meal_type]) : (dbData.mealType || ['Light Meal']), // Convert comma-separated string to array
     dish_type: dbData.dish_type,
     is_active: dbData.is_active,
     images: dbData.images || [dbData.image_url].filter(Boolean),
@@ -69,7 +69,7 @@ export const transformRecipeForFrontend = (dbData) => {
     healthTags: dbData.healthTags || [],
     medicalConditions: medicalConditions,
     ingredients: dbData.ingredients || { main: [], condiments: [], optional: [] },
-    verificationStatus: dbData.verificationStatus || dbData.verification_status || 'Checked by: Nutritionist',
+    verificationStatus: dbData.verificationStatus || (dbData.verification_status === 'Nutritionist' ? 'Checked by: Nutritionist' : (dbData.verification_status || 'Checked by: Nutritionist')), // Convert 'Nutritionist' back to 'Checked by: Nutritionist' for display
     engagement: dbData.engagement || { tried: 0, saved: 0 },
     rating: dbData.average_rating || dbData.rating || 4.5,
     created_at: dbData.created_at,
