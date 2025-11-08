@@ -347,7 +347,7 @@ const dishCoveryHandleSignInSubmit = async (e) => {
       
       // Set user-friendly error message
       if (error.message.includes('Invalid email or password')) {
-        setDishCoveryError('Invalid email or password. Please try again.');
+        setDishCoveryError('Invalid email or password. If you haven\'t registered yet, please sign up first. If you registered with Google, use "Continue with Google" to log in.');
         setDishCoveryPassword(''); // Clear password field
       } else if (error.message.includes('network') || error.message.includes('fetch')) {
         setDishCoveryError('Network error. Please check your connection and try again.');
