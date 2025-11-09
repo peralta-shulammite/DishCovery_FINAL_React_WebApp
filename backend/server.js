@@ -167,6 +167,15 @@ import('./migrations/fix_nutritional_data_column.js').then(({ default: runFixNut
   // Ignore if migration file doesn't exist or can't be loaded
 });
 
+// Fix profile_picture_url column to support base64 images
+import('./migrations/fix_profile_picture_column.js').then(({ default: runFixProfilePictureColumn }) => {
+  runFixProfilePictureColumn().catch(err => {
+    console.error('⚠️  Auto-fix profile_picture_url migration failed:', err.message);
+  });
+}).catch(err => {
+  // Ignore if migration file doesn't exist or can't be loaded
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

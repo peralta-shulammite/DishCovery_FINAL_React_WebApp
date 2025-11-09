@@ -3,6 +3,13 @@ import db from '../db.js';
 import auth from '../middleware/auth.js';
 import jwt from 'jsonwebtoken';
 import { transformRecipeForFrontend } from '../utils/recipeTransformer.js';
+import {
+  getUserMedicalConditions,
+  getIngredientNames,
+  buildIngredientFilter,
+  buildMedicalConditionFilter,
+  validateFilterParams
+} from '../utils/recipeFilterUtils.js';
 
 const router = express.Router();
 
@@ -252,32 +259,10 @@ router.get('/', optionalAuth, async (req, res) => {
     // ✅ CRITICAL: Parse pagination BEFORE building query
     const { limit: finalLimit, offset: finalOffset } = getPaginationParams(limit, offset);
 
-    // ✅ NEW: Get user's medical conditions if authenticated
-    let userMedicalConditions = [];
-    let userId = null;
-    
-    if (req.user && (req.user.userId || req.user.id)) {
-      userId = req.user.userId || req.user.id;
-      try {
-        const userRestrictionsQuery = `
-          SELECT 
-            res.restriction_name,
-            res.restriction_id,
-            rc.category_id,
-            rc.category_name
-          FROM user_restrictions ur
-          INNER JOIN restrictions res ON ur.restriction_id = res.restriction_id
-          INNER JOIN restriction_categories rc ON res.category_id = rc.category_id
-          WHERE ur.user_id = ? AND ur.status = 'active' AND res.is_active = 1
-            AND (rc.category_id = 1 OR rc.category_id = 2)
-        `;
-        const userRestrictions = await db.query(userRestrictionsQuery, [userId]);
-        userMedicalConditions = userRestrictions.map(r => r.restriction_name);
-        console.log(`🔍 User ${userId} has ${userMedicalConditions.length} medical conditions:`, userMedicalConditions);
-      } catch (err) {
-        console.warn('⚠️ Could not fetch user restrictions (user may not have any):', err.message);
-      }
-    }
+    // ✅ Get user's medical conditions using shared utility
+    const userId = req.user ? (req.user.userId || req.user.id) : null;
+    const { userMedicalConditions, restrictionIdList } = await getUserMedicalConditions(db, userId);
+    console.log(`🔍 User ${userId || 'anonymous'} has ${userMedicalConditions.length} medical conditions:`, userMedicalConditions);
 
     let query = `
       SELECT DISTINCT
@@ -306,53 +291,16 @@ router.get('/', optionalAuth, async (req, res) => {
     const params = [];
     const whereClauses = ['r.is_active = 1'];
 
-    // ✅ NEW: Filter out recipes with user's medical conditions, EXCEPT "Good For Everyone"
-    if (userMedicalConditions.length > 0) {
-      console.log(`🔍 User has medical conditions: ${userMedicalConditions.join(', ')}`);
-      
-      // Get restriction IDs for user's medical conditions
-      const restrictionIdsQuery = `
-        SELECT res.restriction_id, res.restriction_name
-        FROM restrictions res
-        INNER JOIN restriction_categories rc ON res.category_id = rc.category_id
-        WHERE res.restriction_name IN (${userMedicalConditions.map(() => '?').join(',')})
-          AND res.is_active = 1
-          AND (rc.category_id = 1 OR rc.category_id = 2)
-      `;
-      const restrictionIds = await db.query(restrictionIdsQuery, userMedicalConditions);
-      const restrictionIdList = restrictionIds.map(r => r.restriction_id);
-      
-      console.log(`🔍 Found ${restrictionIdList.length} restriction IDs:`, restrictionIds.map(r => `${r.restriction_name} (ID: ${r.restriction_id})`));
-      
-      if (restrictionIdList.length > 0) {
-        // Exclude recipes that have these medical conditions
-        // BUT include recipes that are tagged as "Good For Everyone" (category_id = 3)
-        // Logic: Show recipe if (it doesn't have user's medical conditions) OR (it has Good For Everyone tag)
-        whereClauses.push(`(
-          r.recipe_id NOT IN (
-            SELECT DISTINCT rr.recipe_id 
-            FROM recipe_restrictions rr
-            INNER JOIN restrictions res ON rr.restriction_id = res.restriction_id
-            WHERE res.restriction_id IN (${restrictionIdList.map(() => '?').join(',')})
-              AND res.is_active = 1
-          )
-          OR EXISTS (
-            SELECT 1
-            FROM recipe_restrictions rr
-            INNER JOIN restrictions res ON rr.restriction_id = res.restriction_id
-            INNER JOIN restriction_categories rc ON res.category_id = rc.category_id
-            WHERE rr.recipe_id = r.recipe_id
-              AND rc.category_id = 3
-              AND res.is_active = 1
-              AND rc.is_active = 1
-          )
-        )`);
-        params.push(...restrictionIdList);
+    // ✅ Filter out recipes with user's medical conditions using shared utility
+    // ✅ EXCEPT "Good For Everyone" (category_id = 3) - always show
+    if (restrictionIdList.length > 0) {
+      const medicalFilter = buildMedicalConditionFilter(restrictionIdList);
+      if (medicalFilter.clause) {
+        whereClauses.push(medicalFilter.clause.replace('AND ', ''));
+        params.push(...medicalFilter.params);
         console.log(`🚫 Filtering out recipes with medical conditions: ${userMedicalConditions.join(', ')}`);
         console.log(`✅ But including recipes tagged as "Good For Everyone"`);
         console.log(`📋 Restriction IDs to exclude: ${restrictionIdList.join(', ')}`);
-      } else {
-        console.warn(`⚠️ No restriction IDs found for medical conditions: ${userMedicalConditions.join(', ')}`);
       }
     } else {
       console.log('ℹ️ No medical conditions to filter');
@@ -365,6 +313,7 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     // Handle mealType as both string and array
+    // ✅ FIXED: Support comma-separated meal_type values in database
     if (mealType) {
       const mealTypes = Array.isArray(mealType) ? mealType : [mealType];
       const validMealTypes = mealTypes
@@ -372,9 +321,16 @@ router.get('/', optionalAuth, async (req, res) => {
         .map(mt => mt.trim());
       
       if (validMealTypes.length > 0) {
-        const placeholders = validMealTypes.map(() => '?').join(',');
-        whereClauses.push(`r.meal_type IN (${placeholders})`);
-        params.push(...validMealTypes);
+        // Use FIND_IN_SET or LIKE to match comma-separated values
+        const conditions = validMealTypes.map(() => 
+          '(FIND_IN_SET(?, r.meal_type) > 0 OR r.meal_type = ? OR r.meal_type LIKE ?)'
+        ).join(' OR ');
+        whereClauses.push(`(${conditions})`);
+        // Add params: for each meal type, add the value 3 times (FIND_IN_SET, exact match, LIKE)
+        validMealTypes.forEach(mt => {
+          params.push(mt, mt, `%${mt}%`);
+        });
+        console.log(`🍽️ Filtering by meal types: ${validMealTypes.join(', ')}`);
       }
     }
 
@@ -1157,72 +1113,66 @@ router.get('/favorites', auth, async (req, res) => {
 
 // 🆕 ENHANCED RECIPE FILTERING WITH DIETARY & MEDICAL CONDITIONS
 
-// Get recipes filtered by user preferences and scanned ingredients
+// ✅ ENHANCED: Get recipes filtered by user preferences and scanned ingredients
+// ✅ Uses shared utility functions for consistency between Pantry and Scanning
 router.post('/filter', optionalAuth, async (req, res) => {
   try {
     const userId = req.user ? (req.user.userId || req.user.id) : null;
-    const { 
-      scannedIngredients = [], 
-      pantryIngredients = [],
-      limit = 20,
-      offset = 0
-    } = req.body;
-
-    console.log('🔍 Filtering recipes for user:', userId || 'anonymous');
-    console.log('📋 Scanned ingredients:', scannedIngredients);
-    console.log('🗂️ Pantry ingredients:', pantryIngredients);
-
-    // ✅ NEW: Get user's medical conditions if authenticated
-    let userMedicalConditions = [];
-    let restrictionIdList = [];
     
-    if (userId) {
-      try {
-        const userRestrictionsQuery = `
-          SELECT 
-            res.restriction_name,
-            res.restriction_id,
-            rc.category_id,
-            rc.category_name
-          FROM user_restrictions ur
-          INNER JOIN restrictions res ON ur.restriction_id = res.restriction_id
-          INNER JOIN restriction_categories rc ON res.category_id = rc.category_id
-          WHERE ur.user_id = ? AND ur.status = 'active' AND res.is_active = 1
-            AND (rc.category_id = 1 OR rc.category_id = 2)
-        `;
-        const userRestrictions = await db.query(userRestrictionsQuery, [userId]);
-        userMedicalConditions = userRestrictions.map(r => r.restriction_name);
-        restrictionIdList = userRestrictions.map(r => r.restriction_id);
-        console.log(`🔍 User ${userId} has ${userMedicalConditions.length} medical conditions:`, userMedicalConditions);
-      } catch (err) {
-        console.warn('⚠️ Could not fetch user restrictions (user may not have any):', err.message);
-      }
-    }
+    // ✅ DEBUG: Log authentication status
+    console.log('🔍 [FILTER] Authentication check:');
+    console.log('   - Has req.user:', !!req.user);
+    console.log('   - User ID:', userId);
+    console.log('   - Authorization header:', req.headers.authorization ? 'Present' : 'Missing');
+    
+    // ✅ Validate and normalize parameters
+    const validatedParams = validateFilterParams(req.body);
+    const { scannedIngredients, pantryIngredients, limit, offset } = validatedParams;
 
-    // Get ingredient names from ingredient IDs
+    console.log('🔍 [FILTER] Filtering recipes for user:', userId || 'anonymous');
+    console.log('📋 [FILTER] Scanned ingredients:', scannedIngredients);
+    console.log('🗂️ [FILTER] Pantry ingredients:', pantryIngredients);
+
+    // ✅ Get user's medical conditions using shared utility
+    const { userMedicalConditions, restrictionIdList } = await getUserMedicalConditions(db, userId);
+    console.log(`🔍 [FILTER] User ${userId || 'anonymous'} has ${userMedicalConditions.length} medical conditions:`, userMedicalConditions);
+    console.log(`🔍 [FILTER] Restriction IDs:`, restrictionIdList);
+
+    // ✅ Get ingredient names from ingredient IDs using shared utility
     const allIngredientIds = [...scannedIngredients, ...pantryIngredients];
-    let ingredientNames = [];
+    let normalizedIngredientNames = [];
     
     if (allIngredientIds.length > 0) {
-      try {
-        const ingredientNamesQuery = `
-          SELECT ingredient_id, ingredient_name
-          FROM ingredients
-          WHERE ingredient_id IN (${allIngredientIds.map(() => '?').join(',')})
-        `;
-        const ingredientRows = await db.query(ingredientNamesQuery, allIngredientIds);
-        ingredientNames = ingredientRows.map(row => row.ingredient_name);
-        console.log(`📋 Found ${ingredientNames.length} ingredient names from ${allIngredientIds.length} IDs:`, ingredientNames);
-        
-        if (ingredientNames.length === 0) {
-          console.warn(`⚠️ No ingredient names found for IDs: ${allIngredientIds.join(', ')}`);
-        }
-      } catch (err) {
-        console.error('❌ Error fetching ingredient names:', err);
-        throw new Error(`Failed to fetch ingredient names: ${err.message}`);
+      normalizedIngredientNames = await getIngredientNames(db, allIngredientIds);
+      console.log(`📋 Found ${normalizedIngredientNames.length} ingredient names from ${allIngredientIds.length} IDs`);
+      
+      if (normalizedIngredientNames.length === 0) {
+        console.warn(`⚠️ No ingredient names found for IDs: ${allIngredientIds.join(', ')}`);
+        // Return empty result if no valid ingredients found
+        return res.json({
+          success: true,
+          recipes: [],
+          count: 0,
+          filters: {
+            restrictions: userMedicalConditions,
+            scannedIngredients: scannedIngredients.length,
+            pantryIngredients: pantryIngredients.length
+          }
+        });
       }
     } else {
       console.warn('⚠️ No ingredient IDs provided for filtering');
+      // Return empty result if no ingredients provided
+      return res.json({
+        success: true,
+        recipes: [],
+        count: 0,
+        filters: {
+          restrictions: userMedicalConditions,
+          scannedIngredients: scannedIngredients.length,
+          pantryIngredients: pantryIngredients.length
+        }
+      });
     }
 
     // Build base query - include "Good For Everyone" tag check
@@ -1265,76 +1215,22 @@ router.post('/filter', optionalAuth, async (req, res) => {
 
     const queryParams = [];
 
-    // ✅ Filter by scanned ingredients - match ingredient names in recipe_ingredients_detailed
-    // ✅ Match ALL categories: main, condiments, and optional ingredients
-    // ✅ IMPORTANT: Recipe must have at least ONE of the scanned ingredients in ANY category
-    // Use case-insensitive matching to handle "Pork" vs "pork" etc.
-    if (ingredientNames.length > 0) {
-      // Normalize ingredient names for case-insensitive matching
-      const normalizedIngredientNames = ingredientNames.map(name => name.toLowerCase().trim());
-      
-      // ✅ CRITICAL: Match ingredients from ALL categories (main, condiments, optional)
-      // This will match recipes that have ANY of the scanned ingredients in ANY category
-      // Example: If user scans "Pork", it will match recipes with "Pork" in main, condiments, or optional
-      query += `
-        AND EXISTS (
-          SELECT 1 FROM recipe_ingredients_detailed rid
-          WHERE rid.recipe_id = r.recipe_id
-          AND LOWER(TRIM(rid.ingredient_name)) IN (${normalizedIngredientNames.map(() => '?').join(',')})
-        )
-      `;
-      queryParams.push(...normalizedIngredientNames);
-      console.log(`✅ Matching recipes with ingredients from ALL categories (main, condiments, optional): ${ingredientNames.join(', ')}`);
+    // ✅ Build ingredient filter using shared utility
+    const ingredientFilter = buildIngredientFilter(normalizedIngredientNames);
+    if (ingredientFilter.clause) {
+      query += ingredientFilter.clause;
+      queryParams.push(...ingredientFilter.params);
+      console.log(`✅ Matching recipes with ingredients from ALL categories (main, condiments, optional)`);
       console.log(`📋 Normalized ingredient names: ${normalizedIngredientNames.join(', ')}`);
-    } else {
-      // If no ingredients provided, return empty result
-      console.warn('⚠️ No ingredient names to match, returning empty results');
-      return res.json({
-        success: true,
-        recipes: [],
-        count: 0,
-        filters: {
-          restrictions: userMedicalConditions,
-          scannedIngredients: scannedIngredients.length,
-          pantryIngredients: pantryIngredients.length
-        }
-      });
     }
 
-    // ✅ Filter by medical conditions - exclude recipes with user's medical conditions
-    // ✅ CRITICAL: BUT include recipes tagged as "Good For Everyone" (category_id = 3) even if they have user's medical conditions
-    // Logic: Show recipe if (it doesn't have user's medical conditions) OR (it has Good For Everyone tag)
-    if (restrictionIdList.length > 0) {
+    // ✅ Build medical condition filter using shared utility
+    const medicalFilter = buildMedicalConditionFilter(restrictionIdList);
+    if (medicalFilter.clause) {
+      query += medicalFilter.clause;
+      queryParams.push(...medicalFilter.params);
       console.log(`🚫 Filtering out recipes with medical conditions: ${userMedicalConditions.join(', ')}`);
       console.log(`✅ But including recipes tagged as "Good For Everyone" even if they have these conditions`);
-      console.log(`📋 Restriction IDs to exclude: ${restrictionIdList.join(', ')}`);
-      
-      // ✅ FIXED: Proper logic - exclude recipes with user's medical conditions (category_id 1 & 2)
-      // BUT include recipes tagged as "Good For Everyone" (category_id = 3)
-      query += `
-        AND (
-          r.recipe_id NOT IN (
-            SELECT DISTINCT rr.recipe_id 
-            FROM recipe_restrictions rr
-            INNER JOIN restrictions res ON rr.restriction_id = res.restriction_id
-            INNER JOIN restriction_categories rc ON res.category_id = rc.category_id
-            WHERE res.restriction_id IN (${restrictionIdList.map(() => '?').join(',')})
-              AND res.is_active = 1
-              AND (rc.category_id = 1 OR rc.category_id = 2)
-          )
-          OR EXISTS (
-            SELECT 1
-            FROM recipe_restrictions rr
-            INNER JOIN restrictions res ON rr.restriction_id = res.restriction_id
-            INNER JOIN restriction_categories rc ON res.category_id = rc.category_id
-            WHERE rr.recipe_id = r.recipe_id
-              AND rc.category_id = 3
-              AND res.is_active = 1
-              AND rc.is_active = 1
-          )
-        )
-      `;
-      queryParams.push(...restrictionIdList);
       console.log(`📋 Applied medical condition filter with ${restrictionIdList.length} restrictions`);
     } else {
       console.log('ℹ️ No medical conditions to filter - showing all matching recipes');
@@ -1360,13 +1256,12 @@ router.post('/filter', optionalAuth, async (req, res) => {
       ORDER BY r.created_at DESC, r.recipe_name ASC
       LIMIT ? OFFSET ?
     `;
-    queryParams.push(parseInt(limit), parseInt(offset));
+    queryParams.push(limit, offset);
 
     console.log('🔎 Executing filtered recipe query...');
-    console.log('📝 Full Query:', query);
     console.log('📝 Query Params:', queryParams);
     console.log('📝 Total params count:', queryParams.length);
-    console.log('📋 Ingredient names being matched:', ingredientNames);
+    console.log('📋 Ingredient names being matched:', normalizedIngredientNames);
     console.log('📋 User medical conditions:', userMedicalConditions);
     console.log('📋 Restriction IDs to exclude:', restrictionIdList);
     
@@ -1403,6 +1298,16 @@ router.post('/filter', optionalAuth, async (req, res) => {
               normalizedIngredientNames.includes(ing.ingredient_name.toLowerCase().trim())
             );
             console.log('  Matching ingredients:', matchingIngredients);
+            
+            // Check if Sinugba has "Good For Everyone" tag
+            const sinugbaGoodForEveryone = await db.query(
+              `SELECT 1 FROM recipe_restrictions rr
+               INNER JOIN restrictions res ON rr.restriction_id = res.restriction_id
+               INNER JOIN restriction_categories rc ON res.category_id = rc.category_id
+               WHERE rr.recipe_id = ? AND rc.category_id = 3 AND res.is_active = 1 AND rc.is_active = 1`,
+              [sinugbaRecipe.id]
+            );
+            console.log('  Good For Everyone tag:', sinugbaGoodForEveryone.length > 0);
           } catch (err) {
             console.error('  Error checking Sinugba ingredients:', err);
           }
@@ -1424,16 +1329,19 @@ router.post('/filter', optionalAuth, async (req, res) => {
           [recipe.id]
         );
         
-        // ✅ Debug: Log images for specific recipe (e.g., Sinugba)
-        if (recipe.recipe_name && recipe.recipe_name.toLowerCase().includes('sinugba')) {
-          console.log(`🔍 [FILTER] [${recipe.recipe_name}] Recipe ID: ${recipe.id}`);
-          console.log(`🔍 [FILTER] [${recipe.recipe_name}] Images from database:`, images);
-          console.log(`🔍 [FILTER] [${recipe.recipe_name}] Image URLs:`, images.map(img => img.image_url));
+        // ✅ Debug: Log images for all recipes to identify image issues
+        const imageUrls = images.map(img => img.image_url).filter(Boolean);
+        console.log(`🔍 [FILTER] Recipe ID: ${recipe.id}, Title: ${recipe.recipe_name || recipe.title}`);
+        console.log(`   Images found: ${imageUrls.length}`);
+        if (imageUrls.length > 0) {
+          console.log(`   Image URLs: ${imageUrls.join(', ')}`);
+        } else {
+          console.log(`   ⚠️ No images found for recipe ${recipe.id}`);
         }
         
         return {
           ...recipe,
-          images: images.map(img => img.image_url).filter(Boolean)
+          images: imageUrls
         };
       } catch (imgError) {
         console.warn(`⚠️ Error fetching images for recipe ${recipe.id}:`, imgError.message);
@@ -1448,7 +1356,27 @@ router.post('/filter', optionalAuth, async (req, res) => {
     let transformedRecipes = [];
     try {
       transformedRecipes = recipesWithImages.map(recipe => {
-        const transformed = transformRecipeForFrontend(recipe);
+        // ✅ CRITICAL FIX: Pass images as separate parameter to ensure each recipe gets its own images
+        // Convert images array to the format expected by transformRecipeForFrontend
+        const imagesForTransform = recipe.images && recipe.images.length > 0 
+          ? recipe.images.map(img => ({ image_url: img }))
+          : [];
+        
+        // ✅ Debug: Log before transformation
+        console.log(`🔍 [TRANSFORM] Recipe ID: ${recipe.id}, Title: ${recipe.recipe_name || recipe.title}`);
+        console.log(`   Images before transform: ${recipe.images ? recipe.images.length : 0}`);
+        console.log(`   Images array:`, recipe.images);
+        
+        const transformed = transformRecipeForFrontend(recipe, imagesForTransform);
+        
+        // ✅ CRITICAL FIX: Ensure images are properly set from the recipe object
+        if (recipe.images && recipe.images.length > 0) {
+          transformed.images = recipe.images;
+          console.log(`   ✅ Images set in transformed recipe: ${transformed.images.length}`);
+        } else {
+          console.log(`   ⚠️ No images to set for recipe ${recipe.id}`);
+        }
+        
         // Add "Good For Everyone" tag if recipe is tagged as such
         if (recipe.is_good_for_everyone === 1) {
           if (!transformed.dietaryTags) {

@@ -39,21 +39,54 @@ router.get('/', authenticateToken, async (req, res) => {
 
     // Check if notifications table exists
     try {
-      const notifications = await safeQuery(`
-        SELECT 
-          notification_id as id,
-          title as subject,
-          message as body,
-          notification_type as type,
-          is_read,
-          created_at,
-          sender_name as from_name,
-          sender_role as from_role
-        FROM notifications
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-        LIMIT ?
-      `, [userId, parseInt(limit)]);
+      // ✅ Try to fetch with related_id and related_type first
+      // If columns don't exist, catch error and retry without them
+      let notifications;
+      try {
+        notifications = await safeQuery(`
+          SELECT 
+            notification_id as id,
+            title as subject,
+            message as body,
+            notification_type as type,
+            is_read,
+            created_at,
+            sender_name as from_name,
+            sender_role as from_role,
+            related_id,
+            related_type
+          FROM notifications
+          WHERE user_id = ?
+          ORDER BY created_at DESC
+          LIMIT ?
+        `, [userId, parseInt(limit)]);
+      } catch (columnError) {
+        // ✅ If related_id or related_type columns don't exist, retry without them
+        if (columnError.message.includes('related_id') || 
+            columnError.message.includes('related_type') ||
+            columnError.code === 'ER_BAD_FIELD_ERROR') {
+          console.warn('⚠️ related_id/related_type columns not found, fetching without them');
+          notifications = await safeQuery(`
+            SELECT 
+              notification_id as id,
+              title as subject,
+              message as body,
+              notification_type as type,
+              is_read,
+              created_at,
+              sender_name as from_name,
+              sender_role as from_role,
+              NULL as related_id,
+              NULL as related_type
+            FROM notifications
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+          `, [userId, parseInt(limit)]);
+        } else {
+          throw columnError;
+        }
+      }
 
       console.log(`✅ Found ${notifications.length} notifications`);
 

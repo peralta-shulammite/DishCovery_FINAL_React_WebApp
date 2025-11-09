@@ -353,6 +353,33 @@ router.post('/:id/reply', async (req, res) => {
       });
     }
 
+    // Get feedback details to get user_id
+    const feedbackDetails = await db.query(
+      'SELECT user_id, message FROM feedback WHERE feedback_id = ?',
+      [feedbackId]
+    );
+
+    if (!feedbackDetails || feedbackDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Feedback not found'
+      });
+    }
+
+    const userId = feedbackDetails[0].user_id;
+    const feedbackMessage = feedbackDetails[0].message;
+
+    // Get admin details for notification
+    const adminDetails = await db.query(
+      'SELECT first_name, last_name, username FROM admin_users WHERE admin_id = ?',
+      [adminId]
+    );
+
+    const adminName = adminDetails && adminDetails.length > 0
+      ? `${adminDetails[0].first_name} ${adminDetails[0].last_name}`
+      : 'Admin';
+
+    // Insert feedback reply
     await db.query(
       `INSERT INTO feedback_replies (feedback_id, admin_id, reply_message)
        VALUES (?, ?, ?)`,
@@ -366,6 +393,82 @@ router.post('/:id/reply', async (req, res) => {
        WHERE feedback_id = ?`,
       [newStatus, feedbackId]
     );
+
+    // ✅ Create notification for user about the feedback reply
+    try {
+      // Truncate feedback message for notification preview (max 100 chars)
+      const feedbackPreview = feedbackMessage.length > 100 
+        ? feedbackMessage.substring(0, 100) + '...' 
+        : feedbackMessage;
+
+      // Truncate reply message for notification (max 150 chars)
+      const replyPreview = replyMessage.trim().length > 150
+        ? replyMessage.trim().substring(0, 150) + '...'
+        : replyMessage.trim();
+
+      // Check if notifications table has related_id and related_type columns
+      // If not, insert without them
+      try {
+        // Try to insert with related_id and related_type first
+        await db.query(
+          `INSERT INTO notifications (
+            user_id, 
+            title, 
+            message, 
+            notification_type, 
+            is_read,
+            sender_name,
+            sender_role,
+            related_id,
+            related_type
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            userId,
+            'New Reply to Your Feedback',
+            `Admin replied to your feedback: "${feedbackPreview}"\n\nReply: "${replyPreview}"`,
+            'feedback_reply',
+            0, // is_read = false (unread)
+            adminName,
+            'ADMIN',
+            feedbackId, // related_id = feedback_id
+            'feedback' // related_type
+          ]
+        );
+      } catch (columnError) {
+        // If columns don't exist, insert without them
+        if (columnError.message.includes('related_id') || columnError.message.includes('related_type')) {
+          console.warn('⚠️ related_id/related_type columns not found, inserting without them');
+          await db.query(
+            `INSERT INTO notifications (
+              user_id, 
+              title, 
+              message, 
+              notification_type, 
+              is_read,
+              sender_name,
+              sender_role
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              userId,
+              'New Reply to Your Feedback',
+              `Admin replied to your feedback: "${feedbackPreview}"\n\nReply: "${replyPreview}"`,
+              'feedback_reply',
+              0, // is_read = false (unread)
+              adminName,
+              'ADMIN'
+            ]
+          );
+        } else {
+          throw columnError;
+        }
+      }
+
+      console.log(`✅ Notification created for user ${userId} about feedback reply`);
+    } catch (notificationError) {
+      // Don't fail the reply if notification creation fails
+      console.error('❌ Error creating notification:', notificationError);
+      console.warn('⚠️ Reply was sent but notification was not created');
+    }
 
     console.log('✅ Reply sent successfully');
 

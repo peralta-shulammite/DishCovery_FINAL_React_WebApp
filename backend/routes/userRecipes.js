@@ -7,6 +7,32 @@ const router = express.Router();
 // All routes in this file require authentication
 router.use(auth);
 
+// Helper function to ensure last_opened_recipes table exists
+const ensureLastOpenedTableExists = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_last_opened_recipes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        recipe_id INT NOT NULL,
+        opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_user_recipe (user_id, recipe_id),
+        KEY idx_user_id (user_id),
+        KEY idx_recipe_id (recipe_id),
+        KEY idx_opened_at (opened_at),
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+        FOREIGN KEY (recipe_id) REFERENCES recipes(recipe_id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } catch (error) {
+    // Table might already exist, ignore error
+    if (error.code !== 'ER_TABLE_EXISTS_ERROR') {
+      console.error('Error ensuring last_opened_recipes table exists:', error);
+    }
+  }
+};
+
 // Helper function to ensure table exists
 const ensureTableExists = async () => {
   try {
@@ -146,28 +172,70 @@ router.get('/saved', async (req, res) => {
         r.image_url,
         r.meal_type,
         r.dish_type,
+        r.servings,
         MAX(uri.saved_at) as saved_at,
         COALESCE(AVG(uri_avg.rating), 0) as average_rating,
-        COUNT(DISTINCT uri_saves.interaction_id) as save_count
+        COUNT(DISTINCT uri_saves.interaction_id) as save_count,
+        COUNT(DISTINCT uri_tries.interaction_id) as tried_count
       FROM recipes r
       INNER JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
       LEFT JOIN user_recipe_interactions uri_avg ON r.recipe_id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
       LEFT JOIN user_recipe_interactions uri_saves ON r.recipe_id = uri_saves.recipe_id AND uri_saves.is_saved = 1
+      LEFT JOIN user_recipe_interactions uri_tries ON r.recipe_id = uri_tries.recipe_id AND uri_tries.is_tried = 1
      WHERE uri.user_id = ? AND uri.is_saved = 1
-      GROUP BY r.recipe_id, r.recipe_name, r.description, r.prep_time, r.cook_time, r.total_time, r.image_url, r.meal_type, r.dish_type
+      GROUP BY r.recipe_id, r.recipe_name, r.description, r.prep_time, r.cook_time, r.total_time, r.image_url, r.meal_type, r.dish_type, r.servings
       ORDER BY MAX(uri.saved_at) DESC
       LIMIT ? OFFSET ?
     `;
 
     const savedRecipes = await db.query(query, [userId, parseInt(limit), parseInt(offset)]);
 
+    // ✅ FIXED: Fetch images separately from recipe_images table
+    const recipeIds = savedRecipes.map(r => r.id);
+    let imagesMap = {};
+    
+    if (recipeIds.length > 0) {
+      const imagesQuery = `
+        SELECT recipe_id, image_url, display_order
+        FROM recipe_images
+        WHERE recipe_id IN (${recipeIds.map(() => '?').join(',')})
+        ORDER BY recipe_id, display_order
+      `;
+      const imagesResults = await db.query(imagesQuery, recipeIds);
+      
+      // Group images by recipe_id
+      imagesResults.forEach(row => {
+        if (!imagesMap[row.recipe_id]) {
+          imagesMap[row.recipe_id] = [];
+        }
+        if (row.image_url) {
+          imagesMap[row.recipe_id].push(row.image_url);
+        }
+      });
+    }
+
+    // ✅ Transform recipes with images from recipe_images table
+    const transformedRecipes = savedRecipes.map(recipe => {
+      // Use images from separate query, fallback to image_url if no images found
+      const images = imagesMap[recipe.id] || (recipe.image_url ? [recipe.image_url] : []);
+      
+      return {
+        ...recipe,
+        images: images,
+        engagement: {
+          tried: recipe.tried_count || 0,
+          saved: recipe.save_count || 0
+        }
+      };
+    });
+
     res.json({ 
       success: true, 
-      data: savedRecipes,
+      data: transformedRecipes,
       pagination: {
         limit: parseInt(limit),
         offset: parseInt(offset),
-        total: savedRecipes.length
+        total: transformedRecipes.length
       }
     });
   } catch (error) {
@@ -704,6 +772,149 @@ router.get('/recommendations', async (req, res) => {
   } catch (error) {
     console.error('Error fetching recommendations:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * ✅ POST /api/user/recipes/last-opened - Save last opened recipe
+ */
+router.post('/last-opened', async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const { recipeId } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User ID not found in token' });
+    }
+
+    if (!recipeId) {
+      return res.status(400).json({ success: false, message: 'Recipe ID is required' });
+    }
+
+    // Ensure table exists
+    await ensureLastOpenedTableExists();
+
+    // Check if recipe exists
+    const recipeExists = await db.query('SELECT recipe_id FROM recipes WHERE recipe_id = ?', [recipeId]);
+    if (recipeExists.length === 0) {
+      return res.status(404).json({ success: false, message: 'Recipe not found' });
+    }
+
+    // Insert or update last opened recipe
+    await db.query(`
+      INSERT INTO user_last_opened_recipes (user_id, recipe_id, opened_at)
+      VALUES (?, ?, NOW())
+      ON DUPLICATE KEY UPDATE opened_at = NOW()
+    `, [userId, recipeId]);
+
+    console.log(`✅ Last opened recipe saved: User ${userId}, Recipe ${recipeId}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Last opened recipe saved successfully' 
+    });
+  } catch (error) {
+    console.error('Error saving last opened recipe:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * ✅ GET /api/user/recipes/last-opened - Get last opened recipe
+ */
+router.get('/last-opened', async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User ID not found in token' });
+    }
+
+    // Ensure table exists
+    await ensureLastOpenedTableExists();
+
+    // Get last opened recipe with full recipe details
+    const query = `
+      SELECT 
+        r.recipe_id as id,
+        r.recipe_name as title,
+        r.description,
+        r.prep_time,
+        r.cook_time,
+        r.total_time,
+        r.servings,
+        r.meal_type,
+        lor.opened_at,
+        lor.updated_at
+      FROM user_last_opened_recipes lor
+      INNER JOIN recipes r ON lor.recipe_id = r.recipe_id
+      WHERE lor.user_id = ?
+      ORDER BY lor.opened_at DESC
+      LIMIT 1
+    `;
+
+    const result = await db.query(query, [userId]);
+
+    if (result.length === 0) {
+      return res.json({ 
+        success: true, 
+        data: null 
+      });
+    }
+
+    const lastOpened = result[0];
+
+    // Fetch images separately
+    const imagesQuery = `
+      SELECT image_url, display_order
+      FROM recipe_images
+      WHERE recipe_id = ?
+      ORDER BY display_order
+    `;
+    const imagesResult = await db.query(imagesQuery, [lastOpened.id]);
+    const images = imagesResult.map(row => row.image_url).filter(Boolean);
+
+    // ✅ Format meal_type - handle comma-separated values
+    let mealType = 'N/A';
+    if (lastOpened.meal_type) {
+      if (typeof lastOpened.meal_type === 'string' && lastOpened.meal_type.includes(',')) {
+        // Take first meal type if multiple
+        mealType = lastOpened.meal_type.split(',')[0].trim();
+      } else {
+        mealType = lastOpened.meal_type;
+      }
+    }
+
+    // Format response
+    const recipeData = {
+      id: lastOpened.id,
+      name: lastOpened.title,
+      title: lastOpened.title,
+      description: lastOpened.description,
+      mealType: mealType, // ✅ Add meal type
+      servings: lastOpened.servings || 0, // ✅ Add servings
+      time: lastOpened.total_time || `${lastOpened.prep_time || 0} min`,
+      difficulty: lastOpened.servings ? `${lastOpened.servings} servings` : 'Easy',
+      image: images.length > 0 ? images[0] : null,
+      images: images,
+      lastOpened: new Date(lastOpened.opened_at).toISOString().split('T')[0]
+    };
+
+    res.json({ 
+      success: true, 
+      data: recipeData 
+    });
+  } catch (error) {
+    console.error('Error fetching last opened recipe:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
