@@ -7,11 +7,49 @@ const router = express.Router();
 // All routes in this file require authentication
 router.use(auth);
 
+// Helper function to ensure table exists
+const ensureTableExists = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_recipe_interactions (
+        interaction_id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        recipe_id INT NOT NULL,
+        is_saved TINYINT(1) DEFAULT 0,
+        is_tried TINYINT(1) DEFAULT 0,
+        rating INT DEFAULT NULL,
+        saved_at DATETIME DEFAULT NULL,
+        tried_at DATETIME DEFAULT NULL,
+        rated_at DATETIME DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_user_recipe (user_id, recipe_id),
+        KEY idx_user_id (user_id),
+        KEY idx_recipe_id (recipe_id),
+        KEY idx_is_saved (is_saved),
+        KEY idx_is_tried (is_tried)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } catch (error) {
+    // Table might already exist, ignore error
+    if (error.code !== 'ER_TABLE_EXISTS_ERROR') {
+      console.error('Error ensuring table exists:', error);
+    }
+  }
+};
+
 // POST /api/user/recipes/:id/save - Save/favorite a recipe
 router.post('/:id/save', async (req, res) => {
   try {
     const { id: recipeId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User ID not found in token' });
+    }
+
+    // Ensure table exists
+    await ensureTableExists();
 
     // Check if recipe exists
     const recipeExists = await db.query('SELECT recipe_id FROM recipes WHERE recipe_id = ?', [recipeId]);
@@ -42,7 +80,17 @@ router.post('/:id/save', async (req, res) => {
     res.json({ success: true, message: 'Recipe saved successfully' });
   } catch (error) {
     console.error('Error saving recipe:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+      sql: error.sql
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 });
 
@@ -50,7 +98,10 @@ router.post('/:id/save', async (req, res) => {
 router.delete('/:id/save', async (req, res) => {
   try {
     const { id: recipeId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
+
+    // Ensure table exists
+    await ensureTableExists();
 
     // Update interaction to unsave
     await db.query(
@@ -61,15 +112,28 @@ router.delete('/:id/save', async (req, res) => {
     res.json({ success: true, message: 'Recipe unsaved successfully' });
   } catch (error) {
     console.error('Error unsaving recipe:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+      sql: error.sql
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // GET /api/user/recipes/saved - Get user's saved recipes
 router.get('/saved', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
     const { limit = 12, offset = 0 } = req.query;
+
+    // Ensure table exists
+    await ensureTableExists();
 
     const query = `
       SELECT 
@@ -82,7 +146,7 @@ router.get('/saved', async (req, res) => {
         r.image_url,
         r.meal_type,
         r.dish_type,
-        uri.saved_at,
+        MAX(uri.saved_at) as saved_at,
         COALESCE(AVG(uri_avg.rating), 0) as average_rating,
         COUNT(DISTINCT uri_saves.interaction_id) as save_count
       FROM recipes r
@@ -90,8 +154,8 @@ router.get('/saved', async (req, res) => {
       LEFT JOIN user_recipe_interactions uri_avg ON r.recipe_id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
       LEFT JOIN user_recipe_interactions uri_saves ON r.recipe_id = uri_saves.recipe_id AND uri_saves.is_saved = 1
      WHERE uri.user_id = ? AND uri.is_saved = 1
-      GROUP BY r.recipe_id
-      ORDER BY uri.saved_at DESC
+      GROUP BY r.recipe_id, r.recipe_name, r.description, r.prep_time, r.cook_time, r.total_time, r.image_url, r.meal_type, r.dish_type
+      ORDER BY MAX(uri.saved_at) DESC
       LIMIT ? OFFSET ?
     `;
 
@@ -108,7 +172,17 @@ router.get('/saved', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching saved recipes:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+      sql: error.sql
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -116,7 +190,10 @@ router.get('/saved', async (req, res) => {
 router.post('/:id/tried', async (req, res) => {
   try {
     const { id: recipeId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
+
+    // Ensure table exists
+    await ensureTableExists();
 
     // Check if recipe exists
     const recipeExists = await db.query('SELECT recipe_id FROM recipes WHERE recipe_id = ?', [recipeId]);
@@ -147,7 +224,17 @@ router.post('/:id/tried', async (req, res) => {
     res.json({ success: true, message: 'Recipe marked as tried' });
   } catch (error) {
     console.error('Error marking recipe as tried:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+      sql: error.sql
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -155,7 +242,7 @@ router.post('/:id/tried', async (req, res) => {
 router.post('/:id/rate', async (req, res) => {
   try {
     const { id: recipeId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
     const { rating } = req.body;
 
     // Validate rating
@@ -200,7 +287,10 @@ router.post('/:id/rate', async (req, res) => {
 router.get('/:id/interactions', async (req, res) => {
   try {
     const { id: recipeId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
+
+    // Ensure table exists
+    await ensureTableExists();
 
     const query = `
       SELECT 
@@ -240,7 +330,7 @@ router.get('/:id/interactions', async (req, res) => {
 // GET /api/user/recipes/history - Get user's recipe history
 router.get('/history', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
     const { limit = 20, offset = 0 } = req.query;
 
     const query = `
@@ -290,8 +380,11 @@ router.get('/history', async (req, res) => {
 // GET /api/user/recipes/tried - Get user's tried recipes
 router.get('/tried', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
     const { limit = 12, offset = 0 } = req.query;
+
+    // Ensure table exists
+    await ensureTableExists();
 
     const query = `
       SELECT 
@@ -304,8 +397,8 @@ router.get('/tried', async (req, res) => {
         r.image_url,
         r.meal_type,
         r.dish_type,
-        uri.tried_at,
-        uri.rating,
+        MAX(uri.tried_at) as tried_at,
+        MAX(uri.rating) as rating,
         COALESCE(AVG(uri_avg.rating), 0) as average_rating,
         COUNT(DISTINCT uri_saves.interaction_id) as save_count
       FROM recipes r
@@ -313,8 +406,8 @@ router.get('/tried', async (req, res) => {
       LEFT JOIN user_recipe_interactions uri_avg ON r.recipe_id = uri_avg.recipe_id AND uri_avg.rating IS NOT NULL
       LEFT JOIN user_recipe_interactions uri_saves ON r.recipe_id = uri_saves.recipe_id AND uri_saves.is_saved = 1
       WHERE uri.user_id = ? AND uri.is_tried = 1
-      GROUP BY r.recipe_id
-      ORDER BY uri.tried_at DESC
+      GROUP BY r.recipe_id, r.recipe_name, r.description, r.prep_time, r.cook_time, r.total_time, r.image_url, r.meal_type, r.dish_type
+      ORDER BY MAX(uri.tried_at) DESC
       LIMIT ? OFFSET ?
     `;
 
@@ -331,14 +424,24 @@ router.get('/tried', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching tried recipes:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+      sql: error.sql
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // GET /api/user/recipes/rated - Get user's rated recipes
 router.get('/rated', async (req, res) => {
-  try {
-    const userId = req.user.id;
+  try {                                                                   
+    const userId = req.user.userId || req.user.id;
     const { limit = 12, offset = 0 } = req.query;
 
     const query = `
@@ -387,7 +490,7 @@ router.get('/rated', async (req, res) => {
 router.delete('/:id/tried', async (req, res) => {
   try {
     const { id: recipeId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
 
     await db.query(
       'UPDATE user_recipe_interactions SET is_tried = 0, tried_at = NULL WHERE user_id = ? AND recipe_id = ?',
@@ -405,7 +508,7 @@ router.delete('/:id/tried', async (req, res) => {
 router.delete('/:id/rate', async (req, res) => {
   try {
     const { id: recipeId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
 
     await db.query(
       'UPDATE user_recipe_interactions SET rating = NULL, rated_at = NULL WHERE user_id = ? AND recipe_id = ?',
@@ -422,7 +525,7 @@ router.delete('/:id/rate', async (req, res) => {
 // GET /api/user/stats - Get user statistics
 router.get('/stats', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
 
     const statsQuery = `
       SELECT 
@@ -486,7 +589,7 @@ router.get('/stats', async (req, res) => {
 // POST /api/user/recipes/bulk-save - Save multiple recipes at once
 router.post('/bulk-save', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
     const { recipeIds } = req.body;
 
     if (!Array.isArray(recipeIds) || recipeIds.length === 0) {
@@ -527,7 +630,7 @@ router.post('/bulk-save', async (req, res) => {
 // GET /api/user/recipes/recommendations - Get personalized recommendations
 router.get('/recommendations', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;
     const { limit = 12 } = req.query;
 
     // Get user's preferences and restrictions

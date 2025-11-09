@@ -36,7 +36,7 @@ import {
   faStar as faStarRegular,
   faHeart as faHeartRegular
 } from '@fortawesome/free-regular-svg-icons';
-import { recipeAPI, favoritesAPI } from './api';
+import { recipeAPI, favoritesAPI, triedAPI } from './api';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
 
@@ -95,6 +95,7 @@ const RecipePage = () => {
   });
 
   const [favoritedRecipes, setFavoritedRecipes] = useState(new Set());
+  const [triedRecipes, setTriedRecipes] = useState(new Set());
 
   const avatarRef = useRef(null);
 
@@ -142,13 +143,15 @@ const RecipePage = () => {
     setHoverStates((prev) => ({ ...prev, [element]: isHover }));
   };
 
-  // Load favorites from localStorage on mount
+  // Load favorites and tried recipes on mount
   useEffect(() => {
     const loadFavorites = async () => {
       try {
         const response = await favoritesAPI.getFavorites();
-        if (response && response.success && response.data) {
-          const favoriteIds = new Set(response.data.map(recipe => recipe.id));
+        if (response && response.success) {
+          // Handle both response.data (array) and response.favorites (array) formats
+          const favorites = response.data || response.favorites || [];
+          const favoriteIds = new Set(favorites.map(recipe => recipe.id || recipe.recipe_id));
           setFavoritedRecipes(favoriteIds);
         }
       } catch (error) {
@@ -156,7 +159,20 @@ const RecipePage = () => {
       }
     };
     
+    const loadTriedRecipes = async () => {
+      try {
+        const response = await triedAPI.getTriedRecipes();
+        if (response && response.success && response.data) {
+          const triedIds = new Set(response.data.map(recipe => recipe.id || recipe.recipe_id));
+          setTriedRecipes(triedIds);
+        }
+      } catch (error) {
+        console.error('Error loading tried recipes:', error);
+      }
+    };
+    
     loadFavorites();
+    loadTriedRecipes();
   }, []);
 
   // Close dropdown when clicking outside or pressing Escape
@@ -448,7 +464,6 @@ const RecipePage = () => {
     
     try {
       if (isFavorited) {
-        // Remove from favorites
         await favoritesAPI.removeFromFavorites(recipeId);
         setFavoritedRecipes(prev => {
           const newSet = new Set(prev);
@@ -456,34 +471,80 @@ const RecipePage = () => {
           return newSet;
         });
       } else {
-        // Add to favorites - find the recipe from current recipes list or selected recipe
-        let recipeToAdd = recipes.find(r => r.id === recipeId);
-        
-        // If not found in recipes list, use selectedRecipe (from modal)
-        if (!recipeToAdd && selectedRecipe && selectedRecipe.id === recipeId) {
-          recipeToAdd = selectedRecipe;
-        }
-        
-        if (recipeToAdd) {
-          console.log('Adding recipe to favorites:', recipeToAdd);
-          await favoritesAPI.addToFavorites(recipeToAdd);
-          setFavoritedRecipes(prev => new Set([...prev, recipeId]));
-          console.log('Recipe added successfully!');
-        } else {
-          console.error('Recipe not found:', recipeId);
-        }
+        await favoritesAPI.addToFavorites(recipeId);
+        setFavoritedRecipes(prev => new Set([...prev, recipeId]));
+        console.log('Recipe added to favorites successfully!');
       }
       
       // Update selected recipe if modal is open
       if (selectedRecipe && selectedRecipe.id === recipeId) {
         setSelectedRecipe(prev => ({
           ...prev,
-          isFavorited: !isFavorited
+          isFavorited: !isFavorited,
+          engagement: {
+            ...prev.engagement,
+            saved: isFavorited ? prev.engagement.saved - 1 : prev.engagement.saved + 1
+          }
         }));
       }
+      
+      // Update recipe in list
+      setRecipes(prev => prev.map(recipe => {
+        if (recipe.id === recipeId) {
+          return {
+            ...recipe,
+            engagement: {
+              ...recipe.engagement,
+              saved: isFavorited ? recipe.engagement.saved - 1 : recipe.engagement.saved + 1
+            }
+          };
+        }
+        return recipe;
+      }));
     } catch (error) {
       console.error('Error toggling favorite:', error);
       alert('Failed to update favorites. Please try again.');
+    }
+  };
+
+  const handleToggleTried = async (recipeId) => {
+    const isTried = triedRecipes.has(recipeId);
+    
+    try {
+      if (!isTried) {
+        await triedAPI.markAsTried(recipeId);
+        setTriedRecipes(prev => new Set([...prev, recipeId]));
+        
+        // Update recipe in list
+        setRecipes(prev => prev.map(recipe => {
+          if (recipe.id === recipeId) {
+            return {
+              ...recipe,
+              engagement: {
+                ...recipe.engagement,
+                tried: recipe.engagement.tried + 1
+              }
+            };
+          }
+          return recipe;
+        }));
+        
+        // Update selected recipe if it's the same one
+        if (selectedRecipe && selectedRecipe.id === recipeId) {
+          setSelectedRecipe(prev => ({
+            ...prev,
+            engagement: {
+              ...prev.engagement,
+              tried: prev.engagement.tried + 1
+            }
+          }));
+        }
+        
+        console.log('Recipe marked as tried successfully!');
+      }
+    } catch (error) {
+      console.error('Error marking recipe as tried:', error);
+      alert('Failed to mark recipe as tried. Please try again.');
     }
   };
 
@@ -693,28 +754,10 @@ const RecipePage = () => {
                           e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
                         }}
                       />
-                      
-                      {/* Verification Badge */}
-                      <div className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai-generated' : 'verified'}`}>
-                        <FontAwesomeIcon icon={getVerificationIcon(recipe.verificationStatus)} />
-                      </div>
-
-                      {/* Health Badge */}
-                      {recipe.healthTags.length > 0 && (
-                        <div className="health-badge">
-                          <FontAwesomeIcon icon={faAward} />
-                        </div>
-                      )}
                     </div>
 
                     {/* Recipe Content */}
                     <div className="recipe-content">
-                      {/* Rating */}
-                      <div className="recipe-rating">
-                        {renderStars(recipe.rating)}
-                        <span className="rating-value">({recipe.rating})</span>
-                      </div>
-
                       {/* Title */}
                       <h3 className="recipe-title">{recipe.title}</h3>
 
@@ -724,10 +767,6 @@ const RecipePage = () => {
                       {/* Meta Info */}
                       <div className="recipe-meta">
                         <div className="recipe-meta-info">
-                          <div className="meta-item">
-                            <FontAwesomeIcon icon={faClock} />
-                            {recipe.cookTime}
-                          </div>
                           <div className="meta-item">
                             <FontAwesomeIcon icon={faUsers} />
                             {recipe.servings} servings
@@ -757,14 +796,29 @@ const RecipePage = () => {
 
                       {/* Engagement */}
                       <div className="recipe-engagement">
-                        <div className="engagement-item">
+                        <button 
+                          className={`engagement-item engagement-button ${triedRecipes.has(recipe.id) ? 'tried' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleTried(recipe.id);
+                          }}
+                          title={triedRecipes.has(recipe.id) ? 'You tried this recipe' : 'Mark as tried'}
+                          disabled={triedRecipes.has(recipe.id)}
+                        >
                           <FontAwesomeIcon icon={faEye} />
-                          {recipe.engagement.tried} tried
-                        </div>
-                        <div className="engagement-item">
-                          <FontAwesomeIcon icon={faHeartRegular} />
-                          {recipe.engagement.saved} saved
-                        </div>
+                          {recipe.engagement?.tried || 0} tried
+                        </button>
+                        <button 
+                          className={`engagement-item engagement-button ${favoritedRecipes.has(recipe.id) ? 'favorited' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(recipe.id);
+                          }}
+                          title={favoritedRecipes.has(recipe.id) ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                          <FontAwesomeIcon icon={favoritedRecipes.has(recipe.id) ? faHeart : faHeartRegular} />
+                          {recipe.engagement?.saved || 0} saved
+                        </button>
                       </div>
                     </div>
                   </div>

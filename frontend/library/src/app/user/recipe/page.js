@@ -36,7 +36,7 @@ import {
   faStar as faStarRegular,
   faHeart as faHeartRegular
 } from '@fortawesome/free-regular-svg-icons';
-import { recipeAPI, favoritesAPI } from './api';
+import { recipeAPI, favoritesAPI, triedAPI } from './api';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
 import { saveLastOpenedRecipe } from '../utils/recipeTracker';
@@ -68,8 +68,7 @@ const RecipePage = () => {
   });
 
   const [filters, setFilters] = useState({
-    mealType: [],
-    dietaryTags: []
+    mealType: []
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -92,6 +91,7 @@ const RecipePage = () => {
   });
 
   const [favoritedRecipes, setFavoritedRecipes] = useState(new Set());
+  const [triedRecipes, setTriedRecipes] = useState(new Set());
 
   const avatarRef = useRef(null);
 
@@ -138,12 +138,86 @@ const RecipePage = () => {
     setHoverStates((prev) => ({ ...prev, [element]: isHover }));
   };
 
+  // ✅ Fetch filtered recipes based on ingredient IDs
+  const fetchFilteredRecipes = async (ingredientIds) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { recipesAPI } = await import('../utils/recipesAPI');
+      const result = await recipesAPI.getFilteredRecipes({
+        scannedIngredients: ingredientIds,
+        limit: 50
+      });
+      
+      if (result && result.success && result.recipes) {
+        const newRecipes = result.recipes.map(recipe => {
+          // Parse meal types - handle array, comma-separated string, or single value
+          let mealTypes = [];
+          if (Array.isArray(recipe.mealType)) {
+            mealTypes = recipe.mealType.filter(m => m && m.trim());
+          } else if (Array.isArray(recipe.meal_type)) {
+            mealTypes = recipe.meal_type.filter(m => m && m.trim());
+          } else if (typeof recipe.mealType === 'string' && recipe.mealType.includes(',')) {
+            mealTypes = recipe.mealType.split(',').map(m => m.trim()).filter(m => m);
+          } else if (typeof recipe.meal_type === 'string' && recipe.meal_type.includes(',')) {
+            mealTypes = recipe.meal_type.split(',').map(m => m.trim()).filter(m => m);
+          } else if (recipe.mealType) {
+            mealTypes = [recipe.mealType];
+          } else if (recipe.meal_type) {
+            mealTypes = [recipe.meal_type];
+          }
+          
+          return {
+            id: recipe.id || recipe.recipe_id,
+            title: recipe.title || recipe.name || recipe.recipe_name,
+            description: recipe.description || '',
+            images: Array.isArray(recipe.images) && recipe.images.length > 0 
+              ? recipe.images 
+              : (recipe.image ? [recipe.image] : (recipe.image_url ? [recipe.image_url] : ['https://via.placeholder.com/400x300?text=No+Image'])),
+            mealType: mealTypes.length > 0 ? mealTypes : [],
+            ingredients: recipe.ingredients || { main: [], condiments: [], optional: [] },
+            instructions: recipe.instructions || [],
+            dietaryTags: recipe.dietaryTags || recipe.dietary_restrictions || [],
+            healthTags: recipe.healthTags || [],
+            verificationStatus: recipe.verificationStatus || 'AI-generated',
+            verifierName: recipe.verifierName || '',
+            verifierCredentials: recipe.verifierCredentials || '',
+            engagement: {
+              tried: recipe.tried || recipe.engagement?.tried || recipe.tried_count || 0,
+              saved: recipe.saved || recipe.engagement?.saved || recipe.save_count || 0
+            },
+            rating: recipe.rating || recipe.average_rating || 4.5,
+            cookTime: recipe.cookTime || recipe.cookingTime || recipe.prepTime || recipe.cook_time || '30 min',
+            servings: recipe.servings || 4
+          };
+        });
+        
+        setRecipes(newRecipes);
+        setOffset(newRecipes.length);
+        setHasMore(false);
+        console.log(`✅ Loaded ${newRecipes.length} filtered recipes`);
+      } else {
+        setRecipes([]);
+        setError('No recipes found matching your ingredients.');
+      }
+    } catch (err) {
+      console.error('Error fetching filtered recipes:', err);
+      setError(err.message || 'Failed to load filtered recipes.');
+      setRecipes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const loadFavorites = async () => {
       try {
         const response = await favoritesAPI.getFavorites();
-        if (response && response.success && response.data) {
-          const favoriteIds = new Set(response.data.map(recipe => recipe.id));
+        if (response && response.success) {
+          // Handle both response.data (array) and response.favorites (array) formats
+          const favorites = response.data || response.favorites || [];
+          const favoriteIds = new Set(favorites.map(recipe => recipe.id || recipe.recipe_id));
           setFavoritedRecipes(favoriteIds);
         }
       } catch (error) {
@@ -151,7 +225,38 @@ const RecipePage = () => {
       }
     };
     
+    const loadTriedRecipes = async () => {
+      try {
+        const response = await triedAPI.getTriedRecipes();
+        if (response && response.success && response.data) {
+          const triedIds = new Set(response.data.map(recipe => recipe.id || recipe.recipe_id));
+          setTriedRecipes(triedIds);
+        }
+      } catch (error) {
+        console.error('Error loading tried recipes:', error);
+      }
+    };
+    
     loadFavorites();
+    loadTriedRecipes();
+    
+    // ✅ Check for ingredients query parameter from scanning page
+    const urlParams = new URLSearchParams(window.location.search);
+    const ingredientsParam = urlParams.get('ingredients');
+    if (ingredientsParam) {
+      const ingredientIds = ingredientsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+      if (ingredientIds.length > 0) {
+        console.log('🍳 Loading recipes filtered by ingredients:', ingredientIds);
+        // Fetch filtered recipes using the filter endpoint
+        fetchFilteredRecipes(ingredientIds);
+      } else {
+        // No valid ingredients, load all recipes
+        fetchRecipes();
+      }
+    } else {
+      // No ingredients parameter, load all recipes normally
+      fetchRecipes();
+    }
   }, []);
 
   useEffect(() => {
@@ -182,6 +287,14 @@ const RecipePage = () => {
   }, [isModalOpen]);
 
   const fetchRecipes = async (isLoadMore = false) => {
+    // ✅ Don't fetch if we're in filtered mode (ingredients parameter present)
+    const urlParams = new URLSearchParams(window.location.search);
+    const ingredientsParam = urlParams.get('ingredients');
+    if (ingredientsParam) {
+      console.log('⏭️ Skipping fetchRecipes - filtered mode active');
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
@@ -190,10 +303,6 @@ const RecipePage = () => {
 
       if (Array.isArray(filters.mealType) && filters.mealType.length > 0) {
         activeFilters.mealType = filters.mealType;
-      }
-
-      if (Array.isArray(filters.dietaryTags) && filters.dietaryTags.length > 0) {
-        activeFilters.dietaryTags = filters.dietaryTags;
       }
 
       const searchTerm = dishCoverySearchQuery.trim();
@@ -215,29 +324,47 @@ const RecipePage = () => {
       const payload = response.data || [];
       const pagination = response.pagination || {};
 
-      const newRecipes = payload.map(recipe => ({
-        id: recipe.id || recipe.recipe_id,
-        title: recipe.title || recipe.name || recipe.recipe_name,
-        description: recipe.description || '',
-        images: Array.isArray(recipe.images) && recipe.images.length > 0 
-          ? recipe.images 
-          : (recipe.image ? [recipe.image] : (recipe.image_url ? [recipe.image_url] : ['https://via.placeholder.com/400x300?text=No+Image'])),
-        mealType: recipe.mealType || recipe.meal_type || '',
-        ingredients: recipe.ingredients || { main: [], condiments: [], optional: [] },
-        instructions: recipe.instructions || [],
-        dietaryTags: recipe.dietaryTags || recipe.dietary_restrictions || [],
-        healthTags: recipe.healthTags || [],
-        verificationStatus: recipe.verificationStatus || 'AI-generated',
-        verifierName: recipe.verifierName || '',
-        verifierCredentials: recipe.verifierCredentials || '',
-        engagement: {
-          tried: recipe.tried || recipe.engagement?.tried || recipe.tried_count || 0,
-          saved: recipe.saved || recipe.engagement?.saved || recipe.save_count || 0
-        },
-        rating: recipe.rating || recipe.average_rating || 4.5,
-        cookTime: recipe.cookTime || recipe.cookingTime || recipe.prepTime || recipe.cook_time || '30 min',
-        servings: recipe.servings || 4
-      }));
+      const newRecipes = payload.map(recipe => {
+        // Parse meal types - handle array, comma-separated string, or single value
+        let mealTypes = [];
+        if (Array.isArray(recipe.mealType)) {
+          mealTypes = recipe.mealType.filter(m => m && m.trim());
+        } else if (Array.isArray(recipe.meal_type)) {
+          mealTypes = recipe.meal_type.filter(m => m && m.trim());
+        } else if (typeof recipe.mealType === 'string' && recipe.mealType.includes(',')) {
+          mealTypes = recipe.mealType.split(',').map(m => m.trim()).filter(m => m);
+        } else if (typeof recipe.meal_type === 'string' && recipe.meal_type.includes(',')) {
+          mealTypes = recipe.meal_type.split(',').map(m => m.trim()).filter(m => m);
+        } else if (recipe.mealType) {
+          mealTypes = [recipe.mealType];
+        } else if (recipe.meal_type) {
+          mealTypes = [recipe.meal_type];
+        }
+        
+        return {
+          id: recipe.id || recipe.recipe_id,
+          title: recipe.title || recipe.name || recipe.recipe_name,
+          description: recipe.description || '',
+          images: Array.isArray(recipe.images) && recipe.images.length > 0 
+            ? recipe.images 
+            : (recipe.image ? [recipe.image] : (recipe.image_url ? [recipe.image_url] : ['https://via.placeholder.com/400x300?text=No+Image'])),
+          mealType: mealTypes.length > 0 ? mealTypes : [],
+          ingredients: recipe.ingredients || { main: [], condiments: [], optional: [] },
+          instructions: recipe.instructions || [],
+          dietaryTags: recipe.dietaryTags || recipe.dietary_restrictions || [],
+          healthTags: recipe.healthTags || [],
+          verificationStatus: recipe.verificationStatus || 'AI-generated',
+          verifierName: recipe.verifierName || '',
+          verifierCredentials: recipe.verifierCredentials || '',
+          engagement: {
+            tried: recipe.tried || recipe.engagement?.tried || recipe.tried_count || 0,
+            saved: recipe.saved || recipe.engagement?.saved || recipe.save_count || 0
+          },
+          rating: recipe.rating || recipe.average_rating || 4.5,
+          cookTime: recipe.cookTime || recipe.cookingTime || recipe.prepTime || recipe.cook_time || '30 min',
+          servings: recipe.servings || 4
+        };
+      });
 
       if (isLoadMore) {
         setRecipes(prev => [...prev, ...newRecipes]);
@@ -267,9 +394,11 @@ const RecipePage = () => {
     try {
       const response = await recipeAPI.getRecipeDetails(recipeId);
       if (response && response.data) {
+        // ✅ Use uploaded images from database, no fallback Unsplash image
+        const images = response.data.images || [];
         return {
           ...response.data,
-          images: response.data.images || [response.data.image || response.data.imageUrl || 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop'],
+          images: images.length > 0 ? images : (response.data.image ? [response.data.image] : (response.data.imageUrl ? [response.data.imageUrl] : [])),
           ingredients: response.data.ingredients || { main: [], condiments: [], optional: [] },
           instructions: response.data.instructions || []
         };
@@ -281,11 +410,18 @@ const RecipePage = () => {
     }
   };
 
+  // ✅ REMOVED: This useEffect was calling fetchRecipes() on mount, overriding filtered results
+  // The main useEffect at line 195 already handles both filtered and regular recipe fetching
+  
   useEffect(() => {
-    fetchRecipes();
-  }, []);
-
-  useEffect(() => {
+    // ✅ Don't fetch if we're in filtered mode (ingredients parameter present)
+    const urlParams = new URLSearchParams(window.location.search);
+    const ingredientsParam = urlParams.get('ingredients');
+    if (ingredientsParam) {
+      console.log('⏭️ Skipping filter-based fetch - filtered mode active');
+      return;
+    }
+    
     const delayedFetch = setTimeout(() => {
       fetchRecipes();
     }, 300);
@@ -390,6 +526,14 @@ const RecipePage = () => {
 
   // Auto-sync check every 30 seconds
   useEffect(() => {
+    // ✅ Don't auto-sync if we're in filtered mode (ingredients parameter present)
+    const urlParams = new URLSearchParams(window.location.search);
+    const ingredientsParam = urlParams.get('ingredients');
+    if (ingredientsParam) {
+      console.log('⏭️ Skipping auto-sync - filtered mode active');
+      return;
+    }
+    
     const syncInterval = setInterval(async () => {
       try {
         const { needsUpdate } = await recipeAPI.checkForUpdates();
@@ -409,6 +553,14 @@ const RecipePage = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        // ✅ Don't refresh if we're in filtered mode (ingredients parameter present)
+        const urlParams = new URLSearchParams(window.location.search);
+        const ingredientsParam = urlParams.get('ingredients');
+        if (ingredientsParam) {
+          console.log('⏭️ Skipping refresh - filtered mode active');
+          return;
+        }
+        
         console.log('Tab became visible, checking for updates...');
         recipeAPI.checkForUpdates().then(({ needsUpdate }) => {
           if (needsUpdate) {
@@ -434,8 +586,7 @@ const RecipePage = () => {
   };
 
   const filterOptions = {
-    mealType: ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert', 'Light Meal', 'Heavy Meal'],
-    dietaryTags: ['Vegan', 'Vegetarian', 'Gluten-free', 'Dairy-free', 'Mediterranean', 'High-protein', 'Keto', 'Paleo']
+    mealType: ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert', 'Light Meal', 'Heavy Meal']
   };
 
   const handleFilterChange = (category, value) => {
@@ -449,13 +600,12 @@ const RecipePage = () => {
 
   const clearAllFilters = () => {
     setFilters({
-      mealType: [],
-      dietaryTags: []
+      mealType: []
     });
   };
 
   const getActiveFilterCount = () => {
-    return filters.mealType.length + filters.dietaryTags.length;
+    return filters.mealType.length;
   };
 
   const renderStars = (rating) => {
@@ -486,13 +636,17 @@ const RecipePage = () => {
   };
 
   const openModal = async (recipe) => {
-    const recipeWithFavoriteStatus = {
+    // ✅ Preserve original images from card to ensure consistency
+    const originalImages = recipe.images || [];
+    
+    const recipeWithStatus = {
       ...recipe,
-      isFavorited: favoritedRecipes.has(recipe.id)
+      isFavorited: favoritedRecipes.has(recipe.id),
+      isTried: triedRecipes.has(recipe.id)
     };
-    setSelectedRecipe(recipeWithFavoriteStatus);
+    setSelectedRecipe(recipeWithStatus);
     setIsModalOpen(true);
-    setCurrentImageIndex(0);
+    setCurrentImageIndex(0); // ✅ Always start with first image (same as card)
     setShowAlternatives({});
     setShowScrollIndicator(true);
     document.body.style.overflow = 'hidden';
@@ -503,9 +657,16 @@ const RecipePage = () => {
     if (recipe.id && (!recipe.instructions || recipe.instructions.length === 0)) {
       const detailedRecipe = await fetchRecipeDetails(recipe.id);
       if (detailedRecipe) {
+        // ✅ Preserve original images from card if they exist, otherwise use detailed recipe images
+        const imagesToUse = (originalImages && originalImages.length > 0) 
+          ? originalImages 
+          : (detailedRecipe.images || []);
+        
         setSelectedRecipe({
           ...detailedRecipe,
-          isFavorited: favoritedRecipes.has(recipe.id)
+          images: imagesToUse, // ✅ Use same images as card
+          isFavorited: favoritedRecipes.has(recipe.id),
+          isTried: triedRecipes.has(recipe.id)
         });
       }
     }
@@ -570,31 +731,80 @@ const RecipePage = () => {
           return newSet;
         });
       } else {
-        let recipeToAdd = recipes.find(r => r.id === recipeId);
-        
-        if (!recipeToAdd && selectedRecipe && selectedRecipe.id === recipeId) {
-          recipeToAdd = selectedRecipe;
-        }
-        
-        if (recipeToAdd) {
-          console.log('Adding recipe to favorites:', recipeToAdd);
-          await favoritesAPI.addToFavorites(recipeToAdd);
-          setFavoritedRecipes(prev => new Set([...prev, recipeId]));
-          console.log('Recipe added successfully!');
-        } else {
-          console.error('Recipe not found:', recipeId);
-        }
+        await favoritesAPI.addToFavorites(recipeId);
+        setFavoritedRecipes(prev => new Set([...prev, recipeId]));
+        console.log('Recipe added to favorites successfully!');
       }
       
+      // Update selected recipe if it's the same one
       if (selectedRecipe && selectedRecipe.id === recipeId) {
         setSelectedRecipe(prev => ({
           ...prev,
-          isFavorited: !isFavorited
+          isFavorited: !isFavorited,
+          engagement: {
+            ...prev.engagement,
+            saved: isFavorited ? prev.engagement.saved - 1 : prev.engagement.saved + 1
+          }
         }));
       }
+      
+      // Update recipe in list
+      setRecipes(prev => prev.map(recipe => {
+        if (recipe.id === recipeId) {
+          return {
+            ...recipe,
+            engagement: {
+              ...recipe.engagement,
+              saved: isFavorited ? recipe.engagement.saved - 1 : recipe.engagement.saved + 1
+            }
+          };
+        }
+        return recipe;
+      }));
     } catch (error) {
       console.error('Error toggling favorite:', error);
       alert('Failed to update favorites. Please try again.');
+    }
+  };
+
+  const handleToggleTried = async (recipeId) => {
+    const isTried = triedRecipes.has(recipeId);
+    
+    try {
+      if (!isTried) {
+        await triedAPI.markAsTried(recipeId);
+        setTriedRecipes(prev => new Set([...prev, recipeId]));
+        
+        // Update recipe in list
+        setRecipes(prev => prev.map(recipe => {
+          if (recipe.id === recipeId) {
+            return {
+              ...recipe,
+              engagement: {
+                ...recipe.engagement,
+                tried: recipe.engagement.tried + 1
+              }
+            };
+          }
+          return recipe;
+        }));
+        
+        // Update selected recipe if it's the same one
+        if (selectedRecipe && selectedRecipe.id === recipeId) {
+          setSelectedRecipe(prev => ({
+            ...prev,
+            engagement: {
+              ...prev.engagement,
+              tried: prev.engagement.tried + 1
+            }
+          }));
+        }
+        
+        console.log('Recipe marked as tried successfully!');
+      }
+    } catch (error) {
+      console.error('Error marking recipe as tried:', error);
+      alert('Failed to mark recipe as tried. Please try again.');
     }
   };
 
@@ -784,32 +994,27 @@ const RecipePage = () => {
                   >
                     <div className="recipe-image-container">
                       <img
-                        src={Array.isArray(recipe.images) ? recipe.images[0] : recipe.images}
+                        src={(() => {
+                          const imageSrc = Array.isArray(recipe.images) ? recipe.images[0] : recipe.images;
+                          // ✅ Debug: Log image source for specific recipe (e.g., Sinugba)
+                          if (recipe.title && recipe.title.toLowerCase().includes('sinugba')) {
+                            console.log(`🔍 [${recipe.title}] Recipe ID: ${recipe.id}`);
+                            console.log(`🔍 [${recipe.title}] Images array:`, recipe.images);
+                            console.log(`🔍 [${recipe.title}] Image source:`, imageSrc);
+                          }
+                          return imageSrc;
+                        })()}
                         alt={recipe.title}
                         className="recipe-image"
                         onError={(e) => { 
+                          console.error(`❌ Image failed to load for recipe ${recipe.title}:`, e.target.src);
                           e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
                         }}
                       />
                       
-                      <div className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai-generated' : 'verified'}`}>
-                        <FontAwesomeIcon icon={getVerificationIcon(recipe.verificationStatus)} />
-                      </div>
-
-                      {recipe.healthTags.length > 0 && (
-                        <div className="health-badge">
-                          <FontAwesomeIcon icon={faAward} />
-                        </div>
-                      )}
                     </div>
                     {/* Recipe Content */}
                     <div className="recipe-content">
-                      {/* Rating */}
-                      <div className="recipe-rating">
-                        {renderStars(recipe.rating)}
-                        <span className="rating-value">({recipe.rating})</span>
-                      </div>
-
                       <h3 className="recipe-title">{recipe.title}</h3>
 
                       <p className="recipe-description">{recipe.description}</p>
@@ -817,18 +1022,30 @@ const RecipePage = () => {
                       <div className="recipe-meta">
                         <div className="recipe-meta-info">
                           <div className="meta-item">
-                            <FontAwesomeIcon icon={faClock} />
-                            {recipe.cookTime}
-                          </div>
-                          <div className="meta-item">
                             <FontAwesomeIcon icon={faUsers} />
                             {recipe.servings} servings
                           </div>
                         </div>
                         
-                        <span className="meal-type-badge">
-                          {recipe.mealType}
-                        </span>
+                        <div className="meal-type-container">
+                          {(() => {
+                            // Parse meal types - handle array, comma-separated string, or single value
+                            let mealTypes = [];
+                            if (Array.isArray(recipe.mealType)) {
+                              mealTypes = recipe.mealType.filter(m => m && m.trim());
+                            } else if (typeof recipe.mealType === 'string' && recipe.mealType.includes(',')) {
+                              mealTypes = recipe.mealType.split(',').map(m => m.trim()).filter(m => m);
+                            } else if (recipe.mealType) {
+                              mealTypes = [recipe.mealType];
+                            }
+                            
+                            return mealTypes.map((mealType, index) => (
+                              <span key={index} className="meal-type-badge">
+                                {mealType}
+                              </span>
+                            ));
+                          })()}
+                        </div>
                       </div>
 
                       <div className="recipe-tags">
@@ -847,14 +1064,28 @@ const RecipePage = () => {
                       </div>
 
                       <div className="recipe-engagement">
-                        <div className="engagement-item">
+                        <button 
+                          className={`engagement-item engagement-button ${triedRecipes.has(recipe.id) ? 'tried' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleTried(recipe.id);
+                          }}
+                          title={triedRecipes.has(recipe.id) ? 'You tried this recipe' : 'Mark as tried'}
+                        >
                           <FontAwesomeIcon icon={faEye} />
-                          {recipe.engagement.tried} tried
-                        </div>
-                        <div className="engagement-item">
-                          <FontAwesomeIcon icon={faHeartRegular} />
-                          {recipe.engagement.saved} saved
-                        </div>
+                          {recipe.engagement?.tried || 0} tried
+                        </button>
+                        <button 
+                          className={`engagement-item engagement-button ${favoritedRecipes.has(recipe.id) ? 'favorited' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(recipe.id);
+                          }}
+                          title={favoritedRecipes.has(recipe.id) ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                          <FontAwesomeIcon icon={favoritedRecipes.has(recipe.id) ? faHeart : faHeartRegular} />
+                          {recipe.engagement?.saved || 0} saved
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1024,56 +1255,38 @@ const RecipePage = () => {
                     )}
                   </div>
                   
-                  <div className="verification-section">
-                    <div className="verification-main">
-                      <FontAwesomeIcon 
-                        className="verification-icon"
-                        icon={getVerificationIcon(selectedRecipe.verificationStatus)}
-                      />
-                      <span className="verification-status">
-                        {selectedRecipe.verificationStatus === 'AI-generated' 
-                          ? 'AI Generated Recipe' 
-                          : 'Professionally Verified'
-                        }
-                      </span>
-                    </div>
-                    {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
-                      <div className="verifier-details">
-                        <span className="verifier-name">
-                          Verified by: {selectedRecipe.verifierName}
-                        </span>
-                        {selectedRecipe.verifierCredentials && (
-                          <span className="verifier-credentials">
-                            {selectedRecipe.verifierCredentials}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
                   <div className="modal-stats">
-                    <div className="stat-item-display">
+                    <button 
+                      className={`stat-item-button tried-button-compact stat-button-ripple ${triedRecipes.has(selectedRecipe.id) ? 'tried' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleTried(selectedRecipe.id);
+                      }}
+                      aria-label={triedRecipes.has(selectedRecipe.id) ? 'You tried this recipe' : 'Mark as tried'}
+                      aria-pressed={triedRecipes.has(selectedRecipe.id)}
+                      disabled={triedRecipes.has(selectedRecipe.id)}
+                    >
                       <FontAwesomeIcon icon={faEye} className="stat-icon" />
                       <div className="stat-text">
-                        <div className="stat-number">{selectedRecipe.engagement.tried} people tried this</div>
+                        <div className="stat-number">{selectedRecipe.engagement?.tried || 0} people tried this</div>
                       </div>
-                    </div>
+                    </button>
                     <button 
-                      className={`stat-item-button favorite-button-compact stat-button-ripple ${selectedRecipe.isFavorited ? 'favorited' : ''}`}
+                      className={`stat-item-button favorite-button-compact stat-button-ripple ${favoritedRecipes.has(selectedRecipe.id) ? 'favorited' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleToggleFavorite(selectedRecipe.id);
                       }}
-                      aria-label={selectedRecipe.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-                      aria-pressed={selectedRecipe.isFavorited}
+                      aria-label={favoritedRecipes.has(selectedRecipe.id) ? 'Remove from favorites' : 'Add to favorites'}
+                      aria-pressed={favoritedRecipes.has(selectedRecipe.id)}
                     >
                       <FontAwesomeIcon 
-                        icon={selectedRecipe.isFavorited ? faHeart : faHeartRegular} 
+                        icon={favoritedRecipes.has(selectedRecipe.id) ? faHeart : faHeartRegular} 
                         className="stat-icon" 
                       />
                       <div className="stat-text">
                         <span className="stat-number">
-                          {selectedRecipe.isFavorited ? (
+                          {favoritedRecipes.has(selectedRecipe.id) ? (
                             <>
                               <span>Remove from</span>
                               <span>Favorites</span>
@@ -1116,13 +1329,48 @@ const RecipePage = () => {
                     </div>
                   )}
                   
-                  {selectedRecipe.mealType && (
+                  {selectedRecipe.mealType && (() => {
+                    // Split meal types if it's a string with commas, or use array if already an array
+                    const mealTypes = Array.isArray(selectedRecipe.mealType) 
+                      ? selectedRecipe.mealType 
+                      : typeof selectedRecipe.mealType === 'string' && selectedRecipe.mealType.includes(',')
+                        ? selectedRecipe.mealType.split(',').map(m => m.trim()).filter(m => m)
+                        : [selectedRecipe.mealType];
+                    
+                    return (
+                      <div className="modal-section">
+                        <h3 className="section-title">Meal Type</h3>
+                        <div className="modal-tags">
+                          {mealTypes.map((mealType, index) => (
+                            <span key={index} className="modal-tag meal-type">
+                              <FontAwesomeIcon icon={faUtensils} />
+                              {mealType}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  
+                  {(selectedRecipe.medicalConditions || []).length > 0 && (
                     <div className="modal-section">
-                      <h3 className="section-title">Meal Type</h3>
+                      <h3 className="section-title">Medical Conditions (Allergies & Intolerances)</h3>
                       <div className="modal-tags">
-                        <span className="modal-tag meal-type">
-                          <FontAwesomeIcon icon={faUtensils} />
-                          {selectedRecipe.mealType}
+                        {selectedRecipe.medicalConditions.map((condition, index) => (
+                          <span key={index} className="modal-tag medical-condition">
+                            {condition}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedRecipe.servings && (
+                    <div className="modal-section">
+                      <h3 className="section-title">Servings</h3>
+                      <div className="modal-tags">
+                        <span className="modal-tag servings">
+                          {selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}
                         </span>
                       </div>
                     </div>

@@ -11,13 +11,14 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
     console.log('📋 Fetching all pantry ingredients...');
     
     // Get active ingredients from ingredients table with image data
+    // ✅ Use same query structure as admin ingredients route
     const ingredients = await pool.query(`
       SELECT 
         ingredient_id as id,
         ingredient_name as name,
-        category,
-        categ_role,
-        ingredient_type,
+        NULLIF(TRIM(COALESCE(ingredient_type, '')), '') as ingredient_type,
+        NULLIF(TRIM(COALESCE(category, '')), '') as category,
+        NULLIF(TRIM(COALESCE(categ_role, '')), '') as categ_role,
         nutritional_data,
         is_active,
         created_at
@@ -26,7 +27,7 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
       ORDER BY ingredient_name
     `);
     
-    // Transform ingredients for frontend
+    // ✅ Transform ingredients using same logic as admin ingredients route
     const transformedIngredients = ingredients.map(ingredient => {
       let nutritionalData = {};
       
@@ -36,20 +37,74 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
         nutritionalData = {};
       }
 
-      // Map categories to match frontend expectations
-      let mappedCategory = ingredient.category;
-      if (ingredient.category === 'Main Ingredient') {
-        mappedCategory = 'Protein';
-      } else if (ingredient.category === 'Condiment') {
-        mappedCategory = 'Pantry';
-      } else if (ingredient.category === 'Spice') {
-        mappedCategory = 'Pantry';
+      // ✅ Use ingredient_type from database (same as admin route)
+      // Normalize plural forms to singular
+      const normalizeType = (value) => {
+        if (!value || value.trim() === '') return null;
+        const pluralToSingular = {
+          'Vegetables': 'Vegetable',
+          'Fruits': 'Fruit',
+          'Eggs': 'Egg',
+          'Nuts': 'Nut',
+          'Legumes': 'Legume',
+          'Herbs & Spices': 'Herb & Spice',
+          'Citrus Fruits': 'Citrus Fruit'
+        };
+        return pluralToSingular[value] || value;
+      };
+
+      // Get type from ingredient_type column (primary source)
+      let type = ingredient.ingredient_type ? String(ingredient.ingredient_type).trim() : null;
+      let category = ingredient.category ? String(ingredient.category).trim() : null;
+      let role = ingredient.categ_role ? String(ingredient.categ_role).trim() : null;
+
+      // Type-like values that should be used as ingredient_type
+      const typeLikeValues = [
+        'Meat', 'Poultry', 'Fish', 'Seafood', 'Protein', 'Vegetable', 'Vegetables',
+        'Fruit', 'Fruits', 'Grain', 'Dairy', 'Egg', 'Eggs', 'Nut', 'Nuts',
+        'Legume', 'Legumes', 'Herb & Spice', 'Herbs & Spices', 
+        'Citrus Fruit', 'Citrus Fruits', 'Mineral'
+      ];
+      const roleLikeValues = ['Main Ingredient', 'Condiment', 'Spice', 'Additive', 'Other'];
+
+      // ✅ PRIORITY 1: Use ingredient_type if available (most common case)
+      if (type && type !== '' && type !== null) {
+        // Check if type is actually a role value (data is reversed - rare case)
+        if (roleLikeValues.includes(type)) {
+          // Type contains role value, swap with category if category has type value
+          if (category && typeLikeValues.includes(category)) {
+            type = normalizeType(category);
+            role = type || role || 'Main Ingredient';
+          } else {
+            type = null;
+            role = type || role || 'Main Ingredient';
+          }
+        } else {
+          // Type is valid - normalize and use it
+          type = normalizeType(type);
+        }
+      }
+      // ✅ PRIORITY 2: If ingredient_type is empty but category has type-like value, use category as type
+      else if (!type && category && typeLikeValues.includes(category)) {
+        type = normalizeType(category);
+        role = role || 'Main Ingredient';
+      }
+      // ✅ PRIORITY 3: Default fallback
+      else {
+        type = type || 'Other';
+        role = role || 'Other';
+      }
+
+      // Ensure type is never null
+      if (!type || type === null) {
+        type = 'Other';
       }
 
       return {
         id: ingredient.id,
         name: ingredient.name,
-        category: mappedCategory || 'Other',
+        ingredient_type: type, // ✅ Use ingredient_type (from database)
+        category: role || 'Other', // category field maps to role for backward compatibility
         image: nutritionalData.image || `https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=200&fit=crop`
       };
     });

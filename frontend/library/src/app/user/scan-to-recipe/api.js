@@ -151,81 +151,136 @@ export const recipeAPI = {
   }
 };
 
-// Favorites API functions - Using localStorage instead of backend API
-export const favoritesAPI = {
-  // Add recipe to favorites
-  addToFavorites: async (recipe) => {
+// Import API utilities from recipe/api.js
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname.includes('vercel.app')) {
+      return 'https://dishcovery-backend-wvhn.onrender.com/api';
+    }
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+const getAuthToken = () => {
+  return localStorage.getItem('authToken') || localStorage.getItem('token');
+};
+
+const apiCall = async (endpoint, options = {}) => {
+  const token = getAuthToken();
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('API call failed:', error);
+    throw error;
+  }
+};
+
+// Tried API - Mark recipes as tried
+export const triedAPI = {
+  markAsTried: async (recipeId) => {
     try {
-      console.log('Adding recipe to favorites:', recipe.id);
-      
-      // Get current favorites from localStorage
-      const favoritesData = localStorage.getItem('favoriteRecipes');
-      let currentFavorites = favoritesData ? JSON.parse(favoritesData) : [];
-      
-      // Check if already favorited
-      const alreadyFavorited = currentFavorites.some(fav => fav.id === recipe.id);
-      
-      if (!alreadyFavorited) {
-        // Add to favorites
-        currentFavorites.push(recipe);
-        localStorage.setItem('favoriteRecipes', JSON.stringify(currentFavorites));
-      }
-      
-      return { success: true, message: 'Recipe added to favorites' };
+      console.log('Marking recipe as tried:', recipeId);
+      const response = await apiCall(`/user/recipes/${recipeId}/tried`, {
+        method: 'POST',
+      });
+      return response;
+    } catch (error) {
+      console.error('Error marking recipe as tried:', error);
+      throw error;
+    }
+  },
+
+  getTriedRecipes: async () => {
+    try {
+      console.log('Getting tried recipes');
+      const response = await apiCall('/user/recipes/tried');
+      return response;
+    } catch (error) {
+      console.error('Error fetching tried recipes:', error);
+      throw error;
+    }
+  }
+};
+
+// Favorites/Saved API - Using backend endpoints
+export const favoritesAPI = {
+  addToFavorites: async (recipeId) => {
+    try {
+      console.log('Adding recipe to favorites:', recipeId);
+      const response = await apiCall(`/user/recipes/${recipeId}/save`, {
+        method: 'POST',
+      });
+      return response;
     } catch (error) {
       console.error('Error adding to favorites:', error);
       throw error;
     }
   },
 
-  // Remove recipe from favorites
   removeFromFavorites: async (recipeId) => {
     try {
       console.log('Removing recipe from favorites:', recipeId);
-      
-      // Get current favorites from localStorage
-      const favoritesData = localStorage.getItem('favoriteRecipes');
-      let currentFavorites = favoritesData ? JSON.parse(favoritesData) : [];
-      
-      // Remove from favorites
-      currentFavorites = currentFavorites.filter(recipe => recipe.id !== recipeId);
-      localStorage.setItem('favoriteRecipes', JSON.stringify(currentFavorites));
-      
-      return { success: true, message: 'Recipe removed from favorites' };
+      const response = await apiCall(`/user/recipes/${recipeId}/save`, {
+        method: 'DELETE',
+      });
+      return response;
     } catch (error) {
       console.error('Error removing from favorites:', error);
       throw error;
     }
   },
 
-  // Get all favorites
   getFavorites: async () => {
     try {
       console.log('Getting all favorites');
-      
-      const favoritesData = localStorage.getItem('favoriteRecipes');
-      const favorites = favoritesData ? JSON.parse(favoritesData) : [];
-      
-      return { success: true, data: favorites };
+      const response = await apiCall('/user/recipes/saved');
+      return response;
     } catch (error) {
       console.error('Error fetching favorites:', error);
       throw error;
     }
   },
 
-  // Check if recipe is favorited
   isFavorited: async (recipeId) => {
     try {
       console.log('Checking if recipe is favorited:', recipeId);
-      
-      const favoritesData = localStorage.getItem('favoriteRecipes');
-      const favorites = favoritesData ? JSON.parse(favoritesData) : [];
-      
-      return favorites.some(recipe => recipe.id === recipeId);
+      const response = await apiCall(`/user/recipes/${recipeId}/interactions`);
+      if (response.success && response.data) {
+        return response.data.is_saved === 1 || response.data.is_saved === true;
+      }
+      return false;
     } catch (error) {
       console.error('Error checking favorite status:', error);
       return false;
     }
+  },
+
+  // Legacy support - accepts recipe object but uses recipeId
+  addToFavoritesLegacy: async (recipe) => {
+    if (recipe && recipe.id) {
+      return favoritesAPI.addToFavorites(recipe.id);
+    }
+    throw new Error('Recipe ID is required');
   }
 };
 

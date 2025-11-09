@@ -71,8 +71,10 @@ export default function FavoritesPage() {
         
         const response = await favoritesAPI.getFavorites();
         
-        if (response && response.success && response.data) {
-          setDishCoveryFavoriteRecipes(response.data);
+        if (response && response.success) {
+          // Handle both response.data (array) and response.favorites (array) formats
+          const favorites = response.data || response.favorites || [];
+          setDishCoveryFavoriteRecipes(favorites);
         } else {
           setDishCoveryFavoriteRecipes([]);
         }
@@ -368,28 +370,10 @@ export default function FavoritesPage() {
                           e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
                         }}
                       />
-                      
-                      {/* Verification Badge */}
-                      <div className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai-generated' : 'verified'}`}>
-                        <FontAwesomeIcon icon={getVerificationIcon(recipe.verificationStatus)} />
-                      </div>
-
-                      {/* Health Badge */}
-                      {recipe.healthTags && recipe.healthTags.length > 0 && (
-                        <div className="health-badge">
-                          <FontAwesomeIcon icon={faAward} />
-                        </div>
-                      )}
                     </div>
 
                     {/* Recipe Content */}
                     <div className="recipe-content">
-                      {/* Rating */}
-                      <div className="recipe-rating">
-                        {renderStars(recipe.rating)}
-                        <span className="rating-value">({recipe.rating})</span>
-                      </div>
-
                       {/* Title */}
                       <h3 className="recipe-title">{recipe.title}</h3>
 
@@ -399,10 +383,6 @@ export default function FavoritesPage() {
                       {/* Meta Info */}
                       <div className="recipe-meta">
                         <div className="recipe-meta-info">
-                        <div className="meta-item">
-                          <FontAwesomeIcon icon={faClock} />
-                          {recipe.cookTime}
-                        </div>
                         <div className="meta-item">
                           <FontAwesomeIcon icon={faUsers} />
                           {recipe.servings} servings

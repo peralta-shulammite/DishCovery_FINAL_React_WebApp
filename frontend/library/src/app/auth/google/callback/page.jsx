@@ -16,6 +16,13 @@ function GoogleCallbackInner() {
   const [email, setEmail] = useState('');
   const [verificationError, setVerificationError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  
+  // ✅ Option 1: Password prompt after Google signup
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [passwordPromptPassword, setPasswordPromptPassword] = useState('');
+  const [passwordPromptConfirmPassword, setPasswordPromptConfirmPassword] = useState('');
+  const [passwordPromptError, setPasswordPromptError] = useState('');
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
 
   const handleVerifySubmit = async (e) => {
     e.preventDefault();
@@ -41,6 +48,14 @@ function GoogleCallbackInner() {
       sessionStorage.setItem('newUserSignup', 'true');
       sessionStorage.removeItem('pendingVerificationEmail');
       sessionStorage.removeItem('pendingGoogleAuth');
+
+      // ✅ Option 1: Show password prompt if this is a Google signup without password
+      if (data.user?.showPasswordPrompt && !data.user?.hasPassword) {
+        setShowPasswordPrompt(true);
+        setShowVerificationModal(false);
+        setStatus('✅ Email verified!');
+        return; // Don't redirect yet, wait for password prompt
+      }
 
       setStatus('✅ Verification successful! Redirecting...');
       setTimeout(() => router.push('/user/get-started'), 1000);
@@ -72,6 +87,74 @@ function GoogleCallbackInner() {
     } catch (error) {
       setVerificationError(error.message || 'Failed to resend code');
     }
+  };
+
+  // ✅ Option 1: Handle password prompt after Google signup
+  const handlePasswordPromptSubmit = async (e) => {
+    e.preventDefault();
+    setIsSettingPassword(true);
+    setPasswordPromptError('');
+
+    // Validate password
+    if (passwordPromptPassword.length < 8) {
+      setPasswordPromptError('Password must be at least 8 characters long');
+      setIsSettingPassword(false);
+      return;
+    }
+
+    if (passwordPromptPassword !== passwordPromptConfirmPassword) {
+      setPasswordPromptError('Passwords do not match');
+      setIsSettingPassword(false);
+      return;
+    }
+
+    // Check password strength
+    const hasUpper = /[A-Z]/.test(passwordPromptPassword);
+    const hasLower = /[a-z]/.test(passwordPromptPassword);
+    const hasNumber = /\d/.test(passwordPromptPassword);
+
+    if (!hasUpper || !hasLower || !hasNumber) {
+      setPasswordPromptError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
+      setIsSettingPassword(false);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/user-profile/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          currentPassword: '', // Empty for Google users
+          newPassword: passwordPromptPassword 
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to set password');
+      }
+
+      // Success! Redirect to get-started
+      setStatus('✅ Password set successfully! Redirecting...');
+      setTimeout(() => router.push('/user/get-started'), 1000);
+    } catch (error) {
+      console.error('Password setting error:', error);
+      setPasswordPromptError(error.message || 'Failed to set password');
+    } finally {
+      setIsSettingPassword(false);
+    }
+  };
+
+  const handlePasswordPromptSkip = () => {
+    // User chose to skip - just redirect
+    setShowPasswordPrompt(false);
+    setStatus('✅ Redirecting...');
+    setTimeout(() => router.push('/user/get-started'), 1000);
   };
 
   useEffect(() => {
@@ -138,6 +221,15 @@ function GoogleCallbackInner() {
         // ✅ SECURITY FIX: Only store token
         localStorage.setItem('token', data.token);
         sessionStorage.setItem('userJustLoggedIn', 'true');
+        
+        // ✅ Option 2: Store password reminder flag for first-time Google login
+        if (data.user?.showPasswordReminder && !data.user?.hasPassword) {
+          sessionStorage.setItem('googleLoginData', JSON.stringify({
+            showPasswordReminder: true,
+            hasPassword: false
+          }));
+        }
+        
         console.log('✅ Token saved, redirecting to home...');
         setTimeout(() => router.push('/user/home'), 1000);
 
@@ -262,8 +354,113 @@ function GoogleCallbackInner() {
         </div>
       )}
 
+      {/* ✅ Option 1: Password Prompt Modal */}
+      {showPasswordPrompt && (
+        <div style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          textAlign: 'center',
+          maxWidth: '450px',
+          width: '100%'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>🔐</div>
+          <h2 style={{ color: '#2E7D32', marginBottom: '10px', fontSize: '24px' }}>Set Password (Optional)</h2>
+          <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+            Create a password to enable email/password login. You can skip this and continue using Google Sign-In.
+          </p>
+
+          {passwordPromptError && (
+            <div style={{
+              background: '#ffebee',
+              color: '#c62828',
+              padding: '10px',
+              borderRadius: '8px',
+              marginBottom: '15px',
+              fontSize: '14px'
+            }}>
+              {passwordPromptError}
+            </div>
+          )}
+
+          <form onSubmit={handlePasswordPromptSubmit}>
+            <input
+              type="password"
+              placeholder="Password"
+              value={passwordPromptPassword}
+              onChange={(e) => setPasswordPromptPassword(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '15px',
+                fontSize: '16px',
+                border: '2px solid #ddd',
+                borderRadius: '8px',
+                marginBottom: '15px'
+              }}
+              required
+              disabled={isSettingPassword}
+            />
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={passwordPromptConfirmPassword}
+              onChange={(e) => setPasswordPromptConfirmPassword(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '15px',
+                fontSize: '16px',
+                border: '2px solid #ddd',
+                borderRadius: '8px',
+                marginBottom: '15px'
+              }}
+              required
+              disabled={isSettingPassword}
+            />
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button
+                type="button"
+                onClick={handlePasswordPromptSkip}
+                disabled={isSettingPassword}
+                style={{
+                  flex: 1,
+                  background: '#f5f5f5',
+                  color: '#666',
+                  border: 'none',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  cursor: isSettingPassword ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Maybe Later
+              </button>
+              <button
+                type="submit"
+                disabled={isSettingPassword || !passwordPromptPassword || !passwordPromptConfirmPassword}
+                style={{
+                  flex: 1,
+                  background: isSettingPassword || !passwordPromptPassword || !passwordPromptConfirmPassword ? '#ccc' : '#2E7D32',
+                  color: 'white',
+                  border: 'none',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  cursor: isSettingPassword || !passwordPromptPassword || !passwordPromptConfirmPassword ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {isSettingPassword ? 'Setting...' : 'Set Password'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Loading/Error Screen */}
-      {!showVerificationModal && (
+      {!showVerificationModal && !showPasswordPrompt && (
         <div style={{
           background: 'white',
           padding: '40px',

@@ -648,6 +648,46 @@ router.delete('/admin/:id', authenticateToken, enhancedAuthCheck, asyncHandler(a
   }
 }));
 
+// Get all categories (for admin dropdown)
+router.get('/admin/categories', async (req, res) => {
+  try {
+    console.log('🔍 Fetching all restriction categories...');
+
+    // Fetch all active categories
+    const query = `
+      SELECT
+        category_id,
+        category_name,
+        description,
+        is_active
+      FROM restriction_categories
+      WHERE is_active = 1
+      ORDER BY category_id
+    `;
+
+    const categories = await pool.query(query);
+
+    console.log(`✅ Found ${categories.length} active categories`);
+
+    res.json({
+      success: true,
+      data: categories.map(cat => ({
+        id: cat.category_id,
+        name: cat.category_name,
+        description: cat.description,
+        isActive: cat.is_active
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Error fetching categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch categories',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 router.get('/categories', async (req, res) => {
   try {
     console.log('🔍 Fetching restriction categories with restrictions...');
