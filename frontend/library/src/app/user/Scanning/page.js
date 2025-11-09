@@ -68,7 +68,7 @@ const IngredientScanner = () => {
     return scannedIngredients.filter(ing => ing.selected).length;
   };
   
-  // 🆕 Generate Recipe - Save to pantry then show filtered recipes
+  // 🆕 Generate Recipe - Navigate to recipe page with filtered recipes
   const generateRecipe = async () => {
     try {
       setIsSavingToPantry(true);
@@ -80,6 +80,7 @@ const IngredientScanner = () => {
       
       if (selectedIngredients.length === 0) {
         alert('Please select at least one ingredient that is in the database!');
+        setIsSavingToPantry(false);
         return;
       }
       
@@ -89,25 +90,23 @@ const IngredientScanner = () => {
       const ingredientIds = selectedIngredients.map(ing => ing.ingredient_id);
       const result = await recipesAPI.getFilteredRecipes({
         scannedIngredients: ingredientIds,
-        limit: 20
+        limit: 50
       });
       
       console.log('✅ Filtered recipes:', result);
       
       if (result.recipes && result.recipes.length > 0) {
-        setFilteredRecipes(result.recipes);
-        setShowRecipesModal(true);
-        alert(`📚 Found ${result.recipes.length} recipes!`);
+        // Navigate to recipe page with ingredient IDs as query parameter
+        const ingredientIdsParam = ingredientIds.join(',');
+        window.location.href = `/user/recipe?ingredients=${ingredientIdsParam}`;
       } else {
-        alert('⚠️ No recipes found yet. Add recipes in the admin panel!');
+        alert('⚠️ No recipes found matching your ingredients. Try different ingredients!');
+        setIsSavingToPantry(false);
       }
-      
-      setShowModal(false); // Close scanning modal
       
     } catch (error) {
       console.error('❌ Error generating recipes:', error);
-      alert('Failed to generate recipes. Please try again.');
-    } finally {
+      alert(`Failed to generate recipes: ${error.message}. Please try again.`);
       setIsSavingToPantry(false);
     }
   };

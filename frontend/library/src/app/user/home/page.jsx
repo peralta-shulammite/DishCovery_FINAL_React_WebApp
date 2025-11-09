@@ -36,6 +36,12 @@ export default function DishCoveryLanding() {
   const [dishCoveryDeferredPrompt, setDishCoveryDeferredPrompt] = useState(null);
   const [dishCoveryShowIOSInstructions, setDishCoveryShowIOSInstructions] = useState(false);
   const [dishCoveryInstallButtonExpanded, setDishCoveryInstallButtonExpanded] = useState(true);
+  
+  // ✅ FLEXIBLE LOGIN: Options 2, 3, 4 state
+  const [dishCoveryShowPasswordReminder, setDishCoveryShowPasswordReminder] = useState(false);
+  const [dishCoveryShowPasswordPrompt, setDishCoveryShowPasswordPrompt] = useState(false);
+  const [dishCoveryPasswordPromptEmail, setDishCoveryPasswordPromptEmail] = useState('');
+  const [dishCoveryIsPasswordCreation, setDishCoveryIsPasswordCreation] = useState(false);
 
   const dishCoveryAnimatedWords = ['discover', 'explore', 'uncover'];
 
@@ -69,6 +75,7 @@ export default function DishCoveryLanding() {
   useEffect(() => {
     const userLoggedIn = sessionStorage.getItem('userJustLoggedIn');
     const adminLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
+    const googleLoginData = sessionStorage.getItem('googleLoginData');
 
     if (userLoggedIn === 'true') {
       setDishCoveryNotification({ show: true, message: 'Welcome back! Ready to cook up something delicious?' });
@@ -84,6 +91,23 @@ export default function DishCoveryLanding() {
       setTimeout(() => {
         setDishCoveryNotification({ show: false, message: '' });
       }, 4000);
+    }
+
+    // ✅ Option 2: Check for Google login with password reminder
+    if (googleLoginData) {
+      try {
+        const data = JSON.parse(googleLoginData);
+        if (data.showPasswordReminder && !data.hasPassword) {
+          // Check if user has seen this reminder before
+          const hasSeenReminder = localStorage.getItem('hasSeenPasswordReminder');
+          if (!hasSeenReminder) {
+            setDishCoveryShowPasswordReminder(true);
+          }
+        }
+        sessionStorage.removeItem('googleLoginData');
+      } catch (e) {
+        console.error('Error parsing Google login data:', e);
+      }
     }
   }, []);
 
@@ -206,25 +230,48 @@ export default function DishCoveryLanding() {
           }
         })
         .catch((error) => {
-          // Silently handle expired/invalid tokens (expected behavior)
+          // ✅ FIXED: Only keep user logged in if we have a valid token that was verified
+          // If token verification fails or profile fetch fails, user is NOT logged in
           if (error.message === 'Token verification failed' || error.message === 'No token found') {
             console.log('ℹ️ No valid session found - clearing auth');
-            // Only clear on explicit token failures
             localStorage.clear();
             sessionStorage.clear();
             setDishCoveryIsLoggedIn(false);
             setDishCoveryUser(null);
           } else if (error.message === 'Backend endpoint not found' || error.message === 'User not found in database') {
-            // Backend endpoint not found (404) or user not found - DON'T logout user
-            // This can happen after signup when user isn't synced yet, or backend is updating
-            console.warn('⚠️ Backend issue (keeping session):', error.message);
-            // Keep user logged in, just don't fetch profile
-            setDishCoveryIsLoggedIn(true);
+            // Backend endpoint not found (404) or user not found - verify token first
+            console.warn('⚠️ Backend issue - verifying token:', error.message);
+            // Verify token is still valid before keeping user logged in
+            api.verifyToken()
+              .then(() => {
+                // Token is valid, keep user logged in
+                setDishCoveryIsLoggedIn(true);
+              })
+              .catch(() => {
+                // Token is invalid, logout user
+                console.log('ℹ️ Token invalid - clearing auth');
+                localStorage.clear();
+                sessionStorage.clear();
+                setDishCoveryIsLoggedIn(false);
+                setDishCoveryUser(null);
+              });
           } else {
-            // Network error or backend unavailable - DON'T logout user
-            console.warn('⚠️ Failed to load profile (keeping session):', error.message);
-            // Keep user logged in, just don't fetch profile
-            setDishCoveryIsLoggedIn(true);
+            // Network error or backend unavailable - verify token first
+            console.warn('⚠️ Failed to load profile - verifying token:', error.message);
+            // Verify token is still valid before keeping user logged in
+            api.verifyToken()
+              .then(() => {
+                // Token is valid, keep user logged in
+                setDishCoveryIsLoggedIn(true);
+              })
+              .catch(() => {
+                // Token is invalid, logout user
+                console.log('ℹ️ Token invalid - clearing auth');
+                localStorage.clear();
+                sessionStorage.clear();
+                setDishCoveryIsLoggedIn(false);
+                setDishCoveryUser(null);
+              });
           }
         });
     } else {
@@ -366,6 +413,15 @@ const dishCoveryHandleSignInSubmit = async (e) => {
         window.location.reload();
       }
     } catch (error) {
+      // ✅ Option 3: Handle Google users without password
+      if (error.noPasswordSet || (error.message && error.message.includes('No password set'))) {
+        // User has Google account but no password - show password creation prompt
+        setDishCoveryPasswordPromptEmail(dishCoveryEmail);
+        setDishCoveryShowPasswordPrompt(true);
+        setDishCoveryError('');
+        return;
+      }
+      
       // Special handling for Google OAuth accounts - don't log error to console
       if (error.isGoogleAuthError || error.message.includes('Google')) {
         setDishCoveryPassword('');
@@ -481,7 +537,14 @@ const dishCoveryHandleSignInSubmit = async (e) => {
         }
         
         console.log("Password reset requested for:", dishCoveryResetEmail);
-        await api.forgotPassword(dishCoveryResetEmail);
+        const response = await api.forgotPassword(dishCoveryResetEmail);
+        
+        // ✅ Option 4: Check if this is password creation (Google user without password)
+        if (response.isPasswordCreation) {
+          setDishCoveryIsPasswordCreation(true);
+        } else {
+          setDishCoveryIsPasswordCreation(false);
+        }
         
         // Move to step 2
         setDishCoveryResetStep(2);
@@ -509,14 +572,19 @@ const dishCoveryHandleSignInSubmit = async (e) => {
         }
         
         console.log("Resetting password for:", dishCoveryResetEmail);
-        await api.resetPassword(dishCoveryResetEmail, dishCoveryResetCode, dishCoveryNewPassword);
+        const resetResponse = await api.resetPassword(dishCoveryResetEmail, dishCoveryResetCode, dishCoveryNewPassword);
+        
+        // ✅ Option 4: Show different message for password creation vs reset
+        const successMessage = resetResponse.isPasswordCreation
+          ? '✅ Password created successfully! You can now log in with email and password or continue using Google.'
+          : '✅ Password reset successful! Please log in with your new password.';
         
         // Success! Close modal and show sign in
         setDishCoveryShowForgotPasswordModal(false);
         setDishCoveryShowSignInModal(true);
         setDishCoveryNotification({ 
           show: true, 
-          message: '✅ Password reset successful! Please log in with your new password.' 
+          message: successMessage
         });
         
         setTimeout(() => {
@@ -1149,6 +1217,133 @@ const dishCoveryBottomRecipes = [
         </div>
       )}
 
+      {/* ✅ Option 2: Password Reminder Banner */}
+      {dishCoveryShowPasswordReminder && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '12px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          zIndex: 10000,
+          maxWidth: '500px',
+          width: '90%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px'
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>🔐 Set Password</div>
+            <div style={{ fontSize: '14px', opacity: 0.9 }}>
+              Create a password to enable email/password login
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => {
+                setDishCoveryShowPasswordReminder(false);
+                localStorage.setItem('hasSeenPasswordReminder', 'true');
+                window.location.href = '/user/user-profile';
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                border: '1px solid rgba(255,255,255,0.3)',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+            >
+              Set Password
+            </button>
+            <button
+              onClick={() => {
+                setDishCoveryShowPasswordReminder(false);
+                localStorage.setItem('hasSeenPasswordReminder', 'true');
+              }}
+              style={{
+                background: 'transparent',
+                color: 'white',
+                border: 'none',
+                padding: '8px',
+                cursor: 'pointer',
+                fontSize: '20px',
+                opacity: 0.8
+              }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Option 3: Password Creation Prompt Modal */}
+      {dishCoveryShowPasswordPrompt && (
+        <div className="modal-overlay" onClick={() => setDishCoveryShowPasswordPrompt(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="close-btn" onClick={() => setDishCoveryShowPasswordPrompt(false)}>×</button>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '48px', marginBottom: '10px' }}>🔐</div>
+              <h2 className="modal-title">No Password Set</h2>
+              <p className="modal-subtitle">
+                This account uses Google Sign-In. Would you like to add a password for email/password login?
+              </p>
+            </div>
+            {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <button
+                onClick={() => {
+                  setDishCoveryShowPasswordPrompt(false);
+                  setDishCoveryShowSignInModal(false);
+                }}
+                style={{
+                  flex: 1,
+                  background: '#f5f5f5',
+                  color: '#666',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                No Thanks
+              </button>
+              <button
+                onClick={() => {
+                  setDishCoveryShowPasswordPrompt(false);
+                  setDishCoveryShowForgotPasswordModal(true);
+                  setDishCoveryResetEmail(dishCoveryPasswordPromptEmail);
+                  setDishCoveryResetStep(1);
+                  setDishCoveryIsPasswordCreation(true);
+                }}
+                style={{
+                  flex: 1,
+                  background: '#2E7D32',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Yes, Create Password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Forgot Password Modal */}
       {dishCoveryShowForgotPasswordModal && (
         <div className="modal-overlay" onClick={() => setDishCoveryShowForgotPasswordModal(false)}>
@@ -1157,8 +1352,14 @@ const dishCoveryBottomRecipes = [
             
             {dishCoveryResetStep === 1 ? (
               <>
-                <h2 className="modal-title">Reset Your Password</h2>
-                <p className="modal-subtitle">Enter your email to get a reset code</p>
+                <h2 className="modal-title">
+                  {dishCoveryIsPasswordCreation ? 'Create Password' : 'Reset Your Password'}
+                </h2>
+                <p className="modal-subtitle">
+                  {dishCoveryIsPasswordCreation 
+                    ? 'Enter your email to create a password for email/password login'
+                    : 'Enter your email to get a reset code'}
+                </p>
                 <input
                   type="email"
                   className="modal-input"
@@ -1179,8 +1380,14 @@ const dishCoveryBottomRecipes = [
               </>
             ) : (
               <>
-                <h2 className="modal-title">Enter Reset Code</h2>
-                <p className="modal-subtitle">Check your email ({dishCoveryResetEmail}) for the code</p>
+                <h2 className="modal-title">
+                  {dishCoveryIsPasswordCreation ? 'Create Password' : 'Enter Reset Code'}
+                </h2>
+                <p className="modal-subtitle">
+                  {dishCoveryIsPasswordCreation
+                    ? `Check your email (${dishCoveryResetEmail}) for the verification code`
+                    : `Check your email (${dishCoveryResetEmail}) for the code`}
+                </p>
                 <input
                   type="text"
                   className="modal-input"
@@ -1223,7 +1430,7 @@ const dishCoveryBottomRecipes = [
                 />
                 {dishCoveryError && <p className="modal-error">{dishCoveryError}</p>}
                 <button className="modal-signin-btn" onClick={dishCoveryHandleForgotPasswordSubmit}>
-                  Reset Password
+                  {dishCoveryIsPasswordCreation ? 'Create Password' : 'Reset Password'}
                 </button>
                 <p className="modal-signup-text">
                   Didn't receive the code?{' '}

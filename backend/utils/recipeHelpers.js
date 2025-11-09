@@ -29,7 +29,26 @@ export const transformRecipeForDB = (frontendData) => {
       dish_type: frontendData.dish_type || '',
       is_active: frontendData.is_active !== undefined ? frontendData.is_active : 1
     },
-    images: Array.isArray(frontendData.images) ? frontendData.images : [frontendData.image_url].filter(Boolean),
+    // Handle both base64 images and URLs
+    images: (() => {
+      const imageArray = Array.isArray(frontendData.images) 
+        ? frontendData.images 
+        : [frontendData.image_url].filter(Boolean);
+      
+      // Process each image - keep base64 as-is, validate URLs
+      return imageArray.map(img => {
+        // If it's a base64 data URI, keep it as-is
+        if (typeof img === 'string' && img.startsWith('data:image')) {
+          return img;
+        }
+        // If it's a URL, keep it as-is
+        if (typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))) {
+          return img;
+        }
+        // Otherwise, return as-is (might be a relative path or other format)
+        return img;
+      });
+    })(),
     dietaryTags: frontendData.dietaryTags || [],
     healthTags: frontendData.healthTags || [],
     ingredients: frontendData.ingredients || { main: [], condiments: [], optional: [] },
@@ -52,9 +71,45 @@ export const transformRecipeForDB = (frontendData) => {
 /**
  * Transform database recipe data to frontend format
  */
-export const transformRecipeForFrontend = (dbData) => {
+export const transformRecipeForFrontend = (dbData, images = null, ingredients = null, tags = null, verification = null, engagement = null) => {
   // Use only medical conditions
   const medicalConditions = dbData.medicalConditions || [];
+
+  // ✅ Process images - prioritize passed images array, then dbData.images, then image_url
+  let processedImages = [];
+  if (images && Array.isArray(images) && images.length > 0) {
+    // If images array is passed (from separate query), use it
+    processedImages = images.map(img => img.image_url || img).filter(Boolean);
+    
+    // ✅ Debug: Log images for specific recipe (e.g., Sinugba)
+    if (dbData.recipe_name && dbData.recipe_name.toLowerCase().includes('sinugba')) {
+      console.log(`🔍 [${dbData.recipe_name}] Processing images from query:`, images);
+      console.log(`🔍 [${dbData.recipe_name}] Processed images:`, processedImages);
+    }
+  } else if (dbData.images && Array.isArray(dbData.images) && dbData.images.length > 0) {
+    // If images are in dbData, use them
+    processedImages = dbData.images.filter(Boolean);
+    
+    // ✅ Debug: Log images for specific recipe
+    if (dbData.recipe_name && dbData.recipe_name.toLowerCase().includes('sinugba')) {
+      console.log(`🔍 [${dbData.recipe_name}] Using images from dbData:`, processedImages);
+    }
+  } else if (dbData.image_url) {
+    // Fallback to image_url if it exists
+    processedImages = [dbData.image_url];
+  }
+  // ✅ DO NOT add fallback Unsplash image - if no images, return empty array
+
+  // ✅ Process ingredients - prioritize passed ingredients, then dbData.ingredients
+  let processedIngredients = ingredients || dbData.ingredients || { main: [], condiments: [], optional: [] };
+  if (Array.isArray(processedIngredients)) {
+    // If ingredients is an array, convert to object format
+    processedIngredients = { main: processedIngredients, condiments: [], optional: [] };
+  }
+
+  // ✅ Process tags - prioritize passed tags, then dbData
+  const processedDietaryTags = tags ? tags.filter(t => t.tag_category === 'dietary').map(t => t.tag_name) : (dbData.dietaryTags || []);
+  const processedHealthTags = tags ? tags.filter(t => t.tag_category === 'health').map(t => t.tag_name) : (dbData.healthTags || []);
 
   return {
     id: dbData.recipe_id || dbData.id,
@@ -71,14 +126,14 @@ export const transformRecipeForFrontend = (dbData) => {
     mealType: dbData.meal_type ? (typeof dbData.meal_type === 'string' && dbData.meal_type.includes(',') ? dbData.meal_type.split(',').map(t => t.trim()) : [dbData.meal_type]) : (dbData.mealType || ['Light Meal']), // Convert comma-separated string to array
     dish_type: dbData.dish_type,
     is_active: dbData.is_active,
-    images: dbData.images || [dbData.image_url].filter(Boolean),
-    dietaryTags: dbData.dietaryTags || [],
-    healthTags: dbData.healthTags || [],
+    images: processedImages, // ✅ Use processed images (no fallback)
+    dietaryTags: processedDietaryTags,
+    healthTags: processedHealthTags,
     medicalConditions: medicalConditions,
-    ingredients: dbData.ingredients || { main: [], condiments: [], optional: [] },
+    ingredients: processedIngredients,
     // Convert short status back to "Checked by: X" format for display
     verificationStatus: (() => {
-      const status = dbData.verificationStatus || dbData.verification_status || 'Nutritionist';
+      const status = verification?.verification_status || dbData.verificationStatus || dbData.verification_status || 'Nutritionist';
       // If it's already in "Checked by: X" format, return as is
       if (status.startsWith('Checked by: ')) {
         return status;
@@ -86,7 +141,7 @@ export const transformRecipeForFrontend = (dbData) => {
       // Otherwise, convert short format to display format
       return `Checked by: ${status}`;
     })(),
-    engagement: dbData.engagement || { tried: 0, saved: 0 },
+    engagement: engagement || dbData.engagement || { tried: 0, saved: 0 },
     rating: dbData.average_rating || dbData.rating || 4.5,
     created_at: dbData.created_at,
     updated_at: dbData.updated_at

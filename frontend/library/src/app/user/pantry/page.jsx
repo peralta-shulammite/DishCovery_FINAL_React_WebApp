@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
 import { pantryAPI } from '../utils/pantryAPI';
+import { INGREDIENT_CATEGORIES, getCategoryCount, getCategoryName } from '../utils/ingredientCategories';
 
 // Backend API service integrated directly
 // Note: API_BASE_URL should NOT include /api to avoid double /api/api/ in URLs
@@ -150,10 +151,6 @@ export default function DishCoveryPantry() {
   const [dishCoverySaving, setDishCoverySaving] = useState(false);
   const [dishCoveryGenerating, setDishCoveryGenerating] = useState(false);
   
-  // 🆕 My Pantry (scanned ingredients) states
-  const [myPantry, setMyPantry] = useState([]);
-  const [loadingPantry, setLoadingPantry] = useState(false);
-  
   // Request ingredient modal
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestFormData, setRequestFormData] = useState({
@@ -216,41 +213,6 @@ export default function DishCoveryPantry() {
     }
   }, [router]);
 
-  // 🆕 Load MY PANTRY (scanned ingredients)
-  useEffect(() => {
-    const loadMyPantry = async () => {
-      if (!dishCoveryIsLoggedIn) return;
-      
-      try {
-        setLoadingPantry(true);
-        const result = await pantryAPI.getMyPantry();
-        setMyPantry(result.pantry || []);
-        console.log('✅ Loaded My Pantry:', result.pantry?.length || 0, 'items');
-      } catch (error) {
-        console.error('❌ Error loading My Pantry:', error);
-      } finally {
-        setLoadingPantry(false);
-      }
-    };
-
-    loadMyPantry();
-  }, [dishCoveryIsLoggedIn]);
-
-  // 🆕 Remove ingredient from My Pantry
-  const handleRemoveFromPantry = async (ingredientId) => {
-    try {
-      console.log('🗑️ Removing ingredient:', ingredientId);
-      await pantryAPI.removeFromPantry(ingredientId);
-      
-      // Update UI optimistically
-      setMyPantry(prev => prev.filter(item => item.id !== ingredientId));
-      console.log('✅ Ingredient removed from pantry');
-    } catch (error) {
-      console.error('❌ Error removing from pantry:', error);
-      alert('Failed to remove ingredient. Please try again.');
-    }
-  };
-
   // Load ingredients from backend database
   useEffect(() => {
     const loadIngredients = async () => {
@@ -272,12 +234,14 @@ export default function DishCoveryPantry() {
           throw new Error('No ingredients returned from API');
         }
         
-        // Fetch user's selected ingredients
+        // ✅ Fetch user's selected ingredients - no default selection
         try {
           const userSelection = await pantryService.getUserSelection();
-          setDishCoverySelectedIngredients(userSelection);
+          // Only set if user has saved selections, otherwise start empty
+          setDishCoverySelectedIngredients(userSelection || []);
         } catch (selectionError) {
           console.warn('Could not load user selection:', selectionError);
+          // ✅ No default selection - start with empty array
           setDishCoverySelectedIngredients([]);
         }
         
@@ -327,14 +291,8 @@ export default function DishCoveryPantry() {
     return () => document.removeEventListener('mousedown', dishCoveryHandleClickOutside);
   }, []);
 
-  const dishCoveryCategories = [
-    { id: 'All', name: 'All Items' },
-    { id: 'Protein', name: 'Proteins' },
-    { id: 'Vegetable', name: 'Vegetables' },
-    { id: 'Grain', name: 'Grains' },
-    { id: 'Dairy', name: 'Dairy' },
-    { id: 'Pantry', name: 'Pantry' },
-  ];
+  // ✅ Use shared ingredient categories (synced across pages)
+  const dishCoveryCategories = INGREDIENT_CATEGORIES;
 
   const dishCoverySortOptions = [
     { id: 'name', name: 'Name (A-Z)' },
@@ -342,17 +300,22 @@ export default function DishCoveryPantry() {
     { id: 'selected', name: 'Selected First' },
   ];
 
-  // Get counts for each category
+  // ✅ Use shared category count function (synced logic)
   const dishCoveryGetCategoryCount = (categoryId) => {
-    if (categoryId === 'All') return dishCoveryIngredients.length;
-    return dishCoveryIngredients.filter(ingredient => ingredient.category === categoryId).length;
+    return getCategoryCount(dishCoveryIngredients, categoryId);
   };
 
-  // Filter and sort ingredients
+  // ✅ Filter and sort ingredients - clean category filtering based on ingredient_type
   const dishCoveryFilteredIngredients = dishCoveryIngredients
     .filter(ingredient => {
-      const matchesSearch = ingredient.name.toLowerCase().includes(dishCoverySearchTerm.toLowerCase());
-      const matchesCategory = dishCoverySelectedCategory === 'All' || ingredient.category === dishCoverySelectedCategory;
+      // Search filter
+      const matchesSearch = !dishCoverySearchTerm || 
+        ingredient.name.toLowerCase().includes(dishCoverySearchTerm.toLowerCase());
+      
+      // Category filter - use ingredient_type from database (not category)
+      const matchesCategory = dishCoverySelectedCategory === 'All' || 
+        (ingredient.ingredient_type && ingredient.ingredient_type === dishCoverySelectedCategory);
+      
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
@@ -363,10 +326,13 @@ export default function DishCoveryPantry() {
         if (!aSelected && bSelected) return 1;
         return a.name.localeCompare(b.name);
       } else if (dishCoverySortBy === 'category') {
-        if (a.category === b.category) {
+        // Sort by ingredient_type (from database)
+        const aType = a.ingredient_type || '';
+        const bType = b.ingredient_type || '';
+        if (aType === bType) {
           return a.name.localeCompare(b.name);
         }
-        return a.category.localeCompare(b.category);
+        return aType.localeCompare(bType);
       } else {
         return a.name.localeCompare(b.name);
       }
@@ -382,29 +348,41 @@ export default function DishCoveryPantry() {
     });
   };
 
+  // ✅ UPDATED: Same logic as scanning page - use filter endpoint and navigate to recipe page
   const dishCoveryHandleGenerateRecipe = async () => {
     if (dishCoverySelectedIngredients.length === 0) {
-      alert('Please select some ingredients first!');
+      alert('Please select at least one ingredient!');
       return;
     }
 
     try {
       setDishCoveryGenerating(true);
       
-      const result = await pantryService.generateRecipe(dishCoverySelectedIngredients);
+      console.log('🍳 Generating recipes with selected ingredients:', dishCoverySelectedIngredients);
       
-      if (result.success) {
-        localStorage.setItem('generatedRecipes', JSON.stringify(result.recipes));
-        localStorage.setItem('usedIngredients', JSON.stringify(dishCoverySelectedIngredients));
-        router.push('/user/recipe-results');
+      // Import recipesAPI dynamically
+      const { recipesAPI } = await import('../utils/recipesAPI');
+      
+      // Get filtered recipes based on selected ingredients (same logic as scanning)
+      const result = await recipesAPI.getFilteredRecipes({
+        scannedIngredients: dishCoverySelectedIngredients,
+        limit: 50
+      });
+      
+      console.log('✅ Filtered recipes:', result);
+      
+      if (result.recipes && result.recipes.length > 0) {
+        // Navigate to recipe page with ingredient IDs as query parameter (same as scanning)
+        const ingredientIdsParam = dishCoverySelectedIngredients.join(',');
+        window.location.href = `/user/recipe?ingredients=${ingredientIdsParam}`;
       } else {
-        alert(result.message || 'Failed to generate recipes');
+        alert('⚠️ No recipes found matching your ingredients. Try different ingredients!');
+        setDishCoveryGenerating(false);
       }
       
     } catch (error) {
-      console.error('Error generating recipes:', error);
-      alert('Failed to generate recipes. Please try again.');
-    } finally {
+      console.error('❌ Error generating recipes:', error);
+      alert(`Failed to generate recipes: ${error.message}. Please try again.`);
       setDishCoveryGenerating(false);
     }
   };
@@ -514,90 +492,6 @@ export default function DishCoveryPantry() {
           )}
         </div>
 
-        {/* 🆕 MY PANTRY SECTION - Scanned Ingredients */}
-        {myPantry.length > 0 && (
-          <div className="my-pantry-section" style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            borderRadius: '16px',
-            padding: '24px',
-            marginBottom: '32px',
-            color: 'white'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2h2V7h-4v2h2z"/>
-              </svg>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '600' }}>My Scanned Pantry</h2>
-                <p style={{ margin: '4px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
-                  {myPantry.length} ingredient{myPantry.length > 1 ? 's' : ''} from scanning
-                </p>
-              </div>
-            </div>
-
-            {loadingPantry ? (
-              <div style={{ textAlign: 'center', padding: '20px' }}>Loading...</div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
-                {myPantry.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.15)',
-                      backdropFilter: 'blur(10px)',
-                      borderRadius: '12px',
-                      padding: '12px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      position: 'relative',
-                      border: '1px solid rgba(255, 255, 255, 0.2)'
-                    }}
-                  >
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      style={{
-                        width: '80px',
-                        height: '80px',
-                        borderRadius: '8px',
-                        objectFit: 'cover',
-                        marginBottom: '8px'
-                      }}
-                    />
-                    <span style={{ fontSize: '13px', fontWeight: '500', textAlign: 'center', marginBottom: '8px' }}>
-                      {item.name}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveFromPantry(item.id)}
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.9)',
-                        border: 'none',
-                        borderRadius: '6px',
-                        color: 'white',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(220, 38, 38, 1)'}
-                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)'}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                      </svg>
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         <div className="pantry-search-section">
           <div className="search-and-filter-container">
             <div className="search-container">
@@ -645,7 +539,7 @@ export default function DishCoveryPantry() {
           <div className="section-header">
             <div className="results-count">
               {dishCoveryFilteredIngredients.length} ingredient{dishCoveryFilteredIngredients.length !== 1 ? 's' : ''} found
-              {dishCoverySelectedCategory !== 'All' && ` in ${dishCoveryCategories.find(c => c.id === dishCoverySelectedCategory)?.name}`}
+              {dishCoverySelectedCategory !== 'All' && ` in ${getCategoryName(dishCoverySelectedCategory)}`}
             </div>
             
             <div className="sort-dropdown">
@@ -701,7 +595,7 @@ export default function DishCoveryPantry() {
                 </div>
                 <div className="ingredient-info">
                   <h3 className="ingredient-name">{ingredient.name}</h3>
-                  <span className="ingredient-category">{ingredient.category}</span>
+                  <span className="ingredient-category">{ingredient.ingredient_type || ingredient.category || 'Other'}</span>
                 </div>
               </div>
             ))}

@@ -374,14 +374,19 @@ router.post('/login', async (req, res) => {
 
     const user = users[0];
 
-    // FIX: Check if user registered via Google OAuth (no password)
+    // ✅ FLEXIBLE LOGIN: Allow password login if password_hash exists
+    // If user has no password_hash, provide helpful message instead of blocking
     if (!user.password_hash || user.password_hash === null) {
+      // User has Google account but no password set
       return res.status(400).json({
-        message: 'This account was created with Google. Please use "Continue with Google" to log in.',
-        useGoogleLogin: true
+        message: 'No password set for this account. Use "Continue with Google" to log in, or create a password via "Forgot Password".',
+        useGoogleLogin: true,
+        noPasswordSet: true,
+        canCreatePassword: true
       });
     }
 
+    // User has password_hash - proceed with password verification
     const isMatch = user.password_hash.startsWith('$2')
       ? await bcrypt.compare(password, user.password_hash)
       : password === user.password_hash;
@@ -503,9 +508,9 @@ router.post('/verify', async (req, res) => {
       ['completed', request.request_id]
     );
 
-    // FIX 3: Correct destructuring
+    // FIX 3: Correct destructuring - Include google_id and password_hash for flexible login
     const [fullUserRows] = await connection.query(
-      'SELECT user_id, email, first_name, last_name, is_new_user FROM users WHERE user_id = ?',
+      'SELECT user_id, email, first_name, last_name, is_new_user, google_id, password_hash FROM users WHERE user_id = ?',
       [userId]
     );
 
@@ -531,6 +536,10 @@ router.post('/verify', async (req, res) => {
     );
     const hasCompletedOnboarding = restrictionsResult[0]?.count > 0 || user.is_new_user === 0;
 
+    // ✅ FLEXIBLE LOGIN: Check if this is a Google signup (has google_id but no password)
+    const isGoogleSignup = !!user.google_id && !user.password_hash;
+    const hasPassword = !!user.password_hash;
+
     await connection.commit();
 
     return res.json({
@@ -544,7 +553,9 @@ router.post('/verify', async (req, res) => {
         firstName: user.first_name,
         lastName: user.last_name,
         isNewUser: user.is_new_user === 1,
-        hasCompletedOnboarding: hasCompletedOnboarding
+        hasCompletedOnboarding: hasCompletedOnboarding,
+        hasPassword: hasPassword,
+        showPasswordPrompt: isGoogleSignup // ✅ Option 1: Show password prompt after Google signup verification
       }
     });
 
@@ -634,14 +645,13 @@ router.post('/forgot-password', async (req, res) => {
 
     const user = users[0][0] || users[0];
     
-    // Check if user is Google-only (no password set)
-    if (user.google_id && !user.password_hash) {
-      console.log('⚠️ Password reset requested for Google-only account:', email);
-      return res.status(400).json({
-        success: false,
-        message: 'This account uses Google Sign-In only. Please use "Continue with Google" to log in.',
-        useGoogleLogin: true
-      });
+    // ✅ FLEXIBLE LOGIN: Allow Google users to create password via reset flow
+    // If user has Google account but no password, treat as "create password" flow
+    const isGoogleUserWithoutPassword = user.google_id && !user.password_hash;
+    
+    if (isGoogleUserWithoutPassword) {
+      console.log('✅ Password creation requested for Google account:', email);
+      // Continue with password creation flow (same as reset flow)
     }
 
     // Expire old password reset requests
@@ -660,15 +670,18 @@ router.post('/forgot-password', async (req, res) => {
       [user.user_id, 'password_reset', resetCode, 'pending', expiresAt]
     );
 
-    // Send reset email
+    // Send reset email (or password creation email for Google users)
     await sendPasswordResetEmail(email, resetCode, user.first_name);
 
-    console.log('✅ Password reset code sent to:', email);
+    console.log(`✅ Password ${isGoogleUserWithoutPassword ? 'creation' : 'reset'} code sent to:`, email);
     
     res.json({ 
       success: true, 
-      message: 'Password reset code sent to your email. Please check your inbox.',
-      email: email
+      message: isGoogleUserWithoutPassword 
+        ? 'Password creation code sent to your email. Please check your inbox.'
+        : 'Password reset code sent to your email. Please check your inbox.',
+      email: email,
+      isPasswordCreation: isGoogleUserWithoutPassword
     });
   } catch (error) {
     console.error('❌ Forgot password error:', error);
@@ -774,7 +787,16 @@ router.post('/reset-password', async (req, res) => {
     // Hash new password
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
-    // Update password
+    // ✅ FLEXIBLE LOGIN: Check if this is password creation (no existing password) or reset (has password)
+    const [userCheckRows] = await connection.query(
+      'SELECT google_id, password_hash FROM users WHERE user_id = ?',
+      [userId]
+    );
+    const userCheck = userCheckRows[0];
+    const isPasswordCreation = !userCheck.password_hash && userCheck.google_id;
+    const isPasswordReset = !!userCheck.password_hash;
+
+    // Update password (works for both creation and reset)
     await connection.query(
       'UPDATE users SET password_hash = ? WHERE user_id = ?',
       [passwordHash, userId]
@@ -788,11 +810,14 @@ router.post('/reset-password', async (req, res) => {
 
     await connection.commit();
 
-    console.log('✅ Password reset successful for user:', userId);
+    console.log(`✅ Password ${isPasswordCreation ? 'created' : 'reset'} successful for user:`, userId);
 
     res.json({
       success: true,
-      message: 'Password reset successful! You can now log in with your new password.'
+      message: isPasswordCreation
+        ? 'Password created successfully! You can now log in with email and password or continue using Google.'
+        : 'Password reset successful! You can now log in with your new password.',
+      isPasswordCreation: isPasswordCreation
     });
 
   } catch (error) {
@@ -946,6 +971,11 @@ router.post('/google/callback', async (req, res) => {
 
       console.log(`Google login successful: ${email}`);
       await connection.commit();
+      
+      // ✅ FLEXIBLE LOGIN: Add password status for frontend prompts
+      const hasPassword = !!existingUser.password_hash;
+      const isFirstLogin = !existingUser.last_login || existingUser.last_login === null;
+      
       return res.json({
         success: true,
         message: 'Google login successful',
@@ -957,7 +987,9 @@ router.post('/google/callback', async (req, res) => {
           lastName: existingUser.last_name || family_name,
           picture,
           isNewUser: existingUser.is_new_user === 1,
-          hasCompletedOnboarding: hasCompletedOnboarding
+          hasCompletedOnboarding: hasCompletedOnboarding,
+          hasPassword: hasPassword,
+          showPasswordReminder: !hasPassword && isFirstLogin // Option 2: Show reminder after first login
         }
       });
     }
@@ -1001,7 +1033,8 @@ router.post('/google/callback', async (req, res) => {
         success: false,
         message: 'Please verify your email. A verification code has been sent.',
         requiresVerification: true,
-        email: email
+        email: email,
+        showPasswordPrompt: true // ✅ Option 1: Flag to show password prompt after verification
       });
     }
 

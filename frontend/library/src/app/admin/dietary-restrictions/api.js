@@ -222,6 +222,16 @@ export const dietaryRestrictionsAPI = {
     return response.data;
   },
 
+  // Get all categories (for dropdown)
+  getCategories: async () => {
+    console.log('Getting all categories...');
+    const response = await apiCall('/dietary-restrictions/admin/categories');
+    if (response.success && response.data) {
+      return response.data;
+    }
+    return [];
+  },
+
   // Test API connection
   test: async () => {
     console.log('Testing API connection...');

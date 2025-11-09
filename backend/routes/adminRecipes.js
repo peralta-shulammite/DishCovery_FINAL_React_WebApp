@@ -202,7 +202,7 @@ router.get('/', async (req, res) => {
       queryParams.push(mealType.trim());
     }
 
-    // ✅ CRITICAL FIX: Added GROUP_CONCAT for images and dietary_tags
+    // ✅ CRITICAL FIX: Added GROUP_CONCAT for images, dietary_tags, and medical conditions
     const mainQuery = `
       SELECT 
         r.recipe_id as id,
@@ -221,6 +221,7 @@ router.get('/', async (req, res) => {
         r.updated_at,
         GROUP_CONCAT(DISTINCT ri.image_url ORDER BY ri.display_order) as images,
         GROUP_CONCAT(DISTINCT dt.tag_name) as dietary_tags,
+        GROUP_CONCAT(DISTINCT CASE WHEN res.category_id IN (1, 2) THEN res.restriction_name END) as medical_conditions,
         rv.verification_status,
         rv.verifier_name,
         rv.verifier_credentials,
@@ -231,6 +232,8 @@ router.get('/', async (req, res) => {
       LEFT JOIN recipe_images ri ON r.recipe_id = ri.recipe_id
       LEFT JOIN recipe_dietary_tags rdt ON r.recipe_id = rdt.recipe_id
       LEFT JOIN dietary_tags dt ON rdt.tag_id = dt.tag_id
+      LEFT JOIN recipe_restrictions rr ON r.recipe_id = rr.recipe_id
+      LEFT JOIN restrictions res ON rr.restriction_id = res.restriction_id AND res.is_active = 1
       LEFT JOIN recipe_verification rv ON r.recipe_id = rv.recipe_id
       LEFT JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
       ${whereClause}
@@ -243,16 +246,42 @@ router.get('/', async (req, res) => {
     const recipes = await pool.query(mainQuery, queryParams);
     console.log(`✅ Fetched ${recipes.length} recipes with images and tags`);
 
+    // ✅ FIXED: Fetch images separately for each recipe to avoid GROUP_CONCAT truncation
+    const recipeIds = recipes.map(r => r.id);
+    let imagesMap = {};
+    
+    if (recipeIds.length > 0) {
+      const imagesQuery = `
+        SELECT recipe_id, image_url, display_order
+        FROM recipe_images
+        WHERE recipe_id IN (${recipeIds.map(() => '?').join(',')})
+        ORDER BY recipe_id, display_order
+      `;
+      const imagesResults = await pool.query(imagesQuery, recipeIds);
+      
+      // Group images by recipe_id
+      imagesResults.forEach(row => {
+        if (!imagesMap[row.recipe_id]) {
+          imagesMap[row.recipe_id] = [];
+        }
+        if (row.image_url) {
+          imagesMap[row.recipe_id].push(row.image_url);
+        }
+      });
+    }
+
     // ✅ Transform recipes with proper data structure
     const transformedRecipes = recipes.map(recipe => {
-      // Split comma-separated strings into arrays
-      const images = recipe.images ? recipe.images.split(',') : [];
+      // Use images from separate query, fallback to GROUP_CONCAT if needed
+      const images = imagesMap[recipe.id] || (recipe.images ? recipe.images.split(',').filter(Boolean) : []);
       const dietaryTags = recipe.dietary_tags ? recipe.dietary_tags.split(',').filter(Boolean) : [];
+      const medicalConditions = recipe.medical_conditions ? recipe.medical_conditions.split(',').filter(Boolean) : [];
       
       return transformRecipeForFrontend({
         ...recipe,
         images,
         dietaryTags,
+        medicalConditions,
         healthTags: [],
         ingredients: { main: [], condiments: [], optional: [] },
         engagement: {
@@ -288,17 +317,16 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const query = `
+    // ✅ FIXED: Fetch images separately to avoid GROUP_CONCAT truncation
+    const mainQuery = `
       SELECT
         r.*,
-        GROUP_CONCAT(DISTINCT ri.image_url ORDER BY ri.display_order) as images,
         GROUP_CONCAT(DISTINCT CASE WHEN dt.tag_category = 'dietary' THEN dt.tag_name END) as dietary_tags,
         GROUP_CONCAT(DISTINCT CASE WHEN dt.tag_category = 'health' THEN dt.tag_name END) as health_tags,
         rv.verification_status,
         rv.verifier_name,
         rv.verifier_credentials
       FROM recipes r
-      LEFT JOIN recipe_images ri ON r.recipe_id = ri.recipe_id
       LEFT JOIN recipe_dietary_tags rdt ON r.recipe_id = rdt.recipe_id
       LEFT JOIN dietary_tags dt ON rdt.tag_id = dt.tag_id
       LEFT JOIN recipe_verification rv ON r.recipe_id = rv.recipe_id
@@ -306,14 +334,24 @@ router.get('/:id', async (req, res) => {
       GROUP BY r.recipe_id
     `;
 
-    const recipes = await pool.query(query, [parseInt(id)]);
+    const recipes = await pool.query(mainQuery, [parseInt(id)]);
 
     if (recipes.length === 0) {
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
 
     const recipe = recipes[0];
-    const images = recipe.images ? recipe.images.split(',') : [];
+    
+    // ✅ FIXED: Fetch images separately to avoid truncation
+    const imagesQuery = `
+      SELECT image_url, display_order
+      FROM recipe_images
+      WHERE recipe_id = ?
+      ORDER BY display_order
+    `;
+    const imagesResults = await pool.query(imagesQuery, [parseInt(id)]);
+    const images = imagesResults.map(row => row.image_url).filter(Boolean);
+    
     const dietaryTags = recipe.dietary_tags ? recipe.dietary_tags.split(',').filter(Boolean) : [];
     const healthTags = recipe.health_tags ? recipe.health_tags.split(',').filter(Boolean) : [];
 
@@ -427,15 +465,29 @@ router.post('/', async (req, res) => {
       throw new Error('Failed to get recipe ID after insert');
     }
 
-    // Insert images
+    // Insert images (handle both base64 and URLs)
     if (transformed.images.length > 0) {
-      const imageValues = transformed.images.map((url, index) => 
-        [recipeId, url, index, index === 0 ? 1 : 0]
-      );
+      const imageValues = transformed.images.map((imageData, index) => {
+        // Validate base64 image size (max 3MB base64 = ~2.25MB actual)
+        if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
+          const base64Data = imageData.split(',')[1] || '';
+          const sizeInBytes = (base64Data.length * 3) / 4; // Approximate size
+          const maxSize = 3 * 1024 * 1024; // 3MB
+          
+          if (sizeInBytes > maxSize) {
+            throw new Error(`Image ${index + 1} is too large (${(sizeInBytes / 1024 / 1024).toFixed(2)}MB). Maximum size is 3MB. Please compress the image further or use a URL instead.`);
+          }
+        }
+        
+        return [recipeId, imageData, index, index === 0 ? 1 : 0];
+      });
+      
       await connection.query(
         'INSERT INTO recipe_images (recipe_id, image_url, display_order, is_primary) VALUES ?',
         [imageValues]
       );
+      
+      console.log(`✅ Inserted ${imageValues.length} image(s) for recipe ${recipeId}`);
     }
 
     // Insert dietary tags
@@ -544,16 +596,30 @@ router.put('/:id', async (req, res) => {
       ]
     );
 
-    // Update images
+    // Update images (handle both base64 and URLs)
     await connection.query('DELETE FROM recipe_images WHERE recipe_id = ?', [recipeId]);
     if (transformed.images.length > 0) {
-      const imageValues = transformed.images.map((url, index) => 
-        [recipeId, url, index, index === 0 ? 1 : 0]
-      );
+      const imageValues = transformed.images.map((imageData, index) => {
+        // Validate base64 image size (max 3MB base64 = ~2.25MB actual)
+        if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
+          const base64Data = imageData.split(',')[1] || '';
+          const sizeInBytes = (base64Data.length * 3) / 4; // Approximate size
+          const maxSize = 3 * 1024 * 1024; // 3MB
+          
+          if (sizeInBytes > maxSize) {
+            throw new Error(`Image ${index + 1} is too large (${(sizeInBytes / 1024 / 1024).toFixed(2)}MB). Maximum size is 3MB. Please compress the image further or use a URL instead.`);
+          }
+        }
+        
+        return [recipeId, imageData, index, index === 0 ? 1 : 0];
+      });
+      
       await connection.query(
         'INSERT INTO recipe_images (recipe_id, image_url, display_order, is_primary) VALUES ?',
         [imageValues]
       );
+      
+      console.log(`✅ Updated ${imageValues.length} image(s) for recipe ${recipeId}`);
     }
 
     // Update dietary tags

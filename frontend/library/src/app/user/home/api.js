@@ -102,7 +102,20 @@ const api = {
         body: JSON.stringify({ email, password }),
       });
 
-      const userData = await handleResponse(userResponse);
+      // ✅ FLEXIBLE LOGIN: Handle "No password set" error for Google users
+      if (!userResponse.ok) {
+        const errorData = await userResponse.json();
+        if (errorData.noPasswordSet || errorData.canCreatePassword) {
+          // Throw error with special flag for Option 3
+          const error = new Error(errorData.message || 'No password set');
+          error.noPasswordSet = true;
+          error.canCreatePassword = true;
+          throw error;
+        }
+        throw new Error(errorData.message || 'Login failed');
+      }
+
+      const userData = await userResponse.json();
       console.log('✅ User login successful:', userData);
       
       // ✅ SECURITY FIX: Only store token
@@ -228,9 +241,15 @@ const api = {
         body: JSON.stringify({ email: email.trim() }),
       });
       
-      const data = await handleResponse(response);
-      console.log('✅ Password reset code sent');
-      return data;
+      // ✅ Option 4: Handle password creation vs reset
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to request password reset');
+      }
+      
+      const data = await response.json();
+      console.log('✅ Password reset/creation code sent');
+      return data; // Returns isPasswordCreation flag if applicable
     } catch (error) {
       console.error('❌ Forgot password error:', error);
       throw error;
@@ -251,9 +270,15 @@ const api = {
         }),
       });
       
-      const data = await handleResponse(response);
-      console.log('✅ Password reset successful');
-      return data;
+      // ✅ Option 4: Handle password creation vs reset response
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reset password');
+      }
+      
+      const data = await response.json();
+      console.log('✅ Password reset/creation successful');
+      return data; // Returns isPasswordCreation flag if applicable
     } catch (error) {
       console.error('❌ Reset password error:', error);
       throw error;

@@ -75,10 +75,11 @@ const RecipeManagement = () => {
       console.log('Fetched restrictions:', result);
 
       if (result.success && result.data) {
-        // Category ID 1 and 2 = Allergy and Intolerance (Medical Conditions)
+        // Category ID 1, 2, and 3 = Allergy, Intolerance, and Good For Everyone (Medical Conditions)
         const allergies = result.data['Allergy'] || [];
         const intolerances = result.data['Intolerance'] || [];
-        const medicalConditions = [...allergies, ...intolerances];
+        const goodForEveryone = result.data['Good For Everyone'] || [];
+        const medicalConditions = [...allergies, ...intolerances, ...goodForEveryone];
 
         // Handle both array of objects and array of strings
         const medicalConditionNames = medicalConditions.map(r => {
@@ -904,18 +905,50 @@ const RecipeManagement = () => {
             filteredRecipes.map(recipe => (
               <div key={recipe.id} className="recipe-card" onClick={() => handleViewRecipe(recipe)}>
                 <div className="recipe-image">
-                  {/* ✅ FIXED: Handle both images array and image_url string */}
                   <img
                     src={(() => {
-                      const imgUrl = recipe.images?.[0] || recipe.image_url;
-                      // Check if URL is valid (starts with http/https or data:)
-                      if (imgUrl && (imgUrl.startsWith('http') || imgUrl.startsWith('data:'))) {
+                      // Get first image from array or single image_url
+                      let imgUrl = null;
+                      
+                      if (Array.isArray(recipe.images) && recipe.images.length > 0) {
+                        imgUrl = recipe.images[0];
+                      } else if (recipe.images && typeof recipe.images === 'string') {
+                        imgUrl = recipe.images;
+                      } else if (recipe.image_url) {
+                        imgUrl = recipe.image_url;
+                      }
+                      
+                      if (!imgUrl || typeof imgUrl !== 'string') {
+                        return 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
+                      }
+                      
+                      // Handle HTTP/HTTPS URLs
+                      if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://')) {
                         return imgUrl;
                       }
-                      return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="20" text-anchor="middle" x="200" y="150"%3ENo Image%3C/text%3E%3C/svg%3E';
+                      
+                      // Handle data:image URLs
+                      if (imgUrl.startsWith('data:image')) {
+                        return imgUrl;
+                      }
+                      
+                      // Handle partial base64 strings (no data: prefix)
+                      // Try to reconstruct as data URL
+                      if (imgUrl.length > 20 && !imgUrl.includes('://')) {
+                        // Check if it looks like base64
+                        const base64Pattern = /^[A-Za-z0-9+/=]+$/;
+                        if (base64Pattern.test(imgUrl.substring(0, 100))) {
+                          return `data:image/jpeg;base64,${imgUrl}`;
+                        }
+                      }
+                      
+                      // Fallback to placeholder
+                      return 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
                     })()}
                     alt={recipe.title}
-                    onError={(e) => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="20" text-anchor="middle" x="200" y="150"%3ENo Image%3C/text%3E%3C/svg%3E'; }}
+                    onError={(e) => { 
+                      e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
+                    }}
                   />
                   <div className="recipe-actions">
                     <button className="recipe-action-btn edit" onClick={(e) => { 
@@ -936,7 +969,20 @@ const RecipeManagement = () => {
                   <h3 className="recipe-title">{recipe.title}</h3>
                   <p className="recipe-description">{recipe.description}</p>
                   <div className="recipe-meta">
-                    <span className="meal-type">{recipe.mealType}</span>
+                    <div className="meal-type-container">
+                      {Array.isArray(recipe.mealType) ? recipe.mealType.map((meal, index) => (
+                        <span key={index} className="meal-type-badge">{meal}</span>
+                      )) : recipe.mealType ? (
+                        <span className="meal-type-badge">{recipe.mealType}</span>
+                      ) : null}
+                      {(recipe.medicalConditions || []).length > 0 && (
+                        <>
+                          {recipe.medicalConditions.map((condition, index) => (
+                            <span key={`medical-${index}`} className="medical-condition-badge">{condition}</span>
+                          ))}
+                        </>
+                      )}
+                    </div>
                     <div className="recipe-tags">
                       {(recipe.dietaryTags || []).slice(0, 2).map(tag => (
                         <span key={tag} className="tag dietary">{tag}</span>
@@ -1047,35 +1093,44 @@ const RecipeManagement = () => {
                   {formData.images.length > 0 && (
                     <div className="image-preview" style={{ marginTop: '15px' }}>
                       {formData.images.map((image, index) => {
-                        // Validate and fix image URL
+                        // ✅ FIXED: Thorough validation for truncated base64 image strings
                         const getImageSrc = (img) => {
-                          if (!img) return null;
+                          if (!img || typeof img !== 'string') return null;
                           
-                          // If it's already a valid URL (http/https), use it
-                          if (typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))) {
-                            return img;
+                          // Check if it's a valid HTTP/HTTPS URL
+                          if (img.startsWith('http://') || img.startsWith('https://')) {
+                            try {
+                              new URL(img); // Validate URL format
+                              return img;
+                            } catch {
+                              return null; // Invalid URL format
+                            }
                           }
                           
-                          // If it's a base64 string, validate it
-                          if (typeof img === 'string' && img.startsWith('data:image')) {
-                            // Check if base64 string is complete (ends with valid base64 characters)
+                          // Check if it's a valid data URL (base64 image)
+                          if (img.startsWith('data:image')) {
                             const base64Part = img.split(',')[1];
                             if (base64Part && base64Part.length > 10) {
-                              return img;
+                              // Validate base64 string (must be multiple of 4, ends with valid chars)
+                              const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                              if (base64Regex.test(base64Part) && base64Part.length % 4 === 0) {
+                                return img;
+                              }
                             }
-                            // If truncated, return null to show placeholder
-                            return null;
+                            return null; // Truncated or invalid base64
                           }
                           
-                          // If it's a partial base64 string (starts with base64 chars but no data: prefix)
-                          if (typeof img === 'string' && img.length > 0 && !img.includes('://')) {
+                          // Check if it's a partial base64 string (no data: prefix)
+                          if (img.length > 0 && !img.includes('://')) {
                             // Try to reconstruct as data URL if it looks like base64
-                            if (/^[A-Za-z0-9+/=]+$/.test(img.substring(0, 100))) {
+                            const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                            if (base64Regex.test(img) && img.length % 4 === 0 && img.length > 20) {
+                              // Assume JPEG format for partial base64 strings
                               return `data:image/jpeg;base64,${img}`;
                             }
                           }
                           
-                          return null;
+                          return null; // Invalid or truncated
                         };
                         
                         const imageSrc = getImageSrc(image);
@@ -1320,15 +1375,53 @@ const RecipeManagement = () => {
               </div>
               <div className="recipe-details">
                 <div className="recipe-images">
-                  {/* ✅ FIXED: Handle both images array and image_url string */}
+                  {/* ✅ FIXED: Handle both images array and image_url string with proper base64 validation */}
                   <img
                     src={(() => {
                       const imgUrl = selectedRecipe.images?.[0] || selectedRecipe.image_url;
-                      // Check if URL is valid (starts with http/https or data:)
-                      if (imgUrl && (imgUrl.startsWith('http') || imgUrl.startsWith('data:'))) {
-                        return imgUrl;
-                      }
-                      return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="20" text-anchor="middle" x="200" y="150"%3ENo Image%3C/text%3E%3C/svg%3E';
+                      
+                      // Helper function to validate image URL
+                      const validateImageUrl = (url) => {
+                        if (!url || typeof url !== 'string') return null;
+                        
+                        // Check if it's a valid HTTP/HTTPS URL
+                        if (url.startsWith('http://') || url.startsWith('https://')) {
+                          try {
+                            new URL(url); // Validate URL format
+                            return url;
+                          } catch {
+                            return null; // Invalid URL format
+                          }
+                        }
+                        
+                        // Check if it's a valid data URL (base64 image)
+                        if (url.startsWith('data:image')) {
+                          const base64Part = url.split(',')[1];
+                          if (base64Part && base64Part.length > 10) {
+                            // Validate base64 string (must be multiple of 4, ends with valid chars)
+                            const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                            if (base64Regex.test(base64Part) && base64Part.length % 4 === 0) {
+                              return url;
+                            }
+                          }
+                          return null; // Truncated or invalid base64
+                        }
+                        
+                        // Check if it's a partial base64 string (no data: prefix)
+                        if (url.length > 0 && !url.includes('://')) {
+                          // Try to reconstruct as data URL if it looks like base64
+                          const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+                          if (base64Regex.test(url) && url.length % 4 === 0 && url.length > 20) {
+                            // Assume JPEG format for partial base64 strings
+                            return `data:image/jpeg;base64,${url}`;
+                          }
+                        }
+                        
+                        return null; // Invalid or truncated
+                      };
+                      
+                      const validUrl = validateImageUrl(imgUrl);
+                      return validUrl || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" font-family="Arial" font-size="20" text-anchor="middle" x="200" y="150"%3ENo Image%3C/text%3E%3C/svg%3E';
                     })()}
                     alt={selectedRecipe.title}
                     className="main-image"
@@ -1336,16 +1429,105 @@ const RecipeManagement = () => {
                   />
                 </div>
                 
-                <div className="recipe-meta-info">
-                  <p className="recipe-desc">{selectedRecipe.description}</p>
-                  <div className="meta-badges">
-                    <span className="meal-type-badge">{selectedRecipe.mealType}</span>
-                    <span className={`verification-badge ${selectedRecipe.verificationStatus === 'AI-generated' ? 'ai' : 'verified'}`}>
-                      {selectedRecipe.verificationStatus}
+                {/* New Layout Order: Meal Type → Medical Conditions → Serving → Checked by → Description → Ingredients */}
+                
+                {/* 1. Meal Type Section */}
+                <div className="recipe-section meal-type-section">
+                  <div className="meal-type-container">
+                    {Array.isArray(selectedRecipe.mealType) ? selectedRecipe.mealType.map((meal, index) => (
+                      <span key={index} className="meal-type-badge">{meal}</span>
+                    )) : selectedRecipe.mealType ? (
+                      <span className="meal-type-badge">{selectedRecipe.mealType}</span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* 2. Medical Conditions Section */}
+                {(selectedRecipe.medicalConditions || []).length > 0 && (
+                  <div className="recipe-section medical-conditions-section">
+                    <h3 className="section-title">Medical Conditions (Allergies & Intolerances)</h3>
+                    <div className="medical-conditions-container">
+                      {selectedRecipe.medicalConditions.map((condition, index) => (
+                        <span key={index} className="medical-condition-badge">{condition}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Serving & Checked by Section */}
+                <div className="recipe-section serving-verification-section">
+                  {selectedRecipe.servings && (
+                    <div className="serving-info">
+                      <span className="serving-label">Serving:</span>
+                      <span className="serving-value">{selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}</span>
+                    </div>
+                  )}
+                  <div className="verification-info">
+                    <span className="verification-label">Checked by:</span>
+                    <span className={`verification-value ${selectedRecipe.verificationStatus === 'AI-generated' ? 'ai' : 'verified'}`}>
+                      {selectedRecipe.verificationStatus?.replace('Checked by: ', '') || 'AI-generated'}
                     </span>
                   </div>
                 </div>
 
+                {/* 4. Description Section */}
+                <div className="recipe-section description-section">
+                  <p className="recipe-desc">{selectedRecipe.description}</p>
+                </div>
+
+                {/* 5. Ingredients Section */}
+                <div className="recipe-section ingredients-section">
+                  <h3 className="section-title">Ingredients</h3>
+                  <div className="ingredients-grid">
+                    <div className="ingredient-group">
+                      <h4 className="ingredient-group-title">Main Ingredients</h4>
+                      <ul className="ingredient-list">
+                        {(selectedRecipe.ingredients?.main || []).map((item, index) => (
+                          <li key={index} className="ingredient-item">
+                            <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
+                            {typeof item === 'object' && item.alternative && (
+                              <span className="alternative-ingredient">
+                                <em>Alternative: {item.alternative}</em>
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="ingredient-group">
+                      <h4 className="ingredient-group-title">Condiments</h4>
+                      <ul className="ingredient-list">
+                        {(selectedRecipe.ingredients?.condiments || []).map((item, index) => (
+                          <li key={index} className="ingredient-item">
+                            <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
+                            {typeof item === 'object' && item.alternative && (
+                              <span className="alternative-ingredient">
+                                <em>Alternative: {item.alternative}</em>
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="ingredient-group">
+                      <h4 className="ingredient-group-title">Optional Ingredients</h4>
+                      <ul className="ingredient-list">
+                        {(selectedRecipe.ingredients?.optional || []).map((item, index) => (
+                          <li key={index} className="ingredient-item">
+                            <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
+                            {typeof item === 'object' && item.alternative && (
+                              <span className="alternative-ingredient">
+                                <em>Alternative: {item.alternative}</em>
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Engagement Stats */}
                 <div className="recipe-engagement-stats">
                   <div className="engagement-stat">
                     <TryIcon />
@@ -1354,78 +1536,6 @@ const RecipeManagement = () => {
                   <div className="engagement-stat">
                     <HeartIcon />
                     <span>{selectedRecipe.engagement?.saved || 0} people saved this</span>
-                  </div>
-                </div>
-
-                <div className="recipe-tags-display">
-                  <div className="tag-group">
-                    <h4>Medical Conditions (Allergies & Intolerances):</h4>
-                    <div className="tags">
-                      {(selectedRecipe.medicalConditions || []).length > 0 ? (
-                        selectedRecipe.medicalConditions.map(tag => (
-                          <span key={tag} className="tag dietary">{tag}</span>
-                        ))
-                      ) : (
-                        <span className="tag servings">None</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="tag-group">
-                    <h4>Servings:</h4>
-                    <div className="tags">
-                      <span className="tag servings">{selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="recipe-ingredients-display">
-                  <h4>Ingredients:</h4>
-                  <div className="ingredients-grid">
-                    <div className="ingredient-group">
-                      <h5>Main Ingredients:</h5>
-                      <ul>
-                        {(selectedRecipe.ingredients?.main || []).map((item, index) => (
-                          <li key={index} className="ingredient-with-alternative">
-                            <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
-                            {typeof item === 'object' && item.alternative && (
-                              <span className="alternative-ingredient">
-                                <em>Alternative: {item.alternative}</em>
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="ingredient-group">
-                      <h5>Condiments:</h5>
-                      <ul>
-                        {(selectedRecipe.ingredients?.condiments || []).map((item, index) => (
-                          <li key={index} className="ingredient-with-alternative">
-                            <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
-                            {typeof item === 'object' && item.alternative && (
-                              <span className="alternative-ingredient">
-                                <em>Alternative: {item.alternative}</em>
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="ingredient-group">
-                      <h5>Optional Ingredients:</h5>
-                      <ul>
-                        {(selectedRecipe.ingredients?.optional || []).map((item, index) => (
-                          <li key={index} className="ingredient-with-alternative">
-                            <span className="main-ingredient">{typeof item === 'string' ? item : item.ingredient}</span>
-                            {typeof item === 'object' && item.alternative && (
-                              <span className="alternative-ingredient">
-                                <em>Alternative: {item.alternative}</em>
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
                   </div>
                 </div>
 

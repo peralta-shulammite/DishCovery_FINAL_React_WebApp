@@ -30,7 +30,7 @@ const DietaryRestrictionsManagementContent = () => {
     visibility: 'Public',
   });
 
-  const categories = ['Allergy', 'Intolerance'].sort();
+  const [categories, setCategories] = useState([]);
   const statuses = ['Active', 'Inactive'];
 
   // Fetch dietary restrictions from database
@@ -73,13 +73,37 @@ const DietaryRestrictionsManagementContent = () => {
     }
   };
 
+  // Fetch categories from database
+  const fetchCategories = async () => {
+    try {
+      console.log('Fetching categories...');
+      const fetchedCategories = await dietaryRestrictionsAPI.getCategories();
+      if (fetchedCategories && fetchedCategories.length > 0) {
+        const categoryNames = fetchedCategories.map(cat => cat.name).sort();
+        setCategories(categoryNames);
+        // Set default category if form is empty
+        if (!formData.category || !categoryNames.includes(formData.category)) {
+          setFormData(prev => ({ ...prev, category: categoryNames[0] || 'Allergy' }));
+        }
+      } else {
+        // Fallback to default categories if API fails
+        setCategories(['Allergy', 'Intolerance', 'Good For Everyone']);
+      }
+    } catch (err) {
+      console.warn('Error loading categories:', err);
+      // Fallback to default categories if API fails
+      setCategories(['Allergy', 'Intolerance', 'Good For Everyone']);
+    }
+  };
+
   // Load data on component mount and when filters change
   useEffect(() => {
     fetchRestrictions();
   }, [searchTerm, statusFilter, categoryFilter]);
 
-  // Load pending requests once on mount
+  // Load categories and pending requests once on mount
   useEffect(() => {
+    fetchCategories();
     fetchPendingRequests();
   }, []);
 
@@ -195,7 +219,7 @@ const DietaryRestrictionsManagementContent = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      category: 'Allergy',
+      category: categories.length > 0 ? categories[0] : 'Allergy',
       description: '',
       status: 'Active',
       visibility: 'Public',
@@ -366,11 +390,17 @@ const DietaryRestrictionsManagementContent = () => {
             className="date-select"
           >
             <option value="All">All Categories</option>
-            {categories.map((category) => (
+            {categories.length > 0 ? categories.map((category) => (
               <option key={category} value={category}>
                 {category}
               </option>
-            ))}
+            )) : (
+              <>
+                <option value="Allergy">Allergy</option>
+                <option value="Intolerance">Intolerance</option>
+                <option value="Good For Everyone">Good For Everyone</option>
+              </>
+            )}
           </select>
         </div>
         <button
@@ -614,11 +644,17 @@ const DietaryRestrictionsManagementContent = () => {
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 >
-                  {categories.map((category) => (
+                  {categories.length > 0 ? categories.map((category) => (
                     <option key={category} value={category}>
                       {category}
                     </option>
-                  ))}
+                  )) : (
+                    <>
+                      <option value="Allergy">Allergy</option>
+                      <option value="Intolerance">Intolerance</option>
+                      <option value="Good For Everyone">Good For Everyone</option>
+                    </>
+                  )}
                 </select>
               </div>
               <div className="form-section">
@@ -696,11 +732,17 @@ const DietaryRestrictionsManagementContent = () => {
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 >
-                  {categories.map((category) => (
+                  {categories.length > 0 ? categories.map((category) => (
                     <option key={category} value={category}>
                       {category}
                     </option>
-                  ))}
+                  )) : (
+                    <>
+                      <option value="Allergy">Allergy</option>
+                      <option value="Intolerance">Intolerance</option>
+                      <option value="Good For Everyone">Good For Everyone</option>
+                    </>
+                  )}
                 </select>
               </div>
               <div className="form-section">

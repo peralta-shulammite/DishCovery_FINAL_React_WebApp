@@ -83,16 +83,22 @@ export const recipesAPI = {
   },
 
   // Get filtered recipes based on user preferences and ingredients
+  // ✅ UPDATED: Optional authentication - works with or without token
   getFilteredRecipes: async ({ scannedIngredients = [], pantryIngredients = [], limit = 20, offset = 0 }) => {
     const token = localStorage.getItem('token');
-    if (!token) throw new Error('No authentication token found');
+    
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    // Add authorization header only if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const response = await fetch(`${API_BASE_URL}/recipes/filter`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
+      headers: headers,
       body: JSON.stringify({ 
         scannedIngredients, 
         pantryIngredients,
