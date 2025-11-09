@@ -977,9 +977,17 @@ const RecipeManagement = () => {
                       ) : null}
                       {(recipe.medicalConditions || []).length > 0 && (
                         <>
-                          {recipe.medicalConditions.map((condition, index) => (
-                            <span key={`medical-${index}`} className="medical-condition-badge">{condition}</span>
-                          ))}
+                          {recipe.medicalConditions.map((condition, index) => {
+                            const isGoodForEveryone = condition === 'Good For Everyone';
+                            return (
+                              <span 
+                                key={`medical-${index}`} 
+                                className={`medical-condition-badge ${isGoodForEveryone ? 'good-for-everyone' : ''}`}
+                              >
+                                {condition}
+                              </span>
+                            );
+                          })}
                         </>
                       )}
                     </div>
@@ -1447,9 +1455,17 @@ const RecipeManagement = () => {
                   <div className="recipe-section medical-conditions-section">
                     <h3 className="section-title">Medical Conditions (Allergies & Intolerances)</h3>
                     <div className="medical-conditions-container">
-                      {selectedRecipe.medicalConditions.map((condition, index) => (
-                        <span key={index} className="medical-condition-badge">{condition}</span>
-                      ))}
+                      {selectedRecipe.medicalConditions.map((condition, index) => {
+                        const isGoodForEveryone = condition === 'Good For Everyone';
+                        return (
+                          <span 
+                            key={index} 
+                            className={`medical-condition-badge ${isGoodForEveryone ? 'good-for-everyone' : ''}`}
+                          >
+                            {condition}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

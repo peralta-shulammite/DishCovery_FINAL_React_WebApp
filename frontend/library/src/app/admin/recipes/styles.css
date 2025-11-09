@@ -810,6 +810,21 @@ body {
   box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
 }
 
+/* Good For Everyone - Green styling (positive tag) */
+.medical-condition-badge.good-for-everyone {
+  background: linear-gradient(135deg, #00A86B 0%, #2E7D32 100%);
+  color: white;
+  border: 2px solid #00A86B;
+  box-shadow: 0 2px 8px rgba(0, 168, 107, 0.25);
+}
+
+.medical-condition-badge.good-for-everyone:hover {
+  background: linear-gradient(135deg, #2E7D32 0%, #00A86B 100%);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 168, 107, 0.35);
+}
+
 /* Serving & Verification Section */
 .serving-verification-section {
   display: flex;
