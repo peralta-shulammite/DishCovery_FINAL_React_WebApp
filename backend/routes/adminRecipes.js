@@ -221,7 +221,7 @@ router.get('/', async (req, res) => {
         r.updated_at,
         GROUP_CONCAT(DISTINCT ri.image_url ORDER BY ri.display_order) as images,
         GROUP_CONCAT(DISTINCT dt.tag_name) as dietary_tags,
-        GROUP_CONCAT(DISTINCT CASE WHEN res.category_id IN (1, 2) THEN res.restriction_name END) as medical_conditions,
+        GROUP_CONCAT(DISTINCT CASE WHEN res.category_id IN (1, 2, 3) THEN res.restriction_name END) as medical_conditions,
         rv.verification_status,
         rv.verifier_name,
         rv.verifier_credentials,
@@ -388,12 +388,12 @@ router.get('/:id', async (req, res) => {
     `;
     const restrictionsResults = await pool.query(restrictionsQuery, [parseInt(id)]);
 
-    // Separate restrictions by category (only medical conditions)
+    // Separate restrictions by category (medical conditions including Good For Everyone)
     const medicalConditions = [];
 
     restrictionsResults.forEach(res => {
-      if (res.category_id === 1 || res.category_id === 2) {
-        // Allergy (1) or Intolerance (2)
+      if (res.category_id === 1 || res.category_id === 2 || res.category_id === 3) {
+        // Allergy (1), Intolerance (2), or Good For Everyone (3)
         medicalConditions.push(res.restriction_name);
       }
     });
