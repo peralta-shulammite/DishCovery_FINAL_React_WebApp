@@ -178,6 +178,7 @@ router.get('/info', authenticateToken, async (req, res) => {
 });
 
 // POST upload/update profile picture
+// ✅ UPDATED: Store profile picture as base64 in database instead of file path
 router.post('/profile-picture', authenticateToken, upload.single('profilePicture'), async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -190,26 +191,36 @@ router.post('/profile-picture', authenticateToken, upload.single('profilePicture
       });
     }
 
-    // Get old profile picture to delete
-    const users = await db.query('SELECT profile_picture_url FROM users WHERE user_id = ?', [userId]);
-    const oldPicture = users[0]?.profile_picture_url;
-
-    // Delete old profile picture if it exists
-    if (oldPicture) {
-      const oldPath = path.join(process.cwd(), oldPicture);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-        console.log('🗑️ Deleted old profile picture:', oldPath);
-      }
+    // ✅ Convert file to base64 data URI
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const base64Data = fileBuffer.toString('base64');
+    const mimeType = req.file.mimetype;
+    const base64DataUri = `data:${mimeType};base64,${base64Data}`;
+    
+    // ✅ Validate base64 image size (max 5MB base64 = ~3.75MB actual)
+    const base64Size = (base64Data.length * 3) / 4; // Approximate size
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    
+    if (base64Size > maxSize) {
+      // Clean up uploaded file
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        message: `Image is too large (${(base64Size / 1024 / 1024).toFixed(2)}MB). Maximum size is 5MB. Please compress the image.`
+      });
     }
 
-    // Save new profile picture path (relative path for database)
-    const profilePicturePath = `/uploads/profiles/${req.file.filename}`;
-    
+    console.log(`📊 Profile picture size: ${(base64Size / 1024).toFixed(2)} KB (base64)`);
+
+    // ✅ Store base64 data URI directly in database
     await db.query(
       'UPDATE users SET profile_picture_url = ? WHERE user_id = ?',
-      [profilePicturePath, userId]
+      [base64DataUri, userId]
     );
+
+    // ✅ Clean up temporary file after storing in database
+    fs.unlinkSync(req.file.path);
+    console.log('🗑️ Cleaned up temporary file:', req.file.path);
 
     console.log('✅ Profile picture updated for user:', userId);
 
@@ -217,7 +228,7 @@ router.post('/profile-picture', authenticateToken, upload.single('profilePicture
       success: true,
       message: 'Profile picture updated successfully',
       data: {
-        profilePicture: profilePicturePath
+        profilePicture: base64DataUri
       }
     });
 
@@ -225,12 +236,9 @@ router.post('/profile-picture', authenticateToken, upload.single('profilePicture
     console.error('❌ Error updating profile picture:', error);
     
     // Clean up uploaded file if database update fails
-    if (req.file) {
-      const filePath = path.join(process.cwd(), 'uploads/profiles', req.file.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        console.log('🗑️ Cleaned up failed upload:', filePath);
-      }
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+      console.log('🗑️ Cleaned up failed upload:', req.file.path);
     }
 
     res.status(500).json({
@@ -514,6 +522,124 @@ router.put('/change-password', authenticateToken, async (req, res) => {
       message: 'Failed to change password',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+});
+
+// DELETE account - Permanently delete user account and all associated data
+router.delete('/account', authenticateToken, async (req, res) => {
+  let connection;
+  
+  try {
+    const userId = req.user.userId;
+    console.log('🗑️  Deleting account for user:', userId);
+
+    // Get connection for transaction
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Delete all user-related data in the correct order (respecting foreign key constraints)
+      
+      // 1. Delete user recipe interactions (favorites, tried, ratings)
+      await connection.query(
+        'DELETE FROM user_recipe_interactions WHERE user_id = ?',
+        [userId]
+      );
+      console.log('✅ Deleted user recipe interactions');
+
+      // 2. Delete user scanned ingredients
+      await connection.query(
+        'DELETE FROM user_scanned_ingredients WHERE user_id = ?',
+        [userId]
+      );
+      console.log('✅ Deleted user scanned ingredients');
+
+      // 3. Delete user restrictions
+      await connection.query(
+        'DELETE FROM user_restrictions WHERE user_id = ?',
+        [userId]
+      );
+      console.log('✅ Deleted user restrictions');
+
+      // 4. Delete user excluded ingredients
+      await connection.query(
+        'DELETE FROM user_excluded_ingredients WHERE user_id = ?',
+        [userId]
+      );
+      console.log('✅ Deleted user excluded ingredients');
+
+      // 5. Delete user feedback
+      await connection.query(
+        'DELETE FROM feedback WHERE user_id = ?',
+        [userId]
+      );
+      console.log('✅ Deleted user feedback');
+
+      // 6. Delete user notifications
+      await connection.query(
+        'DELETE FROM notifications WHERE user_id = ?',
+        [userId]
+      );
+      console.log('✅ Deleted user notifications');
+
+      // 7. Delete user pantry selections (if exists)
+      await connection.query(
+        'DELETE FROM user_pantry_selections WHERE user_id = ?',
+        [userId]
+      ).catch(() => {
+        // Table might not exist, ignore error
+        console.log('⚠️  user_pantry_selections table not found, skipping');
+      });
+      console.log('✅ Deleted user pantry selections');
+
+      // 8. Delete profile picture file if exists
+      const users = await connection.query(
+        'SELECT profile_picture_url FROM users WHERE user_id = ?',
+        [userId]
+      );
+      const oldPicture = users[0]?.profile_picture_url;
+      if (oldPicture) {
+        const oldPath = path.join(process.cwd(), oldPicture);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+          console.log('✅ Deleted profile picture file');
+        }
+      }
+
+      // 9. Finally, delete the user account itself
+      await connection.query(
+        'DELETE FROM users WHERE user_id = ?',
+        [userId]
+      );
+      console.log('✅ Deleted user account');
+
+      // Commit transaction
+      await connection.commit();
+      console.log('✅ Account deletion completed successfully');
+
+      res.json({
+        success: true,
+        message: 'Account deleted successfully'
+      });
+
+    } catch (error) {
+      // Rollback on error
+      await connection.rollback();
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('❌ Error deleting account:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete account',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  } finally {
+    // Release connection back to pool
+    if (connection) {
+      connection.release();
+    }
   }
 });
 

@@ -229,8 +229,10 @@ router.get('/history', authenticateToken, async (req, res) => {
       // Create new group if no current group or time gap > 5 minutes
       if (!currentGroup || 
           (scanDate - new Date(currentGroup.date)) > 5 * 60 * 1000) {
+        // ✅ Use timestamp in seconds format: "scan_1234567890" (matches DELETE endpoint)
+        const groupId = `scan_${Math.floor(scanDate.getTime() / 1000)}`;
         currentGroup = {
-          id: scan.scan_id || `scan_${scanDate.getTime()}`,
+          id: groupId,
           date: scanDate.toISOString(),
           ingredients: []
         };
@@ -265,7 +267,67 @@ router.get('/history', authenticateToken, async (req, res) => {
 });
 
 /**
- * ✅ DELETE /api/scan/history/:scanId - Delete a scan from history
+ * ✅ POST /api/scan/history - Save a scan to history
+ */
+router.post('/history', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { ingredientIds, scanMethod } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User not authenticated' 
+      });
+    }
+
+    if (!ingredientIds || !Array.isArray(ingredientIds) || ingredientIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Ingredient IDs are required' 
+      });
+    }
+
+    // ✅ Determine scan method: 'camera_scan', 'pantry_selection', 'manual_add', or default
+    const method = scanMethod || 'camera_scan';
+    console.log(`💾 Saving scan history for user ${userId} with ${ingredientIds.length} ingredients (method: ${method})`);
+
+    // ✅ scan_id is AUTO_INCREMENT, so we don't need to provide it - let the database generate it
+    // Each ingredient in the same scan session will have the same timestamp, which we can use to group them
+    const scannedAt = new Date();
+
+    // Insert each ingredient as a separate scan entry
+    // ✅ Save with scan_method and confidence_score for better tracking
+    // Note: scan_id is AUTO_INCREMENT, so we omit it and let the database generate unique IDs
+    for (const ingredientId of ingredientIds) {
+      await safeQuery(`
+        INSERT INTO user_scanned_ingredients (user_id, ingredient_id, scan_method, confidence_score, scanned_at)
+        VALUES (?, ?, ?, ?, ?)
+      `, [userId, ingredientId, method, 100.00, scannedAt]);
+    }
+
+    console.log(`✅ Scan history saved successfully (${ingredientIds.length} ingredients at ${scannedAt.toISOString()})`);
+
+    res.json({
+      success: true,
+      message: 'Scan history saved successfully',
+      timestamp: scannedAt.toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error saving scan history:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to save scan history',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * ✅ DELETE /api/scan/history/:scanId - Delete a scan session from history
+ * Note: scanId is actually a timestamp-based group ID (e.g., "scan_1234567890")
+ * We delete all ingredients scanned at that timestamp
  */
 router.delete('/history/:scanId', authenticateToken, async (req, res) => {
   try {
@@ -279,16 +341,33 @@ router.delete('/history/:scanId', authenticateToken, async (req, res) => {
       });
     }
 
-    console.log(`🗑️  Deleting scan ${scanId} for user ${userId}`);
+    console.log(`🗑️  Deleting scan session ${scanId} for user ${userId}`);
 
+    // ✅ Extract timestamp from scanId (format: "scan_1234567890")
+    // The scanId is generated from timestamp, so we can extract it
+    const timestampMatch = scanId.match(/scan_(\d+)/);
+    if (!timestampMatch) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid scan ID format'
+      });
+    }
+
+    const timestampSeconds = parseInt(timestampMatch[1]);
+    const startTime = new Date(timestampSeconds * 1000);
+    const endTime = new Date(timestampSeconds * 1000 + 60000); // 1 minute window
+
+    // Delete all ingredients scanned within this time window
     await safeQuery(`
       DELETE FROM user_scanned_ingredients 
-      WHERE user_id = ? AND scan_id = ?
-    `, [userId, scanId]);
+      WHERE user_id = ? 
+      AND scanned_at >= ? 
+      AND scanned_at < ?
+    `, [userId, startTime, endTime]);
 
     res.json({
       success: true,
-      message: 'Scan deleted successfully'
+      message: 'Scan session deleted successfully'
     });
 
   } catch (error) {
