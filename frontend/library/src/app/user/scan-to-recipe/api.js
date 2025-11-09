@@ -5,15 +5,15 @@ const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     // Client-side: check if we're on Vercel
     if (window.location.hostname.includes('vercel.app')) {
-      return 'https://dishcovery-backend-wvhn.onrender.com';
+      return 'https://dishcovery-backend-wvhn.onrender.com/api';
     }
     // For localhost testing, always use localhost
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:5000';
+      return 'http://localhost:5000/api';
     }
   }
   // Fallback to environment variable or localhost
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -80,7 +80,7 @@ export const recipeAPI = {
       if (filters.offset) params.append('offset', filters.offset);
 
       const queryString = params.toString();
-      const endpoint = `/api/recipes${queryString ? `?${queryString}` : ''}`;
+      const endpoint = `/recipes${queryString ? `?${queryString}` : ''}`;
       
       console.log('Fetching from endpoint:', endpoint);
       
@@ -103,7 +103,7 @@ export const recipeAPI = {
     try {
       console.log('Getting recipe details for ID:', recipeId);
       
-      const response = await apiCall(`/api/recipes/${recipeId}/details`);
+      const response = await apiCall(`/recipes/${recipeId}/details`);
       if (response && (response.success || response.data)) {
         return response;
       }
@@ -119,7 +119,7 @@ export const recipeAPI = {
     try {
       console.log('Getting all dietary tags');
       
-      const response = await apiCall('/api/recipes/tags/all');
+      const response = await apiCall('/recipes/tags/all');
       if (response && (response.success || response.data)) {
         return response;
       }
@@ -139,7 +139,7 @@ export const recipeAPI = {
       if (filters.limit) params.append('limit', filters.limit);
       if (filters.offset) params.append('offset', filters.offset);
 
-      const response = await apiCall(`/api/recipes/search?${params.toString()}`);
+      const response = await apiCall(`/recipes/search?${params.toString()}`);
       if (response && (response.success || response.data)) {
         return response;
       }
@@ -148,50 +148,6 @@ export const recipeAPI = {
       console.error('Error searching recipes:', error);
       throw error;
     }
-  }
-};
-
-// Import API utilities from recipe/api.js
-const getApiBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    if (window.location.hostname.includes('vercel.app')) {
-      return 'https://dishcovery-backend-wvhn.onrender.com/api';
-    }
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:5000/api';
-    }
-  }
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
-};
-
-const API_BASE_URL = getApiBaseUrl();
-
-const getAuthToken = () => {
-  return localStorage.getItem('authToken') || localStorage.getItem('token');
-};
-
-const apiCall = async (endpoint, options = {}) => {
-  const token = getAuthToken();
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('API call failed:', error);
-    throw error;
   }
 };
 
