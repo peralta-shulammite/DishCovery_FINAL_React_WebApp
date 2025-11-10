@@ -1017,27 +1017,12 @@ const RecipePage = () => {
                     <div className="verification-main">
                       <FontAwesomeIcon 
                         className="verification-icon"
-                        icon={getVerificationIcon(selectedRecipe.verificationStatus)}
+                        icon={faShieldAlt}
                       />
                       <span className="verification-status">
-                        {selectedRecipe.verificationStatus === 'AI-generated' 
-                          ? 'AI Generated Recipe' 
-                          : 'Professionally Verified'
-                        }
+                        Checked by: Cecilia Alamag, RND, MSc
                       </span>
                     </div>
-                    {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
-                      <div className="verifier-details">
-                        <span className="verifier-name">
-                          Verified by: {selectedRecipe.verifierName}
-                        </span>
-                        {selectedRecipe.verifierCredentials && (
-                          <span className="verifier-credentials">
-                            {selectedRecipe.verifierCredentials}
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
                   
                   {/* Recipe Statistics */}

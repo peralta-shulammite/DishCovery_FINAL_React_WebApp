@@ -675,6 +675,19 @@ export default function FavoritesPage() {
                       </div>
                     </button>
                   </div>
+                  
+                  {/* Verification Badge Section */}
+                  <div className="verification-section">
+                    <div className="verification-main">
+                      <FontAwesomeIcon 
+                        className="verification-icon"
+                        icon={faShieldAlt}
+                      />
+                      <span className="verification-status">
+                        Checked by: Cecilia Alamag, RND, MSc
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="modal-center">
