@@ -404,7 +404,7 @@ body {
 }
 
 .verification-badge.verified {
-  background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
   color: white;
 }
 
@@ -738,10 +738,10 @@ body {
 .section-title {
   font-size: 18px;
   font-weight: 700;
-  color: #00A86B;
+  color: #2E7D32;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 2px solid rgba(0, 168, 107, 0.15);
+  border-bottom: 2px solid rgba(46, 125, 50, 0.15);
   font-family: 'Poppins', sans-serif;
 }
 
@@ -758,7 +758,7 @@ body {
 }
 
 .meal-type-badge {
-  background: linear-gradient(135deg, #00A86B 0%, #2E7D32 100%);
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
   color: white;
   padding: 8px 16px;
   border-radius: 20px;
@@ -767,13 +767,13 @@ body {
   font-family: 'Poppins', sans-serif;
   white-space: nowrap;
   display: inline-block;
-  box-shadow: 0 2px 8px rgba(0, 168, 107, 0.25);
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.25);
   transition: all 0.2s ease;
 }
 
 .meal-type-badge:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 168, 107, 0.35);
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.35);
 }
 
 /* Medical Conditions Section - Red */
@@ -812,17 +812,17 @@ body {
 
 /* Good For Everyone - Green styling (positive tag) */
 .medical-condition-badge.good-for-everyone {
-  background: linear-gradient(135deg, #00A86B 0%, #2E7D32 100%);
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
   color: white;
-  border: 2px solid #00A86B;
-  box-shadow: 0 2px 8px rgba(0, 168, 107, 0.25);
+  border: 2px solid #2E7D32;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.25);
 }
 
 .medical-condition-badge.good-for-everyone:hover {
-  background: linear-gradient(135deg, #2E7D32 0%, #00A86B 100%);
+  background: linear-gradient(135deg, #1b5e20 0%, #2E7D32 100%);
   color: white;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 168, 107, 0.35);
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.35);
 }
 
 /* Serving & Verification Section */
@@ -832,9 +832,9 @@ body {
   gap: 12px;
   margin-bottom: 20px;
   padding: 16px;
-  background: rgba(0, 168, 107, 0.05);
+  background: rgba(46, 125, 50, 0.05);
   border-radius: 12px;
-  border-left: 4px solid #00A86B;
+  border-left: 4px solid #2E7D32;
 }
 
 .serving-info,
@@ -855,14 +855,14 @@ body {
 .serving-value {
   font-size: 14px;
   font-weight: 500;
-  color: #00A86B;
+  color: #2E7D32;
   font-family: 'Poppins', sans-serif;
 }
 
 .verification-value {
   font-size: 14px;
   font-weight: 600;
-  color: #00A86B;
+  color: #2E7D32;
   font-family: 'Poppins', sans-serif;
 }
 
@@ -897,9 +897,9 @@ body {
   gap: 24px;
   margin-bottom: 24px;
   padding: 20px;
-  background: rgba(0, 168, 107, 0.05);
+  background: rgba(46, 125, 50, 0.05);
   border-radius: 12px;
-  border-left: 4px solid #00A86B;
+  border-left: 4px solid #2E7D32;
 }
 
 .engagement-stat {
@@ -915,7 +915,7 @@ body {
 .engagement-stat .icon {
   width: 20px;
   height: 20px;
-  color: #00A86B;
+  color: #2E7D32;
 }
 
 .recipe-tags-display {
@@ -953,23 +953,23 @@ body {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.95));
   padding: 20px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 168, 107, 0.2);
+  border: 1px solid rgba(46, 125, 50, 0.2);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: all 0.2s ease;
 }
 
 .ingredient-group:hover {
-  box-shadow: 0 4px 12px rgba(0, 168, 107, 0.15);
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.15);
   transform: translateY(-2px);
 }
 
 .ingredient-group-title {
   font-size: 16px;
   font-weight: 700;
-  color: #00A86B;
+  color: #2E7D32;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 2px solid rgba(0, 168, 107, 0.2);
+  border-bottom: 2px solid rgba(46, 125, 50, 0.2);
   font-family: 'Poppins', sans-serif;
 }
 
@@ -983,7 +983,7 @@ body {
   display: flex;
   flex-direction: column;
   padding: 12px 0;
-  border-bottom: 1px solid rgba(0, 168, 107, 0.1);
+  border-bottom: 1px solid rgba(46, 125, 50, 0.1);
 }
 
 .ingredient-item:last-child {
@@ -1015,15 +1015,15 @@ body {
 .recipe-instructions-display {
   margin-bottom: 24px;
   padding: 20px;
-  background: rgba(0, 168, 107, 0.03);
+  background: rgba(46, 125, 50, 0.03);
   border-radius: 12px;
-  border-left: 4px solid #00A86B;
+  border-left: 4px solid #2E7D32;
 }
 
 .recipe-instructions-display h4 {
   font-size: 18px;
   font-weight: 700;
-  color: #00A86B;
+  color: #2E7D32;
   margin-bottom: 16px;
   font-family: 'Poppins', sans-serif;
 }

@@ -202,6 +202,30 @@ export const profileAPI = {
       console.error('Error changing password:', error);
       throw error;
     }
+  },
+
+  // Delete user account
+  deleteAccount: async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/user-profile/account`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      throw error;
+    }
   }
 };
 
@@ -234,6 +258,37 @@ export const scanAPI = {
       return data;
     } catch (error) {
       console.error('Error fetching scan history:', error);
+      throw error;
+    }
+  },
+
+  // Save a scan to history
+  saveScanHistory: async (ingredientIds, scanMethod = 'camera_scan') => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/scan/history`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ingredientIds, scanMethod })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error saving scan history:', error);
       throw error;
     }
   },
