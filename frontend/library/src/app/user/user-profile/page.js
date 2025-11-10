@@ -90,16 +90,20 @@ export default function UserProfilePage() {
   // Dietary preferences states
   const [dishCoveryMedicalConditions, setDishCoveryMedicalConditions] = useState([]);
   const [dishCoveryAllergens, setDishCoveryAllergens] = useState([]);
+  const [dishCoveryExcludedIngredients, setDishCoveryExcludedIngredients] = useState([]);
   // dishCoveryPreferredDiet removed - dietary lifestyle category removed
   const [loadingDietaryData, setLoadingDietaryData] = useState(true);
   const [loadingUserInfo, setLoadingUserInfo] = useState(true);
 
   // 🆕 Modal states for dietary preferences
   const [showMedicalConditionsModal, setShowMedicalConditionsModal] = useState(false);
+  const [showExcludedIngredientsModal, setShowExcludedIngredientsModal] = useState(false);
   // showDietaryLifestyleModal removed - dietary lifestyle category removed
   const [availableMedicalConditions, setAvailableMedicalConditions] = useState([]);
+  const [availableIngredients, setAvailableIngredients] = useState([]);
   // availableLifestyles removed - dietary lifestyle category removed
   const [tempMedicalConditions, setTempMedicalConditions] = useState([]);
+  const [tempExcludedIngredients, setTempExcludedIngredients] = useState([]);
   // tempLifestyles removed - dietary lifestyle category removed
 
   // Last opened recipe - loaded from localStorage
@@ -215,15 +219,17 @@ export default function UserProfilePage() {
         const response = await profileAPI.getDietaryPreferences();
         
         if (response && response.success && response.data) {
-          const { medicalConditions } = response.data;
+          const { medicalConditions, excludedIngredients } = response.data;
           
           // Category 1 (Allergy) + Category 2 (Intolerance) = Medical Conditions
           // Category 3 (Dietary Lifestyle) removed - no longer used
           setDishCoveryMedicalConditions(medicalConditions || []);
           setDishCoveryAllergens([]); // No longer used
+          setDishCoveryExcludedIngredients(excludedIngredients || []);
           
           console.log('✅ Dietary data loaded successfully:', {
-            conditions: medicalConditions?.length || 0
+            conditions: medicalConditions?.length || 0,
+            excludedIngredients: excludedIngredients?.length || 0
           });
         }
       } catch (error) {
@@ -349,6 +355,40 @@ export default function UserProfilePage() {
     };
     
     loadAvailableCategories();
+  }, []);
+
+  // ========================================
+  // 🆕 LOAD ALL AVAILABLE INGREDIENTS
+  // ========================================
+  useEffect(() => {
+    const loadAvailableIngredients = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        console.log('📥 Loading all available ingredients...');
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+        const response = await fetch(`${API_BASE_URL}/pantry/ingredients`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.ingredients) {
+            const ingredientNames = result.ingredients.map(ing => ing.name);
+            setAvailableIngredients(ingredientNames);
+            console.log('✅ Available ingredients loaded:', ingredientNames.length);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading available ingredients:', error);
+      }
+    };
+    
+    loadAvailableIngredients();
   }, []);
 
   // ========================================
@@ -741,11 +781,21 @@ export default function UserProfilePage() {
     setShowMedicalConditionsModal(true);
   };
 
+  const handleOpenExcludedIngredientsModal = () => {
+    setTempExcludedIngredients([...dishCoveryExcludedIngredients]);
+    setShowExcludedIngredientsModal(true);
+  };
+
   // handleOpenDietaryLifestyleModal removed - dietary lifestyle category removed
 
   const handleCloseMedicalConditionsModal = () => {
     setShowMedicalConditionsModal(false);
     setTempMedicalConditions([]);
+  };
+
+  const handleCloseExcludedIngredientsModal = () => {
+    setShowExcludedIngredientsModal(false);
+    setTempExcludedIngredients([]);
   };
 
   // handleCloseDietaryLifestyleModal removed - dietary lifestyle category removed
@@ -760,6 +810,16 @@ export default function UserProfilePage() {
     });
   };
 
+  const handleToggleExcludedIngredient = (ingredient) => {
+    setTempExcludedIngredients(prev => {
+      if (prev.includes(ingredient)) {
+        return prev.filter(i => i !== ingredient);
+      } else {
+        return [...prev, ingredient];
+      }
+    });
+  };
+
   // handleToggleLifestyle removed - dietary lifestyle category removed
 
   const handleSaveMedicalConditions = async () => {
@@ -770,7 +830,7 @@ export default function UserProfilePage() {
         dietaryRestrictions: [], // Empty - not used
         medicalConditions: tempMedicalConditions,
         // preferredDiets removed - dietary lifestyle category removed
-        excludedIngredients: []
+        excludedIngredients: dishCoveryExcludedIngredients
       });
       
       setDishCoveryMedicalConditions(tempMedicalConditions);
@@ -780,6 +840,27 @@ export default function UserProfilePage() {
     } catch (error) {
       console.error('❌ Error saving medical conditions:', error);
       alert('Failed to save medical conditions. Please try again.');
+    }
+  };
+
+  const handleSaveExcludedIngredients = async () => {
+    try {
+      console.log('💾 Saving excluded ingredients...', tempExcludedIngredients);
+      
+      await profileAPI.updateDietaryPreferences({
+        dietaryRestrictions: [], // Empty - not used
+        medicalConditions: dishCoveryMedicalConditions,
+        // preferredDiets removed - dietary lifestyle category removed
+        excludedIngredients: tempExcludedIngredients
+      });
+      
+      setDishCoveryExcludedIngredients(tempExcludedIngredients);
+      setShowExcludedIngredientsModal(false);
+      console.log('✅ Excluded ingredients saved successfully');
+      alert('Excluded ingredients updated successfully!');
+    } catch (error) {
+      console.error('❌ Error saving excluded ingredients:', error);
+      alert('Failed to save excluded ingredients. Please try again.');
     }
   };
 
@@ -1402,7 +1483,15 @@ export default function UserProfilePage() {
                                     <span>{condition}</span>
                                     {dishCoveryEditingPreferences && (
                                       <button
-                                        onClick={() => dishCoveryRemoveCondition(condition)}
+                                        onClick={() => {
+                                          const updated = dishCoveryMedicalConditions.filter(c => c !== condition);
+                                          setDishCoveryMedicalConditions(updated);
+                                          profileAPI.updateDietaryPreferences({
+                                            dietaryRestrictions: [],
+                                            medicalConditions: updated,
+                                            excludedIngredients: dishCoveryExcludedIngredients
+                                          });
+                                        }}
                                         className="tag-remove-fixed"
                                       >
                                         ×
@@ -1417,6 +1506,45 @@ export default function UserProfilePage() {
                                 <button 
                                   className="add-tag-btn-fixed"
                                   onClick={handleOpenMedicalConditionsModal}
+                                >
+                                  + Add
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="preference-group-fixed">
+                            <h3 className="preference-group-label">Excluded Ingredients</h3>
+                            <div className="tags-container-fixed">
+                              {dishCoveryExcludedIngredients.length > 0 ? (
+                                dishCoveryExcludedIngredients.map((ingredient) => (
+                                  <div key={ingredient} className="tag-fixed medical-tag-fixed">
+                                    <span>{ingredient}</span>
+                                    {dishCoveryEditingPreferences && (
+                                      <button
+                                        onClick={() => {
+                                          const updated = dishCoveryExcludedIngredients.filter(i => i !== ingredient);
+                                          setDishCoveryExcludedIngredients(updated);
+                                          profileAPI.updateDietaryPreferences({
+                                            dietaryRestrictions: [],
+                                            medicalConditions: dishCoveryMedicalConditions,
+                                            excludedIngredients: updated
+                                          });
+                                        }}
+                                        className="tag-remove-fixed"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <span style={{ color: '#999', fontSize: '14px' }}>No excluded ingredients set</span>
+                              )}
+                              {dishCoveryEditingPreferences && (
+                                <button 
+                                  className="add-tag-btn-fixed"
+                                  onClick={handleOpenExcludedIngredientsModal}
                                 >
                                   + Add
                                 </button>
@@ -1735,6 +1863,106 @@ export default function UserProfilePage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* MEDICAL CONDITIONS MODAL */}
+        {showMedicalConditionsModal && (
+          <div
+            className="modal-overlay"
+            onClick={handleCloseMedicalConditionsModal}
+          >
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
+              <button
+                className="close-btn"
+                onClick={handleCloseMedicalConditionsModal}
+              >
+                ×
+              </button>
+              <h2 className="modal-title">Select Medical Conditions</h2>
+              <p className="modal-subtitle">Select all allergies and intolerances that apply</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
+                {availableMedicalConditions.map((condition) => (
+                  <label key={condition} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb', transition: 'all 0.2s' }}>
+                    <input
+                      type="checkbox"
+                      checked={tempMedicalConditions.includes(condition)}
+                      onChange={() => handleToggleMedicalCondition(condition)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '14px', color: '#374151' }}>{condition}</span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <button
+                  className="cancel-btn"
+                  onClick={handleCloseMedicalConditionsModal}
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="modal-signin-btn"
+                  onClick={handleSaveMedicalConditions}
+                  style={{ flex: 1 }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* EXCLUDED INGREDIENTS MODAL */}
+        {showExcludedIngredientsModal && (
+          <div
+            className="modal-overlay"
+            onClick={handleCloseExcludedIngredientsModal}
+          >
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
+              <button
+                className="close-btn"
+                onClick={handleCloseExcludedIngredientsModal}
+              >
+                ×
+              </button>
+              <h2 className="modal-title">Select Excluded Ingredients</h2>
+              <p className="modal-subtitle">Select ingredients you want to avoid</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
+                {availableIngredients.length > 0 ? (
+                  availableIngredients.map((ingredient) => (
+                    <label key={ingredient} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb', transition: 'all 0.2s' }}>
+                      <input
+                        type="checkbox"
+                        checked={tempExcludedIngredients.includes(ingredient)}
+                        onChange={() => handleToggleExcludedIngredient(ingredient)}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '14px', color: '#374151' }}>{ingredient}</span>
+                    </label>
+                  ))
+                ) : (
+                  <p style={{ textAlign: 'center', padding: '20px', color: '#666' }}>Loading ingredients...</p>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <button
+                  className="cancel-btn"
+                  onClick={handleCloseExcludedIngredientsModal}
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="modal-signin-btn"
+                  onClick={handleSaveExcludedIngredients}
+                  style={{ flex: 1 }}
+                >
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -513,10 +513,10 @@ router.post('/', async (req, res) => {
       await saveRecipeRestrictions(connection, recipeId, transformed.restrictions);
     }
 
-    // Insert verification status (without verifier_name and verifier_credentials to avoid errors)
+    // Insert verification status with verifier_name and verifier_credentials
     await connection.query(
-      'INSERT INTO recipe_verification (recipe_id, verification_status) VALUES (?, ?)',
-      [recipeId, transformed.verification.status]
+      'INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials, verified_at) VALUES (?, ?, ?, ?, NOW())',
+      [recipeId, transformed.verification.status, transformed.verification.verifierName || null, transformed.verification.verifierCredentials || null]
     );
 
     await connection.commit();
@@ -644,11 +644,11 @@ router.put('/:id', async (req, res) => {
     // ✅ Update restrictions
     await saveRecipeRestrictions(connection, recipeId, transformed.restrictions || []);
 
-    // Update verification (without verifier_name and verifier_credentials to avoid errors)
+    // Update verification with verifier_name and verifier_credentials
     await connection.query('DELETE FROM recipe_verification WHERE recipe_id = ?', [recipeId]);
     await connection.query(
-      'INSERT INTO recipe_verification (recipe_id, verification_status) VALUES (?, ?)',
-      [recipeId, transformed.verification.status]
+      'INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials, verified_at) VALUES (?, ?, ?, ?, NOW())',
+      [recipeId, transformed.verification.status, transformed.verification.verifierName || null, transformed.verification.verifierCredentials || null]
     );
 
     await connection.commit();
