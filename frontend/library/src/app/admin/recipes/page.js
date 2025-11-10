@@ -1035,19 +1035,11 @@ const RecipeManagement = () => {
                     </div>
                   </div>
                   <div className="recipe-verification">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                      <span className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai' : 'verified'}`}>
-                        {recipe.verificationStatus}
-                      </span>
-                      {recipe.verifierName && (
-                        <div style={{ fontSize: '11px', color: '#64748b', textAlign: 'right', lineHeight: '1.3' }}>
-                          <div style={{ fontWeight: '600', color: '#2E7D32' }}>{recipe.verifierName}</div>
-                          {recipe.verifierCredentials && (
-                            <div style={{ fontSize: '10px', color: '#64748b' }}>{recipe.verifierCredentials}</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <span className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai' : 'verified'}`}>
+                      {recipe.verificationStatus && recipe.verifierName 
+                        ? `${recipe.verificationStatus} (${recipe.verifierName}${recipe.verifierCredentials ? `, ${recipe.verifierCredentials}` : ''})`
+                        : recipe.verificationStatus || 'AI-generated'}
+                    </span>
                   </div>
                 </div>
               </div>

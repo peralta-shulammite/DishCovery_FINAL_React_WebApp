@@ -392,10 +392,14 @@ body {
   font-size: 12px;
   font-weight: 600;
   font-family: 'Poppins', sans-serif;
-  white-space: nowrap;
+  white-space: normal;
+  word-wrap: break-word;
   display: inline-block;
+  max-width: 100%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
+  line-height: 1.4;
+  text-align: center;
 }
 
 .verification-badge.ai {
