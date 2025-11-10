@@ -216,9 +216,35 @@ function GoogleCallbackInner() {
           throw new Error(data.message || 'Authentication failed');
         }
 
+        // ✅ VALIDATE TOKEN BEFORE STORING
+        if (!data.token || typeof data.token !== 'string' || data.token.length < 20) {
+          console.error('❌ Invalid token received from server:', {
+            hasToken: !!data.token,
+            tokenType: typeof data.token,
+            tokenLength: data.token?.length,
+            tokenValue: data.token?.substring(0, 10) + '...'
+          });
+          throw new Error('Invalid token received from server. Please try again.');
+        }
+
+        // ✅ VALIDATE JWT FORMAT (should have 3 parts separated by dots)
+        const tokenParts = data.token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('❌ Invalid JWT format:', {
+            parts: tokenParts.length,
+            tokenLength: data.token.length
+          });
+          throw new Error('Invalid token format. Please try again.');
+        }
+
         setStatus('Login successful! Redirecting...');
         console.log('💾 Saving token to localStorage');
-        // ✅ SECURITY FIX: Only store token
+        console.log('✅ Token validated:', {
+          length: data.token.length,
+          format: 'JWT',
+          parts: tokenParts.length
+        });
+        // ✅ SECURITY FIX: Only store token after validation
         localStorage.setItem('token', data.token);
         sessionStorage.setItem('userJustLoggedIn', 'true');
         
