@@ -490,36 +490,68 @@ export default function DishCoveryLanding() {
     setDishCoveryVerificationCode('');
   };
 
+  // ✅ Universal authentication check handler for all buttons/links
+  const dishCoveryHandleAuthCheck = (callback) => {
+    if (!dishCoveryIsLoggedIn) {
+      setDishCoveryShowSignInModal(true);
+      return false;
+    }
+    if (callback) callback();
+    return true;
+  };
+
   const dishCoveryHandleRecipeClick = (recipeId = null) => {
     if (!dishCoveryIsLoggedIn) {
       setDishCoveryShowSignInModal(true);
+      return;
+    }
+    if (recipeId) {
+      window.location.href = `/user/recipe?id=${recipeId}`;
     } else {
-      if (recipeId) {
-        window.location.href = `/user/recipe?id=${recipeId}`;
-      } else {
-        window.location.href = '/user/recipe';
-      }
+      window.location.href = '/user/recipe';
     }
   };
 
   const dishCoveryHandleVideoClick = () => {
+    if (!dishCoveryIsLoggedIn) {
+      setDishCoveryShowSignInModal(true);
+      return;
+    }
     setDishCoveryShowVideoModal(true);
   };
 
   const dishCoveryHandleScanClick = () => {
     if (!dishCoveryIsLoggedIn) {
       setDishCoveryShowSignInModal(true);
-    } else {
-      window.location.href = '/user/Scanning';
+      return;
     }
+    window.location.href = '/user/Scanning';
   };
 
   const dishCoveryHandleStartJourneyClick = () => {
     if (!dishCoveryIsLoggedIn) {
       setDishCoveryShowSignInModal(true);
-    } else {
-      window.location.href = '/user/get-started';
+      return;
     }
+    window.location.href = '/user/get-started';
+  };
+
+  const dishCoveryHandlePantryClick = (e) => {
+    if (!dishCoveryIsLoggedIn) {
+      e.preventDefault();
+      setDishCoveryShowSignInModal(true);
+      return false;
+    }
+    return true;
+  };
+
+  const dishCoveryHandleScanningClick = (e) => {
+    if (!dishCoveryIsLoggedIn) {
+      e.preventDefault();
+      setDishCoveryShowSignInModal(true);
+      return false;
+    }
+    return true;
   };
 
   const dishCoveryHandleLogout = () => {
@@ -1026,6 +1058,12 @@ export default function DishCoveryLanding() {
               onClick={dishCoveryHandleScanClick}
               onMouseEnter={() => dishCoveryHandleHover('scan', true)}
               onMouseLeave={() => dishCoveryHandleHover('scan', false)}
+              onTouchStart={(e) => {
+                e.currentTarget.style.opacity = '0.8';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
               style={{
                 backgroundColor: '#2E7D32',
                 color: 'white',
@@ -1053,11 +1091,12 @@ export default function DishCoveryLanding() {
               className={`how-to-use ${dishCoveryHoverStates.howToUse ? 'how-to-use-hover' : ''}`}
               onMouseEnter={() => dishCoveryHandleHover('howToUse', true)}
               onMouseLeave={() => dishCoveryHandleHover('howToUse', false)}
-              onClick={(e) => {
-                if (!dishCoveryIsLoggedIn) {
-                  e.preventDefault();
-                  setDishCoveryShowSignInModal(true);
-                }
+              onClick={dishCoveryHandlePantryClick}
+              onTouchStart={(e) => {
+                e.currentTarget.style.opacity = '0.8';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.opacity = '1';
               }}
             >
               How It Works
@@ -1089,7 +1128,16 @@ export default function DishCoveryLanding() {
           <p className="carousel-subtitle">
            Be among the first home cooks to transform mealtime. Explore recipes tailored to you, reduce waste, and elevate every meal.
           </p>
-          <button className="carousel-start-btn" onClick={dishCoveryHandleStartJourneyClick}>
+          <button 
+            className="carousel-start-btn" 
+            onClick={dishCoveryHandleStartJourneyClick}
+            onTouchStart={(e) => {
+              e.currentTarget.style.opacity = '0.8';
+            }}
+            onTouchEnd={(e) => {
+              e.currentTarget.style.opacity = '1';
+            }}
+          >
             Start Your Free Journey →
           </button>
         </div>
@@ -1106,7 +1154,17 @@ export default function DishCoveryLanding() {
             <>
               <div className="carousel-row top-row">
                 {[...dishCoveryCarouselRecipes, ...dishCoveryCarouselRecipes].map((recipe, index) => (
-                  <div key={`top-${recipe.id}-${index}`} className="recipe-card" onClick={() => dishCoveryHandleRecipeClick(recipe.id)}>
+                  <div 
+                    key={`top-${recipe.id}-${index}`} 
+                    className="recipe-card" 
+                    onClick={() => dishCoveryHandleRecipeClick(recipe.id)}
+                    onTouchStart={(e) => {
+                      e.currentTarget.style.opacity = '0.8';
+                    }}
+                    onTouchEnd={(e) => {
+                      e.currentTarget.style.opacity = '1';
+                    }}
+                  >
                     <img 
                       src={recipe.img} 
                       alt={recipe.name}
@@ -1125,7 +1183,17 @@ export default function DishCoveryLanding() {
               </div>
               <div className="carousel-row bottom-row">
                 {[...dishCoveryCarouselRecipes.slice().reverse(), ...dishCoveryCarouselRecipes.slice().reverse()].map((recipe, index) => (
-                  <div key={`bottom-${recipe.id}-${index}`} className="recipe-card" onClick={() => dishCoveryHandleRecipeClick(recipe.id)}>
+                  <div 
+                    key={`bottom-${recipe.id}-${index}`} 
+                    className="recipe-card" 
+                    onClick={() => dishCoveryHandleRecipeClick(recipe.id)}
+                    onTouchStart={(e) => {
+                      e.currentTarget.style.opacity = '0.8';
+                    }}
+                    onTouchEnd={(e) => {
+                      e.currentTarget.style.opacity = '1';
+                    }}
+                  >
                     <img 
                       src={recipe.img} 
                       alt={recipe.name}
@@ -1164,7 +1232,16 @@ export default function DishCoveryLanding() {
               <p className="step-text">Get suggested recipes based on your ingredients and preferences.</p>
             </div>
           </div>
-          <div className="how-to-video" onClick={dishCoveryHandleVideoClick}>
+          <div 
+            className="how-to-video" 
+            onClick={dishCoveryHandleVideoClick}
+            onTouchStart={(e) => {
+              e.currentTarget.style.opacity = '0.8';
+            }}
+            onTouchEnd={(e) => {
+              e.currentTarget.style.opacity = '1';
+            }}
+          >
             <img src="https://via.placeholder.com/400x300.png?text=Healthy+Cooking+Demo" alt="Video Preview" className="video-preview" />
             <div className="video-placeholder">
               <svg viewBox="0 0 24 24" fill="currentColor">
@@ -1249,10 +1326,10 @@ export default function DishCoveryLanding() {
       {/* 2. Product Links */}
       <div className="footer-column">
         <h3 className="footer-title">Product</h3>
-        <ul className="footer-links">
-          <li><a href="/Scanning">Smart Scanning</a></li>
-          <li><a href="/pantry">Pantry Management</a></li>
-          <li><a href="/how-it-works">How It Works</a></li>
+          <ul className="footer-links">
+          <li><a href="/Scanning" onClick={dishCoveryHandleScanningClick} onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>Smart Scanning</a></li>
+          <li><a href="/pantry" onClick={dishCoveryHandlePantryClick} onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>Pantry Management</a></li>
+          <li><a href="/how-it-works" onClick={(e) => { if (!dishCoveryIsLoggedIn) { e.preventDefault(); setDishCoveryShowSignInModal(true); } }} onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>How It Works</a></li>
         </ul>
       </div>
 
