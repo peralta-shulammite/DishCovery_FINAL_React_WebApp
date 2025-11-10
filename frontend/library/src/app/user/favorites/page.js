@@ -504,7 +504,6 @@ export default function FavoritesPage() {
                           e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
                         }}
                       />
-                      
                     </div>
                     {/* Recipe Content */}
                     <div className="recipe-content">
@@ -534,6 +533,7 @@ export default function FavoritesPage() {
                             
                             return mealTypes.map((mealType, index) => (
                               <span key={index} className="meal-type-badge">
+                                <FontAwesomeIcon icon={faUtensils} />
                                 {mealType}
                               </span>
                             ));
@@ -639,6 +639,19 @@ export default function FavoritesPage() {
                     )}
                   </div>
                   
+                  {/* Verification Badge Section - Moved above engagement buttons */}
+                  <div className="verification-section">
+                    <div className="verification-main">
+                      <FontAwesomeIcon 
+                        className="verification-icon"
+                        icon={faShieldAlt}
+                      />
+                      <span className="verification-status">
+                        Checked by: Cecilia Alamag, RND, MSc
+                      </span>
+                    </div>
+                  </div>
+                  
                   <div className="modal-stats">
                     <button 
                       className={`stat-item-button tried-button-compact stat-button-ripple`}
@@ -681,12 +694,14 @@ export default function FavoritesPage() {
                   <div className="instructions-section">
                     <h3 className="section-title">Step-by-Step Instructions</h3>
                     <div className="instructions-list">
-                      {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
-                        <div key={index} className="instruction-step">
-                          <span className="step-number">{index + 1}</span>
-                          <span className="step-text">{step}</span>
-                        </div>
-                      ))}
+                      {selectedRecipe.instructions && selectedRecipe.instructions
+                        .filter(step => step && String(step).trim().length > 0)
+                        .map((step, index) => (
+                          <div key={index} className="instruction-step">
+                            <span className="step-number">{index + 1}</span>
+                            <span className="step-text">{step}</span>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -744,6 +759,7 @@ export default function FavoritesPage() {
                       <h3 className="section-title">Servings</h3>
                       <div className="modal-tags">
                         <span className="modal-tag servings">
+                          <FontAwesomeIcon icon={faUsers} />
                           {selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}
                         </span>
                       </div>
@@ -754,7 +770,7 @@ export default function FavoritesPage() {
                     <h3 className="section-title">Ingredients</h3>
                     <div className="ingredients-grid">
                       {['main', 'condiments', 'optional'].map((category, categoryIndex) => {
-                        const ingredients = selectedRecipe.ingredients?.[category];
+                        const ingredients = selectedRecipe.ingredients[category];
                         if (!ingredients || ingredients.length === 0) return null;
                         
                         return (

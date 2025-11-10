@@ -56,7 +56,7 @@ const RecipePage = () => {
   const iconRef = useRef(null);
 
   const [dishCoverySearchQuery, setDishCoverySearchQuery] = useState('');
-  const [dishCoverySortBy, setDishCoverySortBy] = useState('relevance');
+  const [dishCoverySortBy, setDishCoverySortBy] = useState('alphabetical');
   const [dishCoveryViewMode, setDishCoveryViewMode] = useState('grid'); 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -165,31 +165,22 @@ const RecipePage = () => {
     const sorted = [...recipesToSort];
     
     switch (sortBy) {
-      case 'popularity':
-        return sorted.sort((a, b) => {
-          const aPopularity = (a.engagement?.saved || 0) + (a.engagement?.tried || 0);
-          const bPopularity = (b.engagement?.saved || 0) + (b.engagement?.tried || 0);
-          return bPopularity - aPopularity;
-        });
-      case 'rating':
-        return sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      case 'cookTime':
-        return sorted.sort((a, b) => {
-          // Extract numeric value from cookTime (e.g., "30 min" -> 30)
-          const extractTime = (timeStr) => {
-            if (typeof timeStr === 'number') return timeStr;
-            const match = String(timeStr).match(/(\d+)/);
-            return match ? parseInt(match[1]) : 999;
-          };
-          const aTime = extractTime(a.cookTime);
-          const bTime = extractTime(b.cookTime);
-          return aTime - bTime;
-        });
       case 'alphabetical':
         return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-      case 'relevance':
+      case 'mostTried':
+        return sorted.sort((a, b) => {
+          const aTried = a.engagement?.tried || 0;
+          const bTried = b.engagement?.tried || 0;
+          return bTried - aTried;
+        });
+      case 'mostSaved':
+        return sorted.sort((a, b) => {
+          const aSaved = a.engagement?.saved || 0;
+          const bSaved = b.engagement?.saved || 0;
+          return bSaved - aSaved;
+        });
       default:
-        return sorted; // Keep original order for relevance
+        return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
     }
   }, []);
 
@@ -944,11 +935,9 @@ const RecipePage = () => {
                 onChange={(e) => setDishCoverySortBy(e.target.value)}
                 className="sort-dropdown-sidebar"
               >
-                <option value="relevance">Relevance</option>
-                <option value="popularity">Most Popular</option>
-                <option value="rating">Highest Rated</option>
-                <option value="cookTime">Cook Time</option>
                 <option value="alphabetical">A-Z</option>
+                <option value="mostTried">Most Tried</option>
+                <option value="mostSaved">Most Saved</option>
               </select>
             </div>
 
@@ -1026,7 +1015,21 @@ const RecipePage = () => {
                 </div>
               </div>
 
-              <div className="filter-section-new">
+              <div className="controls-actions-new">
+                <button
+                  type="button"
+                  className="mobile-filter-toggle-new"
+                  onClick={openFilterModal}
+                >
+                  <FontAwesomeIcon icon={faFilter} />
+                  Filters
+                  {getActiveFilterCount() > 0 && (
+                    <span className="filter-count-badge-new">
+                      {getActiveFilterCount()}
+                    </span>
+                  )}
+                </button>
+                <div className="filter-section-new">
                 <div className="view-toggle-new">
                 <button 
                     className={`view-btn-new ${dishCoveryViewMode === 'grid' ? 'view-btn-active-new' : ''}`}
@@ -1045,6 +1048,7 @@ const RecipePage = () => {
                     </svg>
                   </button>
                 </div>
+              </div>
               </div>
             </div>
 
@@ -1334,10 +1338,9 @@ const RecipePage = () => {
                     onChange={(e) => setDishCoverySortBy(e.target.value)}
                     className="filter-modal-dropdown"
                   >
-                    <option value="popularity">Most Popular</option>
-                    <option value="rating">Highest Rated</option>
-                    <option value="cookTime">Cook Time</option>
                     <option value="alphabetical">A-Z</option>
+                    <option value="mostTried">Most Tried</option>
+                    <option value="mostSaved">Most Saved</option>
                   </select>
                 </div>
 
@@ -1439,6 +1442,19 @@ const RecipePage = () => {
                     )}
                   </div>
                   
+                  {/* Verification Badge Section - Moved above engagement buttons */}
+                  <div className="verification-section">
+                    <div className="verification-main">
+                      <FontAwesomeIcon 
+                        className="verification-icon"
+                        icon={faShieldAlt}
+                      />
+                      <span className="verification-status">
+                        Checked by: Cecilia Alamag, RND, MSc
+                      </span>
+                    </div>
+                  </div>
+                  
                   <div className="modal-stats">
                     <button 
                       className={`stat-item-button tried-button-compact stat-button-ripple ${triedRecipes.has(selectedRecipe.id) ? 'tried' : ''}`}
@@ -1485,37 +1501,20 @@ const RecipePage = () => {
                       </div>
                     </button>
                   </div>
-                  
-                  {/* Verification Badge Section */}
-                  <div className="verification-section">
-                    <div className="verification-main">
-                      <FontAwesomeIcon 
-                        className="verification-icon"
-                        icon={getVerificationIcon(selectedRecipe.verificationStatus)}
-                      />
-                      <span className="verification-status">
-                        {selectedRecipe.verifierName
-                          ? `Checked by: ${selectedRecipe.verifierName}${selectedRecipe.verifierCredentials ? `, ${selectedRecipe.verifierCredentials}` : ''}`
-                          : (selectedRecipe.verificationStatus && selectedRecipe.verificationStatus !== 'AI-generated'
-                              ? (selectedRecipe.verificationStatus.startsWith('Checked by:')
-                                  ? selectedRecipe.verificationStatus
-                                  : `Checked by: ${selectedRecipe.verificationStatus}`)
-                              : 'AI Generated Recipe')}
-                      </span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="modal-center">
                   <div className="instructions-section">
                     <h3 className="section-title">Step-by-Step Instructions</h3>
                     <div className="instructions-list">
-                      {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
-                        <div key={index} className="instruction-step">
-                          <span className="step-number">{index + 1}</span>
-                          <span className="step-text">{step}</span>
-                        </div>
-                      ))}
+                      {selectedRecipe.instructions && selectedRecipe.instructions
+                        .filter(step => step && String(step).trim().length > 0)
+                        .map((step, index) => (
+                          <div key={index} className="instruction-step">
+                            <span className="step-number">{index + 1}</span>
+                            <span className="step-text">{step}</span>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 </div>

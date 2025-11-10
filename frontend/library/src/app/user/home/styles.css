@@ -407,11 +407,11 @@
 }
 
 .top-row {
-  animation: slideLeft 50s linear infinite;
+  animation: slideLeft 100s linear infinite;
 }
 
 .bottom-row {
-  animation: slideRight 50s linear infinite;
+  animation: slideRight 100s linear infinite;
 }
 
 .carousel-row:hover {

@@ -598,15 +598,51 @@ input:checked + .toggle-slider-minimal:before {
   box-shadow: 0 2px 4px rgba(211, 47, 47, 0.15);
 }
 
-.logout-btn-minimal {
-  background: transparent;
+/* Logout Section - Matching Delete Account Design */
+.logout-section-minimal {
+  border: 1px solid rgba(211, 47, 47, 0.2);
+  background: rgba(211, 47, 47, 0.02);
+}
+
+.logout-content-minimal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.logout-item-minimal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+}
+
+.logout-label-minimal {
+  font-size: 13px;
+  font-weight: 600;
   color: #D32F2F;
-  border: 1px solid #D32F2F;
+  font-family: 'Poppins', sans-serif;
+}
+
+.logout-btn-minimal {
+  background: #D32F2F;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Poppins', sans-serif;
 }
 
 .logout-btn-minimal:hover {
-  background: #D32F2F;
-  color: white;
+  background: #B71C1C;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(211, 47, 47, 0.15);
 }
 
 /* Right Panel - Fixed Profile Details */
