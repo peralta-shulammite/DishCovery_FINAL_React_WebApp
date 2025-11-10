@@ -8,11 +8,23 @@ const router = express.Router();
 // Get all available ingredients from ingredients table
 router.get('/ingredients', authenticateToken, async (req, res) => {
   try {
-    console.log('📋 Fetching all pantry ingredients...');
+    const userId = req.user.userId;
+    console.log('📋 Fetching all pantry ingredients for user:', userId);
+    
+    // ✅ Get user's excluded ingredients
+    const excludedIngredients = await pool.query(`
+      SELECT ingredient_name
+      FROM user_excluded_ingredients
+      WHERE user_id = ? AND member_id IS NULL
+    `, [userId]);
+    
+    const excludedNames = excludedIngredients.map(item => item.ingredient_name);
+    console.log(`🚫 Excluding ${excludedNames.length} ingredients:`, excludedNames);
     
     // Get active ingredients from ingredients table with image data
     // ✅ Use same query structure as admin ingredients route
-    const ingredients = await pool.query(`
+    // ✅ Exclude user's excluded ingredients
+    let query = `
       SELECT 
         ingredient_id as id,
         ingredient_name as name,
@@ -24,8 +36,20 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
         created_at
       FROM ingredients 
       WHERE is_active = 1
-      ORDER BY ingredient_name
-    `);
+    `;
+    
+    const params = [];
+    
+    // ✅ Exclude user's excluded ingredients
+    if (excludedNames.length > 0) {
+      const placeholders = excludedNames.map(() => '?').join(',');
+      query += ` AND ingredient_name NOT IN (${placeholders})`;
+      params.push(...excludedNames);
+    }
+    
+    query += ` ORDER BY ingredient_name`;
+    
+    const ingredients = await pool.query(query, params);
     
     // ✅ Transform ingredients using same logic as admin ingredients route
     const transformedIngredients = ingredients.map(ingredient => {

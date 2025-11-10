@@ -190,7 +190,9 @@ const transformRecipeData = (recipeData) => {
     medicalConditions: Array.isArray(recipeData.medicalConditions)
       ? recipeData.medicalConditions
       : [],
-    verificationStatus: recipeData.verificationStatus || 'Checked by: Nutritionist'
+    verificationStatus: recipeData.verificationStatus || 'Checked by: Nutritionist',
+    verifierName: recipeData.verifierName || '',
+    verifierCredentials: recipeData.verifierCredentials || ''
   };
 };
 
@@ -225,7 +227,12 @@ export const recipeAPI = {
   create: async (recipeData) => {
     const apiData = transformRecipeData(recipeData);
     
-    console.log('Creating recipe with data:', apiData);
+    console.log('🔍 [Frontend] Creating recipe with data:', apiData);
+    console.log('🔍 [Frontend] Verification fields:', {
+      verificationStatus: apiData.verificationStatus,
+      verifierName: apiData.verifierName,
+      verifierCredentials: apiData.verifierCredentials
+    });
 
     const response = await apiCall('/admin/recipes', {
       method: 'POST',
@@ -242,7 +249,12 @@ export const recipeAPI = {
   update: async (id, recipeData) => {
     const apiData = transformRecipeData(recipeData);
     
-    console.log('Updating recipe with data:', apiData);
+    console.log('🔍 [Frontend] Updating recipe with data:', apiData);
+    console.log('🔍 [Frontend] Verification fields:', {
+      verificationStatus: apiData.verificationStatus,
+      verifierName: apiData.verifierName,
+      verifierCredentials: apiData.verifierCredentials
+    });
 
     const response = await apiCall(`/admin/recipes/${id}`, {
       method: 'PUT',

@@ -52,13 +52,29 @@ export const transformRecipeForFrontend = (recipe, images = [], ingredients = []
   let verifierCredentials = '';
 
   if (verification) {
-    if (verification.verification_status !== 'AI-generated' && verification.verifier_name) {
-      verificationStatus = `Checked by: ${verification.verification_status}`;
-      verifierName = verification.verifier_name;
+    if (verification.verification_status && verification.verification_status !== 'AI-generated') {
+      verificationStatus = verification.verification_status.startsWith('Checked by:') 
+        ? verification.verification_status 
+        : `Checked by: ${verification.verification_status}`;
+      verifierName = verification.verifier_name || '';
       verifierCredentials = verification.verifier_credentials || '';
+    } else if (recipe.verification_status) {
+      // Fallback to recipe object if verification parameter is null
+      verificationStatus = recipe.verification_status.startsWith('Checked by:') 
+        ? recipe.verification_status 
+        : `Checked by: ${recipe.verification_status}`;
+      verifierName = recipe.verifier_name || '';
+      verifierCredentials = recipe.verifier_credentials || '';
     } else {
       verificationStatus = 'AI-generated';
     }
+  } else if (recipe.verification_status) {
+    // Fallback to recipe object if verification parameter is null
+    verificationStatus = recipe.verification_status.startsWith('Checked by:') 
+      ? recipe.verification_status 
+      : `Checked by: ${recipe.verification_status}`;
+    verifierName = recipe.verifier_name || '';
+    verifierCredentials = recipe.verifier_credentials || '';
   }
 
   // Parse instructions if stored as JSON string
@@ -185,30 +201,12 @@ export const transformRecipeForDatabase = (recipeData) => {
   const healthTags = recipeData.healthTags || [];
   const allTags = [...dietaryTags, ...healthTags];
 
-  // Verification data for recipe_verification table
+  // Verification data for recipes table (verifier_name and verifier_credentials are now in recipes table)
   const verification = {
-    verification_status: 'Checked by: Nutritionist',
-    verifier_name: null,
-    verifier_credentials: null,
-    verified_at: null
+    verification_status: recipeData.verificationStatus || 'Checked by: Nutritionist',
+    verifier_name: recipeData.verifierName || null,
+    verifier_credentials: recipeData.verifierCredentials || null
   };
-
-  if (recipeData.verificationStatus && recipeData.verificationStatus.startsWith('Checked by:')) {
-    // Parse "Checked by: Nutritionist" format
-    if (recipeData.verificationStatus.includes('Checked by:')) {
-      const parts = recipeData.verificationStatus.split(':');
-      if (parts.length > 1) {
-        const status = parts[1].trim().split(',')[0]; // Get first part before comma
-        verification.verification_status = status;
-      }
-    } else {
-      verification.verification_status = recipeData.verificationStatus;
-    }
-    
-    verification.verifier_name = null;
-    verification.verifier_credentials = null;
-    verification.verified_at = new Date();
-  }
 
   return {
     baseRecipe,

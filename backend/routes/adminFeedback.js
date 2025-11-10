@@ -436,7 +436,15 @@ router.post('/:id/reply', async (req, res) => {
         );
       } catch (columnError) {
         // If columns don't exist, insert without them
-        if (columnError.message.includes('related_id') || columnError.message.includes('related_type')) {
+        const errorMessage = columnError.message || '';
+        const errorCode = columnError.code || '';
+        const sqlState = columnError.sqlState || '';
+        
+        if (errorMessage.includes('related_id') || 
+            errorMessage.includes('related_type') ||
+            errorCode === 'ER_BAD_FIELD_ERROR' ||
+            errorCode === 1054 ||
+            sqlState === '42S22') {
           console.warn('⚠️ related_id/related_type columns not found, inserting without them');
           await db.query(
             `INSERT INTO notifications (
@@ -459,7 +467,9 @@ router.post('/:id/reply', async (req, res) => {
             ]
           );
         } else {
-          throw columnError;
+          // ✅ Don't throw error - just log it and continue
+          // This prevents the reply from failing due to notification column issues
+          console.warn('⚠️ Error creating notification (non-critical):', errorMessage);
         }
       }
 

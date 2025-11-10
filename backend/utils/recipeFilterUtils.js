@@ -202,6 +202,78 @@ async function getIngredientNames(db, ingredientIds = []) {
 }
 
 /**
+ * Get user's excluded ingredients from database
+ * 
+ * @param {Object} db - Database connection
+ * @param {number} userId - User ID
+ * @returns {Promise<Array>} - Array of excluded ingredient names
+ */
+async function getUserExcludedIngredients(db, userId) {
+  if (!userId) {
+    console.log('⚠️ [getUserExcludedIngredients] No userId provided, returning empty excluded ingredients');
+    return [];
+  }
+  
+  try {
+    console.log(`🔍 [getUserExcludedIngredients] Fetching excluded ingredients for user ID: ${userId}`);
+    const excludedIngredientsQuery = `
+      SELECT ingredient_name
+      FROM user_excluded_ingredients
+      WHERE user_id = ? AND member_id IS NULL
+    `;
+    
+    const excludedIngredients = await db.query(excludedIngredientsQuery, [userId]);
+    const excludedList = excludedIngredients.map(item => item.ingredient_name);
+    
+    console.log(`✅ [getUserExcludedIngredients] Found ${excludedList.length} excluded ingredients for user ${userId}:`, excludedList);
+    
+    return excludedList;
+  } catch (err) {
+    console.error('❌ [getUserExcludedIngredients] Error fetching excluded ingredients:', err.message);
+    console.error('   Stack:', err.stack);
+    return [];
+  }
+}
+
+/**
+ * Build SQL WHERE clause for excluded ingredients filtering
+ * 
+ * @param {Array} excludedIngredientNames - Array of excluded ingredient names
+ * @returns {Object} - Object with SQL clause and parameters
+ */
+function buildExcludedIngredientsFilter(excludedIngredientNames = []) {
+  if (!excludedIngredientNames || excludedIngredientNames.length === 0) {
+    return {
+      clause: '',
+      params: []
+    };
+  }
+  
+  // ✅ CRITICAL: Exclude recipes that contain any of the user's excluded ingredients
+  // Use LIKE pattern matching to catch variations (e.g., "Pork" matches "Ground pork", "Pork bits", etc.)
+  // Check in ALL ingredient categories (main, condiments, optional)
+  const conditions = excludedIngredientNames.map(() => 
+    'LOWER(TRIM(rid.ingredient_name)) LIKE ?'
+  ).join(' OR ');
+  
+  const clause = `
+    AND NOT EXISTS (
+      SELECT 1 FROM recipe_ingredients_detailed rid
+      WHERE rid.recipe_id = r.recipe_id
+      AND (${conditions})
+    )
+  `;
+  
+  // Add % wildcards for LIKE pattern matching (case-insensitive)
+  const params = excludedIngredientNames.map(name => `%${name.toLowerCase().trim()}%`);
+  
+  return {
+    clause,
+    params
+  };
+}
+
+/**
  * Validate recipe filtering parameters
  * 
  * @param {Object} params - Filtering parameters
@@ -265,7 +337,9 @@ export {
   shouldShowRecipe,
   buildMedicalConditionFilter,
   buildIngredientFilter,
+  buildExcludedIngredientsFilter,
   getUserMedicalConditions,
+  getUserExcludedIngredients,
   getIngredientNames,
   validateFilterParams
 };

@@ -118,7 +118,27 @@ const api = {
       const userData = await userResponse.json();
       console.log('✅ User login successful:', userData);
       
-      // ✅ SECURITY FIX: Only store token
+      // ✅ VALIDATE TOKEN BEFORE STORING
+      if (!userData.token || typeof userData.token !== 'string' || userData.token.length < 20) {
+        console.error('❌ Invalid token received from server:', {
+          hasToken: !!userData.token,
+          tokenType: typeof userData.token,
+          tokenLength: userData.token?.length
+        });
+        throw new Error('Invalid token received from server. Please try again.');
+      }
+
+      // ✅ VALIDATE JWT FORMAT
+      const tokenParts = userData.token.split('.');
+      if (tokenParts.length !== 3) {
+        console.error('❌ Invalid JWT format:', {
+          parts: tokenParts.length,
+          tokenLength: userData.token.length
+        });
+        throw new Error('Invalid token format. Please try again.');
+      }
+      
+      // ✅ SECURITY FIX: Only store token after validation
       localStorage.setItem('token', userData.token);
       
       return {

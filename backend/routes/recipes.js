@@ -5,9 +5,11 @@ import jwt from 'jsonwebtoken';
 import { transformRecipeForFrontend } from '../utils/recipeTransformer.js';
 import {
   getUserMedicalConditions,
+  getUserExcludedIngredients,
   getIngredientNames,
   buildIngredientFilter,
   buildMedicalConditionFilter,
+  buildExcludedIngredientsFilter,
   validateFilterParams
 } from '../utils/recipeFilterUtils.js';
 
@@ -263,6 +265,10 @@ router.get('/', optionalAuth, async (req, res) => {
     const userId = req.user ? (req.user.userId || req.user.id) : null;
     const { userMedicalConditions, restrictionIdList } = await getUserMedicalConditions(db, userId);
     console.log(`🔍 User ${userId || 'anonymous'} has ${userMedicalConditions.length} medical conditions:`, userMedicalConditions);
+    
+    // ✅ Get user's excluded ingredients using shared utility
+    const excludedIngredientNames = await getUserExcludedIngredients(db, userId);
+    console.log(`🔍 User ${userId || 'anonymous'} has ${excludedIngredientNames.length} excluded ingredients:`, excludedIngredientNames);
 
     let query = `
       SELECT DISTINCT
@@ -281,6 +287,9 @@ router.get('/', optionalAuth, async (req, res) => {
         r.is_active,
         r.created_at,
         r.updated_at,
+        r.verification_status,
+        r.verifier_name,
+        r.verifier_credentials,
         COALESCE(AVG(uri.rating), 4.5) as rating,
         COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
         COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
@@ -304,6 +313,18 @@ router.get('/', optionalAuth, async (req, res) => {
       }
     } else {
       console.log('ℹ️ No medical conditions to filter');
+    }
+
+    // ✅ Filter out recipes with user's excluded ingredients using shared utility
+    if (excludedIngredientNames.length > 0) {
+      const excludedFilter = buildExcludedIngredientsFilter(excludedIngredientNames);
+      if (excludedFilter.clause) {
+        whereClauses.push(excludedFilter.clause.replace('AND ', ''));
+        params.push(...excludedFilter.params);
+        console.log(`🚫 Filtering out recipes with excluded ingredients: ${excludedIngredientNames.join(', ')}`);
+      }
+    } else {
+      console.log('ℹ️ No excluded ingredients to filter');
     }
 
     if (search && search.trim()) {
@@ -397,17 +418,19 @@ router.get('/', optionalAuth, async (req, res) => {
           [recipe.id]
         );
 
-        const verification = await db.query(
-          'SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?',
-          [recipe.id]
-        );
+        // Get verification data from recipes table (not recipe_verification)
+        const verification = recipe.verification_status ? {
+          verification_status: recipe.verification_status,
+          verifier_name: recipe.verifier_name || null,
+          verifier_credentials: recipe.verifier_credentials || null
+        } : null;
 
         const transformed = transformRecipeForFrontend(
           recipe,
           images,
           ingredients,
           tags,
-          verification[0],
+          verification,
           {
             tried_count: recipe.tried_count || 0,
             save_count: recipe.save_count || 0,
@@ -503,6 +526,9 @@ router.get('/search', async (req, res) => {
         r.difficulty_level as difficulty,
         r.meal_type,
         r.dish_type,
+        r.verification_status,
+        r.verifier_name,
+        r.verifier_credentials,
         COALESCE(AVG(uri.rating), 4.5) as average_rating,
         COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
         COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
@@ -523,14 +549,20 @@ router.get('/search', async (req, res) => {
     const enrichedRecipes = await Promise.all(recipes.map(async (recipe) => {
       recipe.instructions = parseInstructions(recipe.instructions);
 
-      const [images, ingredients, tags, verification] = await Promise.all([
+      const [images, ingredients, tags] = await Promise.all([
         db.query('SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC', [recipe.id]),
         db.query('SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order', [recipe.id]),
-        db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [recipe.id]),
-        db.query('SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?', [recipe.id])
+        db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [recipe.id])
       ]);
+      
+      // Get verification data from recipes table (not recipe_verification)
+      const verification = recipe.verification_status ? {
+        verification_status: recipe.verification_status,
+        verifier_name: recipe.verifier_name || null,
+        verifier_credentials: recipe.verifier_credentials || null
+      } : null;
 
-      const transformed = transformRecipeForFrontend(recipe, images, ingredients, tags, verification[0], {
+      const transformed = transformRecipeForFrontend(recipe, images, ingredients, tags, verification, {
         tried_count: recipe.tried_count,
         save_count: recipe.save_count,
         average_rating: recipe.average_rating
@@ -608,7 +640,7 @@ router.get('/recommended', async (req, res) => {
         db.query('SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC', [recipe.id]),
         db.query('SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order', [recipe.id]),
         db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [recipe.id]),
-        db.query('SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?', [recipe.id])
+        // Get verification data from recipes table (not recipe_verification) - removed query
       ]);
 
       const transformed = transformRecipeForFrontend(recipe, images, ingredients, tags, verification[0], {
@@ -633,10 +665,13 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const query = `
+      const query = `
       SELECT 
         r.*,
         r.recipe_id as id,
+        r.verification_status,
+        r.verifier_name,
+        r.verifier_credentials,
         COALESCE(AVG(uri.rating), 4.5) as average_rating,
         COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
         COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
@@ -655,12 +690,18 @@ router.get('/:id', async (req, res) => {
     const recipe = recipes[0];
     recipe.instructions = parseInstructions(recipe.instructions);
 
-    const [images, ingredients, tags, verification] = await Promise.all([
+    const [images, ingredients, tags] = await Promise.all([
       db.query('SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC', [id]),
       db.query('SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order', [id]),
-      db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [id]),
-      db.query('SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?', [id])
+      db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [id])
     ]);
+    
+    // Get verification data from recipes table (not recipe_verification)
+    const verification = recipe.verification_status ? {
+      verification_status: recipe.verification_status,
+      verifier_name: recipe.verifier_name || null,
+      verifier_credentials: recipe.verifier_credentials || null
+    } : null;
     
     // ✅ Debug: Log images for specific recipe (e.g., Sinugba)
     if (recipe.recipe_name && recipe.recipe_name.toLowerCase().includes('sinugba')) {
@@ -702,6 +743,9 @@ router.get('/:id/details', async (req, res) => {
         r.*,
         r.recipe_id as id,
         r.recipe_name as title,
+        r.verification_status,
+        r.verifier_name,
+        r.verifier_credentials,
         COALESCE(AVG(uri.rating), 4.5) as average_rating,
         COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
         COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
@@ -722,7 +766,7 @@ router.get('/:id/details', async (req, res) => {
     const instructions = parseInstructions(recipe.instructions);
     console.log('Parsed instructions:', instructions);
 
-    const [images, ingredients, tags, verification] = await Promise.all([
+    const [images, ingredients, tags] = await Promise.all([
       db.query(
         'SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC',
         [id]
@@ -737,12 +781,15 @@ router.get('/:id/details', async (req, res) => {
          INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id
          WHERE rdt.recipe_id = ?`,
         [id]
-      ),
-      db.query(
-        'SELECT verification_status, verifier_name, verifier_credentials, verified_at FROM recipe_verification WHERE recipe_id = ?',
-        [id]
       )
     ]);
+    
+    // Get verification data from recipes table (not recipe_verification)
+    const verification = recipe.verification_status ? {
+      verification_status: recipe.verification_status,
+      verifier_name: recipe.verifier_name || null,
+      verifier_credentials: recipe.verifier_credentials || null
+    } : null;
     
     // ✅ Debug: Log images for specific recipe (e.g., Sinugba)
     if (recipe.recipe_name && recipe.recipe_name.toLowerCase().includes('sinugba')) {
@@ -758,7 +805,7 @@ router.get('/:id/details', async (req, res) => {
       images,
       ingredients,
       tags,
-      verification[0],
+      verification,
       {
         tried_count: recipe.tried_count,
         save_count: recipe.save_count,
@@ -1137,6 +1184,10 @@ router.post('/filter', optionalAuth, async (req, res) => {
     const { userMedicalConditions, restrictionIdList } = await getUserMedicalConditions(db, userId);
     console.log(`🔍 [FILTER] User ${userId || 'anonymous'} has ${userMedicalConditions.length} medical conditions:`, userMedicalConditions);
     console.log(`🔍 [FILTER] Restriction IDs:`, restrictionIdList);
+    
+    // ✅ Get user's excluded ingredients using shared utility
+    const excludedIngredientNames = await getUserExcludedIngredients(db, userId);
+    console.log(`🔍 [FILTER] User ${userId || 'anonymous'} has ${excludedIngredientNames.length} excluded ingredients:`, excludedIngredientNames);
 
     // ✅ Get ingredient names from ingredient IDs using shared utility
     const allIngredientIds = [...scannedIngredients, ...pantryIngredients];
@@ -1234,6 +1285,16 @@ router.post('/filter', optionalAuth, async (req, res) => {
       console.log(`📋 Applied medical condition filter with ${restrictionIdList.length} restrictions`);
     } else {
       console.log('ℹ️ No medical conditions to filter - showing all matching recipes');
+    }
+
+    // ✅ Build excluded ingredients filter using shared utility
+    const excludedFilter = buildExcludedIngredientsFilter(excludedIngredientNames);
+    if (excludedFilter.clause) {
+      query += excludedFilter.clause;
+      queryParams.push(...excludedFilter.params);
+      console.log(`🚫 Filtering out recipes with excluded ingredients: ${excludedIngredientNames.join(', ')}`);
+    } else {
+      console.log('ℹ️ No excluded ingredients to filter - showing all matching recipes');
     }
 
     // Group by and order - include all non-aggregated columns in GROUP BY for ONLY_FULL_GROUP_BY compliance
