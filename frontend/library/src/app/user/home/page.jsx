@@ -174,7 +174,14 @@ export default function DishCoveryLanding() {
     const token = localStorage.getItem('token');
     
     // ✅ SECURITY FIX: Validate token format before using it
-    if (token && token.length > 10 && token.split('.').length === 3 && !wasCleared) {
+    // Also check for common invalid values like "null", "true", "false", "undefined"
+    const invalidTokenValues = ['null', 'true', 'false', 'undefined', 'NaN'];
+    const isInvalidToken = !token || 
+                           token.length < 20 || 
+                           token.split('.').length !== 3 ||
+                           invalidTokenValues.includes(token.toLowerCase());
+    
+    if (token && !isInvalidToken && !wasCleared) {
       setDishCoveryIsLoggedIn(true);
       
       // Fetch full profile from backend (token is verified server-side)
@@ -276,8 +283,20 @@ export default function DishCoveryLanding() {
         });
     } else {
       if (token || wasCleared) {
+        // ✅ Log invalid token details for debugging
+        if (token && isInvalidToken) {
+          console.warn('⚠️ Invalid token detected and cleared:', {
+            tokenLength: token.length,
+            tokenValue: token.substring(0, 20) + (token.length > 20 ? '...' : ''),
+            isInvalidValue: invalidTokenValues.includes(token.toLowerCase()),
+            parts: token.split('.').length
+          });
+        }
         // Silently clear malformed tokens or if we cleared stale data
-        localStorage.clear();
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('currentUserId');
+        localStorage.removeItem('currentUserEmail');
         sessionStorage.clear();
       }
       setDishCoveryIsLoggedIn(false);
