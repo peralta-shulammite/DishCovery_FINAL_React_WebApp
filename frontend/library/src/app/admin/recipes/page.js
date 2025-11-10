@@ -18,6 +18,9 @@ const RecipeManagement = () => {
   const [healthFilter, setHealthFilter] = useState('All');
   const [editingRecipeId, setEditingRecipeId] = useState(null); 
   
+  // Track newly added instruction step index to show it even if empty
+  const [newlyAddedStepIndex, setNewlyAddedStepIndex] = useState(null);
+  
   // Database connection states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -295,6 +298,9 @@ const RecipeManagement = () => {
         verifierCredentials: fullRecipe.verifierCredentials || ''
       });
       
+      // Reset newly added step index when editing
+      setNewlyAddedStepIndex(null);
+      
     } catch (error) {
       console.error('Error loading recipe:', error);
       alert('Failed to load recipe details');
@@ -397,6 +403,8 @@ const RecipeManagement = () => {
       verifierCredentials: ''
     });
     setEditingRecipeId(null);
+    // Reset newly added step index when form is reset
+    setNewlyAddedStepIndex(null);
   };
 
   const addInstructionStep = () => {
@@ -1295,11 +1303,20 @@ const RecipeManagement = () => {
                   <label className="form-label">Instructions *</label>
                   {(() => {
                     // Filter out empty instructions for display, but keep original indices
-                    const nonEmptyInstructions = formData.instructions
-                      .map((instruction, originalIndex) => ({ instruction, originalIndex }))
-                      .filter(({ instruction }) => instruction && String(instruction).trim().length > 0);
+                    // Also show newly added step even if empty
+                    const instructionsWithIndices = formData.instructions
+                      .map((instruction, originalIndex) => ({ instruction, originalIndex }));
                     
-                    if (nonEmptyInstructions.length === 0) {
+                    // Show instructions that are either:
+                    // 1. Not empty (have content)
+                    // 2. OR are the newly added step (even if empty)
+                    const visibleInstructions = instructionsWithIndices.filter(({ instruction, originalIndex }) => {
+                      const hasContent = instruction && String(instruction).trim().length > 0;
+                      const isNewlyAdded = newlyAddedStepIndex === originalIndex;
+                      return hasContent || isNewlyAdded;
+                    });
+                    
+                    if (visibleInstructions.length === 0) {
                       // Show one empty instruction field if all are empty
                       return (
                         <div className="instruction-item">
@@ -1309,6 +1326,7 @@ const RecipeManagement = () => {
                             value=""
                             onChange={(e) => {
                               setFormData({...formData, instructions: [e.target.value]});
+                              setNewlyAddedStepIndex(null); // Clear newly added flag when user types
                             }}
                             placeholder="Enter instruction step..."
                             rows="2"
@@ -1318,47 +1336,88 @@ const RecipeManagement = () => {
                       );
                     }
                     
-                    return nonEmptyInstructions.map(({ instruction, originalIndex }, displayIndex) => (
-                      <div key={originalIndex} className="instruction-item">
-                        <span className="step-number">{displayIndex + 1}.</span>
-                        <textarea
-                          className="form-textarea"
-                          value={instruction}
-                          onChange={(e) => {
-                            const newInstructions = [...formData.instructions];
-                            newInstructions[originalIndex] = e.target.value;
-                            // Auto-remove if becomes empty (but keep at least one empty if all become empty)
-                            const cleaned = newInstructions.filter(inst => inst && String(inst).trim().length > 0);
-                            setFormData({
-                              ...formData,
-                              instructions: cleaned.length > 0 ? cleaned : ['']
-                            });
-                          }}
-                          placeholder="Enter instruction step..."
-                          rows="2"
-                          required
-                        />
-                        {nonEmptyInstructions.length > 1 && (
-                          <button type="button" className="remove-btn" onClick={() => {
-                            const newInstructions = formData.instructions.filter((_, i) => i !== originalIndex);
-                            const cleaned = newInstructions.filter(inst => inst && String(inst).trim().length > 0);
-                            setFormData({
-                              ...formData,
-                              instructions: cleaned.length > 0 ? cleaned : ['']
-                            });
-                          }}>
-                            <CloseIcon />
-                          </button>
-                        )}
-                      </div>
-                    ));
+                    return visibleInstructions.map(({ instruction, originalIndex }, displayIndex) => {
+                      const isEmpty = !instruction || String(instruction).trim().length === 0;
+                      const isNewlyAdded = newlyAddedStepIndex === originalIndex;
+                      
+                      return (
+                        <div key={originalIndex} className="instruction-item">
+                          <span className="step-number">{displayIndex + 1}.</span>
+                          <textarea
+                            className="form-textarea"
+                            value={instruction || ''}
+                            onChange={(e) => {
+                              const newInstructions = [...formData.instructions];
+                              newInstructions[originalIndex] = e.target.value;
+                              
+                              // If user types in the newly added step, clear the flag
+                              if (isNewlyAdded && e.target.value.trim().length > 0) {
+                                setNewlyAddedStepIndex(null);
+                              }
+                              
+                              // Auto-remove empty steps (but keep at least one empty if all become empty)
+                              // Don't remove the newly added step if it's still empty
+                              const cleaned = newInstructions.filter((inst, idx) => {
+                                if (inst && String(inst).trim().length > 0) return true;
+                                // Keep if it's the newly added step
+                                if (newlyAddedStepIndex === idx) return true;
+                                return false;
+                              });
+                              
+                              setFormData({
+                                ...formData,
+                                instructions: cleaned.length > 0 ? cleaned : ['']
+                              });
+                            }}
+                            onBlur={() => {
+                              // When user leaves the field, if it's still empty and was newly added, remove it
+                              if (isNewlyAdded && isEmpty) {
+                                const newInstructions = formData.instructions.filter((_, i) => i !== originalIndex);
+                                const cleaned = newInstructions.filter(inst => inst && String(inst).trim().length > 0);
+                                setFormData({
+                                  ...formData,
+                                  instructions: cleaned.length > 0 ? cleaned : ['']
+                                });
+                                setNewlyAddedStepIndex(null);
+                              }
+                            }}
+                            placeholder="Enter instruction step..."
+                            rows="2"
+                            required
+                            autoFocus={isNewlyAdded && isEmpty} // Auto-focus newly added empty step
+                          />
+                          {visibleInstructions.length > 1 && (
+                            <button type="button" className="remove-btn" onClick={() => {
+                              const newInstructions = formData.instructions.filter((_, i) => i !== originalIndex);
+                              const cleaned = newInstructions.filter(inst => inst && String(inst).trim().length > 0);
+                              setFormData({
+                                ...formData,
+                                instructions: cleaned.length > 0 ? cleaned : ['']
+                              });
+                              // Clear newly added flag if we're removing that step
+                              if (newlyAddedStepIndex === originalIndex) {
+                                setNewlyAddedStepIndex(null);
+                              }
+                            }}>
+                              <CloseIcon />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    });
                   })()}
                   <button type="button" className="add-btn" onClick={() => {
                     const nonEmptyInstructions = formData.instructions.filter(inst => inst && String(inst).trim().length > 0);
+                    const newInstructions = [...nonEmptyInstructions, ''];
+                    const newStepIndex = newInstructions.length - 1;
+                    
                     setFormData({
                       ...formData,
-                      instructions: [...nonEmptyInstructions, '']
+                      instructions: newInstructions
                     });
+                    
+                    // Track the newly added step index so it shows even if empty
+                    setNewlyAddedStepIndex(newStepIndex);
                   }}>
                     + Add Step
                   </button>
