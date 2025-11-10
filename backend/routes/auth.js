@@ -183,12 +183,71 @@ const sendVerificationEmail = async (email, code, firstName = '') => {
             name: 'DishCovery'
           },
           subject: 'Verify Your DishCovery Account',
-          html: emailHtml
+          html: emailHtml,
+          // Add SendGrid settings for better delivery
+          mail_settings: {
+            sandbox_mode: {
+              enable: false // Disable sandbox mode for real emails
+            }
+          },
+          // Add tracking settings
+          tracking_settings: {
+            click_tracking: {
+              enable: false
+            },
+            open_tracking: {
+              enable: false
+            }
+          }
         };
 
-        await sgMail.send(msg);
-        console.log(`✅ [PRODUCTION] Verification email sent via SendGrid HTTP API to ${email}`);
-        return true;
+        try {
+          // SendGrid send() returns [response, body] format
+          const [response, body] = await sgMail.send(msg);
+          console.log(`✅ [PRODUCTION] Verification email sent via SendGrid HTTP API to ${email}`);
+          console.log(`📧 [SENDGRID] Response status: ${response?.statusCode || 'unknown'}`);
+          console.log(`📧 [SENDGRID] Response statusText: ${response?.statusMessage || 'unknown'}`);
+          console.log(`📧 [SENDGRID] Response headers:`, JSON.stringify(response?.headers || {}));
+          if (body) {
+            console.log(`📧 [SENDGRID] Response body:`, JSON.stringify(body));
+          }
+          
+          // Check if SendGrid accepted the email
+          if (response?.statusCode === 202) {
+            console.log(`✅ [SENDGRID] Email accepted by SendGrid (202 Accepted)`);
+          } else if (response?.statusCode >= 200 && response?.statusCode < 300) {
+            console.log(`✅ [SENDGRID] Email sent successfully (${response.statusCode})`);
+          } else {
+            console.warn(`⚠️ [SENDGRID] Unexpected status code: ${response?.statusCode}`);
+          }
+          
+          return true;
+        } catch (sendGridError) {
+          console.error('❌ [SENDGRID] Error sending email:', sendGridError);
+          console.error('❌ [SENDGRID] Error message:', sendGridError.message);
+          console.error('❌ [SENDGRID] Error code:', sendGridError.code);
+          
+          // SendGrid errors have a response property with details
+          if (sendGridError.response) {
+            console.error('❌ [SENDGRID] Error response status:', sendGridError.response.statusCode);
+            console.error('❌ [SENDGRID] Error response body:', JSON.stringify(sendGridError.response.body, null, 2));
+            console.error('❌ [SENDGRID] Error response headers:', JSON.stringify(sendGridError.response.headers, null, 2));
+            
+            // Check for common SendGrid errors
+            if (sendGridError.response.body) {
+              const errors = sendGridError.response.body.errors || [];
+              errors.forEach((err, index) => {
+                console.error(`❌ [SENDGRID] Error ${index + 1}:`, {
+                  message: err.message,
+                  field: err.field,
+                  help: err.help
+                });
+              });
+            }
+          }
+          
+          throw sendGridError;
+        }
       } else {
         throw new Error('SendGrid not configured in production environment');
       }
@@ -293,12 +352,71 @@ const sendPasswordResetEmail = async (email, code, firstName = '') => {
             name: 'DishCovery'
           },
           subject: '🔑 Reset Your DishCovery Password',
-          html: emailHtml
+          html: emailHtml,
+          // Add SendGrid settings for better delivery
+          mail_settings: {
+            sandbox_mode: {
+              enable: false // Disable sandbox mode for real emails
+            }
+          },
+          // Add tracking settings
+          tracking_settings: {
+            click_tracking: {
+              enable: false
+            },
+            open_tracking: {
+              enable: false
+            }
+          }
         };
 
-        await sgMail.send(msg);
-        console.log(`✅ [PRODUCTION] Password reset email sent via SendGrid HTTP API to ${email}`);
-        return true;
+        try {
+          // SendGrid send() returns [response, body] format
+          const [response, body] = await sgMail.send(msg);
+          console.log(`✅ [PRODUCTION] Password reset email sent via SendGrid HTTP API to ${email}`);
+          console.log(`📧 [SENDGRID] Response status: ${response?.statusCode || 'unknown'}`);
+          console.log(`📧 [SENDGRID] Response statusText: ${response?.statusMessage || 'unknown'}`);
+          console.log(`📧 [SENDGRID] Response headers:`, JSON.stringify(response?.headers || {}));
+          if (body) {
+            console.log(`📧 [SENDGRID] Response body:`, JSON.stringify(body));
+          }
+          
+          // Check if SendGrid accepted the email
+          if (response?.statusCode === 202) {
+            console.log(`✅ [SENDGRID] Email accepted by SendGrid (202 Accepted)`);
+          } else if (response?.statusCode >= 200 && response?.statusCode < 300) {
+            console.log(`✅ [SENDGRID] Email sent successfully (${response.statusCode})`);
+          } else {
+            console.warn(`⚠️ [SENDGRID] Unexpected status code: ${response?.statusCode}`);
+          }
+          
+          return true;
+        } catch (sendGridError) {
+          console.error('❌ [SENDGRID] Error sending password reset email:', sendGridError);
+          console.error('❌ [SENDGRID] Error message:', sendGridError.message);
+          console.error('❌ [SENDGRID] Error code:', sendGridError.code);
+          
+          // SendGrid errors have a response property with details
+          if (sendGridError.response) {
+            console.error('❌ [SENDGRID] Error response status:', sendGridError.response.statusCode);
+            console.error('❌ [SENDGRID] Error response body:', JSON.stringify(sendGridError.response.body, null, 2));
+            console.error('❌ [SENDGRID] Error response headers:', JSON.stringify(sendGridError.response.headers, null, 2));
+            
+            // Check for common SendGrid errors
+            if (sendGridError.response.body) {
+              const errors = sendGridError.response.body.errors || [];
+              errors.forEach((err, index) => {
+                console.error(`❌ [SENDGRID] Error ${index + 1}:`, {
+                  message: err.message,
+                  field: err.field,
+                  help: err.help
+                });
+              });
+            }
+          }
+          
+          throw sendGridError;
+        }
       } else {
         throw new Error('SendGrid not configured in production environment');
       }
@@ -1269,16 +1387,25 @@ router.post('/google/callback', async (req, res) => {
 
       // Generate verification code
       const verificationCode = generateVerificationCode();
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      // CRITICAL FIX: created_at should be NOW(), not expiresAt
+      // Expiration is calculated from created_at + 10 minutes
+      const createdAt = new Date(); // Current time
 
       // Store verification code in pending_requests
       await connection.query(
         'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
-        [newUserId, 'email_verification', verificationCode, 'pending', expiresAt]
+        [newUserId, 'email_verification', verificationCode, 'pending', createdAt]
       );
 
-      // Send verification email
-      await sendVerificationEmail(email, verificationCode, given_name);
+      // Send verification email (don't fail if email fails - user is still created)
+      try {
+        await sendVerificationEmail(email, verificationCode, given_name);
+        console.log(`✅ [PRODUCTION] Google signup - verification email sent via SendGrid to ${email}`);
+      } catch (emailError) {
+        console.error('❌ [GOOGLE SIGNUP] Failed to send verification email:', emailError);
+        // Don't fail the signup if email fails - user is still created, they can resend
+        console.warn('⚠️ [GOOGLE SIGNUP] User created but email failed. Code:', verificationCode);
+      }
 
       await connection.commit();
 
