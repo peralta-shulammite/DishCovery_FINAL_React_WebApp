@@ -957,10 +957,10 @@ router.post('/reset-password', async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    // Get user
+    // Get user - use LOWER(TRIM(email)) for consistency with login
     const [userRows] = await connection.query(
-      'SELECT user_id FROM users WHERE email = ?',
-      [email]
+      'SELECT user_id FROM users WHERE LOWER(TRIM(email)) = ?',
+      [email.trim().toLowerCase()]
     );
 
     if (!userRows || userRows.length === 0) {
