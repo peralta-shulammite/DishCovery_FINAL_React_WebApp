@@ -91,34 +91,10 @@ const pool = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  // Add connection timeout and retry settings (optimized for Aiven)
+  // Connection timeout settings (valid MySQL2 options)
   connectTimeout: 60000, // 60 seconds
-  acquireTimeout: 60000, // 60 seconds
-  timeout: 60000, // 60 seconds
-  // Automatically remove broken connections
-  removeNodeErrorCount: 5,
-  // Retry failed connections (optimized for Aiven connection issues)
-  retryStrategy: function(options) {
-    if (options.error && options.error.code === 'ECONNRESET') {
-      return 5000; // Retry after 5 seconds
-    }
-    if (options.error && options.error.code === 'PROTOCOL_CONNECTION_LOST') {
-      return 5000; // Retry after 5 seconds for lost connections
-    }
-    if (options.error && options.error.code === 'ETIMEDOUT') {
-      return 5000; // Retry after 5 seconds for timeout
-    }
-    if (options.error && options.error.code === 'ENOTFOUND') {
-      return undefined; // Stop retrying for DNS errors
-    }
-    if (options.total_retry_time > 1000 * 60 * 60) {
-      return undefined; // Stop retrying after 1 hour
-    }
-    if (options.attempt > 10) {
-      return undefined; // Stop after 10 attempts
-    }
-    return Math.min(options.attempt * 100, 3000); // Exponential backoff
-  }
+  // Note: acquireTimeout, timeout, removeNodeErrorCount, and retryStrategy are not valid MySQL2 pool options
+  // Connection retry logic is handled in the db.query() wrapper function instead
 });
 
 // Test connection on startup

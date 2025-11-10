@@ -137,7 +137,7 @@ export default function DishCoveryPantry() {
   const [dishCoveryShowMobileMenu, setDishCoveryShowMobileMenu] = useState(false);
   const [dishCoveryShowAvatarDropdown, setDishCoveryShowAvatarDropdown] = useState(false);
   
-  // Pantry states
+  // Pantry states - Always start with empty selection (no pre-selected ingredients)
   const [dishCoverySelectedIngredients, setDishCoverySelectedIngredients] = useState([]);
   const [dishCoverySearchTerm, setDishCoverySearchTerm] = useState('');
   const [dishCoverySelectedCategory, setDishCoverySelectedCategory] = useState('All');
@@ -213,6 +213,20 @@ export default function DishCoveryPantry() {
     }
   }, []);
 
+  // ✅ Clear selections when component mounts or when navigating to this page
+  useEffect(() => {
+    // Always clear selections on page load
+    setDishCoverySelectedIngredients([]);
+    
+    // Also clear any localStorage that might have saved selections
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('selectedIngredients');
+      sessionStorage.removeItem('selectedIngredients');
+    }
+    
+    console.log('✅ Cleared ingredient selections on page load');
+  }, []);
+
   // Load ingredients from backend database
   useEffect(() => {
     const loadIngredients = async () => {
@@ -242,16 +256,8 @@ export default function DishCoveryPantry() {
           throw new Error('No ingredients returned from API');
         }
         
-        // ✅ Fetch user's selected ingredients - no default selection
-        try {
-          const userSelection = await pantryService.getUserSelection();
-          // Only set if user has saved selections, otherwise start empty
-          setDishCoverySelectedIngredients(userSelection || []);
-        } catch (selectionError) {
-          console.warn('Could not load user selection:', selectionError);
-          // ✅ No default selection - start with empty array
-          setDishCoverySelectedIngredients([]);
-        }
+        // ✅ Always start with empty selection - no pre-selected ingredients
+        setDishCoverySelectedIngredients([]);
         
       } catch (error) {
         console.error('❌ Error loading ingredients:', error);
@@ -265,7 +271,16 @@ export default function DishCoveryPantry() {
     loadIngredients();
   }, [dishCoveryIsLoggedIn]);
 
-  // Auto-save selection when ingredients change
+  // ✅ Clear selections when navigating away (component unmounts)
+  useEffect(() => {
+    return () => {
+      // Clear selections when component unmounts (user navigates away)
+      setDishCoverySelectedIngredients([]);
+      console.log('✅ Cleared ingredient selections on page navigation');
+    };
+  }, []);
+
+  // Auto-save selection when ingredients change (but don't load saved selections on mount)
   useEffect(() => {
     const saveSelection = async () => {
       if (!dishCoveryIsLoggedIn || dishCoverySelectedIngredients.length === 0) return;
@@ -275,9 +290,7 @@ export default function DishCoveryPantry() {
         console.log('✅ Selection auto-saved to backend');
       } catch (error) {
         console.error('❌ Error auto-saving to backend:', error);
-        // Fallback: save to localStorage for testing
-        localStorage.setItem('selectedIngredients', JSON.stringify(dishCoverySelectedIngredients));
-        console.log('Selection saved to localStorage as fallback');
+        // Don't save to localStorage - we want selections cleared on page load
       }
     };
 

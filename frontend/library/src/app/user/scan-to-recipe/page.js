@@ -1017,27 +1017,12 @@ const RecipePage = () => {
                     <div className="verification-main">
                       <FontAwesomeIcon 
                         className="verification-icon"
-                        icon={getVerificationIcon(selectedRecipe.verificationStatus)}
+                        icon={faShieldAlt}
                       />
                       <span className="verification-status">
-                        {selectedRecipe.verificationStatus === 'AI-generated' 
-                          ? 'AI Generated Recipe' 
-                          : 'Professionally Verified'
-                        }
+                        Checked by: Cecilia Alamag, RND, MSc
                       </span>
                     </div>
-                    {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
-                      <div className="verifier-details">
-                        <span className="verifier-name">
-                          Verified by: {selectedRecipe.verifierName}
-                        </span>
-                        {selectedRecipe.verifierCredentials && (
-                          <span className="verifier-credentials">
-                            {selectedRecipe.verifierCredentials}
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
                   
                   {/* Recipe Statistics */}
@@ -1085,12 +1070,14 @@ const RecipePage = () => {
                   <div className="instructions-section">
                     <h3 className="section-title">Step-by-Step Instructions</h3>
                     <div className="instructions-list">
-                      {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
-                        <div key={index} className="instruction-step">
-                          <span className="step-number">{index + 1}</span>
-                          <span className="step-text">{step}</span>
-                        </div>
-                      ))}
+                      {selectedRecipe.instructions && selectedRecipe.instructions
+                        .filter(step => step && String(step).trim().length > 0)
+                        .map((step, index) => (
+                          <div key={index} className="instruction-step">
+                            <span className="step-number">{index + 1}</span>
+                            <span className="step-text">{step}</span>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 </div>

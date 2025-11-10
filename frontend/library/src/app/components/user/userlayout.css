@@ -214,6 +214,12 @@
   color: #2E7D32;
 }
 
+/* Sign Out button in dropdown - red on hover */
+.dropdown-item-signout:hover {
+  background: rgba(211, 47, 47, 0.1);
+  color: #D32F2F;
+}
+
 .logout-btn {
   color: #D32F2F;
 }

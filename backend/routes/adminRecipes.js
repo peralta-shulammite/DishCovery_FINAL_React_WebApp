@@ -446,6 +446,19 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   let connection;
   try {
+    // Require images for new recipes
+    if (!req.body.images || req.body.images.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one image is required' });
+    }
+    
+    // Filter out empty instructions
+    if (req.body.instructions && Array.isArray(req.body.instructions)) {
+      req.body.instructions = req.body.instructions.filter(inst => inst && String(inst).trim().length > 0);
+      if (req.body.instructions.length === 0) {
+        return res.status(400).json({ success: false, message: 'At least one instruction step is required' });
+      }
+    }
+    
     const validation = validateRecipeData(req.body);
     if (!validation.isValid) {
       return res.status(400).json({ success: false, message: validation.errors.join(', ') });
@@ -584,6 +597,14 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const recipeId = parseInt(id);
 
+    // Filter out empty instructions
+    if (req.body.instructions && Array.isArray(req.body.instructions)) {
+      req.body.instructions = req.body.instructions.filter(inst => inst && String(inst).trim().length > 0);
+      if (req.body.instructions.length === 0) {
+        return res.status(400).json({ success: false, message: 'At least one instruction step is required' });
+      }
+    }
+
     const validation = validateRecipeData(req.body);
     if (!validation.isValid) {
       return res.status(400).json({ success: false, message: validation.errors.join(', ') });
@@ -650,8 +671,14 @@ router.put('/:id', async (req, res) => {
     );
 
     // Update images (handle both base64 and URLs)
-    await connection.query('DELETE FROM recipe_images WHERE recipe_id = ?', [recipeId]);
-    if (transformed.images.length > 0) {
+    // ✅ FIXED: Only update images if new images are explicitly provided
+    // - If images array is NOT in request → preserve existing images
+    // - If images array is empty [] → preserve existing images (don't delete)
+    // - If images array has items → replace existing images with new ones
+    if (req.body.images !== undefined && transformed.images.length > 0) {
+      // Only delete and replace if new images are provided
+      await connection.query('DELETE FROM recipe_images WHERE recipe_id = ?', [recipeId]);
+      
       const imageValues = transformed.images.map((imageData, index) => {
         // Validate base64 image size (max 3MB base64 = ~2.25MB actual)
         if (typeof imageData === 'string' && imageData.startsWith('data:image')) {
@@ -673,6 +700,13 @@ router.put('/:id', async (req, res) => {
       );
       
       console.log(`✅ Updated ${imageValues.length} image(s) for recipe ${recipeId}`);
+    } else {
+      // Images not provided or empty array - preserve existing images
+      if (req.body.images === undefined) {
+        console.log(`ℹ️  Images not in update request for recipe ${recipeId}, existing images preserved`);
+      } else {
+        console.log(`ℹ️  Empty images array provided for recipe ${recipeId}, existing images preserved`);
+      }
     }
 
     // Update dietary tags
