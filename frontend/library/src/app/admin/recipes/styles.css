@@ -96,7 +96,7 @@ body {
   padding: 6px 12px;
   border: 1px solid #e5e7eb;
   background: white;
-  border-radius: 6px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 12px;
   transition: all 0.3s;
@@ -303,23 +303,37 @@ body {
   align-items: center;
 }
 
+/* Meal type badges - EXACTLY copied from user recipe page */
 .meal-type-badge {
-  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
-  color: white;
-  padding: 6px 14px;
-  border-radius: 20px; /* Oval shape */
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  background: #2E7D32 !important; /* Solid green background - EXACTLY matching user recipe page */
+  color: white !important; /* White text - EXACTLY matching user recipe page */
+  padding: 6px 12px !important; /* EXACTLY matching user recipe page */
+  border-radius: 20px !important; /* Oval shape - EXACTLY matching user recipe page */
+  font-size: 12px !important; /* EXACTLY matching user recipe page */
+  font-weight: 600 !important;
+  font-family: 'Poppins', sans-serif !important; /* EXACTLY matching user recipe page font */
   white-space: nowrap;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   box-shadow: 0 2px 4px rgba(46, 125, 50, 0.2);
   transition: all 0.2s ease;
+  border: none;
+}
+
+.meal-type-badge svg,
+.meal-type-badge .icon {
+  width: 14px !important;
+  height: 14px !important;
+  fill: white !important; /* White icons - EXACTLY matching user recipe page */
+  stroke: white !important;
+  color: white !important;
 }
 
 .meal-type-badge:hover {
   transform: translateY(-1px);
   box-shadow: 0 3px 6px rgba(46, 125, 50, 0.3);
+  background: #1B5E20 !important; /* Darker green on hover */
 }
 
 /* Legacy support for old meal-type class */
@@ -364,10 +378,73 @@ body {
 
 .recipe-engagement {
   display: flex;
-  gap: 15px;
+  gap: 12px;
   margin-bottom: 12px;
+  align-items: center;
 }
 
+/* Engagement badges - EXACTLY matching user recipe page styling */
+.engagement-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px; /* Oval shape - EXACTLY matching user recipe page */
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif; /* EXACTLY matching user recipe page font */
+  white-space: nowrap;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  border: none;
+  cursor: default;
+}
+
+.engagement-badge svg {
+  width: 14px;
+  height: 14px;
+  fill: white !important; /* White icons - EXACTLY matching user recipe page */
+  stroke: white !important;
+  color: white !important;
+}
+
+/* Tried badge - EXACTLY matching user recipe page (#2E7D32) */
+.engagement-badge.tried-badge {
+  background: #2E7D32 !important; /* Solid green background - EXACTLY matching user recipe page */
+  color: white !important;
+}
+
+.engagement-badge.tried-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(46, 125, 50, 0.3);
+  background: #1B5E20 !important; /* Darker green on hover */
+}
+
+/* Saved badge - EXACTLY matching user recipe page */
+.engagement-badge.saved-badge.has-count {
+  background: #DC2626 !important; /* Solid red background when count > 0 - EXACTLY matching user recipe page */
+  color: white !important;
+}
+
+.engagement-badge.saved-badge.has-count:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(220, 38, 38, 0.3);
+  background: #B91C1C !important; /* Darker red on hover */
+}
+
+.engagement-badge.saved-badge.no-count {
+  background: #9CA3AF !important; /* Solid gray background when count = 0 - EXACTLY matching user recipe page */
+  color: white !important;
+}
+
+.engagement-badge.saved-badge.no-count:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(156, 163, 175, 0.3);
+  background: #6B7280 !important; /* Darker gray on hover */
+}
+
+/* Legacy support for old engagement-item class */
 .engagement-item {
   display: flex;
   align-items: center;
@@ -636,7 +713,7 @@ body {
 .tag-btn {
   padding: 8px 12px;
   border: 1px solid #2E7D32;
-  border-radius: 6px;
+  border-radius: 20px;
   background: white;
   cursor: pointer;
   font-size: 12px;
@@ -687,7 +764,7 @@ body {
 .btn-cancel {
   padding: 10px 20px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 20px;
   background: white;
   cursor: pointer;
   font-size: 14px;
@@ -702,7 +779,7 @@ body {
 .btn-submit {
   padding: 10px 20px;
   border: none;
-  border-radius: 6px;
+  border-radius: 20px;
   background: #2E7D32;
   color: white;
   cursor: pointer;
@@ -761,23 +838,35 @@ body {
   align-items: center;
 }
 
-.meal-type-badge {
-  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 13px;
+/* Modal meal type badge - EXACTLY matching user recipe page (solid green, white text) */
+.meal-type-section .meal-type-badge {
+  background: #2E7D32; /* Solid green background - EXACTLY matching user recipe page */
+  color: white; /* White text - EXACTLY matching user recipe page */
+  padding: 6px 12px; /* EXACTLY matching user recipe page (6px 12px) */
+  border-radius: 20px; /* Oval shape - EXACTLY matching user recipe page */
+  font-size: 12px; /* EXACTLY matching user recipe page (12px Poppins) */
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Poppins', sans-serif; /* EXACTLY matching user recipe page font */
   white-space: nowrap;
-  display: inline-block;
-  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 4px rgba(46, 125, 50, 0.2);
   transition: all 0.2s ease;
 }
 
-.meal-type-badge:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.35);
+.meal-type-section .meal-type-badge svg,
+.meal-type-section .meal-type-badge .icon {
+  width: 14px;
+  height: 14px;
+  fill: white; /* White icons - EXACTLY matching user recipe page */
+  stroke: white;
+  color: white;
+}
+
+.meal-type-section .meal-type-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(46, 125, 50, 0.3);
 }
 
 /* Medical Conditions Section - Red */
@@ -814,19 +903,25 @@ body {
   box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
 }
 
-/* Good For Everyone - Green styling (positive tag) */
+/* Good For Everyone - Green styling (positive tag) - EXACTLY matching user recipe page */
 .medical-condition-badge.good-for-everyone {
-  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
-  color: white;
-  border: 2px solid #2E7D32;
-  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.25);
+  background: #2E7D32 !important; /* Solid green background - EXACTLY matching user recipe page */
+  color: white !important; /* White text - EXACTLY matching user recipe page */
+  border: none !important;
+  padding: 6px 12px !important; /* EXACTLY matching user recipe page */
+  border-radius: 20px !important; /* Oval shape - EXACTLY matching user recipe page */
+  font-size: 12px !important; /* EXACTLY matching user recipe page */
+  font-weight: 600 !important;
+  font-family: 'Poppins', sans-serif !important; /* EXACTLY matching user recipe page font */
+  box-shadow: 0 2px 4px rgba(46, 125, 50, 0.2) !important;
+  transition: all 0.2s ease;
 }
 
 .medical-condition-badge.good-for-everyone:hover {
-  background: linear-gradient(135deg, #1b5e20 0%, #2E7D32 100%);
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.35);
+  background: #1B5E20 !important; /* Darker green on hover */
+  color: white !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(46, 125, 50, 0.3) !important;
 }
 
 /* Serving & Verification Section */
@@ -895,17 +990,56 @@ body {
   box-shadow: 0 3px 6px rgba(139, 92, 246, 0.3);
 }
 
-/* Engagement Stats Section */
+/* Engagement Stats Section in Modal - EXACTLY matching user recipe page */
 .recipe-engagement-stats {
   display: flex;
-  gap: 24px;
+  gap: 12px;
   margin-bottom: 24px;
-  padding: 20px;
-  background: rgba(46, 125, 50, 0.05);
-  border-radius: 12px;
-  border-left: 4px solid #2E7D32;
+  align-items: center;
+  padding: 16px 0;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
 }
 
+.recipe-engagement-stats .engagement-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 20px; /* Oval shape - EXACTLY matching user recipe page */
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  white-space: nowrap;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.recipe-engagement-stats .engagement-badge.tried-badge {
+  background: #2E7D32 !important; /* Solid green background - EXACTLY matching user recipe page */
+  color: white !important;
+}
+
+.recipe-engagement-stats .engagement-badge.saved-badge.has-count {
+  background: #DC2626 !important; /* Solid red background when count > 0 - EXACTLY matching user recipe page */
+  color: white !important;
+}
+
+.recipe-engagement-stats .engagement-badge.saved-badge.no-count {
+  background: #9CA3AF !important; /* Solid gray background when count = 0 - EXACTLY matching user recipe page */
+  color: white !important;
+}
+
+.recipe-engagement-stats .engagement-badge svg {
+  width: 16px;
+  height: 16px;
+  fill: white !important; /* White icons - EXACTLY matching user recipe page */
+  stroke: white;
+  color: white;
+}
+
+/* Legacy support for old engagement-stat class */
 .engagement-stat {
   display: flex;
   align-items: center;
@@ -1015,6 +1149,39 @@ body {
   color: #9ca3af;
 }
 
+/* Engagement Stats Section in Modal */
+.recipe-engagement-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+  padding: 16px 0;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.recipe-engagement-stats .engagement-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 20px; /* Oval shape - matching user recipe page */
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  white-space: nowrap;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.recipe-engagement-stats .engagement-badge svg {
+  width: 16px;
+  height: 16px;
+  fill: white;
+  stroke: white;
+}
+
 /* Instructions Section */
 .recipe-instructions-display {
   margin-bottom: 24px;
@@ -1060,7 +1227,7 @@ body {
   gap: 8px;
   padding: 10px 16px;
   border: none;
-  border-radius: 6px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;

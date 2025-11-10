@@ -933,7 +933,7 @@ body {
 }
 
 .mobile-filter-toggle-new {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
@@ -946,6 +946,7 @@ body {
   cursor: pointer;
   transition: background var(--transition);
   font-family: var(--font-family-heading);
+  margin-right: auto;
 }
 
 .mobile-filter-toggle-new:hover {
@@ -959,6 +960,35 @@ body {
   padding: 2px 6px;
   font-size: 12px;
   font-weight: 700;
+}
+
+@media (max-width: 1024px) {
+  .mobile-filter-toggle-new {
+    display: flex;
+    height: 44px;
+    padding: 0 18px;
+    flex-shrink: 0;
+  }
+
+  .filters-sidebar-new {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .controls-actions-new {
+    justify-content: space-between;
+  }
+
+  .mobile-filter-toggle-new {
+    height: 42px;
+    padding: 0 16px;
+    justify-content: center;
+  }
+
+  .view-toggle-new {
+    margin-left: 0;
+  }
 }
 
 .view-toggle-new {

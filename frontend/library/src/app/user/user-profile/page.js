@@ -1246,13 +1246,21 @@ export default function UserProfilePage() {
                 </div>
               </section>
 
+              <section className="activity-section logout-section-minimal">
+                <div className="logout-content-minimal">
+                  <div className="logout-item-minimal">
+                    <span className="logout-label-minimal">Log Out</span>
+                    <button
+                      className="logout-btn-minimal"
+                      onClick={dishCoveryHandleLogout}
+                    >
+                      Log Out
+                    </button>
+                  </div>
+                </div>
+              </section>
+
               <section className="activity-section danger-section-minimal">
-                <h2 className="activity-section-title danger-title">
-                  <svg className="activity-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
-                  </svg>
-                  Danger Zone
-                </h2>
                 <div className="danger-content-minimal">
                   <div className="danger-item-minimal">
                     <span className="danger-label">Delete Account</span>
@@ -1261,15 +1269,6 @@ export default function UserProfilePage() {
                       onClick={() => setDishCoveryShowDeactivateModal(true)}
                     >
                       Delete
-                    </button>
-                  </div>
-                  <div className="danger-item-minimal">
-                    <span className="danger-label">Log Out</span>
-                    <button
-                      className="danger-btn-minimal logout-btn-minimal"
-                      onClick={dishCoveryHandleLogout}
-                    >
-                      Log Out
                     </button>
                   </div>
                 </div>
@@ -1461,9 +1460,15 @@ export default function UserProfilePage() {
                           className="edit-btn-fixed"
                           onClick={() => setDishCoveryEditingPreferences(!dishCoveryEditingPreferences)}
                         >
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                          </svg>
+                          {dishCoveryEditingPreferences ? (
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                            </svg>
+                          )}
                           {dishCoveryEditingPreferences ? 'Done' : 'Edit'}
                         </button>
                       </div>
@@ -1863,54 +1868,6 @@ export default function UserProfilePage() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* MEDICAL CONDITIONS MODAL */}
-        {showMedicalConditionsModal && (
-          <div
-            className="modal-overlay"
-            onClick={handleCloseMedicalConditionsModal}
-          >
-            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
-              <button
-                className="close-btn"
-                onClick={handleCloseMedicalConditionsModal}
-              >
-                ×
-              </button>
-              <h2 className="modal-title">Select Medical Conditions</h2>
-              <p className="modal-subtitle">Select all allergies and intolerances that apply</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
-                {availableMedicalConditions.map((condition) => (
-                  <label key={condition} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb', transition: 'all 0.2s' }}>
-                    <input
-                      type="checkbox"
-                      checked={tempMedicalConditions.includes(condition)}
-                      onChange={() => handleToggleMedicalCondition(condition)}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: '14px', color: '#374151' }}>{condition}</span>
-                  </label>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                <button
-                  className="cancel-btn"
-                  onClick={handleCloseMedicalConditionsModal}
-                  style={{ flex: 1 }}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="modal-signin-btn"
-                  onClick={handleSaveMedicalConditions}
-                  style={{ flex: 1 }}
-                >
-                  Save
-                </button>
-              </div>
             </div>
           </div>
         )}

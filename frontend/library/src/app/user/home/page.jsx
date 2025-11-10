@@ -41,6 +41,8 @@ export default function DishCoveryLanding() {
   const [dishCoveryDeferredPrompt, setDishCoveryDeferredPrompt] = useState(null);
   const [dishCoveryShowIOSInstructions, setDishCoveryShowIOSInstructions] = useState(false);
   const [dishCoveryInstallButtonExpanded, setDishCoveryInstallButtonExpanded] = useState(true);
+  const [dishCoveryIsAppInstalled, setDishCoveryIsAppInstalled] = useState(false);
+  const [dishCoveryIsMobileDevice, setDishCoveryIsMobileDevice] = useState(false);
   
   // ✅ FLEXIBLE LOGIN: Options 2, 3, 4 state
   const [dishCoveryShowPasswordReminder, setDishCoveryShowPasswordReminder] = useState(false);
@@ -123,6 +125,47 @@ export default function DishCoveryLanding() {
 
   // PWA Install Prompt Handler - One Click Install
   useEffect(() => {
+    // ✅ Detect if device is mobile
+    const checkIsMobile = () => {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                      (window.innerWidth <= 768);
+      setDishCoveryIsMobileDevice(isMobile);
+      return isMobile;
+    };
+
+    // ✅ Detect if app is already installed
+    const checkIfAppInstalled = () => {
+      // Check for standalone mode (Android/Chrome/Edge)
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      
+      // Check for iOS standalone mode
+      const isIOSStandalone = window.navigator.standalone === true;
+      
+      // Check localStorage flag (set when app is installed)
+      const pwaInstalled = localStorage.getItem('pwaInstalled') === 'true';
+      
+      // App is installed if any of these conditions are true
+      const installed = isStandalone || isIOSStandalone || pwaInstalled;
+      
+      setDishCoveryIsAppInstalled(installed);
+      
+      if (installed) {
+        console.log('✅ App is already installed');
+      }
+      
+      return installed;
+    };
+
+    // Initial check
+    checkIsMobile();
+    checkIfAppInstalled();
+
+    // Listen for window resize to update mobile detection
+    const handleResize = () => {
+      checkIsMobile();
+    };
+    window.addEventListener('resize', handleResize);
+
     const handleBeforeInstallPrompt = (e) => {
       console.log('📱 beforeinstallprompt event fired!');
       e.preventDefault();
@@ -137,20 +180,18 @@ export default function DishCoveryLanding() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     console.log('👂 Listening for beforeinstallprompt event...');
 
-    // Check if app is already installed
-    const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches;
-    if (isAppInstalled) {
-      console.log('✅ App is already installed (standalone mode)');
-    }
-
     // Check for successful installation
-    window.addEventListener('appinstalled', (evt) => {
+    const handleAppInstalled = (evt) => {
       console.log('✅ PWA was installed successfully!');
       localStorage.setItem('pwaInstalled', 'true');
-    });
+      setDishCoveryIsAppInstalled(true);
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
@@ -1939,35 +1980,37 @@ export default function DishCoveryLanding() {
         </div>
       )}
 
-      {/* Floating Install App Button - Always visible on all platforms */}
-      <div className="pwa-floating-install-container">
-        {dishCoveryInstallButtonExpanded ? (
-          <div className="pwa-install-expanded">
+      {/* Floating Install App Button - Hidden on mobile devices when app is already installed */}
+      {!(dishCoveryIsMobileDevice && dishCoveryIsAppInstalled) && (
+        <div className="pwa-floating-install-container">
+          {dishCoveryInstallButtonExpanded ? (
+            <div className="pwa-install-expanded">
+              <button
+                className="pwa-install-button-expanded"
+                onClick={dishCoveryHandlePWAInstall}
+              >
+                <span className="pwa-install-icon">📱</span>
+                <span className="pwa-install-text">Install App</span>
+              </button>
+              <button
+                className="pwa-install-close"
+                onClick={() => setDishCoveryInstallButtonExpanded(false)}
+                aria-label="Collapse install button"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
             <button
-              className="pwa-install-button-expanded"
-              onClick={dishCoveryHandlePWAInstall}
+              className="pwa-install-button-dot"
+              onClick={() => setDishCoveryInstallButtonExpanded(true)}
+              aria-label="Expand install button"
             >
-              <span className="pwa-install-icon">📱</span>
-              <span className="pwa-install-text">Install App</span>
+              <span className="pwa-install-dot">📱</span>
             </button>
-            <button
-              className="pwa-install-close"
-              onClick={() => setDishCoveryInstallButtonExpanded(false)}
-              aria-label="Collapse install button"
-            >
-              ×
-            </button>
-          </div>
-        ) : (
-          <button
-            className="pwa-install-button-dot"
-            onClick={() => setDishCoveryInstallButtonExpanded(true)}
-            aria-label="Expand install button"
-          >
-            <span className="pwa-install-dot">📱</span>
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
     </UserLayout>
   );

@@ -1044,13 +1044,13 @@ const RecipeManagement = () => {
                     </div>
                   </div>
                   <div className="recipe-engagement">
-                    <div className="engagement-item">
+                    <div className="engagement-badge tried-badge">
                       <TryIcon />
-                      <span>{recipe.engagement?.tried || 0}</span>
+                      <span>{recipe.engagement?.tried || recipe.tried_count || 0} tried</span>
                     </div>
-                    <div className="engagement-item">
+                    <div className={`engagement-badge saved-badge ${(recipe.engagement?.saved || recipe.save_count || 0) > 0 ? 'has-count' : 'no-count'}`}>
                       <HeartIcon />
-                      <span>{recipe.engagement?.saved || 0}</span>
+                      <span>{recipe.engagement?.saved || recipe.save_count || 0} saved</span>
                     </div>
                   </div>
                   <div className="recipe-verification">
@@ -1680,13 +1680,13 @@ const RecipeManagement = () => {
 
                 {/* Engagement Stats */}
                 <div className="recipe-engagement-stats">
-                  <div className="engagement-stat">
+                  <div className={`engagement-badge tried-badge ${(selectedRecipe.engagement?.tried || selectedRecipe.tried_count || 0) > 0 ? 'has-count' : ''}`}>
                     <TryIcon />
-                    <span>{selectedRecipe.engagement?.tried || 0} people tried this</span>
+                    <span>{selectedRecipe.engagement?.tried || selectedRecipe.tried_count || 0} people tried this</span>
                   </div>
-                  <div className="engagement-stat">
+                  <div className={`engagement-badge saved-badge ${(selectedRecipe.engagement?.saved || selectedRecipe.save_count || 0) > 0 ? 'has-count' : 'no-count'}`}>
                     <HeartIcon />
-                    <span>{selectedRecipe.engagement?.saved || 0} people saved this</span>
+                    <span>{selectedRecipe.engagement?.saved || selectedRecipe.save_count || 0} people saved this</span>
                   </div>
                 </div>
 

@@ -25,7 +25,8 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
     // Handle mysql2 pool.query() which returns [rows, fields] format
     let users;
     try {
-      const result = await pool.query(`
+      // Properly destructure [rows, fields] from pool.query()
+      const [rows] = await pool.query(`
         SELECT
           u.user_id as id,
           u.first_name,
@@ -59,8 +60,8 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
           u.created_at DESC
       `);
       
-      // mysql2 pool.query() returns [rows, fields] - extract rows
-      users = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
+      // rows is already the array of user objects
+      users = rows || [];
       
       console.log(`✅ [ADMIN USERS] Found ${users.length} users`);
     } catch (queryError) {
@@ -79,7 +80,8 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
       // Category 1 (Allergy) + Category 2 (Intolerance) = Medical Conditions
       // Dietary Lifestyle removed - no longer needed
       try {
-        const result = await pool.query(`
+        // Properly destructure [rows, fields] from pool.query()
+        const [restrictionsData] = await pool.query(`
           SELECT 
             r.restriction_name,
             rc.category_name,
@@ -89,8 +91,6 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
           JOIN restriction_categories rc ON r.category_id = rc.category_id
           WHERE ur.user_id = ? AND ur.member_id IS NULL AND ur.status = 'active'
         `, [user.id]);
-        // Extract rows from mysql2 result format
-        const restrictionsData = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
         
         // Organize by category (only medical conditions)
         restrictionsData.forEach(item => {
@@ -111,14 +111,13 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
 
       // Try to get excluded ingredients (no longer used for dietary lifestyle)
       try {
-        const result = await pool.query(`
+        // Properly destructure [rows, fields] from pool.query()
+        const [excludedData] = await pool.query(`
           SELECT i.ingredient_name
           FROM user_excluded_ingredients uei
           JOIN ingredients i ON uei.ingredient_id = i.ingredient_id
           WHERE uei.user_id = ? AND uei.member_id IS NULL
         `, [user.id]);
-        // Extract rows from mysql2 result format
-        const excludedData = Array.isArray(result) && Array.isArray(result[0]) ? result[0] : (Array.isArray(result) ? result : []);
         excludedIngredients = excludedData.map(e => e.ingredient_name);
       } catch (err) {
         // Silently handle missing tables (ER_NO_SUCH_TABLE) - expected behavior
@@ -126,6 +125,98 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
           excludedIngredients = [];
         } else {
           console.log('Note: excluded_ingredients table query failed, skipping');
+        }
+      }
+
+      // Fetch user activity stats from database
+      let recipesViewed = 0;
+      let recipesSaved = 0;
+      let ingredientsScanned = 0;
+      let lastRecipe = 'N/A';
+      let feedbackSubmitted = false;
+
+      // Count recipes viewed (from user_last_opened_recipes table)
+      try {
+        // Properly destructure [rows, fields] from pool.query()
+        const [viewsRows] = await pool.query(`
+          SELECT COUNT(DISTINCT recipe_id) as count
+          FROM user_last_opened_recipes
+          WHERE user_id = ?
+        `, [user.id]);
+        recipesViewed = viewsRows[0]?.count || 0;
+      } catch (err) {
+        // Table might not exist, default to 0
+        if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== '42S02') {
+          console.log('Note: user_last_opened_recipes table query failed:', err.message);
+        }
+      }
+
+      // Count recipes saved
+      try {
+        // Properly destructure [rows, fields] from pool.query()
+        const [savedRows] = await pool.query(`
+          SELECT COUNT(DISTINCT recipe_id) as count
+          FROM user_recipe_interactions
+          WHERE user_id = ? AND is_saved = 1
+        `, [user.id]);
+        recipesSaved = savedRows[0]?.count || 0;
+      } catch (err) {
+        // Table might not exist, default to 0
+        if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== '42S02') {
+          console.log('Note: user_recipe_interactions table query failed:', err.message);
+        }
+      }
+
+      // Count ingredients scanned
+      try {
+        // Properly destructure [rows, fields] from pool.query()
+        const [scannedRows] = await pool.query(`
+          SELECT COUNT(DISTINCT scan_id) as count
+          FROM user_scanned_ingredients
+          WHERE user_id = ?
+        `, [user.id]);
+        ingredientsScanned = scannedRows[0]?.count || 0;
+      } catch (err) {
+        // Table might not exist, default to 0
+        if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== '42S02') {
+          console.log('Note: user_scanned_ingredients table query failed:', err.message);
+        }
+      }
+
+      // Get last opened recipe
+      try {
+        // Properly destructure [rows, fields] from pool.query()
+        const [lastRecipeRows] = await pool.query(`
+          SELECT r.recipe_name
+          FROM user_last_opened_recipes lor
+          INNER JOIN recipes r ON lor.recipe_id = r.recipe_id
+          WHERE lor.user_id = ?
+          ORDER BY lor.opened_at DESC
+          LIMIT 1
+        `, [user.id]);
+        if (lastRecipeRows.length > 0 && lastRecipeRows[0]?.recipe_name) {
+          lastRecipe = lastRecipeRows[0].recipe_name;
+        }
+      } catch (err) {
+        // Table might not exist, default to 'N/A'
+        if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== '42S02') {
+          console.log('Note: user_last_opened_recipes table query failed:', err.message);
+        }
+      }
+
+      // Check if user has submitted feedback
+      try {
+        // Properly destructure [rows, fields] from pool.query()
+        const [feedbackRows] = await pool.query(`
+          SELECT COUNT(*) as count
+          FROM feedback
+          WHERE user_id = ?
+        `, [user.id]);
+        feedbackSubmitted = (feedbackRows[0]?.count || 0) > 0;
+      } catch (err) {
+        // Table might not exist, default to false
+        if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== '42S02') {
+          console.log('Note: feedback table query failed:', err.message);
         }
       }
 
@@ -147,11 +238,11 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
         diets: [], // Not used anymore (removed from UI)
         medicalConditions: medicalConditions, // From restrictions with category 'Allergy' or 'Intolerance'
         dietaryLifestyle: [], // Dietary lifestyle removed - no longer needed
-        recipesViewed: 0, // TODO: Implement if recipe views are tracked
-        recipesSaved: 0, // TODO: Implement if saved recipes are tracked
-        ingredientsScanned: 0, // TODO: Implement if ingredient scans are tracked
-        lastRecipe: 'N/A', // TODO: Implement if last recipe is tracked
-        feedbackSubmitted: false, // TODO: Check feedback table
+        recipesViewed: recipesViewed,
+        recipesSaved: recipesSaved,
+        ingredientsScanned: ingredientsScanned,
+        lastRecipe: lastRecipe,
+        feedbackSubmitted: feedbackSubmitted,
         notes: ''
       };
     }));
@@ -162,13 +253,12 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
     const inactiveUsers = users.filter(u => u.status === 'Inactive').length;
 
     // Calculate new users (joined in last 7 days)
-    const newUsersResult = await pool.query(`
+    // Properly destructure [rows, fields] from pool.query()
+    const [newUsersRows] = await pool.query(`
       SELECT COUNT(*) as count
       FROM users
       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
     `);
-    // Extract rows from mysql2 result format
-    const newUsersRows = Array.isArray(newUsersResult) && Array.isArray(newUsersResult[0]) ? newUsersResult[0] : (Array.isArray(newUsersResult) ? newUsersResult : []);
     const newUsers = newUsersRows[0]?.count || 0;
 
     console.log('✅ [ADMIN USERS] Successfully fetched users:', {
