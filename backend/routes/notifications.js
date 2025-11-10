@@ -6,8 +6,9 @@ const router = express.Router();
 
 /**
  * ✅ Safe query wrapper for MySQL
+ * Suppresses error logging for expected column errors
  */
-async function safeQuery(query, params = []) {
+async function safeQuery(query, params = [], suppressColumnErrors = false) {
   try {
     const result = await pool.query(query, params);
     
@@ -22,8 +23,49 @@ async function safeQuery(query, params = []) {
     
     return rows;
   } catch (error) {
-    console.error('❌ safeQuery error:', error.message);
+    // ✅ Don't log expected column errors - they'll be handled by the caller
+    const isColumnError = error.code === 'ER_BAD_FIELD_ERROR' || 
+                         error.code === 1054 ||
+                         error.sqlState === '42S22' ||
+                         (error.message && (error.message.includes('Unknown column') || 
+                                           error.message.includes('related_id') || 
+                                           error.message.includes('related_type')));
+    
+    if (!suppressColumnErrors || !isColumnError) {
+      console.error('❌ safeQuery error:', error.message);
+    }
     throw error;
+  }
+}
+
+/**
+ * ✅ Check if a column exists in a table
+ */
+async function columnExists(tableName, columnName) {
+  try {
+    const result = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = ?
+      AND COLUMN_NAME = ?
+    `, [tableName, columnName]);
+    
+    // Handle different result structures from pool.query
+    let rows;
+    if (Array.isArray(result) && Array.isArray(result[0])) {
+      rows = result[0];
+    } else if (Array.isArray(result)) {
+      rows = result;
+    } else {
+      rows = [result];
+    }
+    
+    return rows[0]?.count > 0;
+  } catch (error) {
+    // If we can't check, assume column doesn't exist
+    console.warn(`⚠️ Could not check if column ${columnName} exists in ${tableName}:`, error.message);
+    return false;
   }
 }
 
@@ -39,10 +81,16 @@ router.get('/', authenticateToken, async (req, res) => {
 
     // Check if notifications table exists
     try {
-      // ✅ Try to fetch with related_id and related_type first
-      // If columns don't exist, catch error and retry without them
+      // ✅ Check if related_id and related_type columns exist first
+      // If table doesn't exist, columnExists will return false
+      const hasRelatedId = await columnExists('notifications', 'related_id');
+      const hasRelatedType = await columnExists('notifications', 'related_type');
+      
       let notifications;
-      try {
+      
+      // ✅ Build query based on column existence
+      if (hasRelatedId && hasRelatedType) {
+        // Columns exist - use them
         notifications = await safeQuery(`
           SELECT 
             notification_id as id,
@@ -59,33 +107,28 @@ router.get('/', authenticateToken, async (req, res) => {
           WHERE user_id = ?
           ORDER BY created_at DESC
           LIMIT ?
-        `, [userId, parseInt(limit)]);
-      } catch (columnError) {
-        // ✅ If related_id or related_type columns don't exist, retry without them
-        if (columnError.message.includes('related_id') || 
-            columnError.message.includes('related_type') ||
-            columnError.code === 'ER_BAD_FIELD_ERROR') {
-          console.warn('⚠️ related_id/related_type columns not found, fetching without them');
-          notifications = await safeQuery(`
-            SELECT 
-              notification_id as id,
-              title as subject,
-              message as body,
-              notification_type as type,
-              is_read,
-              created_at,
-              sender_name as from_name,
-              sender_role as from_role,
-              NULL as related_id,
-              NULL as related_type
-            FROM notifications
-            WHERE user_id = ?
-            ORDER BY created_at DESC
-            LIMIT ?
-          `, [userId, parseInt(limit)]);
-        } else {
-          throw columnError;
-        }
+        `, [userId, parseInt(limit)], true);
+      } else {
+        // Columns don't exist - use NULL values
+        // This also handles the case where the table doesn't exist
+        console.log('ℹ️ related_id/related_type columns not found, fetching without them');
+        notifications = await safeQuery(`
+          SELECT 
+            notification_id as id,
+            title as subject,
+            message as body,
+            notification_type as type,
+            is_read,
+            created_at,
+            sender_name as from_name,
+            sender_role as from_role,
+            NULL as related_id,
+            NULL as related_type
+          FROM notifications
+          WHERE user_id = ?
+          ORDER BY created_at DESC
+          LIMIT ?
+        `, [userId, parseInt(limit)], true);
       }
 
       console.log(`✅ Found ${notifications.length} notifications`);
@@ -97,8 +140,15 @@ router.get('/', authenticateToken, async (req, res) => {
       });
     } catch (tableError) {
       // If table doesn't exist, return empty array instead of error
-      if (tableError.message.includes('doesn\'t exist') || 
-          tableError.message.includes('ER_NO_SUCH_TABLE')) {
+      const errorMessage = tableError.message || '';
+      const errorCode = tableError.code || '';
+      const sqlState = tableError.sqlState || '';
+      
+      if (errorMessage.includes('doesn\'t exist') || 
+          errorMessage.includes('ER_NO_SUCH_TABLE') ||
+          errorCode === 'ER_NO_SUCH_TABLE' ||
+          errorCode === 1146 ||
+          sqlState === '42S02') {
         console.warn('⚠️ Notifications table does not exist. Returning empty array.');
         res.json({
           success: true,
@@ -106,17 +156,30 @@ router.get('/', authenticateToken, async (req, res) => {
           count: 0,
           message: 'Notifications table not yet created'
         });
+        return; // ✅ Return early to prevent further error handling
       } else {
-        throw tableError;
+        // ✅ For other database errors (like column errors), return empty array instead of 500
+        // This prevents frontend from signing out users
+        console.warn('⚠️ Database error fetching notifications, returning empty array:', errorMessage);
+        res.json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'Unable to fetch notifications at this time'
+        });
+        return; // ✅ Return early to prevent 500 error
       }
     }
 
   } catch (error) {
+    // ✅ Only log error, but return success with empty data to prevent sign-out
     console.error('❌ Error fetching notifications:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch notifications',
-      details: error.message
+    // Don't return 500 error - return success with empty data instead
+    res.json({
+      success: true,
+      data: [],
+      count: 0,
+      message: 'Unable to fetch notifications at this time'
     });
   }
 });
@@ -143,23 +206,38 @@ router.get('/unread-count', authenticateToken, async (req, res) => {
       });
     } catch (tableError) {
       // If table doesn't exist, return 0
-      if (tableError.message.includes('doesn\'t exist') || 
-          tableError.message.includes('ER_NO_SUCH_TABLE')) {
+      const errorMessage = tableError.message || '';
+      const errorCode = tableError.code || '';
+      const sqlState = tableError.sqlState || '';
+      
+      if (errorMessage.includes('doesn\'t exist') || 
+          errorMessage.includes('ER_NO_SUCH_TABLE') ||
+          errorCode === 'ER_NO_SUCH_TABLE' ||
+          errorCode === 1146 ||
+          sqlState === '42S02') {
         console.warn('⚠️ Notifications table does not exist. Returning count 0.');
         res.json({
           success: true,
           count: 0
         });
+        return; // ✅ Return early
       } else {
-        throw tableError;
+        // ✅ For other database errors, return 0 instead of 500
+        console.warn('⚠️ Database error fetching unread count, returning 0:', errorMessage);
+        res.json({
+          success: true,
+          count: 0
+        });
+        return; // ✅ Return early to prevent 500 error
       }
     }
 
   } catch (error) {
+    // ✅ Only log error, but return success with 0 count to prevent sign-out
     console.error('❌ Error fetching unread count:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch unread count'
+    res.json({
+      success: true,
+      count: 0
     });
   }
 });
