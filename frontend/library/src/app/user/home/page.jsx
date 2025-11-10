@@ -887,8 +887,8 @@ const dishCoveryBottomRecipes = [
                   <path d="M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M14.5,8A1.5,1.5 0 0,1 13,6.5A1.5,1.5 0 0,1 14.5,5A1.5,1.5 0 0,1 16,6.5A1.5,1.5 0 0,1 14.5,8M9.5,8A1.5,1.5 0 0,1 8,6.5A1.5,1.5 0 0,1 9.5,5A1.5,1.5 0 0,1 11,6.5A1.5,1.5 0 0,1 9.5,8M6.5,12A1.5,1.5 0 0,1 5,10.5A1.5,1.5 0 0,1 6.5,9A1.5,1.5 0 0,1 8,10.5A1.5,1.5 0 0,1 6.5,12M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A9,9 0 0,0 21,12A9,9 0 0,0 12,3M12,19A7,7 0 0,1 5,12A7,7 0 0,1 12,5A7,7 0 0,1 19,12A7,7 0 0,1 12,19Z"/>
                 </svg>
               </div>
-              <div className="feature-title">All Dietary Needs</div>
-              <div className="feature-desc">Diabetes, allergies, heart disease, and more</div>
+              <div className="feature-title">Dietary Needs</div>
+              <div className="feature-desc">Allergens, intolerances and more</div>
             </div>
           </div>
 
@@ -926,6 +926,12 @@ const dishCoveryBottomRecipes = [
               className={`how-to-use ${dishCoveryHoverStates.howToUse ? 'how-to-use-hover' : ''}`}
               onMouseEnter={() => dishCoveryHandleHover('howToUse', true)}
                onMouseLeave={() => dishCoveryHandleHover('howToUse', false)}
+               onClick={(e) => {
+                 if (!dishCoveryIsLoggedIn) {
+                   e.preventDefault();
+                   setDishCoveryShowSignInModal(true);
+                 }
+               }}
                 >
                 How It Works
               <svg className="arrow" viewBox="0 0 24 24" fill="currentColor">
@@ -1580,9 +1586,9 @@ const dishCoveryBottomRecipes = [
       )}
 
       {dishCoveryShowOneMoreStepModal && (
-        <div className="modal-overlay" onClick={dishCoveryCloseModal}>
+        <div className="modal-overlay" onClick={(e) => { e.stopPropagation(); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
+            {/* Close button removed - user must complete verification */}
             <div className="modal-logo"><img src="/android/android-launchericon-192-192.png" alt="DishCovery Logo" /></div>
             <h2 className="modal-title">One More Step</h2>
             <p className="modal-subtitle">Verify your account to get started</p>
