@@ -63,7 +63,7 @@ export default function AboutLayout({ children }) {
 
       <header className={`about-header ${isScrolled ? 'scrolled' : ''}`}>
         <button className="logo" onClick={scrollToTop}>
-          <span className="logo-text">DishCovery</span>
+          <a href="/" className="logo-text">DishCovery</a>
         </button>
 
         <nav className="about-nav-links">
@@ -298,7 +298,7 @@ export default function AboutLayout({ children }) {
         <div className="footer-content">
           <div className="footer-section">
             <button className="footer-logo" onClick={scrollToTop}>
-              <span className="logo-text">DishCovery</span>
+              <a href="/" className="logo-text">DishCovery</a>
             </button>
             <p className="footer-description">
               Creating delicious meals with personalized recipes tailored to your ingredients and preferences.
@@ -317,17 +317,17 @@ export default function AboutLayout({ children }) {
           <div className="footer-section">
             <h3 className="footer-title">Company</h3>
             <ul className="footer-links">
-              <li><button onClick={() => scrollToSection('what-is-dishcovery')}>About Us</button></li>
-              <li><button onClick={() => scrollToSection('contact')}>Contact</button></li>
-              <li><button onClick={() => scrollToSection('careers')}>Careers</button></li>
+              <li><a href="/user/about-us#what-is-dishcovery">About Us</a></li>
+              <li><a href="/user/about-support#contact">Contact</a></li>
+              <li><a href="/user/about-company#careers">Careers</a></li>
             </ul>
           </div>
           
           <div className="footer-section">
             <h3 className="footer-title">Legal</h3>
             <ul className="footer-links">
-              <li><button onClick={() => scrollToSection('privacy-policy')}>Privacy Policy</button></li>
-              <li><button onClick={() => scrollToSection('terms-service')}>Terms of Service</button></li>
+              <li><a href="/user/about-legal#privacy-policy">Privacy Policy</a></li>
+              <li><a href="/user/about-legal#terms-service">Terms of Service</a></li>
             </ul>
           </div>
         </div>
