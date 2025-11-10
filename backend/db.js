@@ -196,14 +196,25 @@ const db = {
           throw error;
         }
         
-        // Always log other errors
-        console.error('❌ Database query error:', error.message);
-        console.error('🔍 Failed query:', sql.length > 200 ? sql.substring(0, 200) + '...' : sql);
-        if (params && params.length) {
-          console.error('📝 Parameters:', params);
+        // ✅ Suppress logging for expected column errors (ER_BAD_FIELD_ERROR)
+        // These are handled gracefully by the calling code
+        const isColumnError = error.code === 'ER_BAD_FIELD_ERROR' || 
+                             error.code === 1054 ||
+                             error.sqlState === '42S22' ||
+                             (error.message && (error.message.includes('Unknown column') || 
+                                               error.message.includes('related_id') || 
+                                               error.message.includes('related_type')));
+        
+        if (!isColumnError) {
+          // Only log unexpected errors
+          console.error('❌ Database query error:', error.message);
+          console.error('🔍 Failed query:', sql.length > 200 ? sql.substring(0, 200) + '...' : sql);
+          if (params && params.length) {
+            console.error('📝 Parameters:', params);
+          }
+          console.error('💡 Error code:', error.code);
+          console.error('💡 SQL State:', error.sqlState);
         }
-        console.error('💡 Error code:', error.code);
-        console.error('💡 SQL State:', error.sqlState);
         throw error;
       }
     }
