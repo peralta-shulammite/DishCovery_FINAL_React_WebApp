@@ -5,12 +5,18 @@ import UserLayout from '../../components/user/userlayout';
 import { favoritesAPI } from '../recipe/api';
 import { profileAPI, scanAPI, feedbackAPI } from './api';
 
-// Helper function to construct full image URLs
+// Helper function to construct full image URLs with cache-busting
+// ✅ UPDATED: Handle base64 data URIs (stored directly in database)
 const getFullImageUrl = (path) => {
   if (!path) return null;
+  // ✅ If it's a base64 data URI, return as-is
+  if (path.startsWith('data:image')) return path;
+  // ✅ If it's already a full URL, return as-is
   if (path.startsWith('http')) return path;
+  // ✅ Otherwise, construct full URL from relative path
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-  return `${API_BASE}${path}`;
+  // ✅ Add cache-busting parameter to force refresh
+  return `${API_BASE}${path}?t=${Date.now()}`;
 };
 
 // CSS-based placeholder component for recipe images
@@ -105,6 +111,16 @@ export default function UserProfilePage() {
   const [dishCoverySavedRecipesPreview, setDishCoverySavedRecipesPreview] = useState([]);
   const [loadingFavorites, setLoadingFavorites] = useState(true);
 
+  // ✅ Authentication check - redirect to home if not logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('🔒 No token found, redirecting to home...');
+      window.location.href = '/user/home';
+      return;
+    }
+  }, []);
+
   // Load user basic info from API
   useEffect(() => {
     const loadUserInfo = async () => {
@@ -121,11 +137,19 @@ export default function UserProfilePage() {
           const hasPassword = response.data.hasPassword !== false; // Default to true if not provided
           const isGoogleUser = !!googleId && !hasPassword;
           
+          // ✅ Log profile picture info for debugging
+          console.log('📸 Profile picture from API:', {
+            exists: !!profilePicture,
+            isBase64: profilePicture?.startsWith('data:image'),
+            length: profilePicture?.length || 0,
+            preview: profilePicture ? profilePicture.substring(0, 50) + '...' : 'null'
+          });
+          
           setDishCoveryUser({
             firstName: firstName || 'User',
             lastName: lastName || '',
             email: email || '',
-            profilePicture: profilePicture || null,
+            profilePicture: profilePicture || null, // ✅ Set profile picture directly (base64 or URL)
             createdAt: response.data.createdAt || null,
             lastLogin: response.data.lastLogin || null,
             isGoogleUser: isGoogleUser
@@ -139,7 +163,8 @@ export default function UserProfilePage() {
             firstName,
             lastName,
             email,
-            hasProfilePicture: !!profilePicture
+            hasProfilePicture: !!profilePicture,
+            profilePictureType: profilePicture?.startsWith('data:image') ? 'base64' : (profilePicture?.startsWith('http') ? 'url' : 'path')
           });
         }
       } catch (error) {
@@ -212,19 +237,33 @@ export default function UserProfilePage() {
   }, []);
 
   // ========================================
-  // 🆕 LOAD LAST OPENED RECIPE FROM LOCALSTORAGE
+  // 🆕 LOAD LAST OPENED RECIPE FROM DATABASE
   // ========================================
   useEffect(() => {
-    try {
-      const lastRecipe = localStorage.getItem('lastOpenedRecipe');
-      if (lastRecipe) {
-        const recipe = JSON.parse(lastRecipe);
-        setDishCoveryLastOpenedRecipe(recipe);
-        console.log('✅ Last opened recipe loaded:', recipe.name);
+    const loadLastOpenedRecipe = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.log('⏭️ No token found, skipping last opened recipe load');
+          return;
+        }
+
+        // ✅ Load from database (with localStorage fallback)
+        const { getLastOpenedRecipe } = await import('../utils/recipeTracker');
+        const lastRecipe = await getLastOpenedRecipe();
+        
+        if (lastRecipe) {
+          setDishCoveryLastOpenedRecipe(lastRecipe);
+          console.log('✅ Last opened recipe loaded from database:', lastRecipe.name);
+        } else {
+          console.log('ℹ️ No last opened recipe found');
+        }
+      } catch (error) {
+        console.error('❌ Error loading last opened recipe:', error);
       }
-    } catch (error) {
-      console.error('❌ Error loading last opened recipe:', error);
-    }
+    };
+    
+    loadLastOpenedRecipe();
   }, []);
 
   // ========================================
@@ -240,13 +279,14 @@ export default function UserProfilePage() {
         
         if (response && response.success && response.data) {
           // Transform API data to match UI format
+          // ✅ Store full scan data with all ingredients separately
           const formattedScans = response.data.map(scan => {
             const scanDate = new Date(scan.date);
-            const ingredientNames = scan.ingredients.map(ing => ing.name).join(', ');
             
             return {
               id: scan.id,
-              name: ingredientNames || 'No ingredients',
+              name: scan.ingredients.map(ing => ing.name).join(', '), // Keep for backward compatibility
+              ingredients: scan.ingredients || [], // ✅ Store all ingredients separately
               date: scanDate.toISOString().split('T')[0] // Format as YYYY-MM-DD
             };
           });
@@ -264,6 +304,20 @@ export default function UserProfilePage() {
     };
     
     loadScanHistory();
+    
+    // ✅ Reload scan history when page becomes visible (user returns from scanning)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('🔄 Page visible, reloading scan history...');
+        loadScanHistory();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // ========================================
@@ -390,39 +444,103 @@ export default function UserProfilePage() {
 
   const dishCoveryHandleProfilePictureChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      try {
-        if (file.size > 5 * 1024 * 1024) {
-          alert('File size must be less than 5MB');
-          return;
+    if (!file) {
+      return;
+    }
+
+    try {
+      // ✅ Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, or GIF)');
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
         }
+        return;
+      }
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setDishCoveryUser((prev) => ({ ...prev, profilePicture: e.target.result }));
-        };
-        reader.readAsDataURL(file);
+      // ✅ Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
 
-        console.log('📤 Uploading profile picture...');
-        const response = await profileAPI.uploadProfilePicture(file);
+      // ✅ Show preview immediately
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setDishCoveryUser((prev) => ({ ...prev, profilePicture: e.target.result }));
+      };
+      reader.readAsDataURL(file);
+
+      console.log('📤 Uploading profile picture...', file.name, `(${(file.size / 1024).toFixed(2)} KB)`);
+      
+      // ✅ Upload to server
+      const response = await profileAPI.uploadProfilePicture(file);
+      
+      if (response && response.success) {
+        console.log('✅ Profile picture uploaded successfully');
         
-        if (response && response.success) {
-          console.log('✅ Profile picture uploaded successfully');
+        // ✅ Update immediately with response data (base64 from backend)
+        const profilePicUrl = response.data?.profilePicture;
+        if (profilePicUrl) {
+          console.log('✅ Updating profile picture from response:', profilePicUrl.substring(0, 50) + '...');
           setDishCoveryUser((prev) => ({ 
             ...prev, 
-            profilePicture: response.data.profilePicture 
+            profilePicture: profilePicUrl
           }));
         }
-      } catch (error) {
-        console.error('❌ Error uploading profile picture:', error);
-        alert('Failed to upload profile picture. Please try again.');
-        const response = await profileAPI.getUserInfo();
-        if (response && response.success && response.data) {
+        
+        // ✅ Also refresh user info to ensure consistency
+        try {
+          const userInfoResponse = await profileAPI.getUserInfo();
+          if (userInfoResponse && userInfoResponse.success && userInfoResponse.data) {
+            // ✅ Update with base64 data URI from database (no cache-busting needed for base64)
+            const dbProfilePicUrl = userInfoResponse.data.profilePicture;
+            if (dbProfilePicUrl) {
+              console.log('✅ Updating profile picture from database:', dbProfilePicUrl.substring(0, 50) + '...');
+              setDishCoveryUser((prev) => ({ 
+                ...prev, 
+                profilePicture: dbProfilePicUrl
+              }));
+            }
+          }
+        } catch (refreshError) {
+          console.error('❌ Error refreshing user info after upload:', refreshError);
+          // Response data already set above, so this is just a warning
+        }
+        
+        // ✅ Reset file input to allow selecting the same file again
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      } else {
+        throw new Error(response?.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('❌ Error uploading profile picture:', error);
+      alert(`Failed to upload profile picture: ${error.message || 'Please try again.'}`);
+      
+      // ✅ Reset file input on error
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // ✅ Reload user info to restore previous profile picture
+      try {
+        const userInfoResponse = await profileAPI.getUserInfo();
+        if (userInfoResponse && userInfoResponse.success && userInfoResponse.data) {
           setDishCoveryUser((prev) => ({
             ...prev,
-            profilePicture: response.data.profilePicture
+            profilePicture: userInfoResponse.data.profilePicture
           }));
         }
+      } catch (reloadError) {
+        console.error('❌ Error reloading user info:', reloadError);
       }
     }
   };
@@ -667,10 +785,52 @@ export default function UserProfilePage() {
 
   // handleSaveDietaryLifestyle removed - dietary lifestyle category removed
 
-  const dishCoveryHandleDeactivateAccount = () => {
-    console.log('Account deactivated');
+  const dishCoveryHandleDeleteAccount = async () => {
+    try {
+      // Double confirmation
+      const confirmDelete = window.confirm(
+        '⚠️ WARNING: This will permanently delete your account and all your data.\n\n' +
+        'This action cannot be undone. Are you absolutely sure you want to delete your account?'
+      );
+
+      if (!confirmDelete) {
+        return;
+      }
+
+      const finalConfirm = window.confirm(
+        'This is your final warning. All your data will be permanently deleted:\n\n' +
+        '• Your profile and account information\n' +
+        '• Your saved recipes and favorites\n' +
+        '• Your scan history\n' +
+        '• Your dietary preferences\n' +
+        '• Your feedback and notifications\n\n' +
+        'Are you sure you want to proceed?'
+      );
+
+      if (!finalConfirm) {
+        return;
+      }
+
+      console.log('🗑️  Deleting account...');
     setDishCoveryShowDeactivateModal(false);
-    dishCoveryHandleLogout();
+
+      // Call API to delete account
+      await profileAPI.deleteAccount();
+
+      console.log('✅ Account deleted successfully');
+      
+      // Clear local storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Redirect to home page
+      alert('Your account has been permanently deleted.');
+      window.location.href = '/user/home';
+
+    } catch (error) {
+      console.error('❌ Error deleting account:', error);
+      alert(`Failed to delete account: ${error.message}. Please try again.`);
+    }
   };
 
   const dishCoveryRemoveCondition = async (condition) => {
@@ -810,9 +970,10 @@ export default function UserProfilePage() {
                     <div className="last-recipe-info">
                       <h3 className="last-recipe-name">{dishCoveryLastOpenedRecipe.name}</h3>
                       <div className="last-recipe-meta">
-                        <span>{dishCoveryLastOpenedRecipe.time}</span>
+                        {/* ✅ Show meal type and servings instead of prep time */}
+                        <span>{dishCoveryLastOpenedRecipe.mealType || 'N/A'}</span>
                         <span>•</span>
-                        <span>{dishCoveryLastOpenedRecipe.difficulty}</span>
+                        <span>{dishCoveryLastOpenedRecipe.servings || 0} {dishCoveryLastOpenedRecipe.servings === 1 ? 'serving' : 'servings'}</span>
                       </div>
                       <p className="last-recipe-date">Last opened: {dishCoveryLastOpenedRecipe.lastOpened}</p>
                     </div>
@@ -901,17 +1062,31 @@ export default function UserProfilePage() {
                     dishCoveryScanHistory.map((item) => (
                       <div key={item.id} className="scan-history-item-minimal">
                         <div className="scan-item-details">
-                          <span className="scan-item-name">{item.name}</span>
-                          <span className="scan-item-date">{item.date}</span>
+                          {/* ✅ Display ingredients as oval badges in horizontal layout (left-to-right) */}
+                          <div className="scan-item-ingredients-horizontal">
+                            {item.ingredients && item.ingredients.length > 0 ? (
+                              item.ingredients.map((ingredient, idx) => (
+                                <span key={idx} className="scan-ingredient-badge-oval">
+                                  {ingredient.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="scan-item-name">{item.name || 'No ingredients'}</span>
+                            )}
                         </div>
+                          <div className="scan-item-footer">
+                            <span className="scan-item-date">{item.date}</span>
                         <button
                           className="remove-scan-btn-minimal"
                           onClick={() => dishCoveryRemoveScanItem(item.id)}
+                              title="Remove scan"
                         >
                           <svg viewBox="0 0 24 24" fill="currentColor">
                             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                           </svg>
                         </button>
+                          </div>
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -987,12 +1162,6 @@ export default function UserProfilePage() {
                       </span>
                     )}
                   </button>
-                  <a href="/help" className="support-link">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" />
-                    </svg>
-                    Help & FAQs
-                  </a>
                 </div>
               </section>
 
@@ -1005,15 +1174,15 @@ export default function UserProfilePage() {
                 </h2>
                 <div className="danger-content-minimal">
                   <div className="danger-item-minimal">
-                    <span className="danger-label">Deactivate Account</span>
+                    <span className="danger-label">Delete Account</span>
                     <button
                       className="danger-btn-minimal"
                       onClick={() => setDishCoveryShowDeactivateModal(true)}
                     >
-                      Deactivate
+                      Delete
                     </button>
                   </div>
-                  <div className="danger-item-minimal mobile-logout">
+                  <div className="danger-item-minimal">
                     <span className="danger-label">Log Out</span>
                     <button
                       className="danger-btn-minimal logout-btn-minimal"
@@ -1038,11 +1207,19 @@ export default function UserProfilePage() {
                       <div className="profile-picture-large">
                         {dishCoveryUser.profilePicture ? (
                           <img 
+                            key={dishCoveryUser.profilePicture?.substring(0, 50)} // ✅ Force re-render when profile picture changes
                             src={getFullImageUrl(dishCoveryUser.profilePicture)} 
                             alt="Profile" 
                             onError={(e) => {
+                              console.error('❌ Profile picture failed to load');
+                              console.error('   - Source:', e.target.src.substring(0, 100));
+                              console.error('   - Profile picture value:', dishCoveryUser.profilePicture?.substring(0, 100));
                               e.target.style.display = 'none';
                               e.target.nextSibling.style.display = 'flex';
+                            }}
+                            onLoad={() => {
+                              console.log('✅ Profile picture loaded successfully');
+                              console.log('   - Source type:', dishCoveryUser.profilePicture?.startsWith('data:image') ? 'base64' : 'url/path');
                             }}
                           />
                         ) : null}
@@ -1562,7 +1739,7 @@ export default function UserProfilePage() {
           </div>
         )}
 
-        {/* DEACTIVATE ACCOUNT MODAL */}
+        {/* DELETE ACCOUNT MODAL */}
         {dishCoveryShowDeactivateModal && (
           <div
             className="modal-overlay"
@@ -1575,10 +1752,16 @@ export default function UserProfilePage() {
               >
                 ×
               </button>
-              <h2 className="modal-title danger-modal-title">Deactivate Account</h2>
+              <h2 className="modal-title danger-modal-title">Delete Account</h2>
               <p className="modal-subtitle">
-                Are you sure you want to deactivate your account? This action cannot be undone
-                and all your data will be permanently deleted.
+                ⚠️ WARNING: This will permanently delete your account and all your data.
+                <br /><br />
+                This action cannot be undone. All of the following will be permanently deleted:
+                <br />• Your profile and account information
+                <br />• Your saved recipes and favorites
+                <br />• Your scan history
+                <br />• Your dietary preferences
+                <br />• Your feedback and notifications
               </p>
               <div className="modal-actions">
                 <button
@@ -1587,8 +1770,8 @@ export default function UserProfilePage() {
                 >
                   Cancel
                 </button>
-                <button className="danger-btn" onClick={dishCoveryHandleDeactivateAccount}>
-                  Deactivate Account
+                <button className="danger-btn" onClick={dishCoveryHandleDeleteAccount}>
+                  Delete Account
                 </button>
               </div>
             </div>
