@@ -27,7 +27,7 @@ import {
 } from '@fortawesome/free-regular-svg-icons';
 import './styles.css';
 import UserLayout from '../../components/user/userlayout';
-import { favoritesAPI } from '../recipe/api';
+import { recipeAPI, favoritesAPI, triedAPI } from '../recipe/api';
 
 export default function FavoritesPage() {
   const dishCoveryTopRef = useRef(null);
@@ -62,7 +62,17 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Load favorites from localStorage on mount
+  // ✅ Authentication check - redirect to home if not logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('🔒 No token found, redirecting to home...');
+      window.location.href = '/user/home';
+      return;
+    }
+  }, []);
+
+  // Load favorites - same logic as recipe page
   useEffect(() => {
     const loadFavorites = async () => {
       try {
@@ -74,13 +84,83 @@ export default function FavoritesPage() {
         if (response && response.success) {
           // Handle both response.data (array) and response.favorites (array) formats
           const favorites = response.data || response.favorites || [];
-          setDishCoveryFavoriteRecipes(favorites);
+          
+          console.log('🔍 Favorites API response:', response);
+          console.log('🔍 Favorites array:', favorites);
+          
+          // Transform favorites to match recipe page format
+          const transformedFavorites = favorites.map(recipe => {
+            // ✅ Debug: Log images for each recipe
+            if (recipe.title && (recipe.title.toLowerCase().includes('bangus') || recipe.title.toLowerCase().includes('chicken'))) {
+              console.log(`🔍 [${recipe.title}] Recipe ID: ${recipe.id}`);
+              console.log(`🔍 [${recipe.title}] Images from API:`, recipe.images);
+              console.log(`🔍 [${recipe.title}] Image URL:`, recipe.image_url);
+            }
+            // Parse meal types - handle array, comma-separated string, or single value
+            let mealTypes = [];
+            if (Array.isArray(recipe.mealType)) {
+              mealTypes = recipe.mealType.filter(m => m && m.trim());
+            } else if (Array.isArray(recipe.meal_type)) {
+              mealTypes = recipe.meal_type.filter(m => m && m.trim());
+            } else if (typeof recipe.mealType === 'string' && recipe.mealType.includes(',')) {
+              mealTypes = recipe.mealType.split(',').map(m => m.trim()).filter(m => m);
+            } else if (typeof recipe.meal_type === 'string' && recipe.meal_type.includes(',')) {
+              mealTypes = recipe.meal_type.split(',').map(m => m.trim()).filter(m => m);
+            } else if (recipe.mealType) {
+              mealTypes = [recipe.mealType];
+            } else if (recipe.meal_type) {
+              mealTypes = [recipe.meal_type];
+            }
+            
+            return {
+              id: recipe.id || recipe.recipe_id,
+              title: recipe.title || recipe.name || recipe.recipe_name,
+              description: recipe.description || '',
+              images: (() => {
+                // ✅ Prioritize images array from backend
+                if (Array.isArray(recipe.images) && recipe.images.length > 0) {
+                  console.log(`✅ [${recipe.title || recipe.id}] Using images array:`, recipe.images);
+                  return recipe.images;
+                }
+                // Fallback to image or image_url
+                if (recipe.image) {
+                  console.log(`⚠️ [${recipe.title || recipe.id}] Using recipe.image:`, recipe.image);
+                  return [recipe.image];
+                }
+                if (recipe.image_url) {
+                  console.log(`⚠️ [${recipe.title || recipe.id}] Using recipe.image_url:`, recipe.image_url);
+                  return [recipe.image_url];
+                }
+                console.log(`❌ [${recipe.title || recipe.id}] No images found`);
+                return [];
+              })(),
+              mealType: mealTypes.length > 0 ? mealTypes : [],
+              ingredients: recipe.ingredients || { main: [], condiments: [], optional: [] },
+              instructions: recipe.instructions || [],
+              dietaryTags: recipe.dietaryTags || recipe.dietary_restrictions || [],
+              healthTags: recipe.healthTags || [],
+              medicalConditions: recipe.medicalConditions || [],
+              verificationStatus: recipe.verificationStatus || 'AI-generated',
+              verifierName: recipe.verifierName || '',
+              verifierCredentials: recipe.verifierCredentials || '',
+              engagement: {
+                tried: recipe.tried || recipe.engagement?.tried || recipe.tried_count || 0,
+                saved: recipe.saved || recipe.engagement?.saved || recipe.save_count || 0
+              },
+              rating: recipe.rating || recipe.average_rating || 4.5,
+              cookTime: recipe.cookTime || recipe.cookingTime || recipe.prepTime || recipe.cook_time || '30 min',
+              servings: recipe.servings || 4
+            };
+          });
+          
+          setDishCoveryFavoriteRecipes(transformedFavorites);
         } else {
           setDishCoveryFavoriteRecipes([]);
         }
       } catch (err) {
         console.error('Error loading favorites:', err);
         setError('Failed to load favorites. Please try again.');
+        setDishCoveryFavoriteRecipes([]);
       } finally {
         setLoading(false);
       }
@@ -189,14 +269,59 @@ export default function FavoritesPage() {
     return faShieldAlt;
   };
 
+  // Fetch recipe details for modal - same logic as recipe page
+  const fetchRecipeDetails = async (recipeId) => {
+    try {
+      const response = await recipeAPI.getRecipeDetails(recipeId);
+      if (response && response.data) {
+        // ✅ Use uploaded images from database, no fallback Unsplash image
+        const images = response.data.images || [];
+        return {
+          ...response.data,
+          images: images.length > 0 ? images : (response.data.image ? [response.data.image] : (response.data.imageUrl ? [response.data.imageUrl] : [])),
+          ingredients: response.data.ingredients || { main: [], condiments: [], optional: [] },
+          instructions: response.data.instructions || []
+        };
+      }
+      return null;
+    } catch (err) {
+      console.error('Error fetching recipe details:', err);
+      return null;
+    }
+  };
+
   // Modal functions
-  const openModal = (recipe) => {
-    setSelectedRecipe(recipe);
+  const openModal = async (recipe) => {
+    // Preserve original images from card to ensure consistency
+    const originalImages = recipe.images || [];
+    
+    const recipeWithStatus = {
+      ...recipe,
+      isFavorited: true // Always favorited in favorites page
+    };
+    setSelectedRecipe(recipeWithStatus);
     setIsModalOpen(true);
-    setCurrentImageIndex(0);
+    setCurrentImageIndex(0); // Always start with first image
     setShowAlternatives({});
     setShowScrollIndicator(true);
     document.body.style.overflow = 'hidden';
+    
+    // Fetch detailed recipe if needed
+    if (recipe.id && (!recipe.instructions || recipe.instructions.length === 0)) {
+      const detailedRecipe = await fetchRecipeDetails(recipe.id);
+      if (detailedRecipe) {
+        // Preserve original images from card if they exist, otherwise use detailed recipe images
+        const imagesToUse = (originalImages && originalImages.length > 0) 
+          ? originalImages 
+          : (detailedRecipe.images || []);
+        
+        setSelectedRecipe({
+          ...detailedRecipe,
+          images: imagesToUse, // Use same images as card
+          isFavorited: true
+        });
+      }
+    }
   };
 
   const closeModal = () => {
@@ -353,73 +478,113 @@ export default function FavoritesPage() {
             )}
 
             {!loading && !error && dishCoveryFilteredAndSortedRecipes.length > 0 && (
-              <div className={`recipes-container ${dishCoveryViewMode === 'grid' ? 'recipes-grid' : 'recipes-list'}`}>
+              <div className={`recipes-container-new ${dishCoveryViewMode === 'grid' ? 'recipes-grid-new' : 'recipes-list'}`}>
                 {dishCoveryFilteredAndSortedRecipes.map((recipe) => (
                   <div
                     key={recipe.id}
                     className={`recipe-card ${dishCoveryViewMode === 'list' ? 'list-view' : ''}`}
                     onClick={() => openModal(recipe)}
                   >
-                    {/* Recipe Image */}
                     <div className="recipe-image-container">
                       <img
-                        src={Array.isArray(recipe.images) ? recipe.images[0] : recipe.images}
+                        src={(() => {
+                          const imageSrc = Array.isArray(recipe.images) ? recipe.images[0] : recipe.images;
+                          // ✅ Debug: Log image source for specific recipe (e.g., Sinugba)
+                          if (recipe.title && recipe.title.toLowerCase().includes('sinugba')) {
+                            console.log(`🔍 [${recipe.title}] Recipe ID: ${recipe.id}`);
+                            console.log(`🔍 [${recipe.title}] Images array:`, recipe.images);
+                            console.log(`🔍 [${recipe.title}] Image source:`, imageSrc);
+                          }
+                          return imageSrc;
+                        })()}
                         alt={recipe.title}
                         className="recipe-image"
                         onError={(e) => { 
+                          console.error(`❌ Image failed to load for recipe ${recipe.title}:`, e.target.src);
                           e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
                         }}
                       />
+                      
                     </div>
-
                     {/* Recipe Content */}
                     <div className="recipe-content">
-                      {/* Title */}
                       <h3 className="recipe-title">{recipe.title}</h3>
 
-                      {/* Description */}
                       <p className="recipe-description">{recipe.description}</p>
 
-                      {/* Meta Info */}
                       <div className="recipe-meta">
                         <div className="recipe-meta-info">
-                        <div className="meta-item">
-                          <FontAwesomeIcon icon={faUsers} />
-                          {recipe.servings} servings
-                        </div>
+                          <div className="meta-item">
+                            <FontAwesomeIcon icon={faUsers} />
+                            {recipe.servings} servings
+                          </div>
                         </div>
                         
-                        <span className="meal-type-badge">
-                          {recipe.mealType}
-                        </span>
+                        <div className="meal-type-container">
+                          {(() => {
+                            // Parse meal types - handle array, comma-separated string, or single value
+                            let mealTypes = [];
+                            if (Array.isArray(recipe.mealType)) {
+                              mealTypes = recipe.mealType.filter(m => m && m.trim());
+                            } else if (typeof recipe.mealType === 'string' && recipe.mealType.includes(',')) {
+                              mealTypes = recipe.mealType.split(',').map(m => m.trim()).filter(m => m);
+                            } else if (recipe.mealType) {
+                              mealTypes = [recipe.mealType];
+                            }
+                            
+                            return mealTypes.map((mealType, index) => (
+                              <span key={index} className="meal-type-badge">
+                                {mealType}
+                              </span>
+                            ));
+                          })()}
+                        </div>
                       </div>
 
-                      {/* Tags */}
                       <div className="recipe-tags">
                         <div className="tags-container">
-                          {recipe.dietaryTags && recipe.dietaryTags.slice(0, 3).map(tag => (
-                            <span key={tag} className="recipe-tag dietary">
-                              {tag}
-                            </span>
-                          ))}
-                          {recipe.dietaryTags && recipe.dietaryTags.length > 3 && (
+                          {(recipe.dietaryTags || []).slice(0, 3).map(tag => {
+                            const isGoodForEveryone = tag === 'Good For Everyone';
+                            return (
+                              <span 
+                                key={tag} 
+                                className={`recipe-tag dietary ${isGoodForEveryone ? 'good-for-everyone' : ''}`}
+                              >
+                                {tag}
+                              </span>
+                            );
+                          })}
+                          {(recipe.dietaryTags || []).length > 3 && (
                             <span className="tags-more">
-                              +{recipe.dietaryTags.length - 3} more
+                              +{(recipe.dietaryTags || []).length - 3} more
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Engagement */}
                       <div className="recipe-engagement">
-                      <div className="engagement-item">
-                        <FontAwesomeIcon icon={faEye} />
-                        {recipe.engagement.tried} tried
-                      </div>
-                      <div className="engagement-item">
-                        <FontAwesomeIcon icon={faHeartRegular} />
-                        {recipe.engagement.saved} saved
-                      </div>
+                        <button 
+                          className={`engagement-item engagement-button`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Handle tried action if needed
+                          }}
+                          title="Mark as tried"
+                        >
+                          <FontAwesomeIcon icon={faEye} />
+                          {recipe.engagement?.tried || 0} tried
+                        </button>
+                        <button 
+                          className={`engagement-item engagement-button favorited`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveConfirmation(recipe.id);
+                          }}
+                          title="Remove from favorites"
+                        >
+                          <FontAwesomeIcon icon={faHeart} />
+                          {recipe.engagement?.saved || 0} saved
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -429,25 +594,21 @@ export default function FavoritesPage() {
           </main>
         </div>
 
-        {/* Recipe Modal */}
+        {/* Recipe Modal - Same as user recipe page */}
         {isModalOpen && selectedRecipe && (
           <div className="modal-overlay" onClick={closeModal}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeModal}>
-              <FontAwesomeIcon icon={faTimes} />
-            </button>
+              <button className="modal-close" onClick={closeModal}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
               
-              {/* Modal Header */}
               <div className="modal-header">
                 <h1 className="modal-title">{selectedRecipe.title}</h1>
                 <p className="modal-subtitle">{selectedRecipe.description}</p>
               </div>
               
-              {/* Modal Body */}
               <div className="modal-body" ref={modalBodyRef} onScroll={handleModalScroll}>
-                {/* Left Column */}
                 <div className="modal-left">
-                  {/* Image Gallery */}
                   <div className="modal-image-container">
                     <img 
                       src={Array.isArray(selectedRecipe.images) ? selectedRecipe.images[currentImageIndex] : selectedRecipe.images} 
@@ -478,63 +639,44 @@ export default function FavoritesPage() {
                     )}
                   </div>
                   
-                  {/* Verification Section */}
-                  <div className="verification-section">
-                  <div className="verification-main">
-                    <FontAwesomeIcon 
-                      className="verification-icon"
-                      icon={getVerificationIcon(selectedRecipe.verificationStatus)}
-                    />
-                    <span className="verification-status">
-                      {selectedRecipe.verificationStatus === 'AI-generated' 
-                        ? 'AI Generated Recipe' 
-                        : 'Professionally Verified'
-                      }
-                    </span>
-                  </div>
-                    {selectedRecipe.verificationStatus !== 'AI-generated' && selectedRecipe.verifierName && (
-                      <div className="verifier-details">
-                        <span className="verifier-name">
-                          Verified by: {selectedRecipe.verifierName}
-                        </span>
-                        {selectedRecipe.verifierCredentials && (
-                          <span className="verifier-credentials">
-                            {selectedRecipe.verifierCredentials}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Recipe Statistics */}
                   <div className="modal-stats">
-                  <div className="stat-item-display">
-                    <FontAwesomeIcon icon={faEye} className="stat-icon" />
-                    <div className="stat-text">
-                      <div className="stat-number">{selectedRecipe.engagement.tried} people tried this</div>
-                    </div>
-                  </div>
-                  <button 
-                    className="stat-item-button favorite-button-compact"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveConfirmation(selectedRecipe.id);
-                    }}
-                    aria-label="Remove from favorites"
-                    aria-pressed="false"
-                  >
-                    <FontAwesomeIcon icon={faHeart} className="stat-icon" />
-                    <div className="stat-text">
-                      <div className="stat-number">
-                        <span>Remove from</span>
-                        <span>Favorites</span>
+                    <button 
+                      className={`stat-item-button tried-button-compact stat-button-ripple`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Handle tried action if needed
+                      }}
+                      aria-label="Mark as tried"
+                      aria-pressed={false}
+                    >
+                      <FontAwesomeIcon icon={faEye} className="stat-icon" />
+                      <div className="stat-text">
+                        <div className="stat-number">{selectedRecipe.engagement?.tried || 0} people tried this</div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                    <button 
+                      className={`stat-item-button favorite-button-compact stat-button-ripple favorited`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveConfirmation(selectedRecipe.id);
+                      }}
+                      aria-label="Remove from favorites"
+                      aria-pressed={true}
+                    >
+                      <FontAwesomeIcon 
+                        icon={faHeart} 
+                        className="stat-icon" 
+                      />
+                      <div className="stat-text">
+                        <span className="stat-number">
+                          <span>Remove from</span>
+                          <span>Favorites</span>
+                        </span>
+                      </div>
+                    </button>
                   </div>
                 </div>
 
-                {/* Center Column - Instructions */}
                 <div className="modal-center">
                   <div className="instructions-section">
                     <h3 className="section-title">Step-by-Step Instructions</h3>
@@ -549,9 +691,7 @@ export default function FavoritesPage() {
                   </div>
                 </div>
                 
-                {/* Right Column - Tags and Ingredients */}
                 <div className="modal-right">
-                  {/* Dietary Information */}
                   {selectedRecipe.dietaryTags && selectedRecipe.dietaryTags.length > 0 && (
                     <div className="modal-section">
                       <h3 className="section-title">Dietary Tags</h3>
@@ -563,20 +703,53 @@ export default function FavoritesPage() {
                     </div>
                   )}
                   
-                  {/* Meal Type */}
-                  {selectedRecipe.mealType && (
+                  {selectedRecipe.mealType && (() => {
+                    // Split meal types if it's a string with commas, or use array if already an array
+                    const mealTypes = Array.isArray(selectedRecipe.mealType) 
+                      ? selectedRecipe.mealType 
+                      : typeof selectedRecipe.mealType === 'string' && selectedRecipe.mealType.includes(',')
+                        ? selectedRecipe.mealType.split(',').map(m => m.trim()).filter(m => m)
+                        : [selectedRecipe.mealType];
+                    
+                    return (
+                      <div className="modal-section">
+                        <h3 className="section-title">Meal Type</h3>
+                        <div className="modal-tags">
+                          {mealTypes.map((mealType, index) => (
+                            <span key={index} className="modal-tag meal-type">
+                              <FontAwesomeIcon icon={faUtensils} />
+                              {mealType}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  
+                  {(selectedRecipe.medicalConditions || []).length > 0 && (
                     <div className="modal-section">
-                      <h3 className="section-title">Meal Type</h3>
+                      <h3 className="section-title">Medical Conditions (Allergies & Intolerances)</h3>
                       <div className="modal-tags">
-                      <span className="modal-tag meal-type">
-                        <FontAwesomeIcon icon={faUtensils} />
-                        {selectedRecipe.mealType}
-                      </span>
+                        {selectedRecipe.medicalConditions.map((condition, index) => (
+                          <span key={index} className="modal-tag medical-condition">
+                            {condition}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   )}
                   
-                  {/* Ingredients Section */}
+                  {selectedRecipe.servings && (
+                    <div className="modal-section">
+                      <h3 className="section-title">Servings</h3>
+                      <div className="modal-tags">
+                        <span className="modal-tag servings">
+                          {selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="modal-section">
                     <h3 className="section-title">Ingredients</h3>
                     <div className="ingredients-grid">
@@ -601,13 +774,13 @@ export default function FavoritesPage() {
                                     <div className="ingredient-main">
                                       <span>{ingredient}</span>
                                       {alternative && (
-                                      <button 
-                                        className="alternative-button"
-                                        onClick={() => toggleAlternative(categoryIndex, index)}
-                                        title="Show alternative ingredient"
-                                      >
-                                        <FontAwesomeIcon icon={faExchangeAlt} />
-                                      </button>
+                                        <button 
+                                          className="alternative-button"
+                                          onClick={() => toggleAlternative(categoryIndex, index)}
+                                          title="Show alternative ingredient"
+                                        >
+                                          <FontAwesomeIcon icon={faExchangeAlt} />
+                                        </button>
                                       )}
                                     </div>
                                     {alternative && showAlternatives[showAltKey] && (
@@ -627,7 +800,6 @@ export default function FavoritesPage() {
                   </div>
                 </div>
               </div>
-              
               {showScrollIndicator && (
                 <div className="scroll-indicator">
                   <FontAwesomeIcon icon={faChevronDown} className="scroll-indicator-icon" />

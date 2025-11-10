@@ -220,6 +220,71 @@ export const recipeAPI = {
       console.error('Error checking for updates:', error);
       return { needsUpdate: false };
     }
+  },
+
+  // ✅ Save last opened recipe to database
+  saveLastOpenedRecipe: async (recipeId) => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        console.warn('⚠️ No token found, skipping last opened recipe save');
+        return { success: false, message: 'Not authenticated' };
+      }
+
+      const response = await fetch(`${API_BASE_URL}/user/recipes/last-opened`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ recipeId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Last opened recipe saved to database:', recipeId);
+      return result;
+    } catch (error) {
+      console.error('❌ Error saving last opened recipe:', error);
+      // Don't throw - this is not critical
+      return { success: false, message: error.message };
+    }
+  },
+
+  // ✅ Get last opened recipe from database
+  getLastOpenedRecipe: async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        console.warn('⚠️ No token found, cannot fetch last opened recipe');
+        return null;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/user/recipes/last-opened`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success && result.data) {
+        console.log('✅ Last opened recipe loaded from database:', result.data.name);
+        return result.data;
+      }
+      return null;
+    } catch (error) {
+      console.error('❌ Error fetching last opened recipe:', error);
+      return null;
+    }
   }
 };
 

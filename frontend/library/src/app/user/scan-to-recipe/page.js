@@ -126,6 +126,16 @@ const RecipePage = () => {
     window.location.href = '/';
   };
 
+  // ✅ Authentication check - redirect to home if not logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('🔒 No token found, redirecting to home...');
+      window.location.href = '/user/home';
+      return;
+    }
+  }, []);
+
   const dishCoveryHandleScanClick = () => {
     if (!dishCoveryIsLoggedIn) {
       // Handle sign in
