@@ -160,10 +160,54 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
   };
 
   const handleLogout = () => {
-    onLogout(); // clears session or token
-    setShowAvatarDropdown(false);
-    setShowMobileMenu(false);
-    window.location.href = '/user/home'; // redirect properly
+    try {
+      console.log('🚪 Logging out user...');
+      
+      // Clear all localStorage items
+      const itemsToRemove = [
+        'token', 
+        'isAdmin', 
+        'userType', 
+        'userId', 
+        'userEmail',
+        'googleAuth',
+        'userFirstName',
+        'userLastName',
+        'userPreferences',
+        'lastActivity',
+        'pendingVerificationEmail',
+        'pwaInstalled',
+        'pwaInstallTime',
+        'pwaPromptDismissed',
+        'pwaPromptDismissedTime',
+        'hasSeenPasswordReminder'
+      ];
+      
+      itemsToRemove.forEach(item => {
+        localStorage.removeItem(item);
+      });
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      console.log('✅ All user data cleared');
+      
+      // Call onLogout if provided (for state updates in parent components)
+      if (onLogout) {
+        onLogout();
+      }
+      
+      // Close dropdowns
+      setShowAvatarDropdown(false);
+      setShowMobileMenu(false);
+      
+      // Redirect to home page
+      window.location.href = '/user/home';
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      // Force redirect even on error
+      window.location.href = '/user/home';
+    }
   };
 
   const handleDeleteMessage = async (messageId) => {
@@ -418,8 +462,8 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
                   <Link href="/user/user-profile" className="dropdown-item">
                     User Profile
                   </Link>
-                  <button onClick={handleLogout} className="dropdown-item">
-                  Sign Out
+                  <button onClick={handleLogout} className="dropdown-item dropdown-item-signout">
+                  Log Out
                   </button>
                 </div>
               )}

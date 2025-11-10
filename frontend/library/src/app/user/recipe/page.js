@@ -1015,7 +1015,21 @@ const RecipePage = () => {
                 </div>
               </div>
 
-              <div className="filter-section-new">
+              <div className="controls-actions-new">
+                <button
+                  type="button"
+                  className="mobile-filter-toggle-new"
+                  onClick={openFilterModal}
+                >
+                  <FontAwesomeIcon icon={faFilter} />
+                  Filters
+                  {getActiveFilterCount() > 0 && (
+                    <span className="filter-count-badge-new">
+                      {getActiveFilterCount()}
+                    </span>
+                  )}
+                </button>
+                <div className="filter-section-new">
                 <div className="view-toggle-new">
                 <button 
                     className={`view-btn-new ${dishCoveryViewMode === 'grid' ? 'view-btn-active-new' : ''}`}
@@ -1034,6 +1048,7 @@ const RecipePage = () => {
                     </svg>
                   </button>
                 </div>
+              </div>
               </div>
             </div>
 
@@ -1427,6 +1442,19 @@ const RecipePage = () => {
                     )}
                   </div>
                   
+                  {/* Verification Badge Section - Moved above engagement buttons */}
+                  <div className="verification-section">
+                    <div className="verification-main">
+                      <FontAwesomeIcon 
+                        className="verification-icon"
+                        icon={faShieldAlt}
+                      />
+                      <span className="verification-status">
+                        Checked by: Cecilia Alamag, RND, MSc
+                      </span>
+                    </div>
+                  </div>
+                  
                   <div className="modal-stats">
                     <button 
                       className={`stat-item-button tried-button-compact stat-button-ripple ${triedRecipes.has(selectedRecipe.id) ? 'tried' : ''}`}
@@ -1472,19 +1500,6 @@ const RecipePage = () => {
                         </span>
                       </div>
                     </button>
-                  </div>
-                  
-                  {/* Verification Badge Section */}
-                  <div className="verification-section">
-                    <div className="verification-main">
-                      <FontAwesomeIcon 
-                        className="verification-icon"
-                        icon={faShieldAlt}
-                      />
-                      <span className="verification-status">
-                        Checked by: Cecilia Alamag, RND, MSc
-                      </span>
-                    </div>
                   </div>
                 </div>
 

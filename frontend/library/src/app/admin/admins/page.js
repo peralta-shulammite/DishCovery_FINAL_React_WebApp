@@ -80,7 +80,6 @@ const AdminManagementPage = () => {
     name: '',
     email: '',
     password: '',
-    role: 'Viewer',
     avatar: null
   });
 
@@ -106,7 +105,7 @@ const AdminManagementPage = () => {
   };
 
   const handleAddAdmin = async () => {
-    if (!newAdmin.name || !newAdmin.email || !newAdmin.password || !newAdmin.role) {
+    if (!newAdmin.name || !newAdmin.email || !newAdmin.password) {
       alert('Please fill in all fields including password');
       return;
     }
@@ -130,8 +129,7 @@ const AdminManagementPage = () => {
           firstName: firstName,
           lastName: lastName,
           email: newAdmin.email,
-          password: newAdmin.password,
-          role: newAdmin.role
+          password: newAdmin.password
         })
       });
 
@@ -156,7 +154,7 @@ const AdminManagementPage = () => {
           activityLogs: ['Account created - Just now']
         };
         setAdmins([...admins, admin]);
-        setNewAdmin({ name: '', email: '', password: '', role: 'Viewer', avatar: null });
+        setNewAdmin({ name: '', email: '', password: '', avatar: null });
         setShowAddModal(false);
         alert('Admin created successfully! Verification email sent.');
       } else {
@@ -326,7 +324,6 @@ const AdminManagementPage = () => {
             <thead>
               <tr>
                 <th>Profile</th>
-                <th>Role</th>
                 <th>Last Active</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -355,11 +352,6 @@ const AdminManagementPage = () => {
                           <div className="admin-email">{admin.email}</div>
                         </div>
                       </div>
-                    </td>
-                    <td>
-                      <span className={`priority-badge ${getRoleColor(admin.role)}`}>
-                        {admin.role}
-                      </span>
                     </td>
                     <td>{admin.lastActive}</td>
                     <td>
@@ -439,18 +431,6 @@ const AdminManagementPage = () => {
                   placeholder="Enter password"
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Role</label>
-                <select 
-                  className="form-select"
-                  value={newAdmin.role}
-                  onChange={(e) => setNewAdmin({...newAdmin, role: e.target.value})}
-                >
-                  {roles.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-              </div>
               <div className="form-buttons">
                 <button className="btn-cancel" onClick={() => setShowAddModal(false)}>
                   Cancel
@@ -490,18 +470,6 @@ const AdminManagementPage = () => {
                   onChange={(e) => setEditingAdmin({...editingAdmin, email: e.target.value})}
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Role</label>
-                <select 
-                  className="form-select"
-                  value={editingAdmin.role}
-                  onChange={(e) => setEditingAdmin({...editingAdmin, role: e.target.value})}
-                >
-                  {roles.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-              </div>
               <div className="form-buttons">
                 <button className="btn-cancel" onClick={() => setShowEditModal(false)}>
                   Cancel
@@ -537,10 +505,6 @@ const AdminManagementPage = () => {
               <div className="detail-section">
                 <h4>Account Information</h4>
                 <div className="detail-grid">
-                  <div className="detail-item">
-                    <div className="detail-label">Role</div>
-                    <div className="detail-value">{selectedAdmin.role}</div>
-                  </div>
                   <div className="detail-item">
                     <div className="detail-label">Status</div>
                     <div className="detail-value">{selectedAdmin.status}</div>

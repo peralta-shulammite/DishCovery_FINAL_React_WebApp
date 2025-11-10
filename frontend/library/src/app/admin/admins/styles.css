@@ -94,7 +94,7 @@ body {
   padding: 6px 12px;
   border: 1px solid #e5e7eb;
   background: white;
-  border-radius: 6px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 12px;
   transition: all 0.3s;
@@ -113,9 +113,29 @@ body {
   border-color: #2E7D32;
 }
 
+.export-btn {
+  padding: 8px 16px;
+  background: #2E7D32;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.3s;
+  font-family: 'Poppins', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-btn:hover {
+  background: #1b5e20;
+}
+
 .permissions-btn {
   padding: 8px 16px;
-  background: #6366f1;
+  background: #2E7D32;
   color: white;
   border: none;
   border-radius: 6px;
@@ -127,7 +147,7 @@ body {
 }
 
 .permissions-btn:hover {
-  background: #4f46e5;
+  background: #1b5e20;
 }
 
 /* Admin Table */
@@ -210,7 +230,7 @@ body {
 
 .status-badge {
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
   font-family: 'Poppins', sans-serif;
@@ -257,7 +277,7 @@ body {
 .action-btn {
   padding: 6px 10px;
   border: none;
-  border-radius: 4px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;

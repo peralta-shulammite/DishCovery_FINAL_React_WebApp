@@ -384,13 +384,13 @@ const sendAdminVerificationEmail = async (email, firstName = '', lastName = '', 
 router.post('/create', authenticateAdminToken, async (req, res) => {
   let connection;
   try {
-    const { firstName, lastName, email, password, role } = req.body;
+    const { firstName, lastName, email, password } = req.body;
 
     // Validate input
-    if (!firstName || !lastName || !email || !password || !role) {
+    if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required: firstName, lastName, email, password, role'
+        message: 'All fields are required: firstName, lastName, email, password'
       });
     }
 
@@ -438,11 +438,12 @@ router.post('/create', authenticateAdminToken, async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Insert new admin (admin_id is auto-increment, so it will be assigned automatically)
+    // Set default role to 'Admin' if role column exists, otherwise omit it
     const [result] = await connection.query(
       `INSERT INTO admin_users (
-        username, email, password_hash, first_name, last_name, role, is_active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, 1, NOW())`,
-      [username, normalizedEmail, passwordHash, firstName, lastName, role]
+        username, email, password_hash, first_name, last_name, is_active, created_at
+      ) VALUES (?, ?, ?, ?, ?, 1, NOW())`,
+      [username, normalizedEmail, passwordHash, firstName, lastName]
     );
 
     const adminId = result.insertId;
@@ -475,7 +476,6 @@ router.post('/create', authenticateAdminToken, async (req, res) => {
         username: username,
         firstName: firstName,
         lastName: lastName,
-        role: role,
         status: 'Active'
       }
     });

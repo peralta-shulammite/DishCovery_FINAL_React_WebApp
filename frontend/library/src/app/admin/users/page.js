@@ -158,13 +158,33 @@ const UserManagementContent = () => {
     }
   };
 
-  const handleViewUser = (user) => {
-    // Always use the latest user data from the users array to ensure we have the most up-to-date information
-    const latestUser = users.find(u => u.id === user.id) || user;
-    setSelectedUser({
-      ...latestUser,
-      notes: latestUser.notes || '' // Ensure notes field exists
-    });
+  const handleViewUser = async (user) => {
+    // Always fetch the latest user data from the API to ensure we have the most up-to-date information
+    try {
+      const data = await adminUsersAPI.getAllUsers();
+      if (data.success) {
+        const latestUser = data.users.find(u => u.id === user.id) || user;
+        setSelectedUser({
+          ...latestUser,
+          notes: latestUser.notes || '' // Ensure notes field exists
+        });
+      } else {
+        // Fallback to using the user from the list
+        const latestUser = users.find(u => u.id === user.id) || user;
+        setSelectedUser({
+          ...latestUser,
+          notes: latestUser.notes || '' // Ensure notes field exists
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      // Fallback to using the user from the list
+      const latestUser = users.find(u => u.id === user.id) || user;
+      setSelectedUser({
+        ...latestUser,
+        notes: latestUser.notes || '' // Ensure notes field exists
+      });
+    }
   };
 
   const handleMessageUser = (user) => {
