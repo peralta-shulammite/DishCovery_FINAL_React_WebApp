@@ -101,6 +101,51 @@ function buildIngredientFilter(ingredientNames = []) {
   // Match ingredients from ALL categories (main, condiments, optional)
   // Recipe must have at least ONE of the scanned/selected ingredients in ANY category
   // Use LIKE '%ingredient%' to match partial ingredient names
+  
+  // ✅ APPLE/PINEAPPLE MUTUAL EXCLUSION: If both apple and pineapple are detected, exclude recipes containing both
+  const hasApple = ingredientNames.some(name => name.toLowerCase().includes('apple') && !name.toLowerCase().includes('pineapple'));
+  const hasPineapple = ingredientNames.some(name => name.toLowerCase().includes('pineapple'));
+  
+  let exclusionClause = '';
+  if (hasApple && hasPineapple) {
+    // Exclude recipes that contain both apple and pineapple
+    exclusionClause = `
+      AND NOT EXISTS (
+        SELECT 1 FROM recipe_ingredients_detailed rid1
+        WHERE rid1.recipe_id = r.recipe_id
+        AND LOWER(TRIM(rid1.ingredient_name)) LIKE '%apple%'
+        AND LOWER(TRIM(rid1.ingredient_name)) NOT LIKE '%pineapple%'
+        AND EXISTS (
+          SELECT 1 FROM recipe_ingredients_detailed rid2
+          WHERE rid2.recipe_id = r.recipe_id
+          AND LOWER(TRIM(rid2.ingredient_name)) LIKE '%pineapple%'
+        )
+      )
+    `;
+    console.log('🍎🍍 Apple and Pineapple detected - excluding recipes containing both');
+  } else if (hasApple) {
+    // If only apple is detected, exclude recipes containing pineapple
+    exclusionClause = `
+      AND NOT EXISTS (
+        SELECT 1 FROM recipe_ingredients_detailed rid
+        WHERE rid.recipe_id = r.recipe_id
+        AND LOWER(TRIM(rid.ingredient_name)) LIKE '%pineapple%'
+      )
+    `;
+    console.log('🍎 Apple detected - excluding recipes containing pineapple');
+  } else if (hasPineapple) {
+    // If only pineapple is detected, exclude recipes containing apple (but not pineapple-related)
+    exclusionClause = `
+      AND NOT EXISTS (
+        SELECT 1 FROM recipe_ingredients_detailed rid
+        WHERE rid.recipe_id = r.recipe_id
+        AND LOWER(TRIM(rid.ingredient_name)) LIKE '%apple%'
+        AND LOWER(TRIM(rid.ingredient_name)) NOT LIKE '%pineapple%'
+      )
+    `;
+    console.log('🍍 Pineapple detected - excluding recipes containing apple');
+  }
+  
   const conditions = ingredientNames.map(() => 
     'LOWER(TRIM(rid.ingredient_name)) LIKE ?'
   ).join(' OR ');
@@ -111,6 +156,7 @@ function buildIngredientFilter(ingredientNames = []) {
       WHERE rid.recipe_id = r.recipe_id
       AND (${conditions})
     )
+    ${exclusionClause}
   `;
   
   // Add % wildcards for LIKE pattern matching

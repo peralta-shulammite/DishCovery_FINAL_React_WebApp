@@ -735,6 +735,26 @@ export default function DishCoveryLanding() {
     api.signUpWithGoogle();
   };
 
+  // Prevent ESC key from closing modal when in step 2 (Enter Reset Code)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (dishCoveryShowForgotPasswordModal && dishCoveryResetStep === 2) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          // Don't close - verification process must be completed
+        }
+      }
+    };
+
+    if (dishCoveryShowForgotPasswordModal && dishCoveryResetStep === 2) {
+      window.addEventListener('keydown', handleKeyDown, true);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown, true);
+      };
+    }
+  }, [dishCoveryShowForgotPasswordModal, dishCoveryResetStep]);
+
   const dishCoveryHandleForgotPasswordClick = () => {
     setDishCoveryShowSignInModal(false); // close sign in modal
     setDishCoveryShowForgotPasswordModal(true); // open forgot password modal
@@ -761,12 +781,29 @@ export default function DishCoveryLanding() {
         console.log("Password reset requested for:", dishCoveryResetEmail);
         const response = await api.forgotPassword(dishCoveryResetEmail);
         
-        // ✅ Option 4: Check if this is password creation (Google user without password)
-        if (response.isPasswordCreation) {
-          setDishCoveryIsPasswordCreation(true);
-        } else {
+        // ✅ Check if this is admin password reset
+        if (response.isAdmin) {
+          // Store that this is an admin reset
+          sessionStorage.setItem('isAdminPasswordReset', 'true');
           setDishCoveryIsPasswordCreation(false);
+        } else {
+          // ✅ Option 4: Check if this is password creation (Google user without password)
+          if (response.isPasswordCreation) {
+            setDishCoveryIsPasswordCreation(true);
+          } else {
+            setDishCoveryIsPasswordCreation(false);
+          }
+          sessionStorage.removeItem('isAdminPasswordReset');
         }
+        
+        // ✅ Show success notification
+        setDishCoveryNotification({ 
+          show: true, 
+          message: response.message || '✅ Reset code sent to your email! Please check your inbox.' 
+        });
+        setTimeout(() => {
+          setDishCoveryNotification({ show: false, message: '' });
+        }, 5000);
         
         // Move to step 2
         setDishCoveryResetStep(2);
@@ -794,10 +831,21 @@ export default function DishCoveryLanding() {
         }
         
         console.log("Resetting password for:", dishCoveryResetEmail);
-        const resetResponse = await api.resetPassword(dishCoveryResetEmail, dishCoveryResetCode, dishCoveryNewPassword);
+        
+        // ✅ Check if this is admin password reset
+        const isAdminReset = sessionStorage.getItem('isAdminPasswordReset') === 'true';
+        
+        let resetResponse;
+        if (isAdminReset) {
+          resetResponse = await api.adminResetPassword(dishCoveryResetEmail, dishCoveryResetCode, dishCoveryNewPassword);
+        } else {
+          resetResponse = await api.resetPassword(dishCoveryResetEmail, dishCoveryResetCode, dishCoveryNewPassword);
+        }
         
         // ✅ Option 4: Show different message for password creation vs reset
-        const successMessage = resetResponse.isPasswordCreation
+        const successMessage = isAdminReset
+          ? '✅ Admin password reset successful! You can now log in with your new password.'
+          : resetResponse.isPasswordCreation
           ? '✅ Password created successfully! You can now log in with email and password or continue using Google.'
           : '✅ Password reset successful! Please log in with your new password.';
         
@@ -819,6 +867,7 @@ export default function DishCoveryLanding() {
         setDishCoveryResetCode('');
         setDishCoveryNewPassword('');
         setDishCoveryConfirmNewPassword('');
+        sessionStorage.removeItem('isAdminPasswordReset');
       }
     } catch (error) {
       console.error("Password reset error:", error);
@@ -829,7 +878,16 @@ export default function DishCoveryLanding() {
   const dishCoveryHandleResendResetCode = async () => {
     try {
       setDishCoveryError('');
-      await api.forgotPassword(dishCoveryResetEmail);
+      
+      // ✅ Check if this is admin password reset
+      const isAdminReset = sessionStorage.getItem('isAdminPasswordReset') === 'true';
+      
+      if (isAdminReset) {
+        await api.adminForgotPassword(dishCoveryResetEmail);
+      } else {
+        await api.forgotPassword(dishCoveryResetEmail);
+      }
+      
       setDishCoveryNotification({ 
         show: true, 
         message: '✅ New reset code sent to your email!' 
@@ -1660,9 +1718,34 @@ export default function DishCoveryLanding() {
 
       {/* Forgot Password Modal */}
       {dishCoveryShowForgotPasswordModal && (
-        <div className="modal-overlay" onClick={() => setDishCoveryShowForgotPasswordModal(false)}>
+        <div 
+          className="modal-overlay" 
+          onClick={() => {
+            // Prevent closing on backdrop click when in step 2 (Enter Reset Code)
+            if (dishCoveryResetStep === 2) {
+              return; // Don't close - verification process must be completed
+            }
+            setDishCoveryShowForgotPasswordModal(false);
+          }}
+          onKeyDown={(e) => {
+            // Prevent closing with ESC key when in step 2 (Enter Reset Code)
+            if (e.key === 'Escape' && dishCoveryResetStep === 2) {
+              e.preventDefault();
+              e.stopPropagation();
+              return; // Don't close - verification process must be completed
+            }
+            // Allow ESC to close in step 1
+            if (e.key === 'Escape' && dishCoveryResetStep === 1) {
+              setDishCoveryShowForgotPasswordModal(false);
+            }
+          }}
+          tabIndex={-1}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={() => setDishCoveryShowForgotPasswordModal(false)}>×</button>
+            {/* Hide close button when in step 2 (Enter Reset Code) - verification must be completed */}
+            {dishCoveryResetStep === 1 && (
+              <button className="close-btn" onClick={() => setDishCoveryShowForgotPasswordModal(false)}>×</button>
+            )}
             
             {dishCoveryResetStep === 1 ? (
               <>
@@ -1956,11 +2039,17 @@ export default function DishCoveryLanding() {
             <p className="modal-signup-text">Didn't receive a code? <a href="#" onClick={async (e) => {
               e.preventDefault();
               try {
-                await api.resendVerificationCode(dishCoveryEmail);
+                // CRITICAL FIX: Use pendingVerificationEmail from localStorage, not dishCoveryEmail
+                const pendingEmail = localStorage.getItem('pendingVerificationEmail');
+                if (!pendingEmail) {
+                  setDishCoveryError('Email not found. Please sign up again.');
+                  return;
+                }
+                await api.resendVerificationCode(pendingEmail);
                 setDishCoveryError('');
                 alert('✅ New verification code sent! Check your email.');
               } catch (error) {
-                setDishCoveryError(error.message);
+                setDishCoveryError(error.message || 'Failed to resend code. Please try again.');
               }
             }}>Resend</a></p>
           </div>

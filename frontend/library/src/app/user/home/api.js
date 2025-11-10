@@ -63,11 +63,20 @@ const api = {
     email = email ? email.trim().toLowerCase() : '';
     console.log('🔐 Smart login attempt for:', email);
     
-    const isLikelyAdmin = email.includes('admin') || email.endsWith('@dishcovery.com');
+    // ✅ First, check if email is user or admin by querying database
+    let accountType = null;
+    try {
+      const typeCheck = await api.checkEmailType(email);
+      accountType = typeCheck.accountType || null;
+      console.log(`📧 Email account type: ${accountType}`);
+    } catch (typeError) {
+      console.warn('⚠️ Could not determine account type, will try both:', typeError.message);
+    }
     
-    if (isLikelyAdmin) {
+    // If account type is determined, try that first
+    if (accountType === 'admin') {
       try {
-        console.log('👑 Trying admin login first (admin-like email)...');
+        console.log('👑 Trying admin login (account type: admin)...');
         
         const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
           method: 'POST',
@@ -87,96 +96,163 @@ const api = {
             isAdmin: true,
             redirectTo: '/admin/dashboard'
           };
+        } else {
+          const errorData = await adminResponse.json();
+          throw new Error(errorData.message || 'Admin login failed');
         }
       } catch (adminError) {
-        console.log('⚠️ Admin login error:', adminError.message);
+        console.log('❌ Admin login failed:', adminError.message);
+        throw adminError; // Don't fallback to user if account type is admin
       }
-    }
-
-    try {
-      console.log('👤 Trying user login...');
-      
-      const userResponse = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      // ✅ FLEXIBLE LOGIN: Handle "No password set" error for Google users
-      if (!userResponse.ok) {
-        const errorData = await userResponse.json();
-        if (errorData.noPasswordSet || errorData.canCreatePassword) {
-          // Throw error with special flag for Option 3
-          const error = new Error(errorData.message || 'No password set');
-          error.noPasswordSet = true;
-          error.canCreatePassword = true;
-          throw error;
-        }
-        throw new Error(errorData.message || 'Login failed');
-      }
-
-      const userData = await userResponse.json();
-      console.log('✅ User login successful:', userData);
-      
-      // ✅ VALIDATE TOKEN BEFORE STORING
-      if (!userData.token || typeof userData.token !== 'string' || userData.token.length < 20) {
-        console.error('❌ Invalid token received from server:', {
-          hasToken: !!userData.token,
-          tokenType: typeof userData.token,
-          tokenLength: userData.token?.length
+    } else if (accountType === 'user') {
+      try {
+        console.log('👤 Trying user login (account type: user)...');
+        
+        const userResponse = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
         });
-        throw new Error('Invalid token received from server. Please try again.');
-      }
 
-      // ✅ VALIDATE JWT FORMAT
-      const tokenParts = userData.token.split('.');
-      if (tokenParts.length !== 3) {
-        console.error('❌ Invalid JWT format:', {
-          parts: tokenParts.length,
-          tokenLength: userData.token.length
-        });
-        throw new Error('Invalid token format. Please try again.');
-      }
-      
-      // ✅ SECURITY FIX: Only store token after validation
-      localStorage.setItem('token', userData.token);
-      
-      return {
-        ...userData,
-        isAdmin: false,
-        redirectTo: '/user/dashboard'
-      };
-    } catch (userError) {
-      console.log('❌ User login failed:', userError.message);
-      
-      if (!isLikelyAdmin) {
-        try {
-          console.log('🔄 Last resort: trying admin login...');
-          const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-          });
-
-          if (adminResponse.ok) {
-            const adminData = await adminResponse.json();
-            console.log('✅ Admin login successful (last resort)');
-            
-            // ✅ SECURITY FIX: Only store token
-            localStorage.setItem('token', adminData.token);
-            
-            return {
-              ...adminData,
-              isAdmin: true,
-              redirectTo: '/admin/dashboard'
-            };
+        // ✅ FLEXIBLE LOGIN: Handle "No password set" error for Google users
+        if (!userResponse.ok) {
+          const errorData = await userResponse.json();
+          if (errorData.noPasswordSet || errorData.canCreatePassword) {
+            // Throw error with special flag for Option 3
+            const error = new Error(errorData.message || 'No password set');
+            error.noPasswordSet = true;
+            error.canCreatePassword = true;
+            throw error;
           }
-        } catch (lastResortError) {
-          console.log('❌ Admin login also failed');
+          throw new Error(errorData.message || 'Login failed');
         }
+
+        const userData = await userResponse.json();
+        console.log('✅ User login successful:', userData);
+        
+        // ✅ VALIDATE TOKEN BEFORE STORING
+        if (!userData.token || typeof userData.token !== 'string' || userData.token.length < 20) {
+          console.error('❌ Invalid token received from server:', {
+            hasToken: !!userData.token,
+            tokenType: typeof userData.token,
+            tokenLength: userData.token?.length
+          });
+          throw new Error('Invalid token received from server. Please try again.');
+        }
+
+        // ✅ VALIDATE JWT FORMAT
+        const tokenParts = userData.token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('❌ Invalid JWT format:', {
+            parts: tokenParts.length,
+            tokenLength: userData.token.length
+          });
+          throw new Error('Invalid token format. Please try again.');
+        }
+        
+        // ✅ SECURITY FIX: Only store token after validation
+        localStorage.setItem('token', userData.token);
+        
+        return {
+          ...userData,
+          isAdmin: false,
+          redirectTo: '/user/dashboard'
+        };
+      } catch (userError) {
+        console.log('❌ User login failed:', userError.message);
+        throw userError; // Don't fallback to admin if account type is user
       }
+    } else {
+      // Account type not determined - try both (fallback behavior)
+      console.log('🔄 Account type unknown, trying user login first...');
       
-      throw userError;
+      try {
+        console.log('👤 Trying user login...');
+        
+        const userResponse = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+
+        // ✅ FLEXIBLE LOGIN: Handle "No password set" error for Google users
+        if (!userResponse.ok) {
+          const errorData = await userResponse.json();
+          if (errorData.noPasswordSet || errorData.canCreatePassword) {
+            // Throw error with special flag for Option 3
+            const error = new Error(errorData.message || 'No password set');
+            error.noPasswordSet = true;
+            error.canCreatePassword = true;
+            throw error;
+          }
+          
+          // If user login fails, try admin as fallback
+          console.log('🔄 User login failed, trying admin login...');
+          try {
+            const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, password }),
+            });
+
+            if (adminResponse.ok) {
+              const adminData = await adminResponse.json();
+              console.log('✅ Admin login successful (last resort)');
+              
+              // ✅ SECURITY FIX: Only store token
+              localStorage.setItem('token', adminData.token);
+              
+              return {
+                ...adminData,
+                isAdmin: true,
+                redirectTo: '/admin/dashboard'
+              };
+            } else {
+              const adminErrorData = await adminResponse.json();
+              throw new Error(adminErrorData.message || 'Admin login failed');
+            }
+          } catch (adminError) {
+            console.log('❌ Admin login also failed:', adminError.message);
+            throw new Error(errorData.message || 'Login failed');
+          }
+        }
+
+        // User login successful
+        const userData = await userResponse.json();
+        console.log('✅ User login successful:', userData);
+        
+        // ✅ VALIDATE TOKEN BEFORE STORING
+        if (!userData.token || typeof userData.token !== 'string' || userData.token.length < 20) {
+          console.error('❌ Invalid token received from server:', {
+            hasToken: !!userData.token,
+            tokenType: typeof userData.token,
+            tokenLength: userData.token?.length
+          });
+          throw new Error('Invalid token received from server. Please try again.');
+        }
+
+        // ✅ VALIDATE JWT FORMAT
+        const tokenParts = userData.token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('❌ Invalid JWT format:', {
+            parts: tokenParts.length,
+            tokenLength: userData.token.length
+          });
+          throw new Error('Invalid token format. Please try again.');
+        }
+        
+        // ✅ SECURITY FIX: Only store token after validation
+        localStorage.setItem('token', userData.token);
+        
+        return {
+          ...userData,
+          isAdmin: false,
+          redirectTo: '/user/dashboard'
+        };
+      } catch (userError) {
+        console.log('❌ User login failed:', userError.message);
+        throw userError;
+      }
     }
   },
 
@@ -251,17 +327,72 @@ const api = {
   // FORGOT PASSWORD & RESET PASSWORD
   // ===================================================
   
+  // Check email account type (user or admin)
+  checkEmailType: async (email) => {
+    try {
+      console.log('🔍 Checking email account type for:', email);
+      
+      const response = await fetch(`${API_BASE_URL}/auth/check-email-type`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to check email type');
+      }
+      
+      const data = await response.json();
+      console.log(`✅ Email account type: ${data.accountType}`);
+      return data;
+    } catch (error) {
+      console.error('❌ Check email type error:', error);
+      throw error;
+    }
+  },
+
   forgotPassword: async (email) => {
     try {
       console.log('🔑 Requesting password reset for:', email);
       
+      // ✅ First, check if email is user or admin by querying database
+      let accountType = 'user'; // default
+      try {
+        const typeCheck = await api.checkEmailType(email);
+        accountType = typeCheck.accountType || 'user';
+        console.log(`📧 Email belongs to: ${accountType} account`);
+      } catch (typeError) {
+        console.warn('⚠️ Could not determine account type, defaulting to user:', typeError.message);
+      }
+      
+      // Route to appropriate endpoint based on account type
+      if (accountType === 'admin') {
+        console.log('👑 Sending admin password reset request...');
+        const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        
+        if (!adminResponse.ok) {
+          const errorData = await adminResponse.json();
+          throw new Error(errorData.message || 'Failed to request admin password reset');
+        }
+        
+        const adminData = await adminResponse.json();
+        console.log('✅ [ADMIN] Password reset code sent');
+        return { ...adminData, isAdmin: true };
+      }
+      
+      // User forgot password
+      console.log('👤 Sending user password reset request...');
       const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
       });
       
-      // ✅ Option 4: Handle password creation vs reset
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to request password reset');
@@ -280,6 +411,41 @@ const api = {
     try {
       console.log('🔑 Resetting password for:', email);
       
+      // ✅ Check if this is an admin email by querying database
+      let accountType = 'user'; // default
+      try {
+        const typeCheck = await api.checkEmailType(email);
+        accountType = typeCheck.accountType || 'user';
+        console.log(`📧 Email belongs to: ${accountType} account`);
+      } catch (typeError) {
+        console.warn('⚠️ Could not determine account type, defaulting to user:', typeError.message);
+      }
+      
+      // Route to appropriate endpoint based on account type
+      if (accountType === 'admin') {
+        console.log('👑 Resetting admin password...');
+        const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: email.trim(), 
+            code: code.trim(), 
+            newPassword 
+          }),
+        });
+        
+        if (!adminResponse.ok) {
+          const errorData = await adminResponse.json();
+          throw new Error(errorData.message || 'Failed to reset admin password');
+        }
+        
+        const adminData = await adminResponse.json();
+        console.log('✅ Admin password reset successful');
+        return adminData;
+      }
+      
+      // User password reset
+      console.log('👤 Resetting user password...');
       const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -290,7 +456,6 @@ const api = {
         }),
       });
       
-      // ✅ Option 4: Handle password creation vs reset response
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to reset password');
@@ -301,6 +466,60 @@ const api = {
       return data; // Returns isPasswordCreation flag if applicable
     } catch (error) {
       console.error('❌ Reset password error:', error);
+      throw error;
+    }
+  },
+
+  // Admin forgot password
+  adminForgotPassword: async (email) => {
+    try {
+      console.log('🔑 [ADMIN] Requesting password reset for:', email);
+      
+      const response = await fetch(`${API_BASE_URL}/admin-auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to request password reset');
+      }
+      
+      const data = await response.json();
+      console.log('✅ [ADMIN] Password reset code sent');
+      return data;
+    } catch (error) {
+      console.error('❌ [ADMIN] Forgot password error:', error);
+      throw error;
+    }
+  },
+
+  // Admin reset password
+  adminResetPassword: async (email, code, newPassword) => {
+    try {
+      console.log('🔑 [ADMIN] Resetting password for:', email);
+      
+      const response = await fetch(`${API_BASE_URL}/admin-auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: email.trim(), 
+          code: code.trim(), 
+          newPassword 
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reset password');
+      }
+      
+      const data = await response.json();
+      console.log('✅ [ADMIN] Password reset successful');
+      return data;
+    } catch (error) {
+      console.error('❌ [ADMIN] Reset password error:', error);
       throw error;
     }
   },

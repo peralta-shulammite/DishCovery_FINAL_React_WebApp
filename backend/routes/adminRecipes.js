@@ -759,30 +759,107 @@ router.put('/:id', async (req, res) => {
 
 // ✅ DELETE - Remove recipe
 router.delete('/:id', async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
     const recipeId = parseInt(id);
 
-    const checkQuery = 'SELECT recipe_name FROM recipes WHERE recipe_id = ?';
-    const existingRecipe = await pool.query(checkQuery, [recipeId]);
+    console.log(`🗑️ [DELETE RECIPE] Starting deletion process for recipe ID: ${recipeId}`);
+
+    // Get database connection
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Check if recipe exists
+    const [existingRecipe] = await connection.query(
+      'SELECT recipe_name FROM recipes WHERE recipe_id = ?',
+      [recipeId]
+    );
     
-    if (existingRecipe.length === 0) {
+    if (!existingRecipe || existingRecipe.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ success: false, message: 'Recipe not found' });
     }
 
-    await pool.query('DELETE FROM recipes WHERE recipe_id = ?', [recipeId]);
+    const recipeName = existingRecipe[0].recipe_name;
+    console.log(`✅ Recipe found: "${recipeName}"`);
+
+    // Delete all related data first (foreign key constraints)
+    // Order matters: delete child records before parent
+    const tablesToClean = [
+      'user_recipe_interactions',  // User saved/tried recipes
+      'recipe_restrictions',       // Recipe restrictions (has FK constraint)
+      'recipe_ingredients_detailed', // Recipe ingredients
+      'recipe_images',             // Recipe images
+      'recipe_dietary_tags'        // Recipe dietary tags
+    ];
+
+    console.log(`🧹 Cleaning up related data for recipe ${recipeId}...`);
+
+    for (const table of tablesToClean) {
+      try {
+        const [result] = await connection.query(
+          `DELETE FROM ${table} WHERE recipe_id = ?`,
+          [recipeId]
+        );
+        const affectedRows = result?.affectedRows || 0;
+        if (affectedRows > 0) {
+          console.log(`  ✓ Cleaned ${table}: ${affectedRows} row(s) deleted`);
+        }
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log(`  ⚠️ Table ${table} doesn't exist, skipping`);
+        } else {
+          console.error(`  ❌ Error deleting from ${table}:`, err.message);
+          throw err; // Re-throw non-table-missing errors
+        }
+      }
+    }
+
+    // Now delete the recipe itself
+    console.log(`🗑️ Deleting recipe ${recipeId}...`);
+    await connection.query('DELETE FROM recipes WHERE recipe_id = ?', [recipeId]);
+    console.log(`✅ Recipe "${recipeName}" deleted successfully`);
+
+    await connection.commit();
 
     res.json({ 
       success: true, 
-      message: `Recipe "${existingRecipe[0].recipe_name}" deleted successfully`,
+      message: `Recipe "${recipeName}" deleted successfully`,
       data: { id: recipeId },
       timestamp: new Date().toISOString(),
       action: 'delete'
     });
     
   } catch (error) {
-    console.error('Error deleting recipe:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    if (connection) {
+      await connection.rollback();
+    }
+    console.error('❌ Error deleting recipe:', error);
+    
+    let errorMessage = 'Server error';
+    let statusCode = 500;
+    
+    if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === '23000' || error.sqlState === '23000') {
+      errorMessage = 'Cannot delete recipe: Recipe is still referenced by other records.';
+      statusCode = 400;
+    } else if (error.code === 'ER_NO_SUCH_TABLE' || error.code === '42S02') {
+      errorMessage = 'Database table missing. Please contact administrator.';
+      statusCode = 500;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    res.status(statusCode).json({ 
+      success: false, 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Server error'
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+      console.log('✅ Database connection released');
+    }
   }
 });
 
