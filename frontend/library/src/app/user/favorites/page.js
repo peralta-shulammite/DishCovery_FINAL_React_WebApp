@@ -694,12 +694,14 @@ export default function FavoritesPage() {
                   <div className="instructions-section">
                     <h3 className="section-title">Step-by-Step Instructions</h3>
                     <div className="instructions-list">
-                      {selectedRecipe.instructions && selectedRecipe.instructions.map((step, index) => (
-                        <div key={index} className="instruction-step">
-                          <span className="step-number">{index + 1}</span>
-                          <span className="step-text">{step}</span>
-                        </div>
-                      ))}
+                      {selectedRecipe.instructions && selectedRecipe.instructions
+                        .filter(step => step && String(step).trim().length > 0)
+                        .map((step, index) => (
+                          <div key={index} className="instruction-step">
+                            <span className="step-number">{index + 1}</span>
+                            <span className="step-text">{step}</span>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 </div>
