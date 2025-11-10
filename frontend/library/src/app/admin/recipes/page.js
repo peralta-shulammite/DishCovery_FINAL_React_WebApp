@@ -46,7 +46,9 @@ const RecipeManagement = () => {
     dietaryLifestyleTags: [],
     medicalConditions: [],
     servings: '2',
-    verificationStatus: 'Checked by: Nutritionist'
+    verificationStatus: 'Checked by: Nutritionist',
+    verifierName: '',
+    verifierCredentials: ''
   });
 
   const mealTypes = ['Breakfast', 'Dessert', 'Dinner', 'Heavy Meal', 'Light Meal', 'Lunch', 'Smoothie', 'Snack'].sort();
@@ -288,7 +290,9 @@ const RecipeManagement = () => {
         mealType: Array.isArray(fullRecipe.mealType) ? fullRecipe.mealType : (fullRecipe.mealType ? (typeof fullRecipe.mealType === 'string' && fullRecipe.mealType.includes(',') ? fullRecipe.mealType.split(',').map(t => t.trim()) : [fullRecipe.mealType]) : ['Light Meal']), // Convert to array
         verificationStatus: fullRecipe.verificationStatus && fullRecipe.verificationStatus !== 'AI-generated'
           ? fullRecipe.verificationStatus
-          : 'Checked by: Nutritionist'
+          : 'Checked by: Nutritionist',
+        verifierName: fullRecipe.verifierName || '',
+        verifierCredentials: fullRecipe.verifierCredentials || ''
       });
       
     } catch (error) {
@@ -322,11 +326,24 @@ const RecipeManagement = () => {
     try {
       setLoading(true);
       
+      // Filter out empty instructions to prevent accidental step containers
+      const cleanedFormData = {
+        ...formData,
+        instructions: formData.instructions.filter(inst => inst && String(inst).trim().length > 0)
+      };
+      
+      // Ensure at least one instruction exists
+      if (cleanedFormData.instructions.length === 0) {
+        alert('Please add at least one instruction step.');
+        setLoading(false);
+        return;
+      }
+      
       if (editingRecipeId) {
-        await recipeAPI.update(editingRecipeId, formData);
+        await recipeAPI.update(editingRecipeId, cleanedFormData);
         alert('Recipe updated successfully!');
       } else {
-        await recipeAPI.create(formData);
+        await recipeAPI.create(cleanedFormData);
         alert('Recipe added successfully!');
       }
 
@@ -356,7 +373,9 @@ const RecipeManagement = () => {
       dietaryTags: [],
       medicalConditions: [],
       servings: '2',
-      verificationStatus: 'Checked by: Nutritionist'
+      verificationStatus: 'Checked by: Nutritionist',
+      verifierName: '',
+      verifierCredentials: ''
     });
     setEditingRecipeId(null);
   };
@@ -369,20 +388,27 @@ const RecipeManagement = () => {
   };
 
   const updateInstruction = (index, value) => {
-    const newInstructions = [...formData.instructions];
-    newInstructions[index] = value;
-    setFormData({
-      ...formData,
-      instructions: newInstructions
-    });
+    // Filter out empty instructions first, then update
+    const nonEmptyInstructions = formData.instructions.filter(inst => inst && String(inst).trim().length > 0);
+    if (index < nonEmptyInstructions.length) {
+      nonEmptyInstructions[index] = value;
+      // If the updated instruction becomes empty, remove it
+      const cleanedInstructions = nonEmptyInstructions.filter(inst => inst && String(inst).trim().length > 0);
+      setFormData({
+        ...formData,
+        instructions: cleanedInstructions.length > 0 ? cleanedInstructions : ['']
+      });
+    }
   };
 
   const removeInstruction = (index) => {
-    if (formData.instructions.length > 1) {
-      const newInstructions = formData.instructions.filter((_, i) => i !== index);
+    // Filter out empty instructions first, then remove
+    const nonEmptyInstructions = formData.instructions.filter(inst => inst && String(inst).trim().length > 0);
+    if (nonEmptyInstructions.length > 1) {
+      const newInstructions = nonEmptyInstructions.filter((_, i) => i !== index);
       setFormData({
         ...formData,
-        instructions: newInstructions
+        instructions: newInstructions.length > 0 ? newInstructions : ['']
       });
     }
   };
@@ -1009,9 +1035,19 @@ const RecipeManagement = () => {
                     </div>
                   </div>
                   <div className="recipe-verification">
-                    <span className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai' : 'verified'}`}>
-                      {recipe.verificationStatus}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                      <span className={`verification-badge ${recipe.verificationStatus === 'AI-generated' ? 'ai' : 'verified'}`}>
+                        {recipe.verificationStatus}
+                      </span>
+                      {recipe.verifierName && (
+                        <div style={{ fontSize: '11px', color: '#64748b', textAlign: 'right', lineHeight: '1.3' }}>
+                          <div style={{ fontWeight: '600', color: '#2E7D32' }}>{recipe.verifierName}</div>
+                          {recipe.verifierCredentials && (
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>{recipe.verifierCredentials}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1244,25 +1280,73 @@ const RecipeManagement = () => {
 
                 <div className="form-section">
                   <label className="form-label">Instructions *</label>
-                  {formData.instructions.map((instruction, index) => (
-                    <div key={index} className="instruction-item">
-                      <span className="step-number">{index + 1}.</span>
-                      <textarea
-                        className="form-textarea"
-                        value={instruction}
-                        onChange={(e) => updateInstruction(index, e.target.value)}
-                        placeholder="Enter instruction step..."
-                        rows="2"
-                        required
-                      />
-                      {formData.instructions.length > 1 && (
-                        <button type="button" className="remove-btn" onClick={() => removeInstruction(index)}>
-                          <CloseIcon />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button type="button" className="add-btn" onClick={addInstructionStep}>
+                  {(() => {
+                    // Filter out empty instructions for display, but keep original indices
+                    const nonEmptyInstructions = formData.instructions
+                      .map((instruction, originalIndex) => ({ instruction, originalIndex }))
+                      .filter(({ instruction }) => instruction && String(instruction).trim().length > 0);
+                    
+                    if (nonEmptyInstructions.length === 0) {
+                      // Show one empty instruction field if all are empty
+                      return (
+                        <div className="instruction-item">
+                          <span className="step-number">1.</span>
+                          <textarea
+                            className="form-textarea"
+                            value=""
+                            onChange={(e) => {
+                              setFormData({...formData, instructions: [e.target.value]});
+                            }}
+                            placeholder="Enter instruction step..."
+                            rows="2"
+                            required
+                          />
+                        </div>
+                      );
+                    }
+                    
+                    return nonEmptyInstructions.map(({ instruction, originalIndex }, displayIndex) => (
+                      <div key={originalIndex} className="instruction-item">
+                        <span className="step-number">{displayIndex + 1}.</span>
+                        <textarea
+                          className="form-textarea"
+                          value={instruction}
+                          onChange={(e) => {
+                            const newInstructions = [...formData.instructions];
+                            newInstructions[originalIndex] = e.target.value;
+                            // Auto-remove if becomes empty (but keep at least one empty if all become empty)
+                            const cleaned = newInstructions.filter(inst => inst && String(inst).trim().length > 0);
+                            setFormData({
+                              ...formData,
+                              instructions: cleaned.length > 0 ? cleaned : ['']
+                            });
+                          }}
+                          placeholder="Enter instruction step..."
+                          rows="2"
+                          required
+                        />
+                        {nonEmptyInstructions.length > 1 && (
+                          <button type="button" className="remove-btn" onClick={() => {
+                            const newInstructions = formData.instructions.filter((_, i) => i !== originalIndex);
+                            const cleaned = newInstructions.filter(inst => inst && String(inst).trim().length > 0);
+                            setFormData({
+                              ...formData,
+                              instructions: cleaned.length > 0 ? cleaned : ['']
+                            });
+                          }}>
+                            <CloseIcon />
+                          </button>
+                        )}
+                      </div>
+                    ));
+                  })()}
+                  <button type="button" className="add-btn" onClick={() => {
+                    const nonEmptyInstructions = formData.instructions.filter(inst => inst && String(inst).trim().length > 0);
+                    setFormData({
+                      ...formData,
+                      instructions: [...nonEmptyInstructions, '']
+                    });
+                  }}>
                     + Add Step
                   </button>
                 </div>
@@ -1359,6 +1443,34 @@ const RecipeManagement = () => {
                     <option value="Checked by: Dietitian">Checked by: Dietitian</option>
                     <option value="Checked by: Doctor">Checked by: Doctor</option>
                   </select>
+                </div>
+
+                <div className="form-section">
+                  <label className="form-label">Verifier Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.verifierName}
+                    onChange={(e) => setFormData({...formData, verifierName: e.target.value})}
+                    placeholder="Enter verifier's name (e.g., Dr. Jane Smith)"
+                  />
+                  <p className="section-subtitle" style={{ marginTop: '5px', color: '#666', fontSize: '12px' }}>
+                    Optional: Name of the nutritionist/dietitian/doctor who verified this recipe
+                  </p>
+                </div>
+
+                <div className="form-section">
+                  <label className="form-label">Verifier Credentials</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.verifierCredentials}
+                    onChange={(e) => setFormData({...formData, verifierCredentials: e.target.value})}
+                    placeholder="Enter credentials (e.g., RD, RDN, MD)"
+                  />
+                  <p className="section-subtitle" style={{ marginTop: '5px', color: '#666', fontSize: '12px' }}>
+                    Optional: Professional credentials or certifications
+                  </p>
                 </div>
 
                 <div className="form-actions">
@@ -1483,6 +1595,16 @@ const RecipeManagement = () => {
                     <span className={`verification-value ${selectedRecipe.verificationStatus === 'AI-generated' ? 'ai' : 'verified'}`}>
                       {selectedRecipe.verificationStatus?.replace('Checked by: ', '') || 'AI-generated'}
                     </span>
+                    {selectedRecipe.verifierName && (
+                      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
+                        <strong>Name:</strong> {selectedRecipe.verifierName}
+                        {selectedRecipe.verifierCredentials && (
+                          <span style={{ marginLeft: '10px' }}>
+                            <strong>Credentials:</strong> {selectedRecipe.verifierCredentials}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

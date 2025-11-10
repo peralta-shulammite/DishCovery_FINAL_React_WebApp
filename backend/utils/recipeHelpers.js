@@ -62,8 +62,8 @@ export const transformRecipeForDB = (frontendData) => {
         }
         return status;
       })(),
-      verifierName: null,
-      verifierCredentials: null
+      verifierName: frontendData.verifierName || null,
+      verifierCredentials: frontendData.verifierCredentials || null
     }
   };
 };

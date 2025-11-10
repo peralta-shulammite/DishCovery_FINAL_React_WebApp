@@ -5,9 +5,11 @@ import jwt from 'jsonwebtoken';
 import { transformRecipeForFrontend } from '../utils/recipeTransformer.js';
 import {
   getUserMedicalConditions,
+  getUserExcludedIngredients,
   getIngredientNames,
   buildIngredientFilter,
   buildMedicalConditionFilter,
+  buildExcludedIngredientsFilter,
   validateFilterParams
 } from '../utils/recipeFilterUtils.js';
 
@@ -263,6 +265,10 @@ router.get('/', optionalAuth, async (req, res) => {
     const userId = req.user ? (req.user.userId || req.user.id) : null;
     const { userMedicalConditions, restrictionIdList } = await getUserMedicalConditions(db, userId);
     console.log(`🔍 User ${userId || 'anonymous'} has ${userMedicalConditions.length} medical conditions:`, userMedicalConditions);
+    
+    // ✅ Get user's excluded ingredients using shared utility
+    const excludedIngredientNames = await getUserExcludedIngredients(db, userId);
+    console.log(`🔍 User ${userId || 'anonymous'} has ${excludedIngredientNames.length} excluded ingredients:`, excludedIngredientNames);
 
     let query = `
       SELECT DISTINCT
@@ -304,6 +310,18 @@ router.get('/', optionalAuth, async (req, res) => {
       }
     } else {
       console.log('ℹ️ No medical conditions to filter');
+    }
+
+    // ✅ Filter out recipes with user's excluded ingredients using shared utility
+    if (excludedIngredientNames.length > 0) {
+      const excludedFilter = buildExcludedIngredientsFilter(excludedIngredientNames);
+      if (excludedFilter.clause) {
+        whereClauses.push(excludedFilter.clause.replace('AND ', ''));
+        params.push(...excludedFilter.params);
+        console.log(`🚫 Filtering out recipes with excluded ingredients: ${excludedIngredientNames.join(', ')}`);
+      }
+    } else {
+      console.log('ℹ️ No excluded ingredients to filter');
     }
 
     if (search && search.trim()) {
@@ -1137,6 +1155,10 @@ router.post('/filter', optionalAuth, async (req, res) => {
     const { userMedicalConditions, restrictionIdList } = await getUserMedicalConditions(db, userId);
     console.log(`🔍 [FILTER] User ${userId || 'anonymous'} has ${userMedicalConditions.length} medical conditions:`, userMedicalConditions);
     console.log(`🔍 [FILTER] Restriction IDs:`, restrictionIdList);
+    
+    // ✅ Get user's excluded ingredients using shared utility
+    const excludedIngredientNames = await getUserExcludedIngredients(db, userId);
+    console.log(`🔍 [FILTER] User ${userId || 'anonymous'} has ${excludedIngredientNames.length} excluded ingredients:`, excludedIngredientNames);
 
     // ✅ Get ingredient names from ingredient IDs using shared utility
     const allIngredientIds = [...scannedIngredients, ...pantryIngredients];
@@ -1234,6 +1256,16 @@ router.post('/filter', optionalAuth, async (req, res) => {
       console.log(`📋 Applied medical condition filter with ${restrictionIdList.length} restrictions`);
     } else {
       console.log('ℹ️ No medical conditions to filter - showing all matching recipes');
+    }
+
+    // ✅ Build excluded ingredients filter using shared utility
+    const excludedFilter = buildExcludedIngredientsFilter(excludedIngredientNames);
+    if (excludedFilter.clause) {
+      query += excludedFilter.clause;
+      queryParams.push(...excludedFilter.params);
+      console.log(`🚫 Filtering out recipes with excluded ingredients: ${excludedIngredientNames.join(', ')}`);
+    } else {
+      console.log('ℹ️ No excluded ingredients to filter - showing all matching recipes');
     }
 
     // Group by and order - include all non-aggregated columns in GROUP BY for ONLY_FULL_GROUP_BY compliance
