@@ -339,7 +339,26 @@ const RecipeManagement = () => {
         return;
       }
       
+      // Only require images when creating a new recipe (not when editing)
+      if (!editingRecipeId && (!cleanedFormData.images || cleanedFormData.images.length === 0)) {
+        alert('Please add at least one image for the recipe.');
+        setLoading(false);
+        return;
+      }
+      
+      // ✅ FIXED: Always preserve existing images when updating
+      // When editing, always include images array so backend can preserve existing images
       if (editingRecipeId) {
+        // Ensure images array is always included in the update request
+        // If images array is undefined/null, set it to empty array so backend preserves existing
+        // If images array has items, send them to replace existing
+        // If images array is empty [], backend will preserve existing images
+        if (cleanedFormData.images === undefined || cleanedFormData.images === null) {
+          cleanedFormData.images = [];
+        }
+        // Always send images array - backend will:
+        // - Preserve existing if array is empty []
+        // - Replace existing if array has items
         await recipeAPI.update(editingRecipeId, cleanedFormData);
         alert('Recipe updated successfully!');
       } else {
@@ -1078,7 +1097,9 @@ const RecipeManagement = () => {
                 </div>
 
                 <div className="form-section">
-                  <label className="form-label">Photos (1-4 required) *</label>
+                  <label className="form-label">
+                    Photos {editingRecipeId && formData.images.length > 0 ? '(Optional)' : '(1-4 required)'} *
+                  </label>
 
                   {/* File Upload */}
                   <div style={{ marginBottom: '10px' }}>
@@ -1089,7 +1110,7 @@ const RecipeManagement = () => {
                       multiple
                       onChange={handleImageUpload}
                       disabled={formData.images.length >= 4}
-                      required={!formData.images.length}
+                      required={!editingRecipeId && !formData.images.length}
                     />
                     <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
                       Upload from computer (auto-compressed to 600x450, 60% quality for smaller file size)

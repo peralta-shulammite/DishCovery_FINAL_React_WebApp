@@ -16,9 +16,13 @@ export const transformRecipeForDB = (frontendData) => {
     recipe: {
       recipe_name: frontendData.title,
       description: frontendData.description,
-      instructions: Array.isArray(frontendData.instructions)
-        ? frontendData.instructions.join('\n')
-        : frontendData.instructions,
+      instructions: (() => {
+        // Filter out empty instructions before joining
+        const filteredInstructions = Array.isArray(frontendData.instructions)
+          ? frontendData.instructions.filter(inst => inst && String(inst).trim().length > 0)
+          : (frontendData.instructions && String(frontendData.instructions).trim().length > 0 ? [frontendData.instructions] : []);
+        return filteredInstructions.length > 0 ? filteredInstructions.join('\n') : '';
+      })(),
       prep_time: parseInt(frontendData.prep_time) || null,
       cook_time: parseInt(frontendData.cook_time) || null,
       total_time: frontendData.total_time ||
@@ -158,9 +162,12 @@ export const validateRecipeData = (data) => {
     errors.push('Recipe description is required');
   }
   
-  if (!data.images || data.images.length === 0) {
-    errors.push('At least one image is required');
-  }
+  // Only require images when creating new recipes (check if id is present to determine if updating)
+  // Note: This validation should be called with context, but for now we'll make it optional
+  // The frontend will handle requiring images for new recipes
+  // if (!data.images || data.images.length === 0) {
+  //   errors.push('At least one image is required');
+  // }
   
   return {
     isValid: errors.length === 0,
