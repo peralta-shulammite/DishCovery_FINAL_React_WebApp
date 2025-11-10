@@ -1004,6 +1004,7 @@ router.post('/google/callback', async (req, res) => {
         parts: tokenParts.length
       });
       await connection.commit();
+      
       // ✅ FLEXIBLE LOGIN: Add password status for frontend prompts
       const hasPassword = !!existingUser.password_hash;
       const isFirstLogin = !existingUser.last_login || existingUser.last_login === null;
