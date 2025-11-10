@@ -222,9 +222,9 @@ router.get('/', async (req, res) => {
         GROUP_CONCAT(DISTINCT ri.image_url ORDER BY ri.display_order) as images,
         GROUP_CONCAT(DISTINCT dt.tag_name) as dietary_tags,
         GROUP_CONCAT(DISTINCT CASE WHEN res.category_id IN (1, 2, 3) THEN res.restriction_name END) as medical_conditions,
-        rv.verification_status,
-        rv.verifier_name,
-        rv.verifier_credentials,
+        r.verification_status,
+        r.verifier_name,
+        r.verifier_credentials,
         COALESCE(AVG(uri.rating), 0) as average_rating,
         COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
         COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
@@ -234,7 +234,6 @@ router.get('/', async (req, res) => {
       LEFT JOIN dietary_tags dt ON rdt.tag_id = dt.tag_id
       LEFT JOIN recipe_restrictions rr ON r.recipe_id = rr.recipe_id
       LEFT JOIN restrictions res ON rr.restriction_id = res.restriction_id AND res.is_active = 1
-      LEFT JOIN recipe_verification rv ON r.recipe_id = rv.recipe_id
       LEFT JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
       ${whereClause}
       GROUP BY r.recipe_id 
@@ -277,18 +276,35 @@ router.get('/', async (req, res) => {
       const dietaryTags = recipe.dietary_tags ? recipe.dietary_tags.split(',').filter(Boolean) : [];
       const medicalConditions = recipe.medical_conditions ? recipe.medical_conditions.split(',').filter(Boolean) : [];
       
-      return transformRecipeForFrontend({
-        ...recipe,
-        images,
-        dietaryTags,
-        medicalConditions,
-        healthTags: [],
-        ingredients: { main: [], condiments: [], optional: [] },
-        engagement: {
-          tried: recipe.tried_count || 0,
-          saved: recipe.save_count || 0
-        }
-      });
+      // Prepare verification data from recipes table
+      const verification = recipe.verification_status ? {
+        verification_status: recipe.verification_status,
+        verifier_name: recipe.verifier_name || null,
+        verifier_credentials: recipe.verifier_credentials || null
+      } : null;
+      
+      // Prepare engagement data
+      const engagement = {
+        tried_count: recipe.tried_count || 0,
+        save_count: recipe.save_count || 0,
+        average_rating: recipe.average_rating || 0
+      };
+      
+      return transformRecipeForFrontend(
+        {
+          ...recipe,
+          images,
+          dietaryTags,
+          medicalConditions,
+          healthTags: [],
+          ingredients: { main: [], condiments: [], optional: [] }
+        },
+        images.map(img => ({ image_url: img, display_order: 0, is_primary: 0 })),
+        [],
+        dietaryTags.map(tag => ({ tag_name: tag, tag_category: 'dietary' })),
+        verification,
+        engagement
+      );
     });
 
     const countQuery = `SELECT COUNT(*) as total FROM recipes r ${whereClause}`;
@@ -323,13 +339,16 @@ router.get('/:id', async (req, res) => {
         r.*,
         GROUP_CONCAT(DISTINCT CASE WHEN dt.tag_category = 'dietary' THEN dt.tag_name END) as dietary_tags,
         GROUP_CONCAT(DISTINCT CASE WHEN dt.tag_category = 'health' THEN dt.tag_name END) as health_tags,
-        rv.verification_status,
-        rv.verifier_name,
-        rv.verifier_credentials
+        r.verification_status,
+        r.verifier_name,
+        r.verifier_credentials,
+        COALESCE(AVG(uri.rating), 0) as average_rating,
+        COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
+        COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
       FROM recipes r
       LEFT JOIN recipe_dietary_tags rdt ON r.recipe_id = rdt.recipe_id
       LEFT JOIN dietary_tags dt ON rdt.tag_id = dt.tag_id
-      LEFT JOIN recipe_verification rv ON r.recipe_id = rv.recipe_id
+      LEFT JOIN user_recipe_interactions uri ON r.recipe_id = uri.recipe_id
       WHERE r.recipe_id = ?
       GROUP BY r.recipe_id
     `;
@@ -405,6 +424,10 @@ router.get('/:id', async (req, res) => {
       healthTags,
       ingredients,
       medicalConditions
+    }, null, null, null, null, {
+      tried_count: recipe.tried_count || 0,
+      save_count: recipe.save_count || 0,
+      average_rating: recipe.average_rating || 0
     });
 
     res.json({
@@ -430,6 +453,18 @@ router.post('/', async (req, res) => {
 
     const transformed = transformRecipeForDB(req.body);
     
+    // Debug: Log verification data
+    console.log('🔍 [POST /] Verification data:', {
+      status: transformed.verification.status,
+      verifierName: transformed.verification.verifierName,
+      verifierCredentials: transformed.verification.verifierCredentials,
+      originalData: {
+        verificationStatus: req.body.verificationStatus,
+        verifierName: req.body.verifierName,
+        verifierCredentials: req.body.verifierCredentials
+      }
+    });
+    
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
@@ -437,8 +472,9 @@ router.post('/', async (req, res) => {
       INSERT INTO recipes (
         recipe_name, description, instructions, prep_time, cook_time, 
         total_time, servings, difficulty_level, meal_type, dish_type, is_active,
+        verification_status, verifier_name, verifier_credentials,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
     
     const recipeResult = await connection.query(recipeQuery, [
@@ -452,7 +488,10 @@ router.post('/', async (req, res) => {
       transformed.recipe.difficulty_level,
       transformed.recipe.meal_type,
       transformed.recipe.dish_type,
-      transformed.recipe.is_active
+      transformed.recipe.is_active,
+      transformed.verification.status || null,
+      (transformed.verification.verifierName && transformed.verification.verifierName.trim()) ? transformed.verification.verifierName.trim() : null,
+      (transformed.verification.verifierCredentials && transformed.verification.verifierCredentials.trim()) ? transformed.verification.verifierCredentials.trim() : null
     ]);
 
     // ✅ Handle different return formats
@@ -513,11 +552,8 @@ router.post('/', async (req, res) => {
       await saveRecipeRestrictions(connection, recipeId, transformed.restrictions);
     }
 
-    // Insert verification status with verifier_name and verifier_credentials
-    await connection.query(
-      'INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials, verified_at) VALUES (?, ?, ?, ?, NOW())',
-      [recipeId, transformed.verification.status, transformed.verification.verifierName || null, transformed.verification.verifierCredentials || null]
-    );
+    // Note: verification_status, verifier_name, and verifier_credentials are now saved directly in recipes table
+    // No need to insert into recipe_verification table
 
     await connection.commit();
 
@@ -573,12 +609,26 @@ router.put('/:id', async (req, res) => {
 
     const transformed = transformRecipeForDB(dataToTransform);
     
-    // Update main recipe
+    // Debug: Log verification data
+    console.log('🔍 [PUT /:id] Verification data:', {
+      status: transformed.verification.status,
+      verifierName: transformed.verification.verifierName,
+      verifierCredentials: transformed.verification.verifierCredentials,
+      originalData: {
+        verificationStatus: req.body.verificationStatus,
+        verifierName: req.body.verifierName,
+        verifierCredentials: req.body.verifierCredentials
+      }
+    });
+    
+    // Update main recipe including verifier_name and verifier_credentials
     await connection.query(
       `UPDATE recipes SET 
         recipe_name = ?, description = ?, instructions = ?, prep_time = ?, 
         cook_time = ?, total_time = ?, servings = ?, difficulty_level = ?, 
-        meal_type = ?, dish_type = ?, is_active = ?, updated_at = NOW()
+        meal_type = ?, dish_type = ?, is_active = ?,
+        verification_status = ?, verifier_name = ?, verifier_credentials = ?,
+        updated_at = NOW()
       WHERE recipe_id = ?`,
       [
         transformed.recipe.recipe_name,
@@ -592,6 +642,9 @@ router.put('/:id', async (req, res) => {
         transformed.recipe.meal_type,
         transformed.recipe.dish_type,
         transformed.recipe.is_active,
+        transformed.verification.status || null,
+        (transformed.verification.verifierName && transformed.verification.verifierName.trim()) ? transformed.verification.verifierName.trim() : null,
+        (transformed.verification.verifierCredentials && transformed.verification.verifierCredentials.trim()) ? transformed.verification.verifierCredentials.trim() : null,
         recipeId
       ]
     );
@@ -644,12 +697,8 @@ router.put('/:id', async (req, res) => {
     // ✅ Update restrictions
     await saveRecipeRestrictions(connection, recipeId, transformed.restrictions || []);
 
-    // Update verification with verifier_name and verifier_credentials
-    await connection.query('DELETE FROM recipe_verification WHERE recipe_id = ?', [recipeId]);
-    await connection.query(
-      'INSERT INTO recipe_verification (recipe_id, verification_status, verifier_name, verifier_credentials, verified_at) VALUES (?, ?, ?, ?, NOW())',
-      [recipeId, transformed.verification.status, transformed.verification.verifierName || null, transformed.verification.verifierCredentials || null]
-    );
+    // Note: verification_status, verifier_name, and verifier_credentials are now saved directly in recipes table
+    // No need to update recipe_verification table
 
     await connection.commit();
 

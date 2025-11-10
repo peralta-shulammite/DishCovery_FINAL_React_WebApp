@@ -54,16 +54,10 @@ export const transformRecipeForDB = (frontendData) => {
     ingredients: frontendData.ingredients || { main: [], condiments: [], optional: [] },
     restrictions: restrictions,
     verification: {
-      // Shorten "Checked by: X" to just "X" to fit database column
-      status: (() => {
-        const status = frontendData.verificationStatus || 'Checked by: Nutritionist';
-        if (status.startsWith('Checked by: ')) {
-          return status.replace('Checked by: ', '').trim();
-        }
-        return status;
-      })(),
-      verifierName: frontendData.verifierName || null,
-      verifierCredentials: frontendData.verifierCredentials || null
+      // Keep full "Checked by: X" format for recipes table
+      status: frontendData.verificationStatus || 'Checked by: Nutritionist',
+      verifierName: (frontendData.verifierName && frontendData.verifierName.trim()) ? frontendData.verifierName.trim() : null,
+      verifierCredentials: (frontendData.verifierCredentials && frontendData.verifierCredentials.trim()) ? frontendData.verifierCredentials.trim() : null
     }
   };
 };
@@ -141,6 +135,8 @@ export const transformRecipeForFrontend = (dbData, images = null, ingredients = 
       // Otherwise, convert short format to display format
       return `Checked by: ${status}`;
     })(),
+    verifierName: verification?.verifier_name || dbData.verifierName || dbData.verifier_name || '',
+    verifierCredentials: verification?.verifier_credentials || dbData.verifierCredentials || dbData.verifier_credentials || '',
     engagement: engagement || dbData.engagement || { tried: 0, saved: 0 },
     rating: dbData.average_rating || dbData.rating || 4.5,
     created_at: dbData.created_at,
