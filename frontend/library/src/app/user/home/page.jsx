@@ -490,11 +490,15 @@ export default function DishCoveryLanding() {
     setDishCoveryVerificationCode('');
   };
 
-  const dishCoveryHandleRecipeClick = () => {
+  const dishCoveryHandleRecipeClick = (recipeId = null) => {
     if (!dishCoveryIsLoggedIn) {
       setDishCoveryShowSignInModal(true);
     } else {
-      window.location.href = '/user/recipe';
+      if (recipeId) {
+        window.location.href = `/user/recipe?id=${recipeId}`;
+      } else {
+        window.location.href = '/user/recipe';
+      }
     }
   };
 
@@ -1102,7 +1106,7 @@ export default function DishCoveryLanding() {
             <>
               <div className="carousel-row top-row">
                 {[...dishCoveryCarouselRecipes, ...dishCoveryCarouselRecipes].map((recipe, index) => (
-                  <div key={`top-${recipe.id}-${index}`} className="recipe-card" onClick={() => window.location.href = `/user/recipe?id=${recipe.id}`}>
+                  <div key={`top-${recipe.id}-${index}`} className="recipe-card" onClick={() => dishCoveryHandleRecipeClick(recipe.id)}>
                     <img 
                       src={recipe.img} 
                       alt={recipe.name}
@@ -1121,7 +1125,7 @@ export default function DishCoveryLanding() {
               </div>
               <div className="carousel-row bottom-row">
                 {[...dishCoveryCarouselRecipes.slice().reverse(), ...dishCoveryCarouselRecipes.slice().reverse()].map((recipe, index) => (
-                  <div key={`bottom-${recipe.id}-${index}`} className="recipe-card" onClick={() => window.location.href = `/user/recipe?id=${recipe.id}`}>
+                  <div key={`bottom-${recipe.id}-${index}`} className="recipe-card" onClick={() => dishCoveryHandleRecipeClick(recipe.id)}>
                     <img 
                       src={recipe.img} 
                       alt={recipe.name}
