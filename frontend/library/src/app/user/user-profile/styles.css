@@ -278,23 +278,20 @@
 .scan-history-item-minimal {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
+  align-items: flex-start;
+  padding: 12px 16px;
   background: rgba(255, 255, 255, 0.6);
-  border-radius: 8px;
+  border-radius: 12px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .scan-history-item-minimal:hover {
   background: rgba(255, 255, 255, 0.9);
-  transform: translateX(4px);
-}
-
-.scan-item-details {
-  flex: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .scan-item-name {
@@ -304,9 +301,61 @@
   font-family: 'Poppins', sans-serif;
 }
 
+.scan-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  width: 100%;
+}
+
+/* ✅ Horizontal layout for ingredients (left-to-right) */
+.scan-item-ingredients-horizontal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ✅ Oval badge design for scanned ingredients */
+.scan-ingredient-badge-oval {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, rgba(46, 125, 50, 0.1) 0%, rgba(46, 125, 50, 0.15) 100%);
+  color: #2E7D32;
+  border: 1.5px solid rgba(46, 125, 50, 0.3);
+  border-radius: 20px; /* Oval shape */
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0; /* Prevent badges from shrinking */
+  max-width: fit-content;
+}
+
+.scan-ingredient-badge-oval:hover {
+  background: linear-gradient(135deg, rgba(46, 125, 50, 0.15) 0%, rgba(46, 125, 50, 0.2) 100%);
+  border-color: rgba(46, 125, 50, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.15);
+}
+
+.scan-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: 4px;
+}
+
 .scan-item-date {
   font-size: 11px;
   color: #666;
+  flex-shrink: 0;
 }
 
 .remove-scan-btn-minimal {
@@ -316,22 +365,25 @@
   cursor: pointer;
   padding: 4px;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 .remove-scan-btn-minimal:hover {
   background: rgba(211, 47, 47, 0.1);
   color: #D32F2F;
+  transform: scale(1.1);
 }
 
 .remove-scan-btn-minimal svg {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   fill: currentColor;
 }
 

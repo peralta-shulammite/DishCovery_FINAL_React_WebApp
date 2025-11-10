@@ -87,13 +87,22 @@ export const recipesAPI = {
   getFilteredRecipes: async ({ scannedIngredients = [], pantryIngredients = [], limit = 20, offset = 0 }) => {
     const token = localStorage.getItem('token');
     
+    // ✅ DEBUG: Log authentication status
+    console.log('🔍 [FRONTEND] getFilteredRecipes called:');
+    console.log('   - Token exists:', !!token);
+    console.log('   - Scanned ingredients:', scannedIngredients);
+    console.log('   - Pantry ingredients:', pantryIngredients);
+    
     const headers = {
       'Content-Type': 'application/json'
     };
     
-    // Add authorization header only if token exists
+    // ✅ CRITICAL: Always add authorization header if token exists
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+      console.log('   - Authorization header: Added');
+    } else {
+      console.warn('   ⚠️ WARNING: No token found! Medical condition filtering will not work!');
     }
 
     const response = await fetch(`${API_BASE_URL}/recipes/filter`, {
@@ -112,7 +121,11 @@ export const recipesAPI = {
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('   - Filtered recipes count:', result.recipes?.length || 0);
+    console.log('   - Filters applied:', result.filters);
+    
+    return result;
   }
 };
 

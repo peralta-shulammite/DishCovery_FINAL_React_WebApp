@@ -57,6 +57,13 @@ export default function GetStarted() {
   
   useEffect(() => {
     const token = localStorage.getItem('token');
+    // ✅ Authentication check - redirect to home if not logged in
+    if (!token) {
+      console.log('🔒 No token found, redirecting to home...');
+      window.location.href = '/user/home';
+      return;
+    }
+    
     if (token) {
       // Check if user has already completed onboarding
       fetch(`${API_BASE_URL}/user-profile/dietary`, {
@@ -507,9 +514,6 @@ export default function GetStarted() {
             </div>
             <div className="summary-item">
               <strong>Excluded Ingredients:</strong> {dietaryData.excludedIngredients || 'None'}
-            </div>
-            <div className="summary-item">
-              <strong>Dietary Lifestyle Tags:</strong> {dietaryData.preferredDiets.join(', ') || 'None'}
             </div>
           </div>
           <div className="nav-buttons">

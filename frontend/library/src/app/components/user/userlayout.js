@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import './userlayout.css';
 import { notificationsAPI } from '../../user/utils/notificationsAPI';
@@ -46,65 +46,94 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
   };
 
   // 🆕 Load notifications from API
-  useEffect(() => {
-    const loadNotifications = async () => {
-      if (!isLoggedIn) return;
+  const loadNotifications = useCallback(async () => {
+    if (!isLoggedIn) return;
+    
+    try {
+      setLoadingNotifications(true);
+      console.log('📥 Loading notifications from API...');
       
-      try {
-        setLoadingNotifications(true);
-        console.log('📥 Loading notifications from API...');
-        
-        const response = await notificationsAPI.getNotifications(20);
-        
-        if (response && response.success && response.data) {
-          // Transform API data to match UI format
-          const formattedNotifications = response.data.map(notification => {
-            const createdDate = new Date(notification.created_at);
-            const now = new Date();
-            const diffMs = now - createdDate;
-            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-            const diffDays = Math.floor(diffHours / 24);
-            
-            let timestamp;
-            if (diffHours < 1) {
-              timestamp = 'Just now';
-            } else if (diffHours < 24) {
-              timestamp = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-            } else {
-              timestamp = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-            }
-            
-            return {
-              id: notification.id,
-              from: notification.from_name || 'Admin',
-              fromRole: notification.from_role || 'ADMIN',
-              subject: notification.subject,
-              text: notification.body,
-              timestamp: timestamp,
-              isRead: notification.is_read === 1,
-              type: notification.type
-            };
-          });
+      const response = await notificationsAPI.getNotifications(20);
+      
+      if (response && response.success && response.data) {
+        // Transform API data to match UI format
+        const formattedNotifications = response.data.map(notification => {
+          const createdDate = new Date(notification.created_at);
+          const now = new Date();
+          const diffMs = now - createdDate;
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffDays = Math.floor(diffHours / 24);
           
-          setMessages(formattedNotifications);
-          console.log('✅ Notifications loaded:', formattedNotifications.length);
-        }
+          let timestamp;
+          if (diffHours < 1) {
+            timestamp = 'Just now';
+          } else if (diffHours < 24) {
+            timestamp = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+          } else {
+            timestamp = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+          }
+          
+          return {
+            id: notification.id,
+            from: notification.from_name || 'Admin',
+            fromRole: notification.from_role || 'ADMIN',
+            subject: notification.subject,
+            text: notification.body,
+            timestamp: timestamp,
+            isRead: notification.is_read === 1,
+            type: notification.type,
+            relatedId: notification.related_id,
+            relatedType: notification.related_type
+          };
+        });
         
-        // Load unread count
-        const count = await notificationsAPI.getUnreadCount();
-        setUnreadCount(count);
-        
-      } catch (error) {
-        console.error('❌ Error loading notifications:', error);
-        setMessages([]);
-        setUnreadCount(0);
-      } finally {
-        setLoadingNotifications(false);
+        setMessages(formattedNotifications);
+        console.log('✅ Notifications loaded:', formattedNotifications.length);
+      }
+      
+      // Load unread count
+      const count = await notificationsAPI.getUnreadCount();
+      setUnreadCount(count);
+      
+    } catch (error) {
+      console.error('❌ Error loading notifications:', error);
+      setMessages([]);
+      setUnreadCount(0);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  // ✅ Auto-refresh notifications every 30 seconds
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing notifications...');
+      loadNotifications();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [isLoggedIn, loadNotifications]);
+
+  // ✅ Refresh notifications when page becomes visible
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ Page visible, refreshing notifications...');
+        loadNotifications();
       }
     };
     
-    loadNotifications();
-  }, [isLoggedIn]);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isLoggedIn, loadNotifications]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -298,6 +327,12 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
               key={link.name}
               href={link.href}
               className="nav-link"
+              onClick={(e) => {
+                if (!isLoggedIn && (link.href === '/user/pantry' || link.href === '/user/favorites')) {
+                  e.preventDefault();
+                  onSignInClick();
+                }
+              }}
             >
               {link.name}
             </Link>
@@ -365,9 +400,6 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
                   <Link href="/user/user-profile" className="dropdown-item">
                     User Profile
                   </Link>
-                  <Link href="/settings" className="dropdown-item">
-                    Settings
-                  </Link>
                   <button onClick={handleLogout} className="dropdown-item">
                   Sign Out
                   </button>
@@ -395,7 +427,15 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
                 key={link.name}
                 href={link.href}
                 className="mobile-nav-link"
-                onClick={() => setShowMobileMenu(false)}
+                onClick={(e) => {
+                  if (!isLoggedIn && (link.href === '/user/pantry' || link.href === '/user/favorites')) {
+                    e.preventDefault();
+                    onSignInClick();
+                    setShowMobileMenu(false);
+                  } else {
+                    setShowMobileMenu(false);
+                  }
+                }}
               >
                 {link.name}
               </Link>
