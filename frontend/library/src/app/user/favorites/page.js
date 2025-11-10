@@ -232,8 +232,6 @@ export default function FavoritesPage() {
       switch (dishCoverySortBy) {
         case 'dateSaved':
           return b.id - a.id;
-        case 'prepTime':
-          return parseInt(a.cookTime) - parseInt(b.cookTime);
         case 'alphabetical':
           return a.title.localeCompare(b.title);
         default:
@@ -427,7 +425,6 @@ export default function FavoritesPage() {
                   className="sort-dropdown"
                 >
                   <option value="dateSaved">Recently Saved</option>
-                  <option value="prepTime">Prep Time</option>
                   <option value="alphabetical">A-Z</option>
                 </select>
 

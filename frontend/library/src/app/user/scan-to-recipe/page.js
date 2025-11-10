@@ -367,6 +367,24 @@ const RecipePage = () => {
     });
   };
 
+  // Filter modal handlers
+  const openFilterModal = () => {
+    setShowFilterModal(true);
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeFilterModal = () => {
+    setShowFilterModal(false);
+    document.body.style.overflow = 'unset';
+  };
+
+  const applyFilters = () => {
+    closeFilterModal();
+    // Reset offset when applying new filters
+    setOffset(0);
+    // fetchRecipes will be triggered by useEffect when filters change
+  };
+
   const getActiveFilterCount = () => {
     return filters.mealType.length + filters.dietaryTags.length;
   };
@@ -558,20 +576,7 @@ const RecipePage = () => {
     }
   };
 
-  // Filter modal handlers
-  const openFilterModal = () => {
-    setShowFilterModal(true);
-    document.body.style.overflow = 'hidden';
-  };
-
-  const closeFilterModal = () => {
-    setShowFilterModal(false);
-    document.body.style.overflow = 'unset';
-  };
-
-  const applyFilters = () => {
-    closeFilterModal();
-  };
+  // Filter modal handlers (already declared above)
 
   return (
     <UserLayout 
