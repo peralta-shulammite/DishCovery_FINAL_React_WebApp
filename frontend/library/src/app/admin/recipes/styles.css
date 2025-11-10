@@ -305,20 +305,18 @@ body {
 
 /* Meal type badges - EXACTLY copied from user recipe page */
 .meal-type-badge {
-  background: #2E7D32 !important; /* Solid green background - EXACTLY matching user recipe page */
-  color: white !important; /* White text - EXACTLY matching user recipe page */
-  padding: 6px 12px !important; /* EXACTLY matching user recipe page */
-  border-radius: 20px !important; /* Oval shape - EXACTLY matching user recipe page */
-  font-size: 12px !important; /* EXACTLY matching user recipe page */
-  font-weight: 600 !important;
-  font-family: 'Poppins', sans-serif !important; /* EXACTLY matching user recipe page font */
+  background: #ffffff;
+  color:  rgb(9, 100, 148);
+  border: 2px solid rgb(9, 100, 148);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
   white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 2px 4px rgba(46, 125, 50, 0.2);
+  display: inline-block;
+  box-shadow: 0 2px 8px rgba(230, 57, 70, 0.15);
   transition: all 0.2s ease;
-  border: none;
 }
 
 .meal-type-badge svg,
@@ -332,8 +330,8 @@ body {
 
 .meal-type-badge:hover {
   transform: translateY(-1px);
-  box-shadow: 0 3px 6px rgba(46, 125, 50, 0.3);
-  background: #1B5E20 !important; /* Darker green on hover */
+  background: rgb(3, 105, 161) !important; /* Darker green on hover */
+  color: white !important;
 }
 
 /* Legacy support for old meal-type class */
@@ -840,7 +838,7 @@ body {
 
 /* Modal meal type badge - EXACTLY matching user recipe page (solid green, white text) */
 .meal-type-section .meal-type-badge {
-  background: #2E7D32; /* Solid green background - EXACTLY matching user recipe page */
+  background:  rgb(9, 100, 148); /* Solid green background - EXACTLY matching user recipe page */
   color: white; /* White text - EXACTLY matching user recipe page */
   padding: 6px 12px; /* EXACTLY matching user recipe page (6px 12px) */
   border-radius: 20px; /* Oval shape - EXACTLY matching user recipe page */
@@ -905,20 +903,23 @@ body {
 
 /* Good For Everyone - Green styling (positive tag) - EXACTLY matching user recipe page */
 .medical-condition-badge.good-for-everyone {
-  background: #2E7D32 !important; /* Solid green background - EXACTLY matching user recipe page */
-  color: white !important; /* White text - EXACTLY matching user recipe page */
-  border: none !important;
-  padding: 6px 12px !important; /* EXACTLY matching user recipe page */
-  border-radius: 20px !important; /* Oval shape - EXACTLY matching user recipe page */
-  font-size: 12px !important; /* EXACTLY matching user recipe page */
-  font-weight: 600 !important;
-  font-family: 'Poppins', sans-serif !important; /* EXACTLY matching user recipe page font */
-  box-shadow: 0 2px 4px rgba(46, 125, 50, 0.2) !important;
+
+  background: #ffffff;
+  color:  rgb(9, 100, 148);
+  border: 2px solid rgb(9, 100, 148);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  white-space: nowrap;
+  display: inline-block;
+  box-shadow: 0 2px 8px rgba(230, 57, 70, 0.15);
   transition: all 0.2s ease;
 }
 
 .medical-condition-badge.good-for-everyone:hover {
-  background: #1B5E20 !important; /* Darker green on hover */
+  background: rgb(3, 105, 161) !important; /* Darker green on hover */
   color: white !important;
   transform: translateY(-1px);
   box-shadow: 0 3px 6px rgba(46, 125, 50, 0.3) !important;
