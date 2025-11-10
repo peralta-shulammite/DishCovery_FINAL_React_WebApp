@@ -251,17 +251,72 @@ const api = {
   // FORGOT PASSWORD & RESET PASSWORD
   // ===================================================
   
+  // Check email account type (user or admin)
+  checkEmailType: async (email) => {
+    try {
+      console.log('🔍 Checking email account type for:', email);
+      
+      const response = await fetch(`${API_BASE_URL}/auth/check-email-type`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to check email type');
+      }
+      
+      const data = await response.json();
+      console.log(`✅ Email account type: ${data.accountType}`);
+      return data;
+    } catch (error) {
+      console.error('❌ Check email type error:', error);
+      throw error;
+    }
+  },
+
   forgotPassword: async (email) => {
     try {
       console.log('🔑 Requesting password reset for:', email);
       
+      // ✅ First, check if email is user or admin by querying database
+      let accountType = 'user'; // default
+      try {
+        const typeCheck = await api.checkEmailType(email);
+        accountType = typeCheck.accountType || 'user';
+        console.log(`📧 Email belongs to: ${accountType} account`);
+      } catch (typeError) {
+        console.warn('⚠️ Could not determine account type, defaulting to user:', typeError.message);
+      }
+      
+      // Route to appropriate endpoint based on account type
+      if (accountType === 'admin') {
+        console.log('👑 Sending admin password reset request...');
+        const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        
+        if (!adminResponse.ok) {
+          const errorData = await adminResponse.json();
+          throw new Error(errorData.message || 'Failed to request admin password reset');
+        }
+        
+        const adminData = await adminResponse.json();
+        console.log('✅ [ADMIN] Password reset code sent');
+        return { ...adminData, isAdmin: true };
+      }
+      
+      // User forgot password
+      console.log('👤 Sending user password reset request...');
       const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() }),
       });
       
-      // ✅ Option 4: Handle password creation vs reset
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to request password reset');
@@ -280,6 +335,41 @@ const api = {
     try {
       console.log('🔑 Resetting password for:', email);
       
+      // ✅ Check if this is an admin email by querying database
+      let accountType = 'user'; // default
+      try {
+        const typeCheck = await api.checkEmailType(email);
+        accountType = typeCheck.accountType || 'user';
+        console.log(`📧 Email belongs to: ${accountType} account`);
+      } catch (typeError) {
+        console.warn('⚠️ Could not determine account type, defaulting to user:', typeError.message);
+      }
+      
+      // Route to appropriate endpoint based on account type
+      if (accountType === 'admin') {
+        console.log('👑 Resetting admin password...');
+        const adminResponse = await fetch(`${API_BASE_URL}/admin-auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: email.trim(), 
+            code: code.trim(), 
+            newPassword 
+          }),
+        });
+        
+        if (!adminResponse.ok) {
+          const errorData = await adminResponse.json();
+          throw new Error(errorData.message || 'Failed to reset admin password');
+        }
+        
+        const adminData = await adminResponse.json();
+        console.log('✅ Admin password reset successful');
+        return adminData;
+      }
+      
+      // User password reset
+      console.log('👤 Resetting user password...');
       const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -290,7 +380,6 @@ const api = {
         }),
       });
       
-      // ✅ Option 4: Handle password creation vs reset response
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to reset password');
@@ -301,6 +390,60 @@ const api = {
       return data; // Returns isPasswordCreation flag if applicable
     } catch (error) {
       console.error('❌ Reset password error:', error);
+      throw error;
+    }
+  },
+
+  // Admin forgot password
+  adminForgotPassword: async (email) => {
+    try {
+      console.log('🔑 [ADMIN] Requesting password reset for:', email);
+      
+      const response = await fetch(`${API_BASE_URL}/admin-auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to request password reset');
+      }
+      
+      const data = await response.json();
+      console.log('✅ [ADMIN] Password reset code sent');
+      return data;
+    } catch (error) {
+      console.error('❌ [ADMIN] Forgot password error:', error);
+      throw error;
+    }
+  },
+
+  // Admin reset password
+  adminResetPassword: async (email, code, newPassword) => {
+    try {
+      console.log('🔑 [ADMIN] Resetting password for:', email);
+      
+      const response = await fetch(`${API_BASE_URL}/admin-auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: email.trim(), 
+          code: code.trim(), 
+          newPassword 
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reset password');
+      }
+      
+      const data = await response.json();
+      console.log('✅ [ADMIN] Password reset successful');
+      return data;
+    } catch (error) {
+      console.error('❌ [ADMIN] Reset password error:', error);
       throw error;
     }
   },

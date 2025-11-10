@@ -26,7 +26,8 @@ router.get('/', authenticateToken, async (req, res) => {
         is_active,
         created_at as dateAdded,
         (SELECT COUNT(*) FROM recipe_ingredients ri WHERE ri.ingredient_id = i.ingredient_id) as usedInRecipes,
-        (SELECT COUNT(DISTINCT user_id) FROM user_scanned_ingredients usi WHERE usi.ingredient_id = i.ingredient_id) as usersHave
+        (SELECT COUNT(DISTINCT user_id) FROM user_scanned_ingredients usi WHERE usi.ingredient_id = i.ingredient_id) as usersHave,
+        (SELECT COUNT(*) FROM user_scanned_ingredients usi WHERE usi.ingredient_id = i.ingredient_id) as scanCount
       FROM ingredients i
       ORDER BY ingredient_name
     `);
@@ -170,6 +171,7 @@ router.get('/', authenticateToken, async (req, res) => {
         image: nutritionalData.image || null,
         usedInRecipes: ingredient.usedInRecipes || 0,
         usersHave: ingredient.usersHave || 0,
+        scanCount: ingredient.scanCount || 0, // Total scans from user_scanned_ingredients for Most Used
         status: ingredient.is_active ? 'Active' : 'Inactive',
         dateAdded: ingredient.dateAdded
       };
@@ -350,8 +352,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const counts = await pool.query(`
       SELECT 
         (SELECT COUNT(*) FROM recipe_ingredients ri WHERE ri.ingredient_id = ?) as usedInRecipes,
-        (SELECT COUNT(DISTINCT user_id) FROM user_scanned_ingredients usi WHERE usi.ingredient_id = ?) as usersHave
-    `, [id, id]);
+        (SELECT COUNT(DISTINCT user_id) FROM user_scanned_ingredients usi WHERE usi.ingredient_id = ?) as usersHave,
+        (SELECT COUNT(*) FROM user_scanned_ingredients usi WHERE usi.ingredient_id = ?) as scanCount
+    `, [id, id, id]);
 
     // Frontend expects: type = ingredient type, category = role
     const updatedIngredient = {
@@ -362,7 +365,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
       image: image || null,
       status: status === 'Active' ? 'Active' : 'Inactive',
       usedInRecipes: counts[0]?.usedInRecipes || 0,
-      usersHave: counts[0]?.usersHave || 0
+      usersHave: counts[0]?.usersHave || 0,
+      scanCount: counts[0]?.scanCount || 0 // Total scans from user_scanned_ingredients for Most Used
     };
 
     res.json({ success: true, ingredient: updatedIngredient });
