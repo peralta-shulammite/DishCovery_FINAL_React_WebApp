@@ -969,9 +969,41 @@ router.post('/google/callback', async (req, res) => {
         isAdmin: false
       }, JWT_SECRET, { expiresIn: '24h' });
 
-      console.log(`Google login successful: ${email}`);
+      // ✅ VALIDATE TOKEN BEFORE SENDING
+      if (!token || typeof token !== 'string' || token.length < 20) {
+        console.error('❌ [GOOGLE AUTH] Invalid token generated:', {
+          hasToken: !!token,
+          tokenType: typeof token,
+          tokenLength: token?.length
+        });
+        await connection.rollback();
+        return res.status(500).json({
+          success: false,
+          message: 'Token generation failed. Please try again.'
+        });
+      }
+
+      // ✅ VALIDATE JWT FORMAT
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        console.error('❌ [GOOGLE AUTH] Invalid JWT format:', {
+          parts: tokenParts.length,
+          tokenLength: token.length
+        });
+        await connection.rollback();
+        return res.status(500).json({
+          success: false,
+          message: 'Token format error. Please try again.'
+        });
+      }
+
+      console.log(`✅ Google login successful: ${email}`);
+      console.log(`✅ Token generated:`, {
+        length: token.length,
+        format: 'JWT',
+        parts: tokenParts.length
+      });
       await connection.commit();
-      
       // ✅ FLEXIBLE LOGIN: Add password status for frontend prompts
       const hasPassword = !!existingUser.password_hash;
       const isFirstLogin = !existingUser.last_login || existingUser.last_login === null;
