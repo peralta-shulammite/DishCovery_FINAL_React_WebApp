@@ -105,23 +105,66 @@ const AdminManagementPage = () => {
     }
   };
 
-  const handleAddAdmin = () => {
-    if (newAdmin.name && newAdmin.email && newAdmin.role) {
-      const admin = {
-        id: admins.length + 1,
-        name: newAdmin.name,
-        email: newAdmin.email,
-        role: newAdmin.role,
-        status: 'Active',
-        lastActive: 'Just now',
-        avatar: newAdmin.avatar,
-        createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        lastLogin: 'Never',
-        activityLogs: ['Account created - Just now']
-      };
-      setAdmins([...admins, admin]);
-      setNewAdmin({ name: '', email: '', password: '', role: 'Viewer', avatar: null });
-      setShowAddModal(false);
+  const handleAddAdmin = async () => {
+    if (!newAdmin.name || !newAdmin.email || !newAdmin.password || !newAdmin.role) {
+      alert('Please fill in all fields including password');
+      return;
+    }
+
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
+
+      // Split name into firstName and lastName
+      const nameParts = newAdmin.name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const response = await fetch(`${API_BASE_URL}/api/admin-auth/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          firstName: firstName,
+          lastName: lastName,
+          email: newAdmin.email,
+          password: newAdmin.password,
+          role: newAdmin.role
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to create admin');
+      }
+
+      if (result.success && result.admin) {
+        // Add the new admin to the list with the admin_id from the backend
+        const admin = {
+          id: result.admin.adminId, // Use admin_id from backend
+          name: `${result.admin.firstName} ${result.admin.lastName}`.trim(),
+          email: result.admin.email,
+          role: result.admin.role,
+          status: result.admin.status || 'Active',
+          lastActive: 'Just now',
+          avatar: null,
+          createdDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          lastLogin: 'Never',
+          activityLogs: ['Account created - Just now']
+        };
+        setAdmins([...admins, admin]);
+        setNewAdmin({ name: '', email: '', password: '', role: 'Viewer', avatar: null });
+        setShowAddModal(false);
+        alert('Admin created successfully! Verification email sent.');
+      } else {
+        throw new Error(result.message || 'Failed to create admin');
+      }
+    } catch (error) {
+      console.error('Error creating admin:', error);
+      alert(`Failed to create admin: ${error.message}`);
     }
   };
 

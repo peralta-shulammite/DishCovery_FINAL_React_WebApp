@@ -1485,6 +1485,25 @@ const RecipePage = () => {
                       </div>
                     </button>
                   </div>
+                  
+                  {/* Verification Badge Section */}
+                  <div className="verification-section">
+                    <div className="verification-main">
+                      <FontAwesomeIcon 
+                        className="verification-icon"
+                        icon={getVerificationIcon(selectedRecipe.verificationStatus)}
+                      />
+                      <span className="verification-status">
+                        {selectedRecipe.verifierName
+                          ? `Checked by: ${selectedRecipe.verifierName}${selectedRecipe.verifierCredentials ? `, ${selectedRecipe.verifierCredentials}` : ''}`
+                          : (selectedRecipe.verificationStatus && selectedRecipe.verificationStatus !== 'AI-generated'
+                              ? (selectedRecipe.verificationStatus.startsWith('Checked by:')
+                                  ? selectedRecipe.verificationStatus
+                                  : `Checked by: ${selectedRecipe.verificationStatus}`)
+                              : 'AI Generated Recipe')}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="modal-center">

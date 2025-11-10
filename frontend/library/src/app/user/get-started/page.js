@@ -10,7 +10,7 @@ export default function GetStarted() {
   const [cookingFor, setCookingFor] = useState('Myself');
   const [personName, setPersonName] = useState('');
   const [dietaryData, setDietaryData] = useState({
-    excludedIngredients: '',
+    excludedIngredients: [],
     preferredDiets: [],
     medicalConditions: [],
   });
@@ -34,6 +34,9 @@ export default function GetStarted() {
     preferredDiets: [],
     medicalConditions: []
   });
+  
+  // Load available ingredients from database
+  const [availableIngredients, setAvailableIngredients] = useState([]);
 
   const getAuthToken = () => {
     return localStorage.getItem('token');
@@ -153,6 +156,38 @@ export default function GetStarted() {
     loadRestrictions();
   }, []);
 
+  // Load available ingredients from database
+  useEffect(() => {
+    const loadIngredients = async () => {
+      try {
+        const token = getAuthToken();
+        if (!token) return;
+        
+        console.log('📥 Loading ingredients from database...');
+        const response = await fetch(`${API_BASE_URL}/pantry/ingredients`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.ingredients) {
+            // Extract ingredient names for selection
+            const ingredientNames = result.ingredients.map(ing => ing.name);
+            setAvailableIngredients(ingredientNames);
+            console.log('✅ Loaded ingredients from database:', ingredientNames.length);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading ingredients:', error);
+      }
+    };
+    
+    loadIngredients();
+  }, []);
+
   useEffect(() => {
     if (cookingFor === 'Myself' && userProfile) {
       setPersonName(userProfile.firstName);
@@ -218,18 +253,13 @@ export default function GetStarted() {
       console.log('💾 Saving dietary profile...');
       
       // Prepare data for API
-      // Process excluded ingredients: split by comma, trim whitespace, filter empty strings
-      const excludedIngredientsList = dietaryData.excludedIngredients
-        .split(',')
-        .map(item => item.trim())
-        .filter(item => item.length > 0);
-      
+      // Excluded ingredients are already an array
       const saveData = {
         memberId: memberId,
         dietaryRestrictions: [], // No longer used - replaced by medicalConditions
         medicalConditions: dietaryData.medicalConditions,
         preferredDiets: [], // Dietary Lifestyle Tags removed
-        excludedIngredients: excludedIngredientsList // Process and save excluded ingredients
+        excludedIngredients: dietaryData.excludedIngredients // Already an array
       };
 
       // Call the API
@@ -440,17 +470,24 @@ export default function GetStarted() {
         {/* Excluded Ingredients */}
         <div className="dietary-section">
           <h3 className="section-title">Excluded Ingredients</h3>
-          <p className="section-subtitle">List ingredients you want to avoid</p>
-          <input
-            type="text"
-            className="full-width-input"
-            placeholder="Example: honey, peanuts, pork, dairy"
-            value={dietaryData.excludedIngredients}
-            onChange={(e) => setDietaryData(prev => ({
-              ...prev,
-              excludedIngredients: e.target.value
-            }))}
-          />
+          <p className="section-subtitle">Select ingredients you want to avoid</p>
+          <div className="checkbox-grid">
+            {availableIngredients.length > 0 ? (
+              availableIngredients.map((ingredient) => (
+                <label key={ingredient} className="checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={dietaryData.excludedIngredients.includes(ingredient)}
+                    onChange={() => handleDietaryChange('excludedIngredients', ingredient)}
+                  />
+                  <span className="checkmark"></span>
+                  {ingredient}
+                </label>
+              ))
+            ) : (
+              <p style={{ color: '#666', fontSize: '14px' }}>Loading ingredients...</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -513,7 +550,7 @@ export default function GetStarted() {
               <strong>Medical Conditions (Allergies & Intolerances):</strong> {dietaryData.medicalConditions.join(', ') || 'None'}
             </div>
             <div className="summary-item">
-              <strong>Excluded Ingredients:</strong> {dietaryData.excludedIngredients || 'None'}
+              <strong>Excluded Ingredients:</strong> {dietaryData.excludedIngredients.length > 0 ? dietaryData.excludedIngredients.join(', ') : 'None'}
             </div>
           </div>
           <div className="nav-buttons">
