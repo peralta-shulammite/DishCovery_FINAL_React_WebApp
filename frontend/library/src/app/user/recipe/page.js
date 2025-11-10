@@ -15,6 +15,7 @@ import {
   faTimes,
   faChevronLeft,
   faChevronRight,
+  faChevronUp,
   faShieldAlt,
   faUserMd,
   faRobot,
@@ -59,6 +60,11 @@ const RecipePage = () => {
   const [dishCoveryViewMode, setDishCoveryViewMode] = useState('grid'); 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState({
+    mealType: true,
+    dietaryTags: true,
+    healthTags: true
+  });
 
   const [dishCoveryHoverStates, setDishCoveryHoverStates] = useState({
     logo: false,
@@ -154,6 +160,39 @@ const RecipePage = () => {
     setHoverStates((prev) => ({ ...prev, [element]: isHover }));
   };
 
+  // Sort recipes function
+  const sortRecipes = useCallback((recipesToSort, sortBy) => {
+    const sorted = [...recipesToSort];
+    
+    switch (sortBy) {
+      case 'popularity':
+        return sorted.sort((a, b) => {
+          const aPopularity = (a.engagement?.saved || 0) + (a.engagement?.tried || 0);
+          const bPopularity = (b.engagement?.saved || 0) + (b.engagement?.tried || 0);
+          return bPopularity - aPopularity;
+        });
+      case 'rating':
+        return sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      case 'cookTime':
+        return sorted.sort((a, b) => {
+          // Extract numeric value from cookTime (e.g., "30 min" -> 30)
+          const extractTime = (timeStr) => {
+            if (typeof timeStr === 'number') return timeStr;
+            const match = String(timeStr).match(/(\d+)/);
+            return match ? parseInt(match[1]) : 999;
+          };
+          const aTime = extractTime(a.cookTime);
+          const bTime = extractTime(b.cookTime);
+          return aTime - bTime;
+        });
+      case 'alphabetical':
+        return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      case 'relevance':
+      default:
+        return sorted; // Keep original order for relevance
+    }
+  }, []);
+
   // ✅ Fetch filtered recipes based on ingredient IDs
   const fetchFilteredRecipes = async (ingredientIds) => {
     try {
@@ -209,10 +248,13 @@ const RecipePage = () => {
           };
         });
         
-        setRecipes(newRecipes);
-        setOffset(newRecipes.length);
+        // Sort filtered recipes based on current sort option
+        const sortedRecipes = sortRecipes(newRecipes, dishCoverySortBy);
+        
+        setRecipes(sortedRecipes);
+        setOffset(sortedRecipes.length);
         setHasMore(false);
-        console.log(`✅ Loaded ${newRecipes.length} filtered recipes`);
+        console.log(`✅ Loaded ${sortedRecipes.length} filtered recipes`);
       } else {
         setRecipes([]);
         setError('No recipes found matching your ingredients.');
@@ -382,11 +424,17 @@ const RecipePage = () => {
         };
       });
 
+      // Sort recipes based on current sort option
+      const sortedRecipes = sortRecipes(newRecipes, dishCoverySortBy);
+
       if (isLoadMore) {
-        setRecipes(prev => [...prev, ...newRecipes]);
+        setRecipes(prev => {
+          const combined = [...prev, ...sortedRecipes];
+          return sortRecipes(combined, dishCoverySortBy);
+        });
         setOffset(prev => prev + newRecipes.length);
       } else {
-        setRecipes(newRecipes);
+        setRecipes(sortedRecipes);
         setOffset(limit);
       }
 
@@ -446,7 +494,16 @@ const RecipePage = () => {
     }, 300);
 
     return () => clearTimeout(delayedFetch);
-  }, [filters, dishCoverySearchQuery]);
+  }, [filters, dishCoverySearchQuery, dishCoverySortBy]);
+
+  // Sort recipes when sortBy changes
+  useEffect(() => {
+    if (recipes.length > 0) {
+      const sorted = sortRecipes(recipes, dishCoverySortBy);
+      setRecipes(sorted);
+      setCurrentPage(1); // Reset to first page when sorting changes
+    }
+  }, [dishCoverySortBy, sortRecipes]);
 
   // Listen for recipe changes from admin (same-tab custom events)
   useEffect(() => {
@@ -880,25 +937,55 @@ const RecipePage = () => {
               Filters
             </div>
 
+            <div className="sort-filter-section">
+              <label className="sort-filter-label">Sort By</label>
+              <select
+                value={dishCoverySortBy}
+                onChange={(e) => setDishCoverySortBy(e.target.value)}
+                className="sort-dropdown-sidebar"
+              >
+                <option value="relevance">Relevance</option>
+                <option value="popularity">Most Popular</option>
+                <option value="rating">Highest Rated</option>
+                <option value="cookTime">Cook Time</option>
+                <option value="alphabetical">A-Z</option>
+              </select>
+            </div>
+
             {Object.entries(filterOptions).map(([category, options]) => (
               <div key={category} className="filter-category-new">
-                <h3 className="filter-category-title-new">
-                  {category === 'mealType' ? 'Meal Type' : 
-                   category === 'dietaryTags' ? 'Dietary Tags' : 'Health Tags'}
+                <h3 
+                  className="filter-category-title-new"
+                  onClick={() => setExpandedCategories(prev => ({
+                    ...prev,
+                    [category]: !prev[category]
+                  }))}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <span>
+                    {category === 'mealType' ? 'Meal Type' : 
+                     category === 'dietaryTags' ? 'Dietary Tags' : 'Health Tags'}
+                  </span>
+                  <FontAwesomeIcon 
+                    icon={expandedCategories[category] ? faChevronUp : faChevronDown} 
+                    style={{ fontSize: '12px', marginLeft: '8px' }}
+                  />
                 </h3>
-                <div className="filter-options-new">
-                  {options.map(option => (
-                    <label key={option} className="filter-option-new">
-                      <input
-                        type="checkbox"
-                        className="filter-checkbox-new"
-                        checked={filters[category]?.includes(option) || false}
-                        onChange={() => handleFilterChange(category, option)}
-                      />
-                      {option}
-                    </label>
-                  ))}
-                </div>
+                {expandedCategories[category] && (
+                  <div className="filter-options-new">
+                    {options.map(option => (
+                      <label key={option} className="filter-option-new">
+                        <input
+                          type="checkbox"
+                          className="filter-checkbox-new"
+                          checked={filters[category]?.includes(option) || false}
+                          onChange={() => handleFilterChange(category, option)}
+                        />
+                        {option}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
 
@@ -1070,6 +1157,7 @@ const RecipePage = () => {
                             
                             return mealTypes.map((mealType, index) => (
                               <span key={index} className="meal-type-badge">
+                                <FontAwesomeIcon icon={faUtensils} />
                                 {mealType}
                         </span>
                             ));
@@ -1466,6 +1554,7 @@ const RecipePage = () => {
                       <h3 className="section-title">Servings</h3>
                       <div className="modal-tags">
                         <span className="modal-tag servings">
+                          <FontAwesomeIcon icon={faUsers} />
                           {selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}
                         </span>
                       </div>
