@@ -1980,37 +1980,35 @@ export default function DishCoveryLanding() {
         </div>
       )}
 
-      {/* Floating Install App Button - Hidden on mobile devices when app is already installed */}
-      {!(dishCoveryIsMobileDevice && dishCoveryIsAppInstalled) && (
-        <div className="pwa-floating-install-container">
-          {dishCoveryInstallButtonExpanded ? (
-            <div className="pwa-install-expanded">
-              <button
-                className="pwa-install-button-expanded"
-                onClick={dishCoveryHandlePWAInstall}
-              >
-                <span className="pwa-install-icon">📱</span>
-                <span className="pwa-install-text">Install App</span>
-              </button>
-              <button
-                className="pwa-install-close"
-                onClick={() => setDishCoveryInstallButtonExpanded(false)}
-                aria-label="Collapse install button"
-              >
-                ×
-              </button>
-            </div>
-          ) : (
+      {/* Floating Install App Button - Always visible */}
+      <div className="pwa-floating-install-container">
+        {dishCoveryInstallButtonExpanded ? (
+          <div className="pwa-install-expanded">
             <button
-              className="pwa-install-button-dot"
-              onClick={() => setDishCoveryInstallButtonExpanded(true)}
-              aria-label="Expand install button"
+              className="pwa-install-button-expanded"
+              onClick={dishCoveryHandlePWAInstall}
             >
-              <span className="pwa-install-dot">📱</span>
+              <span className="pwa-install-icon">📱</span>
+              <span className="pwa-install-text">Install App</span>
             </button>
-          )}
-        </div>
-      )}
+            <button
+              className="pwa-install-close"
+              onClick={() => setDishCoveryInstallButtonExpanded(false)}
+              aria-label="Collapse install button"
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <button
+            className="pwa-install-button-dot"
+            onClick={() => setDishCoveryInstallButtonExpanded(true)}
+            aria-label="Expand install button"
+          >
+            <span className="pwa-install-dot">📱</span>
+          </button>
+        )}
+      </div>
     </div>
     </UserLayout>
   );
