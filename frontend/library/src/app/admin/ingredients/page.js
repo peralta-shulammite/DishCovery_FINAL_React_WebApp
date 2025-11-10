@@ -524,17 +524,22 @@ const IngredientManagement = () => {
 
   const getIngredientStats = () => {
     const totalIngredients = ingredients.length;
+    // CRITICAL FIX: Sort by scanCount (total scans from user_scanned_ingredients) for Most Used
     const mostUsed = ingredients.length > 0 
-      ? ingredients.sort((a, b) => b.usedInRecipes - a.usedInRecipes)[0] 
-      : null;
-    const recentlyAdded = ingredients.length > 0 
-      ? ingredients.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded))[0] 
+      ? ingredients
+          .filter(ing => (ing.scanCount !== undefined && ing.scanCount !== null) || (ing.usedInRecipes !== undefined && ing.usedInRecipes !== null))
+          .sort((a, b) => {
+            // Prioritize scanCount, fallback to usedInRecipes
+            const aCount = (a.scanCount || 0) > 0 ? a.scanCount : (a.usedInRecipes || 0);
+            const bCount = (b.scanCount || 0) > 0 ? b.scanCount : (b.usedInRecipes || 0);
+            return bCount - aCount;
+          })[0] 
       : null;
     
-    return { totalIngredients, mostUsed, recentlyAdded };
+    return { totalIngredients, mostUsed };
   };
 
-  const { totalIngredients, mostUsed, recentlyAdded } = getIngredientStats();
+  const { totalIngredients, mostUsed } = getIngredientStats();
 
   // Confirmation Modal Component
   const ConfirmationModal = ({ title, message, onConfirm, onCancel, type }) => (
@@ -638,17 +643,6 @@ const IngredientManagement = () => {
             }}>
               <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px', fontWeight: '500' }}>Most Used</div>
               <div style={{ fontSize: '28px', fontWeight: '700', color: '#2E7D32' }}>{mostUsed ? mostUsed.name : 'N/A'}</div>
-            </div>
-            <div className="stat-card" style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-              textAlign: 'center',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-            }}>
-              <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px', fontWeight: '500' }}>Recently Added</div>
-              <div style={{ fontSize: '28px', fontWeight: '700', color: '#2E7D32' }}>{recentlyAdded ? recentlyAdded.name : 'N/A'}</div>
             </div>
             <div className="stat-card" style={{
               background: 'white',

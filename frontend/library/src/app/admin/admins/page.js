@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
 
@@ -11,70 +11,13 @@ const AdminManagementPage = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [editingAdmin, setEditingAdmin] = useState(null);
-  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
-
-  const [admins, setAdmins] = useState([
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@dishcovery.com',
-      role: 'Super Admin',
-      status: 'Active',
-      lastActive: '2 hours ago',
-      avatar: null,
-      createdDate: 'Jan 15, 2024',
-      lastLogin: 'Today at 2:30 PM',
-      activityLogs: [
-        'Added new dietary restriction "FODMAP-Free" - Today at 1:45 PM',
-        'Approved ingredient "Tempeh" - Yesterday at 3:22 PM',
-        'Updated user permissions - July 8, 2025 at 10:15 AM'
-      ]
-    },
-    {
-      id: 2,
-      name: 'Mike Chen',
-      email: 'mike.chen@dishcovery.com',
-      role: 'Content Admin',
-      status: 'Active',
-      lastActive: '1 day ago',
-      avatar: null,
-      createdDate: 'Feb 3, 2024',
-      lastLogin: 'Yesterday at 4:15 PM',
-      activityLogs: [
-        'Reviewed recipe "Thai Green Curry" - Yesterday at 4:10 PM',
-        'Added ingredient "Dragon Fruit" - July 9, 2025 at 2:30 PM'
-      ]
-    },
-    {
-      id: 3,
-      name: 'Emma Wilson',
-      email: 'emma.wilson@dishcovery.com',
-      role: 'Moderator',
-      status: 'Active',
-      lastActive: '3 hours ago',
-      avatar: null,
-      createdDate: 'Mar 12, 2024',
-      lastLogin: 'Today at 11:20 AM',
-      activityLogs: [
-        'Resolved user feedback ticket #245 - Today at 11:15 AM',
-        'Moderated recipe review - Today at 9:45 AM'
-      ]
-    },
-    {
-      id: 4,
-      name: 'David Brown',
-      email: 'david.brown@dishcovery.com',
-      role: 'Viewer',
-      status: 'Inactive',
-      lastActive: '2 weeks ago',
-      avatar: null,
-      createdDate: 'Apr 8, 2024',
-      lastLogin: 'June 28, 2025 at 3:45 PM',
-      activityLogs: [
-        'Viewed dashboard analytics - June 28, 2025 at 3:40 PM'
-      ]
-    }
-  ]);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationError, setVerificationError] = useState('');
+  const [admins, setAdmins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [newAdmin, setNewAdmin] = useState({
     name: '',
@@ -83,26 +26,65 @@ const AdminManagementPage = () => {
     avatar: null
   });
 
-  const roles = ['Super Admin', 'Content Admin', 'Moderator', 'Viewer'];
+  // Fetch admins from backend
+  const fetchAdmins = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const permissions = {
-    'Super Admin': {
-      dashboard: true, users: true, recipes: true, ingredients: true,
-      dietaryRestrictions: true, feedback: true, adminManagement: true
-    },
-    'Content Admin': {
-      dashboard: true, users: true, recipes: true, ingredients: true,
-      dietaryRestrictions: true, feedback: true, adminManagement: false
-    },
-    'Moderator': {
-      dashboard: true, users: true, recipes: true, ingredients: false,
-      dietaryRestrictions: false, feedback: true, adminManagement: false
-    },
-    'Viewer': {
-      dashboard: true, users: false, recipes: false, ingredients: false,
-      dietaryRestrictions: false, feedback: false, adminManagement: false
+      // Get API base URL and ensure it doesn't have double /api/
+      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
+      const apiPath = API_BASE_URL.endsWith('/api') ? '/admin-auth/list' : '/api/admin-auth/list';
+      const fullUrl = `${API_BASE_URL}${apiPath}`;
+
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
+
+      console.log('🔍 [ADMIN LIST] Fetching admins from:', fullUrl);
+
+      const response = await fetch(fullUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned non-JSON response. Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || result.error || 'Failed to fetch admins');
+      }
+
+      if (result.success && result.admins) {
+        setAdmins(result.admins);
+        console.log(`✅ [ADMIN LIST] Loaded ${result.admins.length} admin(s)`);
+      } else {
+        throw new Error(result.message || 'Failed to fetch admins');
+      }
+    } catch (error) {
+      console.error('Error fetching admins:', error);
+      setError(error.message);
+      // Set empty array on error so UI doesn't break
+      setAdmins([]);
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Fetch admins on component mount
+  useEffect(() => {
+    fetchAdmins();
+  }, []);
+
 
   const handleAddAdmin = async () => {
     if (!newAdmin.name || !newAdmin.email || !newAdmin.password) {
@@ -111,7 +93,14 @@ const AdminManagementPage = () => {
     }
 
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      // Get API base URL and ensure it doesn't have double /api/
+      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      // Remove trailing slash if present
+      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
+      // If API_BASE_URL already ends with /api, don't add it again
+      const apiPath = API_BASE_URL.endsWith('/api') ? '/admin-auth/create' : '/api/admin-auth/create';
+      const fullUrl = `${API_BASE_URL}${apiPath}`;
+      
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
 
       // Split name into firstName and lastName
@@ -119,7 +108,10 @@ const AdminManagementPage = () => {
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      const response = await fetch(`${API_BASE_URL}/api/admin-auth/create`, {
+      console.log('🔍 [ADMIN CREATE] API URL:', fullUrl);
+      console.log('🔍 [ADMIN CREATE] Request data:', { firstName, lastName, email: newAdmin.email });
+
+      const response = await fetch(fullUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -133,10 +125,18 @@ const AdminManagementPage = () => {
         })
       });
 
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned non-JSON response. Status: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || 'Failed to create admin');
+        throw new Error(result.message || result.error || 'Failed to create admin');
       }
 
       if (result.success && result.admin) {
@@ -145,7 +145,6 @@ const AdminManagementPage = () => {
           id: result.admin.adminId, // Use admin_id from backend
           name: `${result.admin.firstName} ${result.admin.lastName}`.trim(),
           email: result.admin.email,
-          role: result.admin.role,
           status: result.admin.status || 'Active',
           lastActive: 'Just now',
           avatar: null,
@@ -153,10 +152,17 @@ const AdminManagementPage = () => {
           lastLogin: 'Never',
           activityLogs: ['Account created - Just now']
         };
-        setAdmins([...admins, admin]);
+        // Refresh admins list after creation
+        await fetchAdmins();
+        
         setNewAdmin({ name: '', email: '', password: '', avatar: null });
         setShowAddModal(false);
-        alert('Admin created successfully! Verification email sent.');
+        
+        // Show verification modal
+        setPendingVerificationEmail(result.admin.email);
+        setVerificationCode('');
+        setVerificationError('');
+        setShowVerificationModal(true);
       } else {
         throw new Error(result.message || 'Failed to create admin');
       }
@@ -166,28 +172,228 @@ const AdminManagementPage = () => {
     }
   };
 
-  const handleEditAdmin = () => {
-    if (editingAdmin) {
-      setAdmins(admins.map(admin =>
-        admin.id === editingAdmin.id ? editingAdmin : admin
-      ));
-      setShowEditModal(false);
-      setEditingAdmin(null);
+  const handleVerifyAdmin = async () => {
+    if (!verificationCode || !pendingVerificationEmail) {
+      setVerificationError('Please enter the verification code');
+      return;
+    }
+
+    try {
+      // Get API base URL and ensure it doesn't have double /api/
+      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
+      const apiPath = API_BASE_URL.endsWith('/api') ? '/admin-auth/verify' : '/api/admin-auth/verify';
+      const fullUrl = `${API_BASE_URL}${apiPath}`;
+
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
+
+      console.log('🔍 [ADMIN VERIFY] Verifying admin:', { email: pendingVerificationEmail, code: verificationCode });
+
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: pendingVerificationEmail,
+          code: verificationCode.trim()
+        })
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned non-JSON response. Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || result.error || 'Failed to verify admin');
+      }
+
+      if (result.success) {
+        // Refresh admins list after verification
+        await fetchAdmins();
+        
+        setShowVerificationModal(false);
+        setPendingVerificationEmail('');
+        setVerificationCode('');
+        setVerificationError('');
+        alert('✅ Admin verified successfully! They can now access the admin panel.');
+      } else {
+        throw new Error(result.message || 'Failed to verify admin');
+      }
+    } catch (error) {
+      console.error('Error verifying admin:', error);
+      setVerificationError(error.message);
     }
   };
 
-  const handleDeleteAdmin = (adminId) => {
-    if (confirm('Are you sure you want to delete this admin?')) {
-      setAdmins(admins.filter(admin => admin.id !== adminId));
+  const handleEditAdmin = async () => {
+    if (!editingAdmin) return;
+
+    // Split name into firstName and lastName
+    const nameParts = editingAdmin.name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    if (!firstName || !lastName || !editingAdmin.email) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    try {
+      // Get API base URL and ensure it doesn't have double /api/
+      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
+      const apiPath = API_BASE_URL.endsWith('/api') ? `/admin-auth/${editingAdmin.id}` : `/api/admin-auth/${editingAdmin.id}`;
+      const fullUrl = `${API_BASE_URL}${apiPath}`;
+
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
+
+      console.log('🔍 [ADMIN UPDATE] Updating admin:', { id: editingAdmin.id, firstName, lastName, email: editingAdmin.email });
+
+      const response = await fetch(fullUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          firstName: firstName,
+          lastName: lastName,
+          email: editingAdmin.email
+        })
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned non-JSON response. Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || result.error || 'Failed to update admin');
+      }
+
+      if (result.success) {
+        // Refresh admins list after update
+        await fetchAdmins();
+        setShowEditModal(false);
+        setEditingAdmin(null);
+        alert('Admin updated successfully!');
+      } else {
+        throw new Error(result.message || 'Failed to update admin');
+      }
+    } catch (error) {
+      console.error('Error updating admin:', error);
+      alert(`Failed to update admin: ${error.message}`);
     }
   };
 
-  const handleToggleStatus = (adminId) => {
-    setAdmins(admins.map(admin =>
-      admin.id === adminId
-        ? { ...admin, status: admin.status === 'Active' ? 'Inactive' : 'Active' }
-        : admin
-    ));
+  const handleDeleteAdmin = async (adminId) => {
+    if (!confirm('Are you sure you want to delete this admin? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Get API base URL and ensure it doesn't have double /api/
+      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
+      const apiPath = API_BASE_URL.endsWith('/api') ? `/admin-auth/${adminId}` : `/api/admin-auth/${adminId}`;
+      const fullUrl = `${API_BASE_URL}${apiPath}`;
+
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
+
+      console.log('🔍 [ADMIN DELETE] Deleting admin:', adminId);
+
+      const response = await fetch(fullUrl, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned non-JSON response. Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || result.error || 'Failed to delete admin');
+      }
+
+      if (result.success) {
+        // Refresh admins list after deletion
+        await fetchAdmins();
+        alert('Admin deleted successfully!');
+      } else {
+        throw new Error(result.message || 'Failed to delete admin');
+      }
+    } catch (error) {
+      console.error('Error deleting admin:', error);
+      alert(`Failed to delete admin: ${error.message}`);
+    }
+  };
+
+  const handleToggleStatus = async (adminId) => {
+    try {
+      // Get API base URL and ensure it doesn't have double /api/
+      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
+      const apiPath = API_BASE_URL.endsWith('/api') ? `/admin-auth/${adminId}/toggle-status` : `/api/admin-auth/${adminId}/toggle-status`;
+      const fullUrl = `${API_BASE_URL}${apiPath}`;
+
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
+
+      console.log('🔍 [ADMIN TOGGLE STATUS] Toggling status for admin:', adminId);
+
+      const response = await fetch(fullUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned non-JSON response. Status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || result.error || 'Failed to toggle admin status');
+      }
+
+      if (result.success) {
+        // Refresh admins list after status change
+        await fetchAdmins();
+      } else {
+        throw new Error(result.message || 'Failed to toggle admin status');
+      }
+    } catch (error) {
+      console.error('Error toggling admin status:', error);
+      alert(`Failed to toggle admin status: ${error.message}`);
+    }
   };
 
   const getInitials = (name) => {
@@ -196,16 +402,6 @@ const AdminManagementPage = () => {
 
   const getStatusColor = (status) => {
     return status === 'Active' ? 'status-completed' : 'status-pending';
-  };
-
-  const getRoleColor = (role) => {
-    switch(role) {
-      case 'Super Admin': return 'priority-high';
-      case 'Content Admin': return 'priority-medium';
-      case 'Moderator': return 'priority-medium';
-      case 'Viewer': return 'priority-low';
-      default: return 'priority-low';
-    }
   };
 
   const EditIcon = () => (
@@ -257,7 +453,6 @@ const AdminManagementPage = () => {
       'Admin ID',
       'Name',
       'Email',
-      'Role',
       'Status',
       'Last Active',
       'Created Date',
@@ -270,7 +465,6 @@ const AdminManagementPage = () => {
         admin.id,
         admin.name,
         admin.email,
-        admin.role,
         admin.status,
         admin.lastActive,
         admin.createdDate,
@@ -313,26 +507,53 @@ const AdminManagementPage = () => {
               <ExportIcon />
               Export Data
             </button>
-            <button className="permissions-btn" onClick={() => setShowPermissionsModal(true)}>
-              Manage Permissions
-            </button>
           </div>
         </div>
 
         <div className="admin-table-container">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Profile</th>
-                <th>Last Active</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {admins
-                .filter(admin => statusFilter === 'All' || admin.status === statusFilter)
-                .map((admin) => (
+          {loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+              Loading admins...
+            </div>
+          ) : error ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#c33' }}>
+              <p>Error loading admins: {error}</p>
+              <button 
+                onClick={fetchAdmins}
+                style={{ 
+                  marginTop: '10px', 
+                  padding: '8px 16px', 
+                  backgroundColor: '#2E7D32', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Profile</th>
+                  <th>Last Active</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {admins.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                      No admins found. Click "+ Add New Admin" to create one.
+                    </td>
+                  </tr>
+                ) : (
+                  admins
+                    .filter(admin => statusFilter === 'All' || admin.status === statusFilter)
+                    .map((admin) => (
                   <tr key={admin.id}>
                     <td>
                       <div className="admin-profile-cell">
@@ -386,10 +607,12 @@ const AdminManagementPage = () => {
                         </button>
                       </div>
                     </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {showAddModal && (
@@ -532,87 +755,94 @@ const AdminManagementPage = () => {
           </div>
         )}
 
-        {showPermissionsModal && (
+        {showVerificationModal && (
           <div className="modal-overlay">
-            <div className="modal permissions-modal">
+            <div className="modal">
               <div className="modal-header">
-                <h2 className="modal-title">Role Permissions</h2>
-                <button className="close-btn" onClick={() => setShowPermissionsModal(false)}>
+                <h2 className="modal-title">Verify Admin Email</h2>
+                <button className="close-btn" onClick={() => {
+                  setShowVerificationModal(false);
+                  setPendingVerificationEmail('');
+                  setVerificationCode('');
+                  setVerificationError('');
+                }}>
                   <CloseIcon />
                 </button>
               </div>
-              
-              <table className="permissions-table">
-                <thead>
-                  <tr>
-                    <th>Section</th>
-                    <th>Viewer</th>
-                    <th>Moderator</th>
-                    <th>Content Admin</th>
-                    <th>Super Admin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="permission-section">Dashboard</td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Viewer'].dashboard} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Moderator'].dashboard} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Content Admin'].dashboard} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Super Admin'].dashboard} readOnly /></td>
-                  </tr>
-                  <tr>
-                    <td className="permission-section">Users</td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Viewer'].users} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Moderator'].users} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Content Admin'].users} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Super Admin'].users} readOnly /></td>
-                  </tr>
-                  <tr>
-                    <td className="permission-section">Recipes</td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Viewer'].recipes} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Moderator'].recipes} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Content Admin'].recipes} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Super Admin'].recipes} readOnly /></td>
-                  </tr>
-                  <tr>
-                    <td className="permission-section">Ingredients</td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Viewer'].ingredients} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Moderator'].ingredients} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Content Admin'].ingredients} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Super Admin'].ingredients} readOnly /></td>
-                  </tr>
-                  <tr>
-                    <td className="permission-section">Dietary Restrictions</td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Viewer'].dietaryRestrictions} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Moderator'].dietaryRestrictions} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Content Admin'].dietaryRestrictions} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Super Admin'].dietaryRestrictions} readOnly /></td>
-                  </tr>
-                  <tr>
-                    <td className="permission-section">Feedback</td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Viewer'].feedback} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Moderator'].feedback} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Content Admin'].feedback} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Super Admin'].feedback} readOnly /></td>
-                  </tr>
-                  <tr>
-                    <td className="permission-section">Admin Management</td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Viewer'].adminManagement} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Moderator'].adminManagement} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Content Admin'].adminManagement} readOnly /></td>
-                    <td><input type="checkbox" className="permission-check" checked={permissions['Super Admin'].adminManagement} readOnly /></td>
-                  </tr>
-                </tbody>
-              </table>
-              
-              <div className="form-buttons">
-                <button className="btn-primary" onClick={() => setShowPermissionsModal(false)}>
-                  Close
-                </button>
+              <div style={{ padding: '20px' }}>
+                <p style={{ marginBottom: '15px', color: '#666' }}>
+                  A verification code has been sent to <strong>{pendingVerificationEmail}</strong>
+                </p>
+                <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
+                  Please enter the verification code from the email to verify this admin account.
+                </p>
+                {verificationError && (
+                  <div style={{ 
+                    padding: '10px', 
+                    marginBottom: '15px', 
+                    backgroundColor: '#fee', 
+                    color: '#c33', 
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                  }}>
+                    {verificationError}
+                  </div>
+                )}
+                <div className="form-group">
+                  <label className="form-label">Verification Code</label>
+                  <input 
+                    type="text" 
+                    className="form-input"
+                    value={verificationCode}
+                    onChange={(e) => {
+                      // Only allow numbers
+                      const value = e.target.value.replace(/\D/g, '');
+                      setVerificationCode(value);
+                      setVerificationError('');
+                    }}
+                    placeholder="Enter 6-digit verification code"
+                    maxLength="6"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && verificationCode.length === 6) {
+                        handleVerifyAdmin();
+                      }
+                    }}
+                    style={{ 
+                      fontSize: '18px', 
+                      letterSpacing: '4px', 
+                      textAlign: 'center',
+                      fontWeight: 'bold'
+                    }}
+                  />
+                </div>
+                <div className="form-buttons" style={{ marginTop: '20px' }}>
+                  <button 
+                    className="btn-cancel" 
+                    onClick={() => {
+                      setShowVerificationModal(false);
+                      setPendingVerificationEmail('');
+                      setVerificationCode('');
+                      setVerificationError('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn-primary" 
+                    onClick={handleVerifyAdmin}
+                    disabled={!verificationCode || verificationCode.length !== 6}
+                  >
+                    Verify
+                  </button>
+                </div>
+                <p style={{ marginTop: '15px', fontSize: '12px', color: '#888', textAlign: 'center' }}>
+                  Didn't receive the code? Check your email spam folder or contact the administrator.
+                </p>
               </div>
             </div>
           </div>
         )}
+
       </div>
     </AdminLayout>
   );

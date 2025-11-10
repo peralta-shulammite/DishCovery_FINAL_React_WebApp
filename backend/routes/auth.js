@@ -170,38 +170,82 @@ const sendVerificationEmail = async (email, code, firstName = '') => {
     </html>`;
 
   try {
-    // Use SendGrid HTTP API (works on Render - no SMTP ports needed!)
-    if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
-      const msg = {
-        to: email,
-        from: {
-          email: process.env.SENDGRID_FROM_EMAIL,
-          name: 'DishCovery'
-        },
-        subject: 'Verify Your DishCovery Account',
-        html: emailHtml
-      };
+    // ✅ Check environment: Use SendGrid in production (Vercel), SMTP in local development
+    const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
+    
+    if (isProduction) {
+      // Use SendGrid HTTP API in production (Vercel)
+      if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
+        const msg = {
+          to: email,
+          from: {
+            email: process.env.SENDGRID_FROM_EMAIL,
+            name: 'DishCovery'
+          },
+          subject: 'Verify Your DishCovery Account',
+          html: emailHtml
+        };
 
-      await sgMail.send(msg);
-      console.log(`✅ Verification email sent via SendGrid HTTP API to ${email}`);
-      return true;
+        await sgMail.send(msg);
+        console.log(`✅ [PRODUCTION] Verification email sent via SendGrid HTTP API to ${email}`);
+        return true;
+      } else {
+        throw new Error('SendGrid not configured in production environment');
+      }
+    } else {
+      // Use Gmail SMTP in local development, fallback to SendGrid if SMTP fails
+      if (gmailTransporter) {
+        try {
+          const mailOptions = {
+            from: `"DishCovery" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Verify Your DishCovery Account',
+            html: emailHtml
+          };
+
+          await gmailTransporter.sendMail(mailOptions);
+          console.log(`✅ [LOCAL] Verification email sent via Gmail SMTP to ${email}`);
+          return true;
+        } catch (smtpError) {
+          console.warn('⚠️ [LOCAL] Gmail SMTP failed, trying SendGrid fallback:', smtpError.message);
+          // Fallback to SendGrid if SMTP fails
+          if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
+            const msg = {
+              to: email,
+              from: {
+                email: process.env.SENDGRID_FROM_EMAIL,
+                name: 'DishCovery'
+              },
+              subject: 'Verify Your DishCovery Account',
+              html: emailHtml
+            };
+            await sgMail.send(msg);
+            console.log(`✅ [LOCAL] Verification email sent via SendGrid (SMTP fallback) to ${email}`);
+            return true;
+          } else {
+            throw new Error(`Gmail SMTP failed and SendGrid not configured. SMTP error: ${smtpError.message}`);
+          }
+        }
+      } else {
+        // No SMTP configured, try SendGrid directly
+        if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
+          const msg = {
+            to: email,
+            from: {
+              email: process.env.SENDGRID_FROM_EMAIL,
+              name: 'DishCovery'
+            },
+            subject: 'Verify Your DishCovery Account',
+            html: emailHtml
+          };
+          await sgMail.send(msg);
+          console.log(`✅ [LOCAL] Verification email sent via SendGrid (no SMTP configured) to ${email}`);
+          return true;
+        } else {
+          throw new Error('Neither Gmail SMTP nor SendGrid is configured for local development');
+        }
+      }
     }
-
-    // Fallback to Gmail SMTP (local development only)
-    if (gmailTransporter) {
-      const mailOptions = {
-        from: `"DishCovery" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Verify Your DishCovery Account',
-        html: emailHtml
-      };
-
-      await gmailTransporter.sendMail(mailOptions);
-      console.log(`✅ Verification email sent via Gmail SMTP to ${email}`);
-      return true;
-    }
-
-    throw new Error('No email service configured');
   } catch (error) {
     console.error('❌ Email send error:', error);
     throw new Error('Failed to send verification email');
@@ -236,38 +280,82 @@ const sendPasswordResetEmail = async (email, code, firstName = '') => {
     </html>`;
 
   try {
-    // Use SendGrid HTTP API (works on Render - no SMTP ports needed!)
-    if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
-      const msg = {
-        to: email,
-        from: {
-          email: process.env.SENDGRID_FROM_EMAIL,
-          name: 'DishCovery'
-        },
-        subject: '🔑 Reset Your DishCovery Password',
-        html: emailHtml
-      };
+    // ✅ Check environment: Use SendGrid in production (Vercel), SMTP in local development
+    const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
+    
+    if (isProduction) {
+      // Use SendGrid HTTP API in production (Vercel)
+      if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
+        const msg = {
+          to: email,
+          from: {
+            email: process.env.SENDGRID_FROM_EMAIL,
+            name: 'DishCovery'
+          },
+          subject: '🔑 Reset Your DishCovery Password',
+          html: emailHtml
+        };
 
-      await sgMail.send(msg);
-      console.log(`✅ Password reset email sent via SendGrid HTTP API to ${email}`);
-      return true;
+        await sgMail.send(msg);
+        console.log(`✅ [PRODUCTION] Password reset email sent via SendGrid HTTP API to ${email}`);
+        return true;
+      } else {
+        throw new Error('SendGrid not configured in production environment');
+      }
+    } else {
+      // Use Gmail SMTP in local development, fallback to SendGrid if SMTP fails
+      if (gmailTransporter) {
+        try {
+          const mailOptions = {
+            from: `"DishCovery" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: '🔑 Reset Your DishCovery Password',
+            html: emailHtml
+          };
+
+          await gmailTransporter.sendMail(mailOptions);
+          console.log(`✅ [LOCAL] Password reset email sent via Gmail SMTP to ${email}`);
+          return true;
+        } catch (smtpError) {
+          console.warn('⚠️ [LOCAL] Gmail SMTP failed, trying SendGrid fallback:', smtpError.message);
+          // Fallback to SendGrid if SMTP fails
+          if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
+            const msg = {
+              to: email,
+              from: {
+                email: process.env.SENDGRID_FROM_EMAIL,
+                name: 'DishCovery'
+              },
+              subject: '🔑 Reset Your DishCovery Password',
+              html: emailHtml
+            };
+            await sgMail.send(msg);
+            console.log(`✅ [LOCAL] Password reset email sent via SendGrid (SMTP fallback) to ${email}`);
+            return true;
+          } else {
+            throw new Error(`Gmail SMTP failed and SendGrid not configured. SMTP error: ${smtpError.message}`);
+          }
+        }
+      } else {
+        // No SMTP configured, try SendGrid directly
+        if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
+          const msg = {
+            to: email,
+            from: {
+              email: process.env.SENDGRID_FROM_EMAIL,
+              name: 'DishCovery'
+            },
+            subject: '🔑 Reset Your DishCovery Password',
+            html: emailHtml
+          };
+          await sgMail.send(msg);
+          console.log(`✅ [LOCAL] Password reset email sent via SendGrid (no SMTP configured) to ${email}`);
+          return true;
+        } else {
+          throw new Error('Neither Gmail SMTP nor SendGrid is configured for local development');
+        }
+      }
     }
-
-    // Fallback to Gmail SMTP (local development only)
-    if (gmailTransporter) {
-      const mailOptions = {
-        from: `"DishCovery" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: '🔑 Reset Your DishCovery Password',
-        html: emailHtml
-      };
-
-      await gmailTransporter.sendMail(mailOptions);
-      console.log(`✅ Password reset email sent via Gmail SMTP to ${email}`);
-      return true;
-    }
-
-    throw new Error('No email service configured');
   } catch (error) {
     console.error('❌ Password reset email send error:', error);
     throw new Error('Failed to send password reset email');
@@ -320,11 +408,13 @@ router.post('/register', async (req, res) => {
     console.log(`✅ User created with ID: ${userId}`);
 
     const verificationCode = generateVerificationCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    // CRITICAL FIX: created_at should be NOW(), not expiresAt
+    // Expiration is calculated from created_at + 10 minutes
+    const createdAt = new Date(); // Current time
 
     await connection.query(
       'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
-      [userId, 'email_verification', verificationCode, 'pending', expiresAt]
+      [userId, 'email_verification', verificationCode, 'pending', createdAt]
     );
 
     await sendVerificationEmail(email, verificationCode, firstName);
@@ -494,9 +584,11 @@ router.post('/verify', async (req, res) => {
 
     const request = requestRows[0];
     const requestTime = new Date(request.created_at);
-    const minutesAgo = (Date.now() - requestTime.getTime()) / 60000;
+    const currentTime = new Date();
+    const minutesAgo = (currentTime.getTime() - requestTime.getTime()) / 60000;
 
-    if (minutesAgo > 10) {
+    // CRITICAL FIX: Check if code expired (10 minutes from creation)
+    if (minutesAgo > 10 || minutesAgo < 0) {
       await connection.rollback();
       return res.status(400).json({ message: 'Verification code expired. Please request a new one.' });
     }
@@ -573,41 +665,171 @@ router.post('/verify', async (req, res) => {
 
 // RESEND VERIFICATION
 router.post('/resend-verification', async (req, res) => {
-  const { email } = req.body;
-  if (!email)
+  let { email } = req.body;
+  
+  // Trim whitespace from email
+  email = email ? email.trim().toLowerCase() : '';
+  
+  if (!email) {
     return res.status(400).json({ message: 'Email is required' });
+  }
 
+  let connection;
   try {
-    const users = await pool.query(
-      'SELECT user_id, email, first_name, email_verified FROM users WHERE email = ?',
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Handle mysql2 pool.query() which returns [rows, fields] format
+    const result = await connection.query(
+      'SELECT user_id, email, first_name, email_verified FROM users WHERE LOWER(TRIM(email)) = ?',
       [email]
     );
-    if (users[0].length === 0)
+
+    // Extract rows from result (mysql2 returns [rows, fields])
+    let userRows;
+    if (Array.isArray(result) && Array.isArray(result[0])) {
+      userRows = result[0]; // [rows, fields] format
+    } else if (Array.isArray(result)) {
+      userRows = result; // Just rows format
+    } else {
+      userRows = [];
+    }
+
+    if (!userRows || userRows.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ message: 'User not found' });
+    }
 
-    const user = users[0][0];
-    if (user.email_verified)
+    const user = userRows[0];
+    
+    // Check if email is already verified
+    if (user.email_verified === 1) {
+      await connection.rollback();
       return res.status(400).json({ message: 'Email already verified' });
+    }
 
-    await pool.query(
+    // Mark existing pending verification requests as expired
+    await connection.query(
       'UPDATE pending_requests SET status = ? WHERE user_id = ? AND request_type = ? AND status = ?',
       ['expired', user.user_id, 'email_verification', 'pending']
     );
 
+    // Generate new verification code
     const verificationCode = generateVerificationCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    // CRITICAL FIX: created_at should be NOW(), not expiresAt
+    // Expiration is calculated from created_at + 10 minutes
+    const createdAt = new Date(); // Current time
 
-    await pool.query(
+    // Insert new verification code
+    await connection.query(
       'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
-      [user.user_id, 'email_verification', verificationCode, 'pending', expiresAt]
+      [user.user_id, 'email_verification', verificationCode, 'pending', createdAt]
     );
 
-    await sendVerificationEmail(email, verificationCode, user.first_name);
+    await connection.commit();
 
-    res.json({ success: true, message: 'Verification code resent successfully!' });
+    // Send verification email
+    await sendVerificationEmail(email, verificationCode, user.first_name || '');
+
+    console.log(`✅ [RESEND VERIFICATION] Code resent to ${email}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Verification code resent successfully!' 
+    });
   } catch (error) {
-    console.error('Resend verification error:', error);
-    res.status(500).json({ message: 'Failed to resend code', error: error.message });
+    if (connection) {
+      await connection.rollback();
+    }
+    console.error('❌ [RESEND VERIFICATION] Error:', error);
+    res.status(500).json({ 
+      message: 'Failed to resend code', 
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
+// ========================================
+// 🔍 CHECK EMAIL ACCOUNT TYPE - Determine if email is user or admin
+// ========================================
+router.post('/check-email-type', async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Email is required' 
+    });
+  }
+
+  try {
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Check if email exists in admin_users table
+    const adminResult = await pool.query(
+      'SELECT admin_id, email FROM admin_users WHERE LOWER(TRIM(email)) = ? AND (is_active = 1 OR is_active IS NULL) LIMIT 1',
+      [normalizedEmail]
+    );
+    
+    let adminRows;
+    if (Array.isArray(adminResult) && Array.isArray(adminResult[0])) {
+      adminRows = adminResult[0];
+    } else if (Array.isArray(adminResult)) {
+      adminRows = adminResult;
+    } else {
+      adminRows = [];
+    }
+    
+    if (adminRows && adminRows.length > 0) {
+      return res.json({
+        success: true,
+        accountType: 'admin',
+        adminId: adminRows[0].admin_id,
+        email: normalizedEmail
+      });
+    }
+    
+    // Check if email exists in users table
+    const userResult = await pool.query(
+      'SELECT user_id, email FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1',
+      [normalizedEmail]
+    );
+    
+    let userRows;
+    if (Array.isArray(userResult) && Array.isArray(userResult[0])) {
+      userRows = userResult[0];
+    } else if (Array.isArray(userResult)) {
+      userRows = userResult;
+    } else {
+      userRows = [];
+    }
+    
+    if (userRows && userRows.length > 0) {
+      return res.json({
+        success: true,
+        accountType: 'user',
+        userId: userRows[0].user_id,
+        email: normalizedEmail
+      });
+    }
+    
+    // Email not found in either table
+    return res.json({
+      success: true,
+      accountType: 'none',
+      email: normalizedEmail
+    });
+    
+  } catch (error) {
+    console.error('❌ Check email type error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error. Please try again later.' 
+    });
   }
 });
 
@@ -629,8 +851,8 @@ router.post('/forgot-password', async (req, res) => {
   try {
     // Check if user exists
     const users = await pool.query(
-      'SELECT user_id, email, first_name, google_id, password_hash FROM users WHERE email = ?',
-      [email]
+      'SELECT user_id, email, first_name, google_id, password_hash FROM users WHERE LOWER(TRIM(email)) = ?',
+      [email.trim().toLowerCase()]
     );
     
     // Always return success to prevent email enumeration attacks
@@ -667,7 +889,7 @@ router.post('/forgot-password', async (req, res) => {
     // Store reset request
     await pool.query(
       'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
-      [user.user_id, 'password_reset', resetCode, 'pending', expiresAt]
+      [user.user_id, 'password_reset', resetCode, 'pending', new Date()]
     );
 
     // Send reset email (or password creation email for Google users)
