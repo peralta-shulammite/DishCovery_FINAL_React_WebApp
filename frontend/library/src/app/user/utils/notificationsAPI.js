@@ -53,15 +53,36 @@ export const notificationsAPI = {
         headers: getAuthHeaders()
       });
 
+      // ✅ Only throw error for authentication failures (401/403)
+      // For other errors (500, etc.), return success with empty data to prevent sign-out
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        // For other errors, return success with empty data
+        console.warn('⚠️ Non-auth error fetching notifications, returning empty data');
+        return {
+          success: true,
+          data: [],
+          count: 0
+        };
       }
 
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('❌ Error fetching notifications:', error);
-      throw error;
+      // ✅ Only throw auth errors, return success for other errors
+      if (error.message && error.message.includes('401') || error.message.includes('403')) {
+        console.error('❌ Auth error fetching notifications:', error);
+        throw error;
+      }
+      // For other errors (network, etc.), return success with empty data
+      console.warn('⚠️ Error fetching notifications, returning empty data:', error.message);
+      return {
+        success: true,
+        data: [],
+        count: 0
+      };
     }
   },
 
