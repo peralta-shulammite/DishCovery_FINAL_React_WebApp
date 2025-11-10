@@ -68,7 +68,9 @@ const RecipePage = () => {
   });
 
   const [filters, setFilters] = useState({
-    mealType: []
+    mealType: [],
+    dietaryTags: [],
+    healthTags: []
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -84,6 +86,10 @@ const RecipePage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [limit] = useState(15);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recipesPerPage] = useState(6);
   
   const [hoverStates, setHoverStates] = useState({
     logo: false,
@@ -120,6 +126,16 @@ const RecipePage = () => {
     setDishCoveryShowMobileMenu(false);
     window.location.href = '/';
   };
+
+  // ✅ Authentication check - redirect to home if not logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('🔒 No token found, redirecting to home...');
+      window.location.href = '/user/home';
+      return;
+    }
+  }, []);
 
   const dishCoveryHandleScanClick = () => {
     if (!dishCoveryIsLoggedIn) {
@@ -342,27 +358,27 @@ const RecipePage = () => {
         }
         
         return {
-          id: recipe.id || recipe.recipe_id,
-          title: recipe.title || recipe.name || recipe.recipe_name,
-          description: recipe.description || '',
-          images: Array.isArray(recipe.images) && recipe.images.length > 0 
-            ? recipe.images 
-            : (recipe.image ? [recipe.image] : (recipe.image_url ? [recipe.image_url] : ['https://via.placeholder.com/400x300?text=No+Image'])),
+        id: recipe.id || recipe.recipe_id,
+        title: recipe.title || recipe.name || recipe.recipe_name,
+        description: recipe.description || '',
+        images: Array.isArray(recipe.images) && recipe.images.length > 0 
+          ? recipe.images 
+          : (recipe.image ? [recipe.image] : (recipe.image_url ? [recipe.image_url] : ['https://via.placeholder.com/400x300?text=No+Image'])),
           mealType: mealTypes.length > 0 ? mealTypes : [],
-          ingredients: recipe.ingredients || { main: [], condiments: [], optional: [] },
-          instructions: recipe.instructions || [],
-          dietaryTags: recipe.dietaryTags || recipe.dietary_restrictions || [],
-          healthTags: recipe.healthTags || [],
-          verificationStatus: recipe.verificationStatus || 'AI-generated',
-          verifierName: recipe.verifierName || '',
-          verifierCredentials: recipe.verifierCredentials || '',
-          engagement: {
-            tried: recipe.tried || recipe.engagement?.tried || recipe.tried_count || 0,
-            saved: recipe.saved || recipe.engagement?.saved || recipe.save_count || 0
-          },
-          rating: recipe.rating || recipe.average_rating || 4.5,
-          cookTime: recipe.cookTime || recipe.cookingTime || recipe.prepTime || recipe.cook_time || '30 min',
-          servings: recipe.servings || 4
+        ingredients: recipe.ingredients || { main: [], condiments: [], optional: [] },
+        instructions: recipe.instructions || [],
+        dietaryTags: recipe.dietaryTags || recipe.dietary_restrictions || [],
+        healthTags: recipe.healthTags || [],
+        verificationStatus: recipe.verificationStatus || 'AI-generated',
+        verifierName: recipe.verifierName || '',
+        verifierCredentials: recipe.verifierCredentials || '',
+        engagement: {
+          tried: recipe.tried || recipe.engagement?.tried || recipe.tried_count || 0,
+          saved: recipe.saved || recipe.engagement?.saved || recipe.save_count || 0
+        },
+        rating: recipe.rating || recipe.average_rating || 4.5,
+        cookTime: recipe.cookTime || recipe.cookingTime || recipe.prepTime || recipe.cook_time || '30 min',
+        servings: recipe.servings || 4
         };
       });
 
@@ -412,7 +428,7 @@ const RecipePage = () => {
 
   // ✅ REMOVED: This useEffect was calling fetchRecipes() on mount, overriding filtered results
   // The main useEffect at line 195 already handles both filtered and regular recipe fetching
-  
+
   useEffect(() => {
     // ✅ Don't fetch if we're in filtered mode (ingredients parameter present)
     const urlParams = new URLSearchParams(window.location.search);
@@ -421,6 +437,9 @@ const RecipePage = () => {
       console.log('⏭️ Skipping filter-based fetch - filtered mode active');
       return;
     }
+    
+    // Reset to first page when filters or search changes
+    setCurrentPage(1);
     
     const delayedFetch = setTimeout(() => {
       fetchRecipes();
@@ -592,20 +611,24 @@ const RecipePage = () => {
   const handleFilterChange = (category, value) => {
     setFilters(prev => ({
       ...prev,
-      [category]: prev[category].includes(value)
-        ? prev[category].filter(item => item !== value)
-        : [...prev[category], value]
+      [category]: (prev[category] || []).includes(value)
+        ? (prev[category] || []).filter(item => item !== value)
+        : [...(prev[category] || []), value]
     }));
   };
 
   const clearAllFilters = () => {
     setFilters({
-      mealType: []
+      mealType: [],
+      dietaryTags: [],
+      healthTags: []
     });
   };
 
   const getActiveFilterCount = () => {
-    return filters.mealType.length;
+    return (filters.mealType?.length || 0) + 
+           (filters.dietaryTags?.length || 0) + 
+           (filters.healthTags?.length || 0);
   };
 
   const renderStars = (rating) => {
@@ -651,8 +674,9 @@ const RecipePage = () => {
     setShowScrollIndicator(true);
     document.body.style.overflow = 'hidden';
     
-    // 🆕 Track as last opened recipe for profile
-    saveLastOpenedRecipe(recipe);
+    // 🆕 Track as last opened recipe for profile (save to database)
+    const { saveLastOpenedRecipe } = await import('../utils/recipeTracker');
+    await saveLastOpenedRecipe(recipe);
     
     if (recipe.id && (!recipe.instructions || recipe.instructions.length === 0)) {
       const detailedRecipe = await fetchRecipeDetails(recipe.id);
@@ -746,8 +770,8 @@ const RecipePage = () => {
             saved: isFavorited ? prev.engagement.saved - 1 : prev.engagement.saved + 1
           }
         }));
-      }
-      
+        }
+        
       // Update recipe in list
       setRecipes(prev => prev.map(recipe => {
         if (recipe.id === recipeId) {
@@ -790,14 +814,14 @@ const RecipePage = () => {
         }));
         
         // Update selected recipe if it's the same one
-        if (selectedRecipe && selectedRecipe.id === recipeId) {
-          setSelectedRecipe(prev => ({
-            ...prev,
+      if (selectedRecipe && selectedRecipe.id === recipeId) {
+        setSelectedRecipe(prev => ({
+          ...prev,
             engagement: {
               ...prev.engagement,
               tried: prev.engagement.tried + 1
             }
-          }));
+        }));
         }
         
         console.log('Recipe marked as tried successfully!');
@@ -840,8 +864,8 @@ const RecipePage = () => {
           </div>
         </div>
 
-        <div className="content-wrapper">
-          <aside className={`filters-sidebar ${showMobileFilters ? 'mobile-visible' : ''}`}>
+        <div className="content-wrapper-new">
+          <aside className={`filters-sidebar-new ${showMobileFilters ? 'mobile-visible' : ''}`}>
             <div className="mobile-filter-header">
               <h3>Filters</h3>
               <button 
@@ -851,35 +875,24 @@ const RecipePage = () => {
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
-            <div className="filters-title">
+            <div className="filters-title-new">
               <FontAwesomeIcon icon={faFilter} />
               Filters
             </div>
 
-            <select
-              value={dishCoverySortBy}
-              onChange={(e) => setDishCoverySortBy(e.target.value)}
-              className="sort-dropdown"
-            >
-              <option value="popularity">Most Popular</option>
-              <option value="rating">Highest Rated</option>
-              <option value="cookTime">Cook Time</option>
-              <option value="alphabetical">A-Z</option>
-            </select>
-
             {Object.entries(filterOptions).map(([category, options]) => (
-              <div key={category} className="filter-category">
-                <h3 className="filter-category-title">
+              <div key={category} className="filter-category-new">
+                <h3 className="filter-category-title-new">
                   {category === 'mealType' ? 'Meal Type' : 
                    category === 'dietaryTags' ? 'Dietary Tags' : 'Health Tags'}
                 </h3>
-                <div className="filter-options">
+                <div className="filter-options-new">
                   {options.map(option => (
-                    <label key={option} className="filter-option">
+                    <label key={option} className="filter-option-new">
                       <input
                         type="checkbox"
-                        className="filter-checkbox"
-                        checked={filters[category].includes(option)}
+                        className="filter-checkbox-new"
+                        checked={filters[category]?.includes(option) || false}
                         onChange={() => handleFilterChange(category, option)}
                       />
                       {option}
@@ -890,30 +903,30 @@ const RecipePage = () => {
             ))}
 
             {getActiveFilterCount() > 0 && (
-              <div className="active-filters">
-                <div className="active-filters-title">Active Filters</div>
-                <div className="active-filter-tags">
+              <div className="active-filters-new">
+                <div className="active-filters-title-new">Active Filters</div>
+                <div className="active-filter-tags-new">
                   {Object.entries(filters).map(([category, values]) =>
                     values.map(value => (
-                      <span key={`${category}-${value}`} className="active-filter-tag">
+                      <span key={`${category}-${value}`} className="active-filter-tag-new">
                         {value}
                         <button onClick={() => handleFilterChange(category, value)}>×</button>
                       </span>
                     ))
                   )}
                 </div>
-                <button className="clear-all-filters" onClick={clearAllFilters}>
+                <button className="clear-all-filters-new" onClick={clearAllFilters}>
                   Clear All
                 </button>
               </div>
             )}
           </aside>
 
-          <main className="main-content">
-            <div className="controls-container">
-              <div className="search-section">
-                <div className="search-container">
-                  <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
+          <main className="main-content-new">
+            <div className="controls-container-new">
+              <div className="search-section-new">
+                <div className="search-container-new">
+                  <svg className="search-icon-new" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                   </svg>
                   <input
@@ -921,33 +934,15 @@ const RecipePage = () => {
                     placeholder="Search recipes..."
                     value={dishCoverySearchQuery}
                     onChange={(e) => setDishCoverySearchQuery(e.target.value)}
-                    className="search-input"
+                    className="search-input-new"
                   />
                 </div>
               </div>
 
-              <div className="filter-section">
+              <div className="filter-section-new">
+                <div className="view-toggle-new">
                 <button 
-                  className="mobile-filter-toggle"
-                  onClick={() => {
-                    const isMobile = window.innerWidth <= 768;
-                    if (isMobile) {
-                      openFilterModal();
-                    } else {
-                      setShowMobileFilters(!showMobileFilters);
-                    }
-                  }}
-                >
-                  <FontAwesomeIcon icon={faFilter} />
-                  Filters
-                  {getActiveFilterCount() > 0 && (
-                    <span className="filter-count-badge">{getActiveFilterCount()}</span>
-                  )}
-                </button>
-
-                <div className="view-toggle">
-                  <button
-                    className={`view-btn ${dishCoveryViewMode === 'grid' ? 'view-btn-active' : ''}`}
+                    className={`view-btn-new ${dishCoveryViewMode === 'grid' ? 'view-btn-active-new' : ''}`}
                     onClick={() => setDishCoveryViewMode('grid')}
                   >
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -955,7 +950,7 @@ const RecipePage = () => {
                     </svg>
                   </button>
                   <button
-                    className={`view-btn ${dishCoveryViewMode === 'list' ? 'view-btn-active' : ''}`}
+                    className={`view-btn-new ${dishCoveryViewMode === 'list' ? 'view-btn-active-new' : ''}`}
                     onClick={() => setDishCoveryViewMode('list')}
                   >
                     <svg viewBox="0 0 24 24" fill="currentColor">
@@ -984,9 +979,28 @@ const RecipePage = () => {
               </div>
             )}
 
-            {!loading && recipes.length > 0 && (
-              <div className={`recipes-container ${dishCoveryViewMode === 'grid' ? 'recipes-grid' : 'recipes-list'}`}>
-                {recipes.map(recipe => (
+            {!loading && recipes.length > 0 && (() => {
+              // Calculate pagination
+              const indexOfLastRecipe = currentPage * recipesPerPage;
+              const indexOfFirstRecipe = indexOfLastRecipe - recipesPerPage;
+              const currentRecipes = recipes.slice(indexOfFirstRecipe, indexOfLastRecipe);
+              const totalPages = Math.ceil(recipes.length / recipesPerPage);
+              
+              // ✅ Check if recipes are coming from scanning page (ingredients parameter)
+              const urlParams = new URLSearchParams(window.location.search);
+              const ingredientsParam = urlParams.get('ingredients');
+              const isFromScanningPage = !!ingredientsParam;
+              
+              return (
+                <>
+                  <div className={`recipes-container-new ${dishCoveryViewMode === 'grid' ? 'recipes-grid-new' : 'recipes-list'}`}>
+                    {currentRecipes.map(recipe => {
+                      // ✅ Filter out "Good For Everyone" badge when coming from scanning page
+                      const dietaryTagsToShow = isFromScanningPage 
+                        ? (recipe.dietaryTags || []).filter(tag => tag !== 'Good For Everyone')
+                        : (recipe.dietaryTags || []);
+                      
+                      return (
                   <div
                     key={recipe.id}
                     className={`recipe-card ${dishCoveryViewMode === 'list' ? 'list-view' : ''}`}
@@ -995,19 +1009,34 @@ const RecipePage = () => {
                     <div className="recipe-image-container">
                       <img
                         src={(() => {
-                          const imageSrc = Array.isArray(recipe.images) ? recipe.images[0] : recipe.images;
-                          // ✅ Debug: Log image source for specific recipe (e.g., Sinugba)
-                          if (recipe.title && recipe.title.toLowerCase().includes('sinugba')) {
-                            console.log(`🔍 [${recipe.title}] Recipe ID: ${recipe.id}`);
-                            console.log(`🔍 [${recipe.title}] Images array:`, recipe.images);
-                            console.log(`🔍 [${recipe.title}] Image source:`, imageSrc);
+                          // ✅ CRITICAL FIX: Ensure we get the correct image for each recipe
+                          let imageSrc = null;
+                          
+                          if (Array.isArray(recipe.images) && recipe.images.length > 0) {
+                            // If images is an array, get the first image
+                            imageSrc = recipe.images[0];
+                          } else if (typeof recipe.images === 'string' && recipe.images.trim()) {
+                            // If images is a string, use it directly
+                            imageSrc = recipe.images;
+                          } else if (recipe.image) {
+                            // Fallback to image property
+                            imageSrc = recipe.image;
+                          } else if (recipe.image_url) {
+                            // Fallback to image_url property
+                            imageSrc = recipe.image_url;
                           }
-                          return imageSrc;
+                          
+                          // ✅ Debug: Log image source for all recipes to identify issues
+                          console.log(`🔍 [FRONTEND] Recipe ID: ${recipe.id}, Title: ${recipe.title}`);
+                          console.log(`   Images array:`, recipe.images);
+                          console.log(`   Image source:`, imageSrc);
+                          
+                          return imageSrc || 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
                         })()}
                         alt={recipe.title}
                         className="recipe-image"
                         onError={(e) => { 
-                          console.error(`❌ Image failed to load for recipe ${recipe.title}:`, e.target.src);
+                          console.error(`❌ Image failed to load for recipe ${recipe.title} (ID: ${recipe.id}):`, e.target.src);
                           e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
                         }}
                       />
@@ -1042,7 +1071,7 @@ const RecipePage = () => {
                             return mealTypes.map((mealType, index) => (
                               <span key={index} className="meal-type-badge">
                                 {mealType}
-                              </span>
+                        </span>
                             ));
                           })()}
                         </div>
@@ -1050,14 +1079,20 @@ const RecipePage = () => {
 
                       <div className="recipe-tags">
                         <div className="tags-container">
-                          {recipe.dietaryTags.slice(0, 3).map(tag => (
-                            <span key={tag} className="recipe-tag dietary">
+                          {dietaryTagsToShow.slice(0, 3).map(tag => {
+                            const isGoodForEveryone = tag === 'Good For Everyone';
+                            return (
+                              <span 
+                                key={tag} 
+                                className={`recipe-tag dietary ${isGoodForEveryone ? 'good-for-everyone' : ''}`}
+                              >
                               {tag}
                             </span>
-                          ))}
-                          {recipe.dietaryTags.length > 3 && (
+                            );
+                          })}
+                          {dietaryTagsToShow.length > 3 && (
                             <span className="tags-more">
-                              +{recipe.dietaryTags.length - 3} more
+                              +{dietaryTagsToShow.length - 3} more
                             </span>
                           )}
                         </div>
@@ -1086,36 +1121,97 @@ const RecipePage = () => {
                           <FontAwesomeIcon icon={favoritedRecipes.has(recipe.id) ? faHeart : faHeartRegular} />
                           {recipe.engagement?.saved || 0} saved
                         </button>
+                        </div>
+                        </div>
                       </div>
+                      );
+                    })}
                     </div>
-                  </div>
+                  
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="pagination-container" style={{ 
+                      display: 'flex', 
+                      justifyContent: 'center', 
+                      alignItems: 'center', 
+                      gap: '12px', 
+                      marginTop: '32px',
+                      flexWrap: 'wrap'
+                    }}>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        style={{
+                          padding: '8px 16px',
+                          border: '1px solid #D1D5DB',
+                          borderRadius: '8px',
+                          background: currentPage === 1 ? '#F3F4F6' : 'white',
+                          color: currentPage === 1 ? '#9CA3AF' : '#374151',
+                          cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          fontFamily: 'Poppins, sans-serif',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        Previous
+                      </button>
+                      
+                      <div style={{ 
+                        display: 'flex', 
+                        gap: '8px', 
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        justifyContent: 'center'
+                      }}>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            style={{
+                              padding: '8px 12px',
+                              border: '1px solid #D1D5DB',
+                              borderRadius: '8px',
+                              background: currentPage === page ? '#2E7D32' : 'white',
+                              color: currentPage === page ? 'white' : '#374151',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              fontWeight: currentPage === page ? '600' : '500',
+                              fontFamily: 'Poppins, sans-serif',
+                              transition: 'all 0.2s ease',
+                              minWidth: '40px'
+                            }}
+                          >
+                            {page}
+                          </button>
                 ))}
               </div>
-            )}
             
-            {hasMore && !loading && recipes.length > 0 && (
-              <div className="load-more-container" style={{ textAlign: 'center', marginTop: '32px' }}>
                 <button 
-                  className="load-more-btn" 
-                  onClick={handleLoadMore}
-                  disabled={loading}
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
                   style={{
-                    background: '#2E7D32',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '20px',
-                    padding: '12px 24px',
+                          padding: '8px 16px',
+                          border: '1px solid #D1D5DB',
+                          borderRadius: '8px',
+                          background: currentPage === totalPages ? '#F3F4F6' : 'white',
+                          color: currentPage === totalPages ? '#9CA3AF' : '#374151',
+                          cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                     fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    fontFamily: 'Poppins, sans-serif'
+                          fontWeight: '500',
+                          fontFamily: 'Poppins, sans-serif',
+                          transition: 'all 0.2s ease'
                   }}
                 >
-                  {loading ? 'Loading...' : 'Load More Recipes'}
+                        Next
                 </button>
               </div>
             )}
+                  
+                </>
+              );
+            })()}
+            
           </main>
         </div>
 
@@ -1169,7 +1265,7 @@ const RecipePage = () => {
                           <input
                             type="checkbox"
                             className="filter-modal-checkbox"
-                            checked={filters[category].includes(option)}
+                            checked={filters[category]?.includes(option) || false}
                             onChange={() => handleFilterChange(category, option)}
                           />
                           <span className="filter-modal-option-text">{option}</span>
@@ -1338,14 +1434,14 @@ const RecipePage = () => {
                         : [selectedRecipe.mealType];
                     
                     return (
-                      <div className="modal-section">
-                        <h3 className="section-title">Meal Type</h3>
-                        <div className="modal-tags">
+                    <div className="modal-section">
+                      <h3 className="section-title">Meal Type</h3>
+                      <div className="modal-tags">
                           {mealTypes.map((mealType, index) => (
                             <span key={index} className="modal-tag meal-type">
-                              <FontAwesomeIcon icon={faUtensils} />
+                          <FontAwesomeIcon icon={faUtensils} />
                               {mealType}
-                            </span>
+                        </span>
                           ))}
                         </div>
                       </div>

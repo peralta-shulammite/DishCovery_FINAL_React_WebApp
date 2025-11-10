@@ -29,6 +29,16 @@ const IngredientScanner = () => {
       setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
     }
   }, []);
+
+  // ✅ Authentication check - redirect to home if not logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('🔒 No token found, redirecting to home...');
+      window.location.href = '/user/home';
+      return;
+    }
+  }, []);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const bboxCanvasRef = useRef(null);
@@ -88,6 +98,17 @@ const IngredientScanner = () => {
       
       // Get filtered recipes based on these ingredients
       const ingredientIds = selectedIngredients.map(ing => ing.ingredient_id);
+      
+      // ✅ Save scan history for ALL selected ingredients (including manually added ones that are in DB)
+      try {
+        const { scanAPI } = await import('../user-profile/api');
+        await scanAPI.saveScanHistory(ingredientIds);
+        console.log('✅ Scan history saved successfully for', ingredientIds.length, 'ingredients');
+      } catch (scanError) {
+        console.error('❌ Failed to save scan history:', scanError);
+        // Don't block recipe generation if scan history save fails
+      }
+      
       const result = await recipesAPI.getFilteredRecipes({
         scannedIngredients: ingredientIds,
         limit: 50
@@ -648,6 +669,9 @@ const IngredientScanner = () => {
           
           setScannedIngredients(ingredients);
           setDetections(detections);
+          
+          // ✅ REMOVED: Don't save scan history immediately during file upload
+          // Only save when "Generate Recipe" is clicked to avoid database issues
         } catch (error) {
           console.error('Error processing uploaded image:', error);
           setBackendError(error.message);
@@ -707,6 +731,10 @@ const IngredientScanner = () => {
       
       setScannedIngredients(ingredients);
       setDetections(detections);
+      
+      // ✅ REMOVED: Don't save scan history immediately during real-time detection
+      // Only save when "Generate Recipe" is clicked to avoid database issues
+      
       setShowModal(true);
       
     } catch (error) {
@@ -833,18 +861,20 @@ const IngredientScanner = () => {
       const searchResult = searchIngredientInDatabase(ingredientName);
       
       const newId = Math.max(...scannedIngredients.map(i => i.id), 0) + 1;
-      setScannedIngredients(prev => [
-        ...prev,
-        { 
-          id: newId, 
-          ingredient_id: searchResult?.id || null,
-          name: searchResult?.name || ingredientName, 
-          quantity: 1,
-          selected: true,
-          db_matched: searchResult?.matched || false
-        }
-      ]);
+      const newIngredientObj = { 
+        id: newId, 
+        ingredient_id: searchResult?.id || null,
+        name: searchResult?.name || ingredientName, 
+        quantity: 1,
+        selected: true,
+        db_matched: searchResult?.matched || false
+      };
+      
+      setScannedIngredients(prev => [...prev, newIngredientObj]);
       setNewIngredient('');
+
+      // ✅ REMOVED: Don't save scan history immediately when manually adding ingredients
+      // Only save when "Generate Recipe" is clicked to avoid database issues
 
       setTimeout(() => {
         if (newIngredientRef.current) {

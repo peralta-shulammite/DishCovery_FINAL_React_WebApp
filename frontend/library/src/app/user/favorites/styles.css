@@ -307,6 +307,192 @@ body {
   max-height: 240px;
 }
 
+/* New recipe grid container - matches recipe page */
+.recipes-container-new.recipes-grid-new {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 24px !important;
+  animation: slideInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both;
+  width: 100%;
+  align-items: start;
+  min-height: 400px;
+}
+
+@media (min-width: 640px) {
+  .recipes-container-new.recipes-grid-new {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .recipes-container-new.recipes-grid-new {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 24px !important;
+  }
+}
+
+/* New recipe card - matches recipe page */
+.recipes-container-new .recipe-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 360px;
+  align-self: start;
+  flex-shrink: 0;
+}
+
+.recipes-container-new .recipe-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* New recipe image container - matches recipe page */
+.recipes-container-new .recipe-image-container {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #f3f4f6;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.recipes-container-new .recipe-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition);
+}
+
+.recipes-container-new .recipe-card:hover .recipe-image {
+  transform: scale(1.05);
+}
+
+/* New recipe content - matches recipe page */
+.recipes-container-new .recipe-content {
+  padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* New recipe title - matches recipe page */
+.recipes-container-new .recipe-title {
+  color: #2E7D32;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding: 0 16px;
+}
+
+/* New recipe description - matches recipe page */
+.recipes-container-new .recipe-description {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 12px;
+  padding: 0 16px;
+}
+
+/* Meal type container - matches recipe page */
+.meal-type-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* New meal type badge - matches recipe page */
+.recipes-container-new .meal-type-badge {
+  background: rgba(46, 125, 50, 0.1);
+  color: #2E7D32;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-family-heading);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* New recipe tag - matches recipe page */
+.recipes-container-new .recipe-tag.dietary {
+  background: rgba(46, 125, 50, 0.1);
+  color: #2E7D32;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-family-heading);
+}
+
+/* Good For Everyone badge - matches recipe page */
+.recipes-container-new .recipe-tag.dietary.good-for-everyone,
+.recipes-container-new .recipe-tag.good-for-everyone {
+  background: #2E7D32;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-family-heading);
+}
+
+/* Engagement button - matches recipe page */
+.engagement-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-family: var(--font-family);
+}
+
+.engagement-button:hover {
+  background: rgba(46, 125, 50, 0.05);
+  color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
+.engagement-button.tried {
+  color: var(--primary-color);
+  background: rgba(46, 125, 50, 0.1);
+}
+
+.engagement-button.tried:hover {
+  background: rgba(46, 125, 50, 0.15);
+}
+
+.engagement-button.favorited {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.engagement-button.favorited:hover {
+  background: rgba(220, 38, 38, 0.15);
+}
+
+.engagement-button svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* Recipe Image - Matches Recipe Page */
 .recipe-image-container {
   position: relative;

@@ -186,38 +186,46 @@ export default function DishCoveryPantry() {
   ];
 
 
-  // Check authentication status (DISABLED FOR TESTING)
+  // ✅ Authentication check - redirect to home if not logged in
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('userData');
+    if (!token) {
+      console.log('🔒 No token found, redirecting to home...');
+      window.location.href = '/user/home';
+      return;
+    }
     
-    if (token && userData) {
+    // Load user data if token exists
+    const userData = localStorage.getItem('userData');
+    if (userData) {
       try {
         const user = JSON.parse(userData);
         setDishCoveryUser(user);
         setDishCoveryIsLoggedIn(true);
       } catch (error) {
         console.error('Error parsing user data:', error);
-        setDishCoveryIsLoggedIn(false);
+        // If token exists but userData is invalid, still set logged in to true
+        setDishCoveryIsLoggedIn(true);
       }
     } else {
-      // TEMPORARILY DISABLED: router.push('/auth/login');
-      // For testing, set mock user and logged in state
+      // If token exists but no userData, still consider user logged in
       setDishCoveryIsLoggedIn(true);
-      setDishCoveryUser({
-        firstName: 'Test',
-        lastName: 'User',
-        email: 'test@example.com'
-      });
-      console.log('Auth redirect disabled for testing - using mock user');
     }
-  }, [router]);
+  }, []);
 
   // Load ingredients from backend database
   useEffect(() => {
     const loadIngredients = async () => {
-      if (!dishCoveryIsLoggedIn) return;
+      // Check for token directly to avoid race condition
+      const token = localStorage.getItem('token');
+      if (!token) {
+        // No token means not logged in, stop loading
+        setDishCoveryLoading(false);
+        return;
+      }
       
+      // If token exists, proceed with loading (don't wait for isLoggedIn state)
+      // This fixes the race condition where token exists but isLoggedIn hasn't been set yet
       try {
         setDishCoveryLoading(true);
         setDishCoveryError(null);
@@ -362,6 +370,16 @@ export default function DishCoveryPantry() {
       
       // Import recipesAPI dynamically
       const { recipesAPI } = await import('../utils/recipesAPI');
+      
+      // ✅ Save scan history for pantry selections
+      try {
+        const { scanAPI } = await import('../user-profile/api');
+        await scanAPI.saveScanHistory(dishCoverySelectedIngredients, 'pantry_selection');
+        console.log('✅ Pantry scan history saved successfully for', dishCoverySelectedIngredients.length, 'ingredients');
+      } catch (scanError) {
+        console.error('❌ Failed to save pantry scan history:', scanError);
+        // Don't block recipe generation if scan history save fails
+      }
       
       // Get filtered recipes based on selected ingredients (same logic as scanning)
       const result = await recipesAPI.getFilteredRecipes({
