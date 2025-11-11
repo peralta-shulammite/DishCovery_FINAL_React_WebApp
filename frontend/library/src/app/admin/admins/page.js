@@ -32,15 +32,28 @@ const AdminManagementPage = () => {
       setLoading(true);
       setError(null);
 
-      // ✅ FIX: Get API base URL and ensure it doesn't have double /api/
-      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
-      // Remove trailing slash
-      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
-      // ✅ FIX: If URL already ends with /api, don't add /api again
-      // If it doesn't end with /api, add it
-      if (!API_BASE_URL.endsWith('/api')) {
-        API_BASE_URL = `${API_BASE_URL}/api`;
-      }
+      // ✅ FIX: Use same pattern as other API files - check Vercel first
+      const getApiBaseUrl = () => {
+        if (typeof window !== 'undefined') {
+          // Client-side: check if we're on Vercel
+          if (window.location.hostname.includes('vercel.app')) {
+            return 'https://dishcovery-backend-wvhn.onrender.com/api';
+          }
+          // For localhost testing, always use localhost
+          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return 'http://localhost:5000/api';
+          }
+        }
+        // Fallback to environment variable or localhost
+        let baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+        baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+        if (!baseUrl.endsWith('/api')) {
+          baseUrl = `${baseUrl}/api`;
+        }
+        return baseUrl;
+      };
+      
+      const API_BASE_URL = getApiBaseUrl();
       const fullUrl = `${API_BASE_URL}/admin-auth/list`;
 
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
