@@ -548,20 +548,23 @@ router.delete('/account', authenticateToken, async (req, res) => {
           'SELECT feedback_id FROM feedback WHERE user_id = ?',
           [userId]
         );
-        if (feedbackIds && feedbackIds.length > 0) {
-          const feedbackIdList = feedbackIds.map(f => f.feedback_id);
-          const placeholders = feedbackIdList.map(() => '?').join(',');
-          await connection.query(
-            `DELETE FROM feedback_replies WHERE feedback_id IN (${placeholders})`,
-            feedbackIdList
-          );
-          console.log('✅ Deleted feedback replies');
+        if (feedbackIds && Array.isArray(feedbackIds) && feedbackIds.length > 0) {
+          const feedbackIdList = feedbackIds.map(f => f.feedback_id).filter(Boolean);
+          if (feedbackIdList.length > 0) {
+            const placeholders = feedbackIdList.map(() => '?').join(',');
+            await connection.query(
+              `DELETE FROM feedback_replies WHERE feedback_id IN (${placeholders})`,
+              feedbackIdList
+            );
+            console.log(`✅ Deleted ${feedbackIdList.length} feedback replies`);
+          }
         }
       } catch (err) {
         if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
           console.log('⚠️  feedback_replies table not found, skipping');
         } else {
           console.warn('⚠️  Could not delete feedback_replies:', err.message);
+          // Don't throw - continue with other deletions
         }
       }
 
@@ -589,30 +592,34 @@ router.delete('/account', authenticateToken, async (req, res) => {
           [userId]
         );
         
-        if (memberRows && memberRows.length > 0) {
-          const memberIds = memberRows.map(m => m.member_id);
-          const memberPlaceholders = memberIds.map(() => '?').join(',');
-          
-          // Delete member-related restrictions
-          try {
-            await connection.query(
-              `DELETE FROM user_restrictions WHERE member_id IN (${memberPlaceholders})`,
-              memberIds
-            );
-            console.log(`✅ Deleted user_restrictions for ${memberIds.length} members`);
-          } catch (memberRestErr) {
-            console.warn('⚠️  Could not delete member restrictions:', memberRestErr.message);
-          }
-          
-          // Delete member-related excluded ingredients
-          try {
-            await connection.query(
-              `DELETE FROM user_excluded_ingredients WHERE member_id IN (${memberPlaceholders})`,
-              memberIds
-            );
-            console.log(`✅ Deleted user_excluded_ingredients for ${memberIds.length} members`);
-          } catch (memberIngErr) {
-            console.warn('⚠️  Could not delete member ingredients:', memberIngErr.message);
+        if (memberRows && Array.isArray(memberRows) && memberRows.length > 0) {
+          const memberIds = memberRows.map(m => m.member_id).filter(Boolean);
+          if (memberIds.length > 0) {
+            const memberPlaceholders = memberIds.map(() => '?').join(',');
+            
+            // Delete member-related restrictions
+            try {
+              await connection.query(
+                `DELETE FROM user_restrictions WHERE member_id IN (${memberPlaceholders})`,
+                memberIds
+              );
+              console.log(`✅ Deleted user_restrictions for ${memberIds.length} members`);
+            } catch (memberRestErr) {
+              console.warn('⚠️  Could not delete member restrictions:', memberRestErr.message);
+              // Don't throw - continue with other deletions
+            }
+            
+            // Delete member-related excluded ingredients
+            try {
+              await connection.query(
+                `DELETE FROM user_excluded_ingredients WHERE member_id IN (${memberPlaceholders})`,
+                memberIds
+              );
+              console.log(`✅ Deleted user_excluded_ingredients for ${memberIds.length} members`);
+            } catch (memberIngErr) {
+              console.warn('⚠️  Could not delete member ingredients:', memberIngErr.message);
+              // Don't throw - continue with other deletions
+            }
           }
         }
         
@@ -627,6 +634,7 @@ router.delete('/account', authenticateToken, async (req, res) => {
           console.log('⚠️  user_members table not found, skipping');
         } else {
           console.warn('⚠️  Could not delete user_members:', err.message);
+          // Don't throw - continue with other deletions (user_members might not exist for all users)
         }
       }
 
@@ -831,21 +839,70 @@ router.delete('/account', authenticateToken, async (req, res) => {
 
     } catch (error) {
       // Rollback on error
-      await connection.rollback();
+      if (connection) {
+        try {
+          await connection.rollback();
+          console.log('✅ Transaction rolled back successfully');
+        } catch (rollbackErr) {
+          console.error('❌ Error during rollback:', rollbackErr.message);
+        }
+      }
       throw error;
     }
 
   } catch (error) {
     console.error('❌ Error deleting account:', error);
-    res.status(500).json({
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      sqlState: error.sqlState,
+      sqlMessage: error.sqlMessage,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+    
+    // Check for connection-related errors (common with cloud databases)
+    const isConnectionError = 
+      error.code === 'ECONNRESET' || 
+      error.code === 'PROTOCOL_CONNECTION_LOST' ||
+      error.code === 'ETIMEDOUT' ||
+      error.code === 'ENOTFOUND' ||
+      error.code === 'ECONNREFUSED' ||
+      error.message?.includes('Connection lost') ||
+      error.message?.includes('timeout') ||
+      error.message?.includes('Connection closed');
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to delete account';
+    let statusCode = 500;
+    
+    if (isConnectionError) {
+      errorMessage = 'Database connection error. Please try again.';
+      statusCode = 503;
+    } else if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === '23000' || error.sqlState === '23000') {
+      errorMessage = 'Cannot delete account: Data integrity constraint violation.';
+      statusCode = 400;
+    } else if (error.code === 'ER_NO_SUCH_TABLE' || error.code === '42S02') {
+      // Table doesn't exist - this shouldn't cause a failure, but log it
+      console.warn('⚠️ Table not found error during deletion:', error.message);
+      errorMessage = 'Some data could not be deleted. Please contact support.';
+      statusCode = 500;
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      message: 'Failed to delete account',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      errorCode: error.code,
+      isConnectionError: isConnectionError
     });
   } finally {
     // Release connection back to pool
     if (connection) {
-      connection.release();
+      try {
+        connection.release();
+      } catch (releaseErr) {
+        console.error('❌ Error releasing connection:', releaseErr.message);
+      }
     }
   }
 });
