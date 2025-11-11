@@ -61,7 +61,6 @@ router.post('/login', async (req, res) => {
         password_hash,
         first_name,
         last_name,
-        role,
         is_active
       FROM admin_users
       WHERE LOWER(TRIM(email)) = ? AND (is_active = 1 OR is_active IS NULL)
@@ -572,19 +571,41 @@ router.post('/create', authenticateAdminToken, async (req, res) => {
 
     // Generate verification code
     const verificationCode = generateVerificationCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    // CRITICAL FIX: created_at should be NOW(), not expiresAt
+    // Expiration is calculated from created_at + 10 minutes
+    const createdAt = new Date(); // Current time
 
-    // Store verification code in pending_requests table (similar to user registration)
+    // Store verification code in pending_requests table
+    // CRITICAL FIX: pending_requests has foreign key constraint on user_id
+    // We need to use a placeholder user_id and store admin_id in request_data JSON
     try {
+      // Get a valid user_id to use as placeholder (foreign key constraint requires valid user_id)
+      const [placeholderUserRows] = await connection.query(
+        'SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1'
+      );
+      
+      if (!placeholderUserRows || placeholderUserRows.length === 0) {
+        throw new Error('No users found. Cannot create admin verification request.');
+      }
+      
+      const placeholderUserId = placeholderUserRows[0].user_id;
+      
+      // Store admin_id and verification code in request_data JSON
+      const requestData = JSON.stringify({
+        admin_id: adminId,
+        verification_code: verificationCode
+      });
+      
       await connection.query(
         'INSERT INTO pending_requests (user_id, request_type, request_data, status, created_at) VALUES (?, ?, ?, ?, ?)',
-        [adminId, 'admin_email_verification', verificationCode, 'pending', expiresAt]
+        [placeholderUserId, 'admin_email_verification', requestData, 'pending', createdAt]
       );
-      console.log(`✅ Verification code stored for admin ${adminId}`);
+      console.log(`✅ Verification code stored for admin ${adminId} at ${createdAt.toISOString()}`);
     } catch (verificationError) {
       // If pending_requests table doesn't exist or has issues, log but don't fail
-      console.warn('⚠️ Could not store verification code in pending_requests:', verificationError.message);
-      // Continue - we'll still send the email
+      console.error('❌ Could not store verification code in pending_requests:', verificationError.message);
+      await connection.rollback();
+      throw new Error(`Failed to store verification code: ${verificationError.message}`);
     }
 
     // Commit transaction
@@ -640,8 +661,6 @@ router.get('/list', authenticateAdminToken, async (req, res) => {
         password_hash,
         first_name,
         last_name,
-        role,
-        permissions,
         is_active,
         created_at,
         last_login
@@ -808,17 +827,23 @@ router.post('/verify', async (req, res) => {
     console.log(`✅ [ADMIN VERIFY] Admin found with ID: ${adminId}`);
 
     // Find verification code in pending_requests
+    // CRITICAL FIX: Admin requests are identified by request_type and admin_id in request_data JSON
+    // The user_id is just a placeholder for foreign key constraint, we identify by admin_id in JSON
     const [requestRows] = await connection.query(
       `SELECT * FROM pending_requests 
-       WHERE user_id = ? 
-         AND request_data = ? 
-         AND status = 'pending' 
-         AND request_type = 'admin_email_verification'`,
-      [adminId, trimmedCode]
+       WHERE request_type = 'admin_email_verification'
+         AND status = 'pending'
+         AND CAST(JSON_EXTRACT(request_data, '$.admin_id') AS UNSIGNED) = ?
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [adminId]
     );
+
+    console.log(`🔍 [ADMIN VERIFY] Found ${requestRows ? requestRows.length : 0} pending verification request(s) for admin ${adminId}`);
 
     if (!requestRows || requestRows.length === 0) {
       await connection.rollback();
+      console.log(`❌ [ADMIN VERIFY] No pending verification request found for admin ${adminId}`);
       return res.status(400).json({
         success: false,
         message: 'Invalid or expired verification code'
@@ -826,22 +851,64 @@ router.post('/verify', async (req, res) => {
     }
 
     const request = requestRows[0];
+    
+    // Parse request_data JSON to get verification_code
+    let requestData;
+    try {
+      requestData = typeof request.request_data === 'string' 
+        ? JSON.parse(request.request_data) 
+        : request.request_data;
+    } catch (parseError) {
+      await connection.rollback();
+      console.error('❌ [ADMIN VERIFY] Failed to parse request_data:', parseError);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid verification code format'
+      });
+    }
+    
+    const storedCode = requestData.verification_code || requestData.verificationCode || request.request_data;
+    
+    console.log(`🔍 [ADMIN VERIFY] Stored code: "${storedCode}", Provided code: "${trimmedCode}"`);
+    
+    // Compare codes (case-insensitive, trim whitespace)
+    if (String(storedCode).trim() !== String(trimmedCode).trim()) {
+      await connection.rollback();
+      console.log(`❌ [ADMIN VERIFY] Code mismatch - Stored: "${storedCode}", Provided: "${trimmedCode}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification code'
+      });
+    }
+
     const requestTime = new Date(request.created_at);
-    const minutesAgo = (Date.now() - requestTime.getTime()) / 60000;
+    const currentTime = new Date();
+    const minutesAgo = (currentTime.getTime() - requestTime.getTime()) / 60000;
+
+    console.log(`🔍 [ADMIN VERIFY] Code created at: ${requestTime.toISOString()}`);
+    console.log(`🔍 [ADMIN VERIFY] Current time: ${currentTime.toISOString()}`);
+    console.log(`🔍 [ADMIN VERIFY] Minutes ago: ${minutesAgo.toFixed(2)}`);
 
     // Check if code expired (10 minutes)
     if (minutesAgo > 10) {
       await connection.rollback();
+      console.log(`❌ [ADMIN VERIFY] Code expired: ${minutesAgo.toFixed(2)} minutes ago`);
       return res.status(400).json({
         success: false,
         message: 'Verification code has expired. Please request a new one.'
       });
     }
 
+    if (minutesAgo < 0) {
+      // This shouldn't happen, but log it if it does
+      console.warn(`⚠️ [ADMIN VERIFY] Negative minutes ago: ${minutesAgo.toFixed(2)} - possible timezone issue`);
+    }
+
     // Mark verification request as completed
+    // Use request_id to update the specific request
     await connection.query(
-      'UPDATE pending_requests SET status = ? WHERE user_id = ? AND request_type = ? AND request_data = ?',
-      ['completed', adminId, 'admin_email_verification', trimmedCode]
+      'UPDATE pending_requests SET status = ? WHERE request_id = ?',
+      ['completed', request.request_id]
     );
 
     // Note: email_verified column doesn't exist in admin_users table
