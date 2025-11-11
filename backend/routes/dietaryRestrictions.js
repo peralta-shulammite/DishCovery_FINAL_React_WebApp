@@ -146,10 +146,36 @@ router.post('/user/save', authenticateToken, async (req, res) => {
 
     console.log('📊 Parsed Data:', {
       memberId,
+      memberIdType: typeof memberId,
+      isMemberProfile: !!memberId,
       dietaryRestrictionsCount: dietaryRestrictions.length,
       medicalConditionsCount: medicalConditions.length,
       excludedIngredientsCount: excludedIngredients.length
     });
+    
+    // ✅ Log member info if cooking for others
+    if (memberId) {
+      try {
+        // ✅ FIX: pool.query returns [rows, fields], need to destructure
+        const [memberInfoRows] = await pool.query(
+          'SELECT name, relationship FROM user_members WHERE member_id = ? AND user_id = ?',
+          [memberId, req.user.userId]
+        );
+        if (memberInfoRows && memberInfoRows.length > 0) {
+          console.log('👤 Cooking for member:', {
+            memberId,
+            name: memberInfoRows[0].name,
+            relationship: memberInfoRows[0].relationship
+          });
+        } else {
+          console.warn('⚠️ Member ID provided but member not found:', memberId);
+        }
+      } catch (memberErr) {
+        console.warn('⚠️ Could not verify member:', memberErr.message);
+      }
+    } else {
+      console.log('👤 Cooking for: Myself (user profile)');
+    }
 
     // ✅ Get connection from pool
     console.log('🔌 Getting database connection...');

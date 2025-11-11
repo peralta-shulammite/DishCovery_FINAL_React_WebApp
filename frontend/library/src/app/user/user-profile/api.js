@@ -37,9 +37,23 @@ const getCacheBustingHeaders = () => {
 
 export const profileAPI = {
   // Fetch user's dietary preferences
-  getDietaryPreferences: async () => {
+  // ✅ FIX: Accept optional memberId parameter to fetch preferences for member profile
+  getDietaryPreferences: async (memberId = null) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/user-profile/dietary?_=${Date.now()}`, {
+      // ✅ Build URL with memberId query parameter if provided and valid
+      let url = `${API_BASE_URL}/user-profile/dietary?_=${Date.now()}`;
+      if (memberId && memberId !== null && memberId !== 'null' && memberId !== 'undefined' && !isNaN(memberId)) {
+        url += `&memberId=${memberId}`;
+      }
+      
+      console.log('📥 Fetching dietary preferences:', { 
+        memberId, 
+        memberIdType: typeof memberId,
+        isValid: memberId && !isNaN(memberId),
+        url 
+      });
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: getCacheBustingHeaders()
       });
