@@ -179,7 +179,7 @@ async def detect_ingredients(file: UploadFile = File(...), is_live: bool = False
         # Run detection with lower confidence threshold
         results = model.predict(
             resized_image, 
-            conf=0.60,  # Lower threshold to detect more
+            conf=0.75,  # Lower threshold to detect more
             iou=0.45, 
             verbose=False,
             device=device
