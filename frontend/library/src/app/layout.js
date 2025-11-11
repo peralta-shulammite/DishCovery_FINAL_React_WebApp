@@ -105,8 +105,21 @@ export default function RootLayout({ children }) {
             }
             
             // 🆕 BULLETPROOF FIX: Ultra-conservative session management - NEVER auto-logout unless token is expired
+            // ✅ iOS FIX: Handle localStorage errors gracefully (private browsing, quota exceeded, etc.)
             (function() {
               try {
+                // ✅ iOS FIX: Test localStorage availability first
+                const testKey = '__localStorage_test__';
+                try {
+                  localStorage.setItem(testKey, 'test');
+                  localStorage.removeItem(testKey);
+                } catch (e) {
+                  // iOS Safari private browsing or storage quota exceeded
+                  console.warn('⚠️ localStorage not available (iOS private browsing or quota exceeded):', e.message);
+                  // Don't proceed with session management if storage is unavailable
+                  return;
+                }
+                
                 const token = localStorage.getItem('token');
                 const currentUserId = localStorage.getItem('currentUserId');
                 const storedUserId = localStorage.getItem('userId');
@@ -139,9 +152,13 @@ export default function RootLayout({ children }) {
                   // ONLY clear if token is expired - this is the ONLY security check
                   if (tokenExp && Date.now() > tokenExp) {
                     console.log('🧹 Token expired - clearing expired session');
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('userId');
-                    localStorage.removeItem('currentUserId');
+                    try {
+                      localStorage.removeItem('token');
+                      localStorage.removeItem('userId');
+                      localStorage.removeItem('currentUserId');
+                    } catch (e) {
+                      console.warn('⚠️ Could not clear expired token (storage issue):', e.message);
+                    }
                     // Don't clear everything - just user-related data
                     return; // Exit early, don't reload
                   }
@@ -149,8 +166,12 @@ export default function RootLayout({ children }) {
                   // If token is valid, always sync user IDs to match token (never clear)
                   if (tokenUserId) {
                     // Always update user IDs to match token - this is safe and correct
-                    localStorage.setItem('userId', tokenUserId.toString());
-                    localStorage.setItem('currentUserId', tokenUserId.toString());
+                    try {
+                      localStorage.setItem('userId', tokenUserId.toString());
+                      localStorage.setItem('currentUserId', tokenUserId.toString());
+                    } catch (e) {
+                      console.warn('⚠️ Could not sync user IDs (storage issue):', e.message);
+                    }
                     // Silently sync - don't log unless there's a change
                     if (storedUserId && storedUserId.toString() !== tokenUserId.toString()) {
                       console.log('✅ Synced user IDs to match token (user: ' + tokenUserId + ')');
@@ -158,19 +179,27 @@ export default function RootLayout({ children }) {
                   } else if (!tokenUserId && (currentUserId || storedUserId)) {
                     // Can't decode token but user IDs exist - keep them, don't clear
                     // Token might be valid but in different format - trust the stored IDs
-                    if (currentUserId && !storedUserId) {
-                      localStorage.setItem('userId', currentUserId);
-                    } else if (storedUserId && !currentUserId) {
-                      localStorage.setItem('currentUserId', storedUserId);
+                    try {
+                      if (currentUserId && !storedUserId) {
+                        localStorage.setItem('userId', currentUserId);
+                      } else if (storedUserId && !currentUserId) {
+                        localStorage.setItem('currentUserId', storedUserId);
+                      }
+                    } catch (e) {
+                      console.warn('⚠️ Could not sync user IDs (storage issue):', e.message);
                     }
                     // Don't clear anything - be conservative
                   }
                   
                   // If no user IDs but token exists and can decode, store from token
                   if (!currentUserId && !storedUserId && tokenUserId) {
-                    localStorage.setItem('userId', tokenUserId.toString());
-                    localStorage.setItem('currentUserId', tokenUserId.toString());
-                    console.log('✅ Restored user ID from token: ' + tokenUserId);
+                    try {
+                      localStorage.setItem('userId', tokenUserId.toString());
+                      localStorage.setItem('currentUserId', tokenUserId.toString());
+                      console.log('✅ Restored user ID from token: ' + tokenUserId);
+                    } catch (e) {
+                      console.warn('⚠️ Could not restore user ID (storage issue):', e.message);
+                    }
                   }
                   
                   // If token exists but can't decode and no user data, just keep token
@@ -179,8 +208,12 @@ export default function RootLayout({ children }) {
                 } else {
                   // No token - only clear user IDs if they exist (but keep other data)
                   if (currentUserId || storedUserId) {
-                    localStorage.removeItem('userId');
-                    localStorage.removeItem('currentUserId');
+                    try {
+                      localStorage.removeItem('userId');
+                      localStorage.removeItem('currentUserId');
+                    } catch (e) {
+                      console.warn('⚠️ Could not clear user IDs (storage issue):', e.message);
+                    }
                     // Don't clear everything - just user-related data
                   }
                 }

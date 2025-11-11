@@ -569,20 +569,35 @@ const api = {
   // 🔐 SECURITY: VERIFY TOKEN & GET USER ROLE
   // ========================================
   verifyToken: async () => {
-    const token = localStorage.getItem('token');
+    // ✅ iOS FIX: Check localStorage availability first
+    let token;
+    try {
+      token = localStorage.getItem('token');
+    } catch (e) {
+      // iOS Safari private browsing or storage quota exceeded
+      console.warn('⚠️ localStorage not available (iOS private browsing?):', e.message);
+      throw new Error('Storage not available');
+    }
     
     if (!token) {
       throw new Error('No token found');
     }
     
     try {
+      // ✅ iOS FIX: Create abort controller for timeout (AbortSignal.timeout not available in all browsers)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(`${API_BASE_URL}/auth/verify-token`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       // Handle 404 - check if it's "endpoint not found" (HTML) or "user not found" (JSON)
       if (response.status === 404) {
@@ -612,11 +627,15 @@ const api = {
       if (!response.ok) {
         // Only clear token on actual auth failures (401, 403)
         if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem('token');
+          try {
+            localStorage.removeItem('token');
+          } catch (e) {
+            console.warn('⚠️ Could not clear token (storage issue):', e.message);
+          }
           throw new Error('Token verification failed');
         }
-        // For other errors, don't clear token
-        throw new Error('Token verification failed');
+        // For other errors (500, 502, etc.), don't clear token - might be temporary server issue
+        throw new Error('Server error during verification');
       }
       
       const data = await response.json();
@@ -624,17 +643,43 @@ const api = {
         console.log('✅ Valid token found, user is logged in!');
         return data.user; // { userId, email, firstName, lastName, isAdmin, isGoogleUser }
       } else {
-        localStorage.removeItem('token');
+        try {
+          localStorage.removeItem('token');
+        } catch (e) {
+          console.warn('⚠️ Could not clear token (storage issue):', e.message);
+        }
         throw new Error('Invalid token response');
       }
     } catch (error) {
-      // Only clear token on actual auth failures, not network/404/user not found errors
-      if (error.message === 'Token verification failed' || error.message === 'Invalid token response') {
-        localStorage.removeItem('token');
+      // ✅ iOS FIX: Distinguish between network errors and auth failures
+      const isNetworkError = error.name === 'AbortError' || 
+                            error.name === 'TypeError' || 
+                            error.message.includes('fetch') ||
+                            error.message.includes('network') ||
+                            error.message.includes('Failed to fetch') ||
+                            error.message === 'Server error during verification';
+      
+      // Only clear token on actual auth failures, NOT network errors
+      if (!isNetworkError && (error.message === 'Token verification failed' || error.message === 'Invalid token response')) {
+        try {
+          localStorage.removeItem('token');
+        } catch (e) {
+          console.warn('⚠️ Could not clear token (storage issue):', e.message);
+        }
       }
-      // Only log unexpected errors (network errors, etc.)
+      
+      // Re-throw with network error flag for caller to handle
+      if (isNetworkError) {
+        const networkError = new Error('Network error during token verification');
+        networkError.isNetworkError = true;
+        networkError.originalError = error;
+        throw networkError;
+      }
+      
+      // Only log unexpected errors (not network errors, not expected auth errors)
       if (error.message !== 'Token verification failed' && error.message !== 'No token found' && 
-          error.message !== 'Backend endpoint not found' && error.message !== 'User not found in database') {
+          error.message !== 'Backend endpoint not found' && error.message !== 'User not found in database' &&
+          error.message !== 'Storage not available') {
         console.error('❌ Token verification error:', error);
       }
       throw error;
