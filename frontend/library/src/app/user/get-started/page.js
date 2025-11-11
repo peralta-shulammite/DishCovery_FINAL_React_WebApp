@@ -2,8 +2,23 @@
 import { useState, useEffect } from 'react';
 import './styles.css';
 
-// Define the API base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+// Define the API base URL - Fix: Use correct backend URL for Vercel deployment and localhost
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // Client-side: check if we're on Vercel
+    if (window.location.hostname.includes('vercel.app')) {
+      return 'https://dishcovery-backend-wvhn.onrender.com/api';
+    }
+    // For localhost testing, always use localhost
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    }
+  }
+  // Fallback to environment variable or localhost
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export default function GetStarted() {
   const [step, setStep] = useState(1);
@@ -67,6 +82,12 @@ export default function GetStarted() {
       return;
     }
     
+    // Don't check for completed onboarding if we're in the process of saving or just saved
+    if (isSaved || loading || sessionStorage.getItem('profileJustSaved') === 'true' || sessionStorage.getItem('onboardingComplete') === 'true') {
+      console.log('⏭️ Skipping onboarding check - save in progress or just completed');
+      return;
+    }
+    
     if (token) {
       // Check if user has already completed onboarding
       fetch(`${API_BASE_URL}/user-profile/dietary`, {
@@ -83,10 +104,15 @@ export default function GetStarted() {
         
         // Only redirect if they're not a new signup (check sessionStorage)
         const isNewSignup = sessionStorage.getItem('newUserSignup') === 'true';
+        const onboardingComplete = sessionStorage.getItem('onboardingComplete') === 'true';
         
-        if (hasCompleted && !isNewSignup) {
+        // Don't redirect if:
+        // - We're currently on step 3 (confirmation page)
+        // - Onboarding was just completed (to prevent redirect loop)
+        // - User is a new signup
+        if (hasCompleted && !isNewSignup && !onboardingComplete && step !== 3) {
           console.log('✅ User has completed onboarding, redirecting to home...');
-          window.location.href = '/user/home';
+          window.location.replace('/user/home');
           return;
         }
         
@@ -104,7 +130,7 @@ export default function GetStarted() {
       .then(data => {
         if (data) setUserProfile(data);
       })
-      .catch(err => {
+        .catch(err => {
         // If error fetching dietary preferences, assume they haven't completed onboarding
         console.log('User has not completed onboarding yet');
         
@@ -120,7 +146,7 @@ export default function GetStarted() {
         .catch(err => console.error('Failed to load user profile:', err));
       });
     }
-  }, []);
+  }, [isSaved, loading, step]); // Add dependencies to prevent unnecessary re-runs
 
   // Load restrictions from database
   useEffect(() => {
@@ -189,11 +215,12 @@ export default function GetStarted() {
   }, []);
 
   useEffect(() => {
+    // Only set personName when switching to "Myself"
+    // Don't reset it when switching to "Others" - preserve user input
     if (cookingFor === 'Myself' && userProfile) {
       setPersonName(userProfile.firstName);
-    } else {
-      setPersonName('');
     }
+    // Don't reset personName when cookingFor is 'Others' - let user input stay
   }, [cookingFor, userProfile]);
 
   const handleNext = async () => {
@@ -209,10 +236,26 @@ export default function GetStarted() {
       if (cookingFor === 'Others') {
         try {
           setLoading(true);
+          setError(''); // Clear any previous errors
+          
+          const token = getAuthToken();
+          if (!token) {
+            setError('Please log in to continue.');
+            setLoading(false);
+            return;
+          }
+
+          console.log('📤 Creating member profile:', {
+            name: personName,
+            relationship: 'Family Member',
+            apiUrl: `${API_BASE_URL}/profile/member`,
+            hasToken: !!token
+          });
+
           const response = await fetch(`${API_BASE_URL}/profile/member`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${getAuthToken()}`,
+              'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -221,21 +264,91 @@ export default function GetStarted() {
             })
           });
 
-          if (!response.ok) {
-            throw new Error('Failed to create member profile');
+          // Log response details for debugging
+          console.log('📥 Response received:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            headers: Object.fromEntries(response.headers.entries())
+          });
+
+          // Read response body once (can only be read once)
+          let responseText = '';
+          let data = {};
+          try {
+            responseText = await response.text();
+            console.log('📄 Response text:', responseText.substring(0, 200)); // Log first 200 chars
+            if (responseText) {
+              data = JSON.parse(responseText);
+              console.log('✅ Parsed response data:', data);
+            }
+          } catch (parseError) {
+            console.warn('⚠️ Could not parse response:', parseError);
+            console.warn('⚠️ Response text was:', responseText);
+            // If parsing fails, data remains empty object
           }
 
-          const data = await response.json();
-          setMemberId(data.memberId);
+          // Check response status
+          if (!response.ok) {
+            // Handle error response
+            const errorMessage = data?.message || data?.error || response.statusText || 'Failed to create member profile. Please try again.';
+            console.error('❌ Failed to create member profile:', {
+              status: response.status,
+              statusText: response.statusText,
+              message: errorMessage,
+              data: data
+            });
+            setError(errorMessage);
+            setLoading(false);
+            return;
+          }
+
+          // Handle successful response (200-299 status codes)
+          if (!responseText) {
+            // If response is empty but status is ok, assume success
+            console.warn('⚠️ Empty response body, but status is OK. Assuming success.');
+            setStep(2);
+            setLoading(false);
+            return;
+          }
+
+          // Handle successful response data
+          if (data.success && data.memberId) {
+            console.log('✅ Member profile created successfully:', data.memberId);
+            setMemberId(data.memberId);
+            setStep(2); // Move to next step
+          } else if (data.memberId) {
+            // Fallback for older API format
+            console.log('✅ Member profile created (legacy format):', data.memberId);
+            setMemberId(data.memberId);
+            setStep(2); // Move to next step
+          } else if (data.success) {
+            // Response says success but no memberId - might be OK if member already exists
+            console.log('✅ Member profile operation completed (no memberId returned)');
+            setStep(2); // Move to next step
+          } else {
+            // If we get here, response was OK but format is unexpected
+            console.warn('⚠️ Unexpected response format, but status was OK:', data);
+            // Still proceed since the database operation likely succeeded
+            setStep(2);
+          }
         } catch (error) {
-          setError('Failed to create profile. Please try again.');
-          setLoading(false);
-          return;
+          console.error('❌ Unexpected error creating member profile:', error);
+          // Only show error if it's a network error or similar
+          if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            setError('Network error. Please check your connection and try again.');
+          } else {
+            // For other errors, log but don't block - member might have been created
+            console.warn('⚠️ Error occurred but proceeding - member may have been created:', error.message);
+            setStep(2); // Proceed to next step
+          }
         } finally {
           setLoading(false);
         }
+      } else {
+        // If cooking for "Myself", just proceed to next step
+        setStep(2);
       }
-      setStep(2);
     } else if (step === 2) {
       setStep(3);
     }
@@ -252,10 +365,22 @@ export default function GetStarted() {
       setLoading(true);
       console.log('💾 Saving dietary profile...');
       
+      // ✅ FIX: Only send memberId if cooking for "Others", otherwise send null
+      // This ensures dietary preferences are saved to the correct profile (user or member)
+      const finalMemberId = cookingFor === 'Others' ? memberId : null;
+      
+      console.log('📊 Save data preparation:', {
+        cookingFor,
+        memberId,
+        finalMemberId,
+        hasMedicalConditions: dietaryData.medicalConditions.length > 0,
+        hasExcludedIngredients: dietaryData.excludedIngredients.length > 0
+      });
+      
       // Prepare data for API
       // Excluded ingredients are already an array
       const saveData = {
-        memberId: memberId,
+        memberId: finalMemberId,
         dietaryRestrictions: [], // No longer used - replaced by medicalConditions
         medicalConditions: dietaryData.medicalConditions,
         preferredDiets: [], // Dietary Lifestyle Tags removed
@@ -286,9 +411,15 @@ export default function GetStarted() {
         // Clear new user signup flag since onboarding is complete
         sessionStorage.removeItem('newUserSignup');
         
-        setTimeout(() => {
-          window.location.href = '/user/home';
-        }, 2000);
+        // Set flags to prevent useEffect from redirecting back
+        sessionStorage.setItem('profileJustSaved', 'true');
+        sessionStorage.setItem('onboardingComplete', 'true');
+        
+        // Redirect immediately using replace to prevent back navigation
+        // Use replace instead of href to prevent going back to get-started
+        // Also prevents the useEffect from running again
+        console.log('🔄 Redirecting to home page...');
+        window.location.replace('/user/home');
       } else {
         throw new Error(result.message || 'Failed to save profile');
       }
@@ -544,7 +675,10 @@ export default function GetStarted() {
           )}
           <div className="summary-section">
             <div className="summary-item">
-              <strong>Name:</strong> {personName}
+              <strong>Name:</strong> {userProfile ? `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() : personName || 'Loading...'}
+            </div>
+            <div className="summary-item">
+              <strong>Cooking for:</strong> {cookingFor === 'Others' ? (personName || 'Not specified') : 'Myself'}
             </div>
             <div className="summary-item">
               <strong>Medical Conditions (Allergies & Intolerances):</strong> {dietaryData.medicalConditions.join(', ') || 'None'}

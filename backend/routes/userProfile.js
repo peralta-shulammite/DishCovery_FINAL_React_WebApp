@@ -43,26 +43,76 @@ const upload = multer({
 router.get('/dietary', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
-    console.log('📥 Fetching dietary data for user:', userId);
+    // ✅ FIX: Get memberId from query parameter (for "Others") or use null (for "Myself")
+    // Handle both string and number, and also handle "null" string
+    let memberId = null;
+    if (req.query.memberId && req.query.memberId !== 'null' && req.query.memberId !== 'undefined') {
+      memberId = parseInt(req.query.memberId);
+      if (isNaN(memberId)) {
+        console.warn('⚠️ Invalid memberId in query:', req.query.memberId);
+        memberId = null;
+      }
+    }
+    
+    console.log('📥 Fetching dietary data for user:', userId, memberId ? `member: ${memberId}` : '(user profile)');
+    console.log('📊 Query parameters:', {
+      memberId: req.query.memberId,
+      parsedMemberId: memberId,
+      allQuery: req.query
+    });
 
-    // Get user restrictions with restriction details
-    const restrictions = await db.query(`
-      SELECT 
-        r.restriction_name,
-        rc.category_name,
-        ur.status
-      FROM user_restrictions ur
-      JOIN restrictions r ON ur.restriction_id = r.restriction_id
-      JOIN restriction_categories rc ON r.category_id = rc.category_id
-      WHERE ur.user_id = ? AND ur.member_id IS NULL AND ur.status = 'active'
-    `, [userId]);
+    // ✅ FIX: Fetch restrictions based on memberId
+    // If memberId is provided, fetch for that member; otherwise fetch for user (member_id IS NULL)
+    let restrictions;
+    if (memberId) {
+      console.log(`🔍 Fetching restrictions for member_id = ${memberId}`);
+      restrictions = await db.query(`
+        SELECT 
+          r.restriction_name,
+          rc.category_name,
+          ur.status,
+          ur.member_id
+        FROM user_restrictions ur
+        JOIN restrictions r ON ur.restriction_id = r.restriction_id
+        JOIN restriction_categories rc ON r.category_id = rc.category_id
+        WHERE ur.user_id = ? AND ur.member_id = ? AND ur.status = 'active'
+      `, [userId, memberId]);
+      console.log(`📊 Found ${restrictions.length} restrictions for member ${memberId}:`, restrictions);
+    } else {
+      console.log(`🔍 Fetching restrictions for user profile (member_id IS NULL)`);
+      restrictions = await db.query(`
+        SELECT 
+          r.restriction_name,
+          rc.category_name,
+          ur.status,
+          ur.member_id
+        FROM user_restrictions ur
+        JOIN restrictions r ON ur.restriction_id = r.restriction_id
+        JOIN restriction_categories rc ON r.category_id = rc.category_id
+        WHERE ur.user_id = ? AND ur.member_id IS NULL AND ur.status = 'active'
+      `, [userId]);
+      console.log(`📊 Found ${restrictions.length} restrictions for user profile:`, restrictions);
+    }
 
-    // Get excluded ingredients
-    const excludedIngredients = await db.query(`
-      SELECT ingredient_name
-      FROM user_excluded_ingredients
-      WHERE user_id = ? AND member_id IS NULL
-    `, [userId]);
+    // ✅ FIX: Fetch excluded ingredients based on memberId
+    let excludedIngredients;
+    if (memberId) {
+      console.log(`🔍 Fetching excluded ingredients for member_id = ${memberId}`);
+      excludedIngredients = await db.query(`
+        SELECT ingredient_name, member_id
+        FROM user_excluded_ingredients
+        WHERE user_id = ? AND member_id = ?
+      `, [userId, memberId]);
+      console.log(`📊 Found ${excludedIngredients.length} excluded ingredients for member ${memberId}:`, excludedIngredients);
+    } else {
+      console.log(`🔍 Fetching excluded ingredients for user profile (member_id IS NULL)`);
+      excludedIngredients = await db.query(`
+        SELECT ingredient_name, member_id
+        FROM user_excluded_ingredients
+        WHERE user_id = ? AND member_id IS NULL
+      `, [userId]);
+      console.log(`📊 Found ${excludedIngredients.length} excluded ingredients for user profile:`, excludedIngredients);
+    }
 
     // Organize data by category
     // Category 1 (Allergy) + Category 2 (Intolerance) = Medical Conditions
@@ -82,6 +132,7 @@ router.get('/dietary', authenticateToken, async (req, res) => {
     const excludedList = excludedIngredients.map(item => item.ingredient_name);
 
     console.log('✅ Dietary data fetched successfully:', {
+      memberId: memberId || 'user profile',
       dietaryRestrictions: dietaryRestrictions.length,
       medicalConditions: medicalConditions.length,
       preferredDiets: preferredDiets.length,
@@ -132,11 +183,35 @@ router.get('/info', authenticateToken, async (req, res) => {
     const isGoogleUser = !!user.google_id && !user.password_hash;
     
     // Check if user has completed onboarding (has dietary preferences)
-    const [restrictionsResult] = await db.query(
+    // ✅ FIX: db.query already returns rows array, no need to destructure
+    const restrictionsResult = await db.query(
       'SELECT COUNT(*) as count FROM user_restrictions WHERE user_id = ? AND member_id IS NULL',
       [userId]
     );
     const hasCompletedOnboarding = restrictionsResult[0]?.count > 0 || user.is_new_user === 0;
+    
+    // Get member info if user is cooking for someone else
+    let cookingFor = 'Myself';
+    let memberName = null;
+    let memberId = null;
+    try {
+      // ✅ FIX: db.query already returns rows array, no need to destructure
+      const memberRows = await db.query(
+        'SELECT member_id, name FROM user_members WHERE user_id = ? AND cooking_for_type = ? ORDER BY created_at DESC LIMIT 1',
+        [userId, 'profile_setup']
+      );
+      if (memberRows && memberRows.length > 0) {
+        cookingFor = memberRows[0].name;
+        memberName = memberRows[0].name;
+        memberId = memberRows[0].member_id;
+        console.log('✅ Found member profile:', { memberId, memberName, cookingFor });
+      } else {
+        console.log('ℹ️ No member profile found, defaulting to "Myself"');
+      }
+    } catch (memberError) {
+      // If table doesn't exist or query fails, default to "Myself"
+      console.log('⚠️ Could not fetch member info:', memberError.message);
+    }
     
     console.log('✅ User info fetched:', { 
       userId: user.user_id, 
@@ -146,7 +221,9 @@ router.get('/info', authenticateToken, async (req, res) => {
       hasProfilePicture: !!user.profile_picture_url,
       isGoogleUser: isGoogleUser,
       isNewUser: user.is_new_user === 1,
-      hasCompletedOnboarding: hasCompletedOnboarding
+      hasCompletedOnboarding: hasCompletedOnboarding,
+      cookingFor: cookingFor,
+      memberId: memberId
     });
 
     res.json({
@@ -162,7 +239,10 @@ router.get('/info', authenticateToken, async (req, res) => {
         googleId: user.google_id,
         hasPassword: !!user.password_hash,
         isNewUser: user.is_new_user === 1,
-        hasCompletedOnboarding: hasCompletedOnboarding
+        hasCompletedOnboarding: hasCompletedOnboarding,
+        cookingFor: cookingFor,
+        memberName: memberName,
+        memberId: memberId
       }
     });
 

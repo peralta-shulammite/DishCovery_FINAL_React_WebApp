@@ -176,6 +176,15 @@ import('./migrations/fix_profile_picture_column.js').then(({ default: runFixProf
   // Ignore if migration file doesn't exist or can't be loaded
 });
 
+// Create user_members table if it doesn't exist
+import('./migrations/create_user_members_table.js').then(({ default: createUserMembersTable }) => {
+  createUserMembersTable().catch(err => {
+    console.error('⚠️  Auto-create user_members table failed:', err.message);
+  });
+}).catch(err => {
+  // Ignore if migration file doesn't exist or can't be loaded
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

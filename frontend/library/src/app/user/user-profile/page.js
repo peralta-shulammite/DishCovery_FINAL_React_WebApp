@@ -56,6 +56,8 @@ export default function UserProfilePage() {
     email: '',
     profilePicture: null,
     isGoogleUser: false,
+    cookingFor: 'Myself',
+    memberId: null,
   });
   const dishCoveryAvatarRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -135,11 +137,15 @@ export default function UserProfilePage() {
         const response = await profileAPI.getUserInfo();
         
         if (response && response.success && response.data) {
-          const { firstName, lastName, email, profilePicture, googleId } = response.data;
+          const { firstName, lastName, email, profilePicture, googleId, cookingFor, memberId, memberName } = response.data;
           
           // Check if user is Google user (has googleId but no password set yet)
           const hasPassword = response.data.hasPassword !== false; // Default to true if not provided
           const isGoogleUser = !!googleId && !hasPassword;
+          
+          // Determine cooking for display (backend returns "Myself" or member name)
+          // If memberName exists, use it; otherwise use cookingFor; default to "Myself"
+          const cookingForDisplay = memberName || cookingFor || 'Myself';
           
           // ✅ Log profile picture info for debugging
           console.log('📸 Profile picture from API:', {
@@ -149,6 +155,13 @@ export default function UserProfilePage() {
             preview: profilePicture ? profilePicture.substring(0, 50) + '...' : 'null'
           });
           
+          console.log('👤 Member info from API:', {
+            memberId: memberId,
+            memberName: memberName,
+            cookingFor: cookingFor,
+            cookingForDisplay: cookingForDisplay
+          });
+          
           setDishCoveryUser({
             firstName: firstName || 'User',
             lastName: lastName || '',
@@ -156,7 +169,9 @@ export default function UserProfilePage() {
             profilePicture: profilePicture || null, // ✅ Set profile picture directly (base64 or URL)
             createdAt: response.data.createdAt || null,
             lastLogin: response.data.lastLogin || null,
-            isGoogleUser: isGoogleUser
+            isGoogleUser: isGoogleUser,
+            cookingFor: cookingForDisplay,
+            memberId: memberId || null
           });
           
           setDishCoveryTempFirstName(firstName || 'User');
@@ -210,13 +225,41 @@ export default function UserProfilePage() {
   }, []);
 
   // Load dietary data from API
+  // ✅ FIX: Load dietary preferences after user info is loaded, so we can use memberId
   useEffect(() => {
     const loadDietaryData = async () => {
+      // ✅ Don't load if user info hasn't been loaded yet (still loading or no firstName)
+      if (loadingUserInfo || !dishCoveryUser.firstName) {
+        console.log('⏭️ Skipping dietary data load - user info not ready yet', {
+          loadingUserInfo,
+          hasFirstName: !!dishCoveryUser.firstName
+        });
+        return;
+      }
+      
       try {
         setLoadingDietaryData(true);
-        console.log('📥 Loading dietary preferences from API...');
         
-        const response = await profileAPI.getDietaryPreferences();
+        // ✅ Get memberId from user state - if cooking for "Others", memberId will be set
+        const memberId = dishCoveryUser.memberId || null;
+        const cookingFor = dishCoveryUser.cookingFor || 'Myself';
+        
+        console.log('📥 Loading dietary preferences from API...', {
+          memberId,
+          cookingFor,
+          isMemberProfile: !!memberId,
+          fullUserState: dishCoveryUser
+        });
+        
+        // ✅ Pass memberId to fetch preferences for the correct profile (user or member)
+        const response = await profileAPI.getDietaryPreferences(memberId);
+        
+        console.log('📥 Dietary preferences API response:', {
+          success: response?.success,
+          hasData: !!response?.data,
+          medicalConditions: response?.data?.medicalConditions?.length || 0,
+          excludedIngredients: response?.data?.excludedIngredients?.length || 0
+        });
         
         if (response && response.success && response.data) {
           const { medicalConditions, excludedIngredients } = response.data;
@@ -227,20 +270,30 @@ export default function UserProfilePage() {
           setDishCoveryAllergens([]); // No longer used
           setDishCoveryExcludedIngredients(excludedIngredients || []);
           
-          console.log('✅ Dietary data loaded successfully:', {
-            conditions: medicalConditions?.length || 0,
-            excludedIngredients: excludedIngredients?.length || 0
+          console.log('✅ Dietary data loaded and set successfully:', {
+            memberId: memberId || 'user profile',
+            cookingFor,
+            conditionsCount: medicalConditions?.length || 0,
+            ingredientsCount: excludedIngredients?.length || 0,
+            conditions: medicalConditions,
+            ingredients: excludedIngredients
           });
+        } else {
+          console.warn('⚠️ Dietary preferences response missing data:', response);
         }
       } catch (error) {
         console.error('❌ Error loading dietary data:', error);
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
       } finally {
         setLoadingDietaryData(false);
       }
     };
     
     loadDietaryData();
-  }, []);
+  }, [dishCoveryUser.memberId, dishCoveryUser.cookingFor, dishCoveryUser.firstName, loadingUserInfo]); // ✅ Reload when memberId, cookingFor, or user info changes
 
   // ========================================
   // 🆕 LOAD LAST OPENED RECIPE FROM DATABASE
@@ -1445,6 +1498,12 @@ export default function UserProfilePage() {
                             <span className="info-label-fixed">Full Name</span>
                             <span className="info-value-fixed">
                               {dishCoveryUser.firstName} {dishCoveryUser.lastName}
+                            </span>
+                          </div>
+                          <div className="info-item-fixed">
+                            <span className="info-label-fixed">Cooking for:</span>
+                            <span className="info-value-fixed">
+                              {dishCoveryUser.cookingFor || 'Myself'}
                             </span>
                           </div>
                           <div className="info-item-fixed">

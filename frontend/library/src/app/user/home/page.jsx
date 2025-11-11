@@ -13,6 +13,8 @@ import UserLayout from '../../components/user/userlayout';
 
 export default function DishCoveryLanding() {
   const dishCoveryTopRef = useRef(null);
+  const dishCoveryDeferredPromptRef = useRef(null); // Ref to track prompt synchronously
+  const dishCoveryBeforeInstallPromptFiredRef = useRef(false); // Track if beforeinstallprompt event fired
   const [dishCoveryAnimatedTextIndex, setDishCoveryAnimatedTextIndex] = useState(0);
   const [dishCoveryShowSignInModal, setDishCoveryShowSignInModal] = useState(false);
   const [dishCoveryShowSignUpModal, setDishCoveryShowSignUpModal] = useState(false);
@@ -142,15 +144,55 @@ export default function DishCoveryLanding() {
       const isIOSStandalone = window.navigator.standalone === true;
       
       // Check localStorage flag (set when app is installed)
-      const pwaInstalled = localStorage.getItem('pwaInstalled') === 'true';
+      const pwaInstalledFlag = localStorage.getItem('pwaInstalled') === 'true';
       
-      // App is installed if any of these conditions are true
-      const installed = isStandalone || isIOSStandalone || pwaInstalled;
+      // ✅ FIX: If app is actually in standalone mode, it's definitely installed
+      const actuallyInStandalone = isStandalone || isIOSStandalone;
+      
+      let installed = false;
+      
+      if (actuallyInStandalone) {
+        // If running in standalone mode, app is definitely installed
+        installed = true;
+        // Ensure localStorage flag is set
+        if (!pwaInstalledFlag) {
+          localStorage.setItem('pwaInstalled', 'true');
+        }
+      } else {
+        // Not in standalone mode - viewing in browser tab
+        // If beforeinstallprompt fired, app is NOT installed
+        if (dishCoveryBeforeInstallPromptFiredRef.current) {
+          // beforeinstallprompt fired = app is NOT installed
+          installed = false;
+          // Clear localStorage if it says installed (app was uninstalled)
+          if (pwaInstalledFlag) {
+            console.log('🔄 App was uninstalled - clearing localStorage flag');
+            localStorage.removeItem('pwaInstalled');
+            localStorage.removeItem('pwaInstallTime');
+          }
+        } else {
+          // beforeinstallprompt hasn't fired yet - wait a bit, then check localStorage
+          // If localStorage says installed, trust it (app is installed on system)
+          // This handles the case where user views in browser tab after installing
+          installed = pwaInstalledFlag;
+        }
+      }
+      
+      console.log('🔍 Checking PWA installation status:', {
+        isStandalone,
+        isIOSStandalone,
+        actuallyInStandalone,
+        pwaInstalledFlag,
+        beforeInstallPromptFired: dishCoveryBeforeInstallPromptFiredRef.current,
+        installed
+      });
       
       setDishCoveryIsAppInstalled(installed);
       
       if (installed) {
         console.log('✅ App is already installed');
+      } else {
+        console.log('❌ App is not installed');
       }
       
       return installed;
@@ -159,6 +201,41 @@ export default function DishCoveryLanding() {
     // Initial check
     checkIsMobile();
     checkIfAppInstalled();
+    
+    // ✅ FIX: Wait a bit to see if beforeinstallprompt fires
+    // If it doesn't fire after 2 seconds and localStorage says installed, trust it
+    const installCheckTimeout = setTimeout(() => {
+      if (!dishCoveryBeforeInstallPromptFiredRef.current) {
+        console.log('⏱️ beforeinstallprompt did not fire - checking localStorage...');
+        checkIfAppInstalled();
+      }
+    }, 2000);
+
+    // ✅ FIX: Re-check when page becomes visible (user switches back to tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('👁️ Page became visible, re-checking installation status...');
+        // Reset the ref to allow detection of uninstall
+        dishCoveryBeforeInstallPromptFiredRef.current = false;
+        // Wait a bit to see if beforeinstallprompt fires
+        setTimeout(() => {
+          checkIfAppInstalled();
+        }, 500);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // ✅ FIX: Re-check on window focus (user switches back to window)
+    const handleFocus = () => {
+      console.log('🎯 Window focused, re-checking installation status...');
+      // Reset the ref to allow detection of uninstall
+      dishCoveryBeforeInstallPromptFiredRef.current = false;
+      // Wait a bit to see if beforeinstallprompt fires
+      setTimeout(() => {
+        checkIfAppInstalled();
+      }, 500);
+    };
+    window.addEventListener('focus', handleFocus);
 
     // Listen for window resize to update mobile detection
     const handleResize = () => {
@@ -170,10 +247,17 @@ export default function DishCoveryLanding() {
       console.log('📱 beforeinstallprompt event fired!');
       e.preventDefault();
 
-      // Store the event so it can be triggered later
+      // ✅ FIX: Mark that beforeinstallprompt fired (app is NOT installed)
+      dishCoveryBeforeInstallPromptFiredRef.current = true;
+
+      // Store the event so it can be triggered later (both in state and ref)
       setDishCoveryDeferredPrompt(e);
+      dishCoveryDeferredPromptRef.current = e; // Also store in ref for synchronous access
       console.log('✅ Install prompt captured and ready for one-click install!');
       console.log('💡 Look for the "Install App" button on the page');
+      
+      // Re-check installation status (will show button since beforeinstallprompt fired)
+      checkIfAppInstalled();
     };
 
     // Listen for the install prompt event
@@ -184,14 +268,21 @@ export default function DishCoveryLanding() {
     const handleAppInstalled = (evt) => {
       console.log('✅ PWA was installed successfully!');
       localStorage.setItem('pwaInstalled', 'true');
+      // ✅ FIX: Reset ref so future checks work correctly
+      dishCoveryBeforeInstallPromptFiredRef.current = false;
       setDishCoveryIsAppInstalled(true);
+      // ✅ FIX: Also re-check to ensure state is updated
+      checkIfAppInstalled();
     };
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
+      clearTimeout(installCheckTimeout);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
@@ -268,6 +359,20 @@ export default function DishCoveryLanding() {
             // Check if user needs to complete onboarding
             // Check dietary preferences to see if onboarding is complete
             const checkOnboarding = async () => {
+              // ✅ FIX: Skip onboarding check if profile was just saved
+              const profileJustSaved = sessionStorage.getItem('profileJustSaved') === 'true';
+              const onboardingComplete = sessionStorage.getItem('onboardingComplete') === 'true';
+              
+              if (profileJustSaved || onboardingComplete) {
+                console.log('⏭️ Skipping onboarding check - profile just saved or onboarding marked complete');
+                // Clear the flags after a short delay to allow navigation to complete
+                setTimeout(() => {
+                  sessionStorage.removeItem('profileJustSaved');
+                  sessionStorage.removeItem('onboardingComplete');
+                }, 1000);
+                return;
+              }
+              
               try {
                 const dietaryRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/user-profile/dietary`, {
                   headers: { 'Authorization': `Bearer ${token}` }
@@ -940,8 +1045,11 @@ export default function DishCoveryLanding() {
   };
 
   const dishCoveryHandlePWAInstall = async () => {
-    // Check if iOS device (iPhone, iPad, iPod)
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    // ✅ Detect platform
+    const ua = navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/i.test(ua) && !window.MSStream;
+    const isAndroid = /android/i.test(ua);
+    const isWindows = /windows|win32|win64/i.test(ua) || /edg/i.test(ua);
 
     // Check if already in standalone mode (app is installed)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
@@ -998,22 +1106,164 @@ export default function DishCoveryLanding() {
         }
 
         setDishCoveryDeferredPrompt(null);
+        dishCoveryDeferredPromptRef.current = null;
       } catch (error) {
         console.error('❌ Error showing install prompt:', error);
+        setDishCoveryNotification({
+          show: true,
+          message: 'Installation failed. Please try using the browser menu to install the app.'
+        });
+        setTimeout(() => {
+          setDishCoveryNotification({ show: false, message: '' });
+        }, 5000);
       }
     } else {
-      // Deferred prompt not available - show general instructions
-      console.log('⚠️ Install prompt not available');
-      console.log('💡 Showing general installation instructions...');
-
+      // ✅ ONE-CLICK INSTALL: Wait for the prompt to become available and trigger directly
+      console.log('⏳ Deferred prompt not ready yet, waiting for it...');
+      
       setDishCoveryNotification({
         show: true,
-        message: 'To install: Open browser menu → "Install app" or "Add to Home Screen"'
+        message: '⏳ Preparing installation...'
       });
 
-      setTimeout(() => {
-        setDishCoveryNotification({ show: false, message: '' });
-      }, 5000);
+      // Wait for the prompt to become available (increased wait time)
+      const maxWaitTime = 5000; // 5 seconds
+      const checkInterval = 100; // Check every 100ms
+      let elapsed = 0;
+
+      const waitForPrompt = new Promise((resolve) => {
+        const checkPrompt = setInterval(() => {
+          elapsed += checkInterval;
+          
+          // Check if prompt is now available (using ref for synchronous check)
+          if (dishCoveryDeferredPromptRef.current) {
+            clearInterval(checkPrompt);
+            // Update state to match ref
+            setDishCoveryDeferredPrompt(dishCoveryDeferredPromptRef.current);
+            resolve(dishCoveryDeferredPromptRef.current);
+          } else if (elapsed >= maxWaitTime) {
+            clearInterval(checkPrompt);
+            resolve(null);
+          }
+        }, checkInterval);
+      });
+
+      waitForPrompt.then((promptEvent) => {
+        if (promptEvent) {
+          // Prompt became available, trigger it directly
+          try {
+            const platformName = isAndroid ? 'Android' : isWindows ? 'Windows' : 'Desktop';
+            console.log(`🚀 Triggering native install prompt for ${platformName}...`);
+            
+            promptEvent.prompt().then(() => {
+              return promptEvent.userChoice;
+            }).then(({ outcome }) => {
+              if (outcome === 'accepted') {
+                localStorage.setItem('pwaInstalled', 'true');
+                localStorage.setItem('pwaInstallTime', Date.now().toString());
+                setDishCoveryIsAppInstalled(true);
+                
+                const successMessage = isWindows 
+                  ? '🎉 DishCovery installed successfully! Check your Start menu or taskbar.'
+                  : isAndroid
+                  ? '🎉 DishCovery installed successfully! Check your home screen.'
+                  : '🎉 DishCovery installed successfully!';
+
+                setDishCoveryNotification({
+                  show: true,
+                  message: successMessage
+                });
+
+                setTimeout(() => {
+                  setDishCoveryNotification({ show: false, message: '' });
+                }, 5000);
+              } else {
+                console.log('❌ User declined installation');
+                setDishCoveryNotification({
+                  show: true,
+                  message: 'Installation cancelled. You can try again anytime!'
+                });
+                setTimeout(() => {
+                  setDishCoveryNotification({ show: false, message: '' });
+                }, 3000);
+              }
+              
+              setDishCoveryDeferredPrompt(null);
+              dishCoveryDeferredPromptRef.current = null;
+            }).catch((error) => {
+              console.error('❌ Error showing install prompt:', error);
+              setDishCoveryNotification({
+                show: true,
+                message: 'Installation prompt failed. Please refresh the page and try again.'
+              });
+              setTimeout(() => {
+                setDishCoveryNotification({ show: false, message: '' });
+              }, 5000);
+            });
+          } catch (error) {
+            console.error('❌ Error showing install prompt:', error);
+            setDishCoveryNotification({
+              show: true,
+              message: 'Installation failed. Please refresh the page and try again.'
+            });
+            setTimeout(() => {
+              setDishCoveryNotification({ show: false, message: '' });
+            }, 5000);
+          }
+        } else {
+          // Still no prompt available - try one more time with ref check
+          console.log('⚠️ Install prompt not available after waiting, checking ref one more time...');
+          
+          // Final check using ref
+          if (dishCoveryDeferredPromptRef.current) {
+            const promptEvent = dishCoveryDeferredPromptRef.current;
+            setDishCoveryDeferredPrompt(promptEvent);
+            
+            try {
+              promptEvent.prompt().then(() => {
+                return promptEvent.userChoice;
+              }).then(({ outcome }) => {
+                if (outcome === 'accepted') {
+                  localStorage.setItem('pwaInstalled', 'true');
+                  localStorage.setItem('pwaInstallTime', Date.now().toString());
+                  setDishCoveryIsAppInstalled(true);
+                  
+                  setDishCoveryNotification({
+                    show: true,
+                    message: '🎉 DishCovery installed successfully!'
+                  });
+                  
+                  setTimeout(() => {
+                    setDishCoveryNotification({ show: false, message: '' });
+                  }, 5000);
+                }
+                
+                setDishCoveryDeferredPrompt(null);
+                dishCoveryDeferredPromptRef.current = null;
+              });
+            } catch (error) {
+              console.error('❌ Error showing install prompt:', error);
+              setDishCoveryNotification({
+                show: true,
+                message: 'Installation prompt not available. Please check your browser settings or try refreshing the page.'
+              });
+              setTimeout(() => {
+                setDishCoveryNotification({ show: false, message: '' });
+              }, 5000);
+            }
+          } else {
+            // No prompt available at all
+            console.log('❌ Install prompt not available');
+            setDishCoveryNotification({
+              show: true,
+              message: 'Install prompt not available. The app may already be installed, or your browser doesn\'t support PWA installation. Please refresh the page.'
+            });
+            setTimeout(() => {
+              setDishCoveryNotification({ show: false, message: '' });
+            }, 5000);
+          }
+        }
+      });
     }
   };
 
@@ -2108,8 +2358,9 @@ export default function DishCoveryLanding() {
         </div>
       )}
 
-      {/* Floating Install App Button - Always visible */}
-      <div className="pwa-floating-install-container">
+      {/* Floating Install App Button - Only show when app is not installed */}
+      {!dishCoveryIsAppInstalled && (
+        <div className="pwa-floating-install-container">
         {dishCoveryInstallButtonExpanded ? (
           <div className="pwa-install-expanded">
             <button
@@ -2137,6 +2388,7 @@ export default function DishCoveryLanding() {
           </button>
         )}
       </div>
+      )}
     </div>
     </UserLayout>
   );
