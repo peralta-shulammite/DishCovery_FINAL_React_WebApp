@@ -41,29 +41,6 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // 🆕 Detect mobile and Windows
-  const [isMobile, setIsMobile] = useState(false);
-  const [isWindows, setIsWindows] = useState(false);
-
-  // Detect mobile and Windows on mount and resize
-  useEffect(() => {
-    const checkDevice = () => {
-      if (typeof window !== 'undefined') {
-        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-        const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || 
-                       (window.innerWidth <= 768);
-        const windows = /Windows|Win32|Win64|Windows Phone|Windows Mobile|Windows CE/i.test(userAgent);
-        
-        setIsMobile(mobile);
-        setIsWindows(windows);
-      }
-    };
-
-    checkDevice();
-    window.addEventListener('resize', checkDevice);
-    return () => window.removeEventListener('resize', checkDevice);
-  }, []);
-
   const handleHover = (element, isHover) => {
     setHoverStates((prev) => ({ ...prev, [element]: isHover }));
   };
@@ -415,26 +392,23 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
         <div className="nav-actions">
           {!isLoggedIn ? (
             <>
-              {/* Show "Scan Now" only on Windows (mobile or desktop) or on desktop (non-mobile) */}
-              {(isWindows || !isMobile) && (
-                <button
-                  className={`scan-nav-btn ${hoverStates.scanNav ? 'scan-nav-btn-hover' : ''}`}
-                  onClick={handleScanClick}
-                  onMouseEnter={() => handleHover('scanNav', true)}
-                  onMouseLeave={() => handleHover('scanNav', false)}
-                  onTouchStart={(e) => {
-                    e.currentTarget.style.opacity = '0.8';
-                  }}
-                  onTouchEnd={(e) => {
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                >
-                  <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                  </svg>
-                  Scan Now
-                </button>
-              )}
+              <button
+                className={`scan-nav-btn ${hoverStates.scanNav ? 'scan-nav-btn-hover' : ''}`}
+                onClick={handleScanClick}
+                onMouseEnter={() => handleHover('scanNav', true)}
+                onMouseLeave={() => handleHover('scanNav', false)}
+                onTouchStart={(e) => {
+                  e.currentTarget.style.opacity = '0.8';
+                }}
+                onTouchEnd={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                }}
+              >
+                <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+                Scan Now
+              </button>
               <button
                 className={`sign-in-btn ${hoverStates.signIn ? 'sign-in-btn-hover' : ''}`}
                 onClick={handleSignInClick}
@@ -530,15 +504,12 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
             ))}
             {!isLoggedIn ? (
               <>
-                {/* Show "Scan Ingredients" only on Windows mobile or desktop */}
-                {(isWindows || !isMobile) && (
-                  <button className="mobile-nav-link mobile-scan-btn" onClick={handleScanClick}>
-                    <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                    </svg>
-                    Scan Ingredients
-                  </button>
-                )}
+                <button className="mobile-nav-link mobile-scan-btn" onClick={handleScanClick}>
+                  <svg className="scan-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                  </svg>
+                  Scan Ingredients
+                </button>
                 <button className="mobile-nav-link mobile-sign-in-btn" onClick={handleSignInClick}>
                   Sign In
                 </button>
@@ -600,23 +571,20 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
           My Pantry
         </Link>
 
-        {/* Show bottom nav scan button only on Windows mobile or desktop */}
-        {(isWindows || !isMobile) && (
-          <button 
-            className="bottom-nav-scan" 
-            onClick={handleScanClick}
-            onTouchStart={(e) => {
-              e.currentTarget.style.opacity = '0.8';
-            }}
-            onTouchEnd={(e) => {
-              e.currentTarget.style.opacity = '1';
-            }}
-          >
-            <svg className="scan-icon" viewBox="0 0 24 24" fill="white">
-              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-            </svg>
-          </button>
-        )}
+        <button 
+          className="bottom-nav-scan" 
+          onClick={handleScanClick}
+          onTouchStart={(e) => {
+            e.currentTarget.style.opacity = '0.8';
+          }}
+          onTouchEnd={(e) => {
+            e.currentTarget.style.opacity = '1';
+          }}
+        >
+          <svg className="scan-icon" viewBox="0 0 24 24" fill="white">
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+          </svg>
+        </button>
 
         <Link 
           href="/user/favorites" 
