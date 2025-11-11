@@ -314,39 +314,78 @@ export default function DishCoveryLanding() {
             setDishCoveryIsLoggedIn(false);
             setDishCoveryUser(null);
           } else if (error.message === 'Backend endpoint not found' || error.message === 'User not found in database') {
-            // Backend endpoint not found (404) or user not found - verify token first
-            console.warn('⚠️ Backend issue - verifying token:', error.message);
-            // Verify token is still valid before keeping user logged in
-            api.verifyToken()
-              .then(() => {
-                // Token is valid, keep user logged in
-                setDishCoveryIsLoggedIn(true);
-              })
-              .catch(() => {
-                // Token is invalid, logout user
-                console.log('ℹ️ Token invalid - clearing auth');
+            // Backend endpoint not found (404) or user not found - keep session, don't logout
+            console.warn('⚠️ Backend issue (endpoint not found or user not found) - keeping session:', error.message);
+            // ✅ iOS FIX: Don't logout on backend issues - these are often temporary
+            // Keep user logged in if token format is valid
+            const token = localStorage.getItem('token');
+            if (token && token.length > 20 && token.split('.').length === 3) {
+              console.log('✅ Valid token format - keeping user logged in');
+              setDishCoveryIsLoggedIn(true);
+            } else {
+              // Invalid token - logout
+              console.log('ℹ️ Invalid token - clearing auth');
+              try {
                 localStorage.clear();
                 sessionStorage.clear();
-                setDishCoveryIsLoggedIn(false);
-                setDishCoveryUser(null);
-              });
+              } catch (e) {
+                console.warn('⚠️ Could not clear storage:', e.message);
+              }
+              setDishCoveryIsLoggedIn(false);
+              setDishCoveryUser(null);
+            }
           } else {
-            // Network error or backend unavailable - verify token first
-            console.warn('⚠️ Failed to load profile - verifying token:', error.message);
-            // Verify token is still valid before keeping user logged in
-            api.verifyToken()
-              .then(() => {
-                // Token is valid, keep user logged in
-                setDishCoveryIsLoggedIn(true);
-              })
-              .catch(() => {
-                // Token is invalid, logout user
-                console.log('ℹ️ Token invalid - clearing auth');
+            // Network error or backend unavailable - DON'T logout on network errors
+            console.warn('⚠️ Failed to load profile (network/server error):', error.message);
+            
+            // ✅ iOS FIX: Only verify token if we can, but don't logout on network errors
+            // Keep user logged in if they have a valid token format
+            const token = localStorage.getItem('token');
+            if (token && token.length > 20 && token.split('.').length === 3) {
+              // Token format is valid - keep user logged in despite network error
+              console.log('✅ Valid token format found - keeping user logged in despite network error');
+              setDishCoveryIsLoggedIn(true);
+              
+              // Try to verify token in background (non-blocking)
+              api.verifyToken()
+                .then(() => {
+                  console.log('✅ Token verified successfully after network recovery');
+                  setDishCoveryIsLoggedIn(true);
+                })
+                .catch((verifyError) => {
+                  // Only logout if it's an actual auth failure, not a network error
+                  if (verifyError.isNetworkError) {
+                    console.log('⚠️ Network error during verification - keeping session');
+                    // Keep user logged in - network errors are temporary
+                  } else if (verifyError.message === 'Token verification failed' || 
+                            verifyError.message === 'Invalid token response') {
+                    // Actual auth failure - logout
+                    console.log('ℹ️ Token invalid - clearing auth');
+                    try {
+                      localStorage.clear();
+                      sessionStorage.clear();
+                    } catch (e) {
+                      console.warn('⚠️ Could not clear storage:', e.message);
+                    }
+                    setDishCoveryIsLoggedIn(false);
+                    setDishCoveryUser(null);
+                  } else {
+                    // Other errors (endpoint not found, etc.) - keep session
+                    console.log('⚠️ Verification error (non-critical) - keeping session:', verifyError.message);
+                  }
+                });
+            } else {
+              // Invalid token format - logout
+              console.log('ℹ️ Invalid token format - clearing auth');
+              try {
                 localStorage.clear();
                 sessionStorage.clear();
-                setDishCoveryIsLoggedIn(false);
-                setDishCoveryUser(null);
-              });
+              } catch (e) {
+                console.warn('⚠️ Could not clear storage:', e.message);
+              }
+              setDishCoveryIsLoggedIn(false);
+              setDishCoveryUser(null);
+            }
           }
         });
     } else {
