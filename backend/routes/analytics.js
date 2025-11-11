@@ -132,39 +132,48 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
     `;
     
     // Execute all queries in parallel with better error handling for localhost testing
+    // Note: pool.query() returns [rows, fields], so we need to handle that format
     const [
-      dietaryFilters,
-      requestStatus,
-      userGrowth,
-      ingredientTrends,
-      userActivity,
-      totalStats
+      dietaryFiltersResult,
+      requestStatusResult,
+      userGrowthResult,
+      ingredientTrendsResult,
+      userActivityResult,
+      totalStatsResult
     ] = await Promise.all([
       pool.query(dietaryFilterQuery).catch((err) => {
         console.warn('⚠️ Error fetching dietary filters:', err.message);
-        return [];
+        return [[], []]; // Return [rows, fields] format
       }),
       pool.query(requestStatusQuery).catch((err) => {
         console.warn('⚠️ Error fetching request status (table may not exist):', err.message);
-        return [];
+        return [[], []]; // Return [rows, fields] format
       }),
       pool.query(userGrowthQuery).catch((err) => {
         console.warn('⚠️ Error fetching user growth:', err.message);
-        return [];
+        return [[], []]; // Return [rows, fields] format
       }),
       pool.query(ingredientTrendsQuery).catch((err) => {
         console.warn('⚠️ Error fetching ingredient trends:', err.message);
-        return [];
+        return [[], []]; // Return [rows, fields] format
       }),
       pool.query(userActivityQuery).catch((err) => {
         console.warn('⚠️ Error fetching user activity:', err.message);
-        return [];
+        return [[], []]; // Return [rows, fields] format
       }),
       pool.query(totalStatsQuery).catch((err) => {
         console.warn('⚠️ Error fetching total stats:', err.message);
-        return [{ total_users: 0, active_users: 0, new_users: 0, total_requests: 0, completed_requests: 0, total_dietary_uses: 0 }];
+        return [[{ total_users: 0, active_users: 0, new_users: 0, total_requests: 0, completed_requests: 0, total_dietary_uses: 0 }], []];
       })
     ]);
+    
+    // Extract rows from [rows, fields] format
+    const dietaryFilters = Array.isArray(dietaryFiltersResult) && Array.isArray(dietaryFiltersResult[0]) ? dietaryFiltersResult[0] : (Array.isArray(dietaryFiltersResult) ? dietaryFiltersResult : []);
+    const requestStatus = Array.isArray(requestStatusResult) && Array.isArray(requestStatusResult[0]) ? requestStatusResult[0] : (Array.isArray(requestStatusResult) ? requestStatusResult : []);
+    const userGrowth = Array.isArray(userGrowthResult) && Array.isArray(userGrowthResult[0]) ? userGrowthResult[0] : (Array.isArray(userGrowthResult) ? userGrowthResult : []);
+    const ingredientTrends = Array.isArray(ingredientTrendsResult) && Array.isArray(ingredientTrendsResult[0]) ? ingredientTrendsResult[0] : (Array.isArray(ingredientTrendsResult) ? ingredientTrendsResult : []);
+    const userActivity = Array.isArray(userActivityResult) && Array.isArray(userActivityResult[0]) ? userActivityResult[0] : (Array.isArray(userActivityResult) ? userActivityResult : []);
+    const totalStats = Array.isArray(totalStatsResult) && Array.isArray(totalStatsResult[0]) ? totalStatsResult[0] : (Array.isArray(totalStatsResult) ? totalStatsResult : []);
     
     // Process dietary filter data
     const filterDistribution = dietaryFilters.map(filter => ({

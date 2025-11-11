@@ -14,7 +14,6 @@ const AnalyticsContent = () => {
   const [requestStatusData, setRequestStatusData] = useState([]);
   const [userGrowthData, setUserGrowthData] = useState([]);
   const [ingredientTrendsData, setIngredientTrendsData] = useState([]);
-  const [userActivityByHour, setUserActivityByHour] = useState([]);
   const [totalUses, setTotalUses] = useState(0);
   const [totalRequests, setTotalRequests] = useState(0);
   const [completionRate, setCompletionRate] = useState(0);
@@ -93,16 +92,12 @@ const AnalyticsContent = () => {
           // Set ingredient trends data
           setIngredientTrendsData(data.data.ingredientTrends || []);
           
-          // Set user activity by hour
-          setUserActivityByHour(data.data.userActivityByHour || []);
-          
           console.log('✅ [ANALYTICS] Analytics data fetched successfully');
           console.log('✅ [ANALYTICS] Data received:', {
             filterDistribution: data.data.filterDistribution?.length || 0,
             requestStatus: data.data.requestStatus?.length || 0,
             userGrowth: data.data.userGrowth?.length || 0,
-            ingredientTrends: data.data.ingredientTrends?.length || 0,
-            userActivity: data.data.userActivityByHour?.length || 0
+            ingredientTrends: data.data.ingredientTrends?.length || 0
           });
         } else {
           throw new Error(data.message || 'Failed to fetch analytics data');
@@ -146,7 +141,18 @@ const AnalyticsContent = () => {
     filterUsage: 92
   };
 
-  const COLORS = ['#2E7D32', '#e91e63', '#9c27b0', '#ff9800', '#1976d2'];
+  // ROYGBIV color scheme: Red, Orange, Yellow, Green, Blue, Indigo, Violet
+  const COLORS = ['#f44336', '#ff9800', '#ffeb3b', '#4caf50', '#2196f3', '#3f51b5', '#9c27b0'];
+  
+  // Get status-specific color
+  const getStatusColor = (status) => {
+    const statusLower = (status || '').toLowerCase();
+    if (statusLower === 'completed') return '#2196f3'; // Blue
+    if (statusLower === 'expired') return '#f44336'; // Red
+    if (statusLower === 'pending') return '#f9a825'; // Dark Yellow
+    // Fallback to ROYGBIV for unknown statuses
+    return COLORS[0];
+  };
 
   // Helper function to escape CSV values
   const escapeCSV = (value) => {
@@ -331,17 +337,17 @@ const AnalyticsContent = () => {
       {/* Charts Grid */}
       <div className="charts-grid">
         
-        {/* Dietary Filter Distribution - Donut Chart */}
+        {/* Dietary Restrictions Overview - Donut Chart */}
         <div className="chart-card">
           <div className="chart-header">
-            <h3>Dietary Filter Distribution</h3>
-            <p className="chart-subtitle">Percentage breakdown by filter type</p>
+            <h3>Dietary Restrictions Overview</h3>
+            <p className="chart-subtitle">Percentage breakdown by restriction type</p>
           </div>
           <div className="donut-chart-container">
             <div className="donut-chart" style={{
-              background: filterDistributionData.length > 0 ? `conic-gradient(${filterDistributionData.map((item, index) => {
-                const startPercent = filterDistributionData.slice(0, index).reduce((sum, i) => sum + i.percentage, 0);
-                const endPercent = startPercent + item.percentage;
+              background: filterDistributionData.length > 0 && totalUses > 0 ? `conic-gradient(${filterDistributionData.map((item, index) => {
+                const startPercent = filterDistributionData.slice(0, index).reduce((sum, i) => sum + (i.percentage || 0), 0);
+                const endPercent = startPercent + (item.percentage || 0);
                 return `${COLORS[index % COLORS.length]} ${startPercent}% ${endPercent}%`;
               }).join(', ')})` : 'conic-gradient(#e5e7eb 0% 100%)'
             }}>
@@ -352,14 +358,20 @@ const AnalyticsContent = () => {
             </div>
           </div>
           <div className="pie-legend">
-            {filterDistributionData.map((item, index) => (
-              <div key={index} className="pie-legend-item">
-                <span className="legend-color" style={{ background: COLORS[index] }}></span>
-                <span className="legend-name">{item.name}</span>
-                <span className="legend-percentage">{item.percentage}%</span>
-                <span className="legend-value">{item.value.toLocaleString()}</span>
+            {filterDistributionData.length > 0 ? (
+              filterDistributionData.map((item, index) => (
+                <div key={index} className="pie-legend-item">
+                  <span className="legend-color" style={{ background: COLORS[index % COLORS.length] }}></span>
+                  <span className="legend-name">{item.name || 'Unknown'}</span>
+                  <span className="legend-percentage">{(item.percentage || 0).toFixed(1)}%</span>
+                  <span className="legend-value">{(item.value || 0).toLocaleString()}</span>
+                </div>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                No filter data available
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -370,22 +382,31 @@ const AnalyticsContent = () => {
             <p className="chart-subtitle">Current request pipeline</p>
           </div>
           <div className="status-chart">
-            {requestStatusData.map((item, index) => (
-              <div key={index} className="status-bar-item">
-                <div className="status-info">
-                  <span className="status-name">{item.status}</span>
-                  <span className="status-count">{item.count} requests</span>
-                </div>
-                <div className="status-bar-bg">
-                  <div 
-                    className="status-bar-fill" 
-                    style={{ width: `${item.percentage}%`, background: COLORS[index] }}
-                  >
-                    <span className="bar-percentage">{item.percentage}%</span>
+            {requestStatusData.length > 0 ? (
+              requestStatusData.map((item, index) => {
+                const statusColor = getStatusColor(item.status);
+                return (
+                  <div key={index} className="status-bar-item">
+                    <div className="status-info">
+                      <span className="status-name">{item.status || 'Unknown'}</span>
+                      <span className="status-count">{(item.count || 0)} requests</span>
+                    </div>
+                    <div className="status-bar-bg">
+                      <div 
+                        className="status-bar-fill" 
+                        style={{ width: `${Math.max(0, Math.min(100, item.percentage || 0))}%`, background: statusColor }}
+                      >
+                        <span className="bar-percentage">{(item.percentage || 0).toFixed(1)}%</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                );
+              })
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                No request status data available
               </div>
-            ))}
+            )}
           </div>
           <div className="status-summary">
             <div className="summary-stat">
@@ -438,7 +459,9 @@ const AnalyticsContent = () => {
                   return ingredientKeys.slice(0, 4).map((ingredientKey, index) => {
                     const points = ingredientTrendsData.map((month, monthIndex) => {
                       const value = month[ingredientKey] || 0;
-                      const x = chartStartX + (monthIndex / (ingredientTrendsData.length - 1 || 1)) * chartWidth;
+                      // Handle division by zero: if only one month, place it at the start
+                      const divisor = ingredientTrendsData.length > 1 ? (ingredientTrendsData.length - 1) : 1;
+                      const x = chartStartX + (monthIndex / divisor) * chartWidth;
                       const y = chartEndY - (value / maxValue) * chartHeight;
                       return `${x},${y}`;
                     }).join(' ');
@@ -458,18 +481,22 @@ const AnalyticsContent = () => {
                 })()}
                 
                 {/* X-axis labels */}
-                {ingredientTrendsData.map((month, i) => (
-                  <text 
-                    key={i} 
-                    x={50 + (i / (ingredientTrendsData.length - 1 || 1)) * 430} 
-                    y="190" 
-                    fontSize="12" 
-                    fill="#6b7280" 
-                    textAnchor="middle"
-                  >
-                    {month.month}
-                  </text>
-                ))}
+                {ingredientTrendsData.map((month, i) => {
+                  // Handle division by zero: if only one month, place it at the start
+                  const divisor = ingredientTrendsData.length > 1 ? (ingredientTrendsData.length - 1) : 1;
+                  return (
+                    <text 
+                      key={i} 
+                      x={50 + (i / divisor) * 430} 
+                      y="190" 
+                      fontSize="12" 
+                      fill="#6b7280" 
+                      textAnchor="middle"
+                    >
+                      {month.month}
+                    </text>
+                  );
+                })}
               </svg>
             ) : (
               <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
@@ -498,29 +525,6 @@ const AnalyticsContent = () => {
                 });
               })()}
             </div>
-          </div>
-        </div>
-
-        {/* User Activity by Time */}
-        <div className="chart-card full-width">
-          <div className="chart-header">
-            <h3>User Activity by Time of Day</h3>
-            <p className="chart-subtitle">Peak usage hours for optimization</p>
-          </div>
-          <div className="bar-chart-horizontal">
-            {userActivityByHour.map((item, index) => (
-              <div key={index} className="h-bar-item">
-                <div className="h-bar-label">{item.hour}</div>
-                <div className="h-bar-container">
-                  <div 
-                    className="h-bar-fill" 
-                    style={{ width: `${(item.users / 312) * 100}%`, background: '#9c27b0' }}
-                  >
-                    <span className="h-bar-value">{item.users}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
 
