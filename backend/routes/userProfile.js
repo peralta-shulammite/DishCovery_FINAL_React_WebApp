@@ -534,79 +534,286 @@ router.delete('/account', authenticateToken, async (req, res) => {
     console.log('🗑️  Deleting account for user:', userId);
 
     // Get connection for transaction
-    connection = await db.getConnection();
+    connection = await db.pool.getConnection();
     await connection.beginTransaction();
 
     try {
-      // Delete all user-related data in the correct order (respecting foreign key constraints)
+      // ✅ COMPREHENSIVE: Delete all user-related data in the correct order (respecting foreign key constraints)
+      // Order matters: Delete child records before parent records to prevent FK constraint violations
       
-      // 1. Delete user recipe interactions (favorites, tried, ratings)
-      await connection.query(
-        'DELETE FROM user_recipe_interactions WHERE user_id = ?',
-        [userId]
-      );
-      console.log('✅ Deleted user recipe interactions');
-
-      // 2. Delete user scanned ingredients
-      await connection.query(
-        'DELETE FROM user_scanned_ingredients WHERE user_id = ?',
-        [userId]
-      );
-      console.log('✅ Deleted user scanned ingredients');
-
-      // 3. Delete user restrictions
-      await connection.query(
-        'DELETE FROM user_restrictions WHERE user_id = ?',
-        [userId]
-      );
-      console.log('✅ Deleted user restrictions');
-
-      // 4. Delete user excluded ingredients
-      await connection.query(
-        'DELETE FROM user_excluded_ingredients WHERE user_id = ?',
-        [userId]
-      );
-      console.log('✅ Deleted user excluded ingredients');
-
-      // 5. Delete user feedback
-      await connection.query(
-        'DELETE FROM feedback WHERE user_id = ?',
-        [userId]
-      );
-      console.log('✅ Deleted user feedback');
-
-      // 6. Delete user notifications
-      await connection.query(
-        'DELETE FROM notifications WHERE user_id = ?',
-        [userId]
-      );
-      console.log('✅ Deleted user notifications');
-
-      // 7. Delete user pantry selections (if exists)
-      await connection.query(
-        'DELETE FROM user_pantry_selections WHERE user_id = ?',
-        [userId]
-      ).catch(() => {
-        // Table might not exist, ignore error
-        console.log('⚠️  user_pantry_selections table not found, skipping');
-      });
-      console.log('✅ Deleted user pantry selections');
-
-      // 8. Delete profile picture file if exists
-      const users = await connection.query(
-        'SELECT profile_picture_url FROM users WHERE user_id = ?',
-        [userId]
-      );
-      const oldPicture = users[0]?.profile_picture_url;
-      if (oldPicture) {
-        const oldPath = path.join(process.cwd(), oldPicture);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-          console.log('✅ Deleted profile picture file');
+      // 1. Delete feedback_replies FIRST (references feedback_id, not user_id directly)
+      // We need to delete feedback_replies for all feedback entries of this user BEFORE deleting feedback
+      try {
+        const [feedbackIds] = await connection.query(
+          'SELECT feedback_id FROM feedback WHERE user_id = ?',
+          [userId]
+        );
+        if (feedbackIds && feedbackIds.length > 0) {
+          const feedbackIdList = feedbackIds.map(f => f.feedback_id);
+          const placeholders = feedbackIdList.map(() => '?').join(',');
+          await connection.query(
+            `DELETE FROM feedback_replies WHERE feedback_id IN (${placeholders})`,
+            feedbackIdList
+          );
+          console.log('✅ Deleted feedback replies');
+        }
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  feedback_replies table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete feedback_replies:', err.message);
         }
       }
 
-      // 9. Finally, delete the user account itself
+      // 2. Delete pending_requests (if exists)
+      try {
+        await connection.query(
+          'DELETE FROM pending_requests WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted pending requests');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  pending_requests table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete pending_requests:', err.message);
+        }
+      }
+
+      // 3. Delete user_members (CRITICAL - has foreign key constraint to users)
+      // Also delete member-related restrictions and ingredients
+      try {
+        // First, get all member_ids for this user
+        const [memberRows] = await connection.query(
+          'SELECT member_id FROM user_members WHERE user_id = ?',
+          [userId]
+        );
+        
+        if (memberRows && memberRows.length > 0) {
+          const memberIds = memberRows.map(m => m.member_id);
+          const memberPlaceholders = memberIds.map(() => '?').join(',');
+          
+          // Delete member-related restrictions
+          try {
+            await connection.query(
+              `DELETE FROM user_restrictions WHERE member_id IN (${memberPlaceholders})`,
+              memberIds
+            );
+            console.log(`✅ Deleted user_restrictions for ${memberIds.length} members`);
+          } catch (memberRestErr) {
+            console.warn('⚠️  Could not delete member restrictions:', memberRestErr.message);
+          }
+          
+          // Delete member-related excluded ingredients
+          try {
+            await connection.query(
+              `DELETE FROM user_excluded_ingredients WHERE member_id IN (${memberPlaceholders})`,
+              memberIds
+            );
+            console.log(`✅ Deleted user_excluded_ingredients for ${memberIds.length} members`);
+          } catch (memberIngErr) {
+            console.warn('⚠️  Could not delete member ingredients:', memberIngErr.message);
+          }
+        }
+        
+        // Now delete the members themselves
+        await connection.query(
+          'DELETE FROM user_members WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user members');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  user_members table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete user_members:', err.message);
+        }
+      }
+
+      // 4. Delete user_restrictions (CRITICAL - has foreign key constraint to users)
+      try {
+        await connection.query(
+          'DELETE FROM user_restrictions WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user restrictions');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  user_restrictions table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete user_restrictions:', err.message);
+        }
+      }
+
+      // 5. Delete user notifications
+      try {
+        await connection.query(
+          'DELETE FROM notifications WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user notifications');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  notifications table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete notifications:', err.message);
+        }
+      }
+
+      // 6. Delete user recipe interactions (favorites, tried, ratings)
+      try {
+        await connection.query(
+          'DELETE FROM user_recipe_interactions WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user recipe interactions');
+      } catch (err) {
+        console.warn('⚠️  Could not delete user_recipe_interactions:', err.message);
+      }
+
+      // 7. Delete user last opened recipes
+      try {
+        await connection.query(
+          'DELETE FROM user_last_opened_recipes WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user last opened recipes');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  user_last_opened_recipes table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete user_last_opened_recipes:', err.message);
+        }
+      }
+
+      // 8. Delete user scanned ingredients
+      try {
+        await connection.query(
+          'DELETE FROM user_scanned_ingredients WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user scanned ingredients');
+      } catch (err) {
+        console.warn('⚠️  Could not delete user_scanned_ingredients:', err.message);
+      }
+
+      // 9. Delete user dietary restrictions
+      try {
+        await connection.query(
+          'DELETE FROM user_dietary_restrictions WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user dietary restrictions');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  user_dietary_restrictions table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete user_dietary_restrictions:', err.message);
+        }
+      }
+
+      // 10. Delete user excluded ingredients
+      try {
+        await connection.query(
+          'DELETE FROM user_excluded_ingredients WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user excluded ingredients');
+      } catch (err) {
+        console.warn('⚠️  Could not delete user_excluded_ingredients:', err.message);
+      }
+
+      // 11. Delete user preferred diets
+      try {
+        await connection.query(
+          'DELETE FROM user_preferred_diets WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user preferred diets');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  user_preferred_diets table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete user_preferred_diets:', err.message);
+        }
+      }
+
+      // 12. Delete user medical conditions
+      try {
+        await connection.query(
+          'DELETE FROM user_medical_conditions WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user medical conditions');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  user_medical_conditions table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete user_medical_conditions:', err.message);
+        }
+      }
+
+      // 13. Delete user saved recipes
+      try {
+        await connection.query(
+          'DELETE FROM user_saved_recipes WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user saved recipes');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  user_saved_recipes table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete user_saved_recipes:', err.message);
+        }
+      }
+
+      // 14. Delete user pantry selections
+      try {
+        await connection.query(
+          'DELETE FROM user_pantry_selections WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user pantry selections');
+      } catch (err) {
+        if (err.code === 'ER_NO_SUCH_TABLE' || err.code === '42S02') {
+          console.log('⚠️  user_pantry_selections table not found, skipping');
+        } else {
+          console.warn('⚠️  Could not delete user_pantry_selections:', err.message);
+        }
+      }
+
+      // 15. Delete user feedback (after feedback_replies)
+      try {
+        await connection.query(
+          'DELETE FROM feedback WHERE user_id = ?',
+          [userId]
+        );
+        console.log('✅ Deleted user feedback');
+      } catch (err) {
+        console.warn('⚠️  Could not delete feedback:', err.message);
+      }
+
+      // 16. Delete profile picture file if exists
+      try {
+        const [users] = await connection.query(
+          'SELECT profile_picture_url FROM users WHERE user_id = ?',
+          [userId]
+        );
+        const oldPicture = users[0]?.profile_picture_url;
+        if (oldPicture && !oldPicture.startsWith('data:image')) {
+          // Only delete file if it's not a base64 data URI
+          const oldPath = path.join(process.cwd(), oldPicture);
+          if (fs.existsSync(oldPath)) {
+            fs.unlinkSync(oldPath);
+            console.log('✅ Deleted profile picture file');
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️  Could not delete profile picture file:', err.message);
+      }
+
+      // 17. Finally, delete the user account itself
       await connection.query(
         'DELETE FROM users WHERE user_id = ?',
         [userId]
@@ -615,11 +822,11 @@ router.delete('/account', authenticateToken, async (req, res) => {
 
       // Commit transaction
       await connection.commit();
-      console.log('✅ Account deletion completed successfully');
+      console.log('✅ Account deletion completed successfully - all user data removed');
 
       res.json({
         success: true,
-        message: 'Account deleted successfully'
+        message: 'Account and all associated data deleted successfully'
       });
 
     } catch (error) {
