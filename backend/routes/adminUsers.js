@@ -553,6 +553,8 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       'pending_requests',  // ⚠️ IMPORTANT: Must be first due to foreign key constraints
       'notifications',  // 🆕 Added: Delete user notifications (has CASCADE but manual delete is safer)
       'user_scanned_ingredients',
+      'user_recipe_interactions',  // ✅ FIX: Delete recipe interactions (favorites, ratings, etc.) - has FK to users
+      'user_last_opened_recipes',  // ✅ FIX: Delete last opened recipes - has FK to users
       'user_members',  // 🆕 CRITICAL: Delete family members (has foreign key constraint)
       'user_restrictions',  // ⚠️ CRITICAL: Must be deleted before users (has foreign key constraint)
       'user_dietary_restrictions',
@@ -787,18 +789,65 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
     } catch (deleteErr) {
       // Check for foreign key constraint errors when deleting user
       if (deleteErr.code === 'ER_ROW_IS_REFERENCED_2' || deleteErr.code === '23000' || deleteErr.sqlState === '23000') {
-        await connection.rollback();
-        
         // 🆕 Provide helpful error message with solution
         const errorMessage = deleteErr.sqlMessage || deleteErr.message;
-        const tableMatch = errorMessage.match(/`(\w+)`/);
+        // Try multiple patterns to extract table name from MySQL error
+        const tableMatch = errorMessage.match(/`(\w+)`/) || 
+                          errorMessage.match(/table ['"]?(\w+)['"]?/i) ||
+                          errorMessage.match(/REFERENCES `(\w+)`/i);
         const tableName = tableMatch ? tableMatch[1] : 'unknown table';
+        
+        console.error(`❌ [DELETE USER] Foreign key constraint violation:`, {
+          tableName,
+          errorMessage,
+          sqlMessage: deleteErr.sqlMessage,
+          code: deleteErr.code,
+          sqlState: deleteErr.sqlState
+        });
+        
+        // ✅ FIX: Try to manually delete from the problematic table before rolling back
+        if (tableName && tableName !== 'unknown table' && tableName !== 'users') {
+          try {
+            console.log(`🔧 [DELETE USER] Attempting to manually delete from ${tableName}...`);
+            const [manualDelete] = await connection.query(
+              `DELETE FROM ${tableName} WHERE user_id = ?`,
+              [id]
+            );
+            const manualAffected = manualDelete?.affectedRows || 0;
+            console.log(`✅ [DELETE USER] Manually deleted ${manualAffected} row(s) from ${tableName}`);
+            
+            // Try deleting user again
+            try {
+              const [retryDelete] = await connection.query(
+                'DELETE FROM users WHERE user_id = ?',
+                [id]
+              );
+              const retryAffected = retryDelete?.affectedRows || 0;
+              if (retryAffected > 0) {
+                await connection.commit();
+                console.log(`✅ [DELETE USER] User deleted successfully after cleaning ${tableName} table`);
+                return res.json({
+                  success: true,
+                  message: `User deleted successfully after cleaning ${tableName} table`
+                });
+              }
+            } catch (retryErr) {
+              console.error(`❌ [DELETE USER] Retry delete failed:`, retryErr.message);
+            }
+          } catch (manualErr) {
+            console.error(`❌ [DELETE USER] Failed to manually delete from ${tableName}:`, manualErr.message);
+          }
+        }
+        
+        // Rollback transaction if we couldn't fix it
+        await connection.rollback();
         
         return res.status(400).json({
           success: false,
           message: `Cannot delete user: User is still referenced by ${tableName}. Please ensure all related records are deleted first.`,
           error: process.env.NODE_ENV === 'development' ? deleteErr.message : 'Foreign key constraint violation',
-          hint: `The ${tableName} table still has records referencing this user. This usually means the table needs to be added to the cleanup list or the deletion order needs to be adjusted.`
+          hint: `The ${tableName} table still has records referencing this user. This usually means the table needs to be added to the cleanup list or the deletion order needs to be adjusted.`,
+          tableName: tableName
         });
       }
       // Re-throw other errors to be caught by outer catch
@@ -1194,6 +1243,8 @@ router.delete('/bulk/delete', authenticateToken, adminAuth, async (req, res) => 
       'pending_requests',
       'notifications',
       'user_scanned_ingredients',
+      'user_recipe_interactions',  // ✅ FIX: Delete recipe interactions (favorites, ratings, etc.) - has FK to users
+      'user_last_opened_recipes',  // ✅ FIX: Delete last opened recipes - has FK to users
       'user_dietary_restrictions',
       'user_excluded_ingredients',
       'user_preferred_diets',

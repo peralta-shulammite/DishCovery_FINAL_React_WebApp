@@ -1,5 +1,5 @@
 // API service for admin user management
-// Fix: Use correct backend URL for Vercel deployment and localhost
+// ✅ FIX: Use correct backend URL for Vercel deployment and localhost
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     // Client-side: check if we're on Vercel
@@ -12,10 +12,21 @@ const getApiBaseUrl = () => {
     }
   }
   // Fallback to environment variable or localhost
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  // ✅ FIX: Ensure we always return a URL with /api at the end
+  let baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+  baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+  if (!baseUrl.endsWith('/api')) {
+    baseUrl = `${baseUrl}/api`;
+  }
+  return baseUrl;
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+// ✅ Debug log to verify API URL
+if (typeof window !== 'undefined') {
+  console.log('🔧 Admin Users API Base URL:', API_BASE_URL);
+}
 
 const getAuthToken = () => {
   return localStorage.getItem('token');
