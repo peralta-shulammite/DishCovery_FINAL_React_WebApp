@@ -32,11 +32,16 @@ const AdminManagementPage = () => {
       setLoading(true);
       setError(null);
 
-      // Get API base URL and ensure it doesn't have double /api/
+      // ✅ FIX: Get API base URL and ensure it doesn't have double /api/
       let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+      // Remove trailing slash
       API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
-      const apiPath = API_BASE_URL.endsWith('/api') ? '/admin-auth/list' : '/api/admin-auth/list';
-      const fullUrl = `${API_BASE_URL}${apiPath}`;
+      // ✅ FIX: If URL already ends with /api, don't add /api again
+      // If it doesn't end with /api, add it
+      if (!API_BASE_URL.endsWith('/api')) {
+        API_BASE_URL = `${API_BASE_URL}/api`;
+      }
+      const fullUrl = `${API_BASE_URL}/admin-auth/list`;
 
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
 
