@@ -253,25 +253,47 @@ const DashboardContent = () => {
           <div className="stat-label">Pending Requests</div>
         </div>
       </div>
-      <div className="controls-container">
-        <div className="status-filters">
-          <span className="filter-label">Status:</span>
-          <button className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>All</button>
-          <button className={`filter-btn ${statusFilter === 'Pending' ? 'active' : ''}`} onClick={() => setStatusFilter('Pending')}>Pending</button>
-          <button className={`filter-btn ${statusFilter === 'Processing' ? 'active' : ''}`} onClick={() => setStatusFilter('Processing')}>Processing</button>
-          <button className={`filter-btn ${statusFilter === 'Completed' ? 'active' : ''}`} onClick={() => setStatusFilter('Completed')}>Completed</button>
-          <button className="export-btn" onClick={handleExportData} style={{ marginLeft: '10px' }}>
-            <ExportIcon />
-            Export Data
-          </button>
+      <div className="controls-section">
+        <div className="controls-header">
+          <h3>Dashboard Controls</h3>
         </div>
-        <div className="date-range">
-          <span className="filter-label">Date Range:</span>
-          <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="date-select">
-            <option value="Today">Today</option>
-            <option value="This Week">This Week</option>
-            <option value="This Month">This Month</option>
-          </select>
+        
+        <div className="controls-container">
+          <div className="filter-section">
+            <div className="filter-group">
+              <span className="filter-label">Status Filter</span>
+              <div className="status-filters">
+                <button className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>
+                  All
+                </button>
+                <button className={`filter-btn ${statusFilter === 'Pending' ? 'active' : ''}`} onClick={() => setStatusFilter('Pending')}>
+                  Pending
+                </button>
+                <button className={`filter-btn ${statusFilter === 'Processing' ? 'active' : ''}`} onClick={() => setStatusFilter('Processing')}>
+                  Processing
+                </button>
+                <button className={`filter-btn ${statusFilter === 'Completed' ? 'active' : ''}`} onClick={() => setStatusFilter('Completed')}>
+                  Completed
+                </button>
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-label">Date Range</span>
+              <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="sort-select">
+                <option value="Today">Today</option>
+                <option value="This Week">This Week</option>
+                <option value="This Month">This Month</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="action-section">
+            <button className="export-btn" onClick={handleExportData}>
+              <ExportIcon />
+              Export Data
+            </button>
+          </div>
         </div>
       </div>
 

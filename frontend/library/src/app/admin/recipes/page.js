@@ -854,95 +854,262 @@ const RecipeManagement = () => {
     <AdminLayout currentPage="Recipes">
       <div className="dashboard-content">
         <div className="controls-container">
-          <div className="filter-group" style={{ marginBottom: '15px', width: '100%', display: 'flex', alignItems: 'flex-end', gap: '15px' }}>
-            <div style={{ flex: 1, maxWidth: '400px' }}>
-              <label className="filter-label" style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>Search Recipes</label>
-              <div className="search-input-container" style={{ position: 'relative', width: '100%' }}>
-                <input
-                  type="text"
-                  placeholder="Search by title, description, or ingredients..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input-field"
-                  style={{
-                    width: '100%',
-                    padding: '10px 40px 10px 15px',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontFamily: 'Poppins, sans-serif'
-                  }}
-                />
-                <svg 
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '20px',
-                    height: '20px',
-                    color: '#64748b',
-                    pointerEvents: 'none'
-                  }}
-                  viewBox="0 0 24 24" 
-                  fill="currentColor"
-                >
-                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                </svg>
-              </div>
+          {/* Row 1: Search + Buttons */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
+            <div style={{ flex: 1, maxWidth: '400px', position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="Search recipes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 40px 10px 15px',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontFamily: 'Poppins, sans-serif',
+                  transition: 'all 0.3s ease'
+                }}
+              />
+              <svg 
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '20px',
+                  height: '20px',
+                  color: '#64748b',
+                  pointerEvents: 'none'
+                }}
+                viewBox="0 0 24 24" 
+                fill="currentColor"
+              >
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
             </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <button className="export-btn" onClick={handleExportData}>
+            
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                className="export-btn" 
+                onClick={handleExportData}
+                style={{
+                  padding: '10px 16px',
+                  background: '#2E7D32',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontFamily: 'Poppins, sans-serif',
+                  boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)',
+                  transition: 'all 0.3s ease'
+                }}
+              >
                 <ExportIcon />
                 Export Data
               </button>
-              <button className="export-btn" onClick={handleAddRecipe}>
+              <button 
+                className="export-btn" 
+                onClick={handleAddRecipe}
+                style={{
+                  padding: '10px 16px',
+                  background: '#2E7D32',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontFamily: 'Poppins, sans-serif',
+                  boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)',
+                  transition: 'all 0.3s ease'
+                }}
+              >
                 <PlusIcon />
                 Add Recipe
               </button>
             </div>
           </div>
-          
-          <div className="status-filters">
-            <span className="filter-label">Status:</span>
-            <button className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>All</button>
-            <button className={`filter-btn ${statusFilter === 'AI-generated' ? 'active' : ''}`} onClick={() => setStatusFilter('AI-generated')}>AI-generated</button>
-            <button className={`filter-btn ${statusFilter === 'Verified' ? 'active' : ''}`} onClick={() => setStatusFilter('Verified')}>Verified</button>
-          </div>
-          
-          <div className="date-range">
-            <span className="filter-label">Servings:</span>
-            <select value={servingsFilter} onChange={(e) => setServingsFilter(e.target.value)} className="date-select">
+
+          {/* Row 2: All Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            {/* Status Filters */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} 
+                onClick={() => setStatusFilter('All')}
+                style={{
+                  padding: '10px 16px',
+                  border: statusFilter === 'All' ? 'none' : '2px solid #e5e7eb',
+                  background: statusFilter === 'All' ? '#2E7D32' : 'white',
+                  color: statusFilter === 'All' ? 'white' : '#374151',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  fontFamily: 'Poppins, sans-serif',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                All
+              </button>
+              <button 
+                className={`filter-btn ${statusFilter === 'AI-generated' ? 'active' : ''}`} 
+                onClick={() => setStatusFilter('AI-generated')}
+                style={{
+                  padding: '10px 16px',
+                  border: statusFilter === 'AI-generated' ? 'none' : '2px solid #e5e7eb',
+                  background: statusFilter === 'AI-generated' ? '#2E7D32' : 'white',
+                  color: statusFilter === 'AI-generated' ? 'white' : '#374151',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  fontFamily: 'Poppins, sans-serif',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                AI-generated
+              </button>
+              <button 
+                className={`filter-btn ${statusFilter === 'Verified' ? 'active' : ''}`} 
+                onClick={() => setStatusFilter('Verified')}
+                style={{
+                  padding: '10px 16px',
+                  border: statusFilter === 'Verified' ? 'none' : '2px solid #e5e7eb',
+                  background: statusFilter === 'Verified' ? '#2E7D32' : 'white',
+                  color: statusFilter === 'Verified' ? 'white' : '#374151',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  fontFamily: 'Poppins, sans-serif',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                Verified
+              </button>
+            </div>
+
+            {/* Meal Type Dropdown */}
+            <select 
+              value={mealTypeFilter} 
+              onChange={(e) => setMealTypeFilter(e.target.value)} 
+              style={{
+                padding: '10px 14px',
+                border: '2px solid #e5e7eb',
+                borderRadius: '10px',
+                background: 'white',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                fontFamily: 'Poppins, sans-serif',
+                minWidth: '160px',
+                color: '#374151'
+              }}
+            >
+              <option value="All">All Meal Types</option>
+              {mealTypes.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+
+            {/* Servings Dropdown */}
+            <select 
+              value={servingsFilter} 
+              onChange={(e) => setServingsFilter(e.target.value)} 
+              style={{
+                padding: '10px 14px',
+                border: '2px solid #e5e7eb',
+                borderRadius: '10px',
+                background: 'white',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                fontFamily: 'Poppins, sans-serif',
+                minWidth: '160px',
+                color: '#374151'
+              }}
+            >
               <option value="All">All Servings</option>
               {servingsOptions.map(serving => (
                 <option key={serving} value={serving}>{serving} {serving === '8+' ? 'servings' : serving === '1' ? 'serving' : 'servings'}</option>
               ))}
             </select>
-          </div>
 
-          <div className="date-range">
-            <span className="filter-label">Dietary Restriction:</span>
-            <select value={dietaryFilter} onChange={(e) => setDietaryFilter(e.target.value)} className="date-select">
-              <option value="All">All Restrictions</option>
-              <option value="Gluten-Free">Gluten-Free</option>
-              <option value="Dairy-Free">Dairy-Free</option>
-              <option value="Vegan">Vegan</option>
-              <option value="Vegetarian">Vegetarian</option>
-              <option value="Keto">Keto</option>
-              <option value="Low-Carb">Low-Carb</option>
-              <option value="Diabetic-Friendly">Diabetic-Friendly</option>
-              <option value="Heart-Healthy">Heart-Healthy</option>
+            {/* Dietary Dropdown */}
+            <select 
+              value={dietaryFilter} 
+              onChange={(e) => setDietaryFilter(e.target.value)} 
+              style={{
+                padding: '10px 14px',
+                border: '2px solid #e5e7eb',
+                borderRadius: '10px',
+                background: 'white',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                fontFamily: 'Poppins, sans-serif',
+                minWidth: '160px',
+                color: '#374151'
+              }}
+            >
+              <option value="All">All Dietary</option>
+              {dietaryOptions.map((diet) => (
+                <option key={diet} value={diet}>{diet}</option>
+              ))}
             </select>
-          </div>
 
-          <div className="date-range">
-            <span className="filter-label">View:</span>
-            <button className={`filter-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}>
-              <GridIcon />
-            </button>
-            <button className={`filter-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>
-              <ListIcon />
-            </button>
+            {/* View Toggle */}
+            <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
+              <button 
+                className={`filter-btn ${viewMode === 'grid' ? 'active' : ''}`} 
+                onClick={() => setViewMode('grid')}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  border: '2px solid #e5e7eb',
+                  background: viewMode === 'grid' ? '#2E7D32' : 'white',
+                  color: viewMode === 'grid' ? 'white' : '#6b7280',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                <GridIcon />
+              </button>
+              <button 
+                className={`filter-btn ${viewMode === 'list' ? 'active' : ''}`} 
+                onClick={() => setViewMode('list')}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  border: '2px solid #e5e7eb',
+                  background: viewMode === 'list' ? '#2E7D32' : 'white',
+                  color: viewMode === 'list' ? 'white' : '#6b7280',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                <ListIcon />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1625,6 +1792,7 @@ const RecipeManagement = () => {
                 
                 {/* 1. Meal Type Section */}
                 <div className="recipe-section meal-type-section">
+                  <h3 className="section-title">Meal Type</h3>
                   <div className="meal-type-container">
                     {Array.isArray(selectedRecipe.mealType) ? selectedRecipe.mealType.map((meal, index) => (
                       <span key={index} className="meal-type-badge">{meal}</span>
@@ -1655,31 +1823,38 @@ const RecipeManagement = () => {
                 )}
 
                 {/* 3. Serving & Checked by Section */}
-                <div className="recipe-section serving-verification-section">
+                <div className="recipe-section recipe-metadata">
+                  {/* Serving Info */}
                   {selectedRecipe.servings && (
                     <div className="serving-info">
-                      <span className="serving-label">Serving:</span>
-                      <span className="serving-value">{selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}</span>
+                      <span className="label">Serving:</span>
+                      <span className="value">{selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}</span>
                     </div>
                   )}
-                  <div className="verification-info">
-                    <span className="verification-label">Checked by:</span>
-                    <span className={`verification-value ${selectedRecipe.verificationStatus === 'AI-generated' ? 'ai' : 'verified'}`}>
-                      {selectedRecipe.verificationStatus?.replace('Checked by: ', '') || 'AI-generated'}
-                    </span>
+
+{/* Dietitian Verification - Card Style */}
+                  <div className="verification-card">
+                    <div className="verified-badge">
+                      <svg className="check-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span>Checked by: {selectedRecipe.verificationStatus === 'AI-generated' ? 'AI-generated' : 'Dietitian'}</span>
+                    </div>
                     {selectedRecipe.verifierName && (
-                      <div style={{ marginTop: '8px', fontSize: '14px', color: '#666' }}>
-                        <strong>Name:</strong> {selectedRecipe.verifierName}
+                      <div className="dietitian-details">
+                        <p className="dietitian-name">
+                          <strong>Name:</strong> {selectedRecipe.verifierName}
+                        </p>
                         {selectedRecipe.verifierCredentials && (
-                          <span style={{ marginLeft: '10px' }}>
+                          <p className="dietitian-credentials">
                             <strong>Credentials:</strong> {selectedRecipe.verifierCredentials}
-                          </span>
+                          </p>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
-
+              
                 {/* 4. Description Section */}
                 <div className="recipe-section description-section">
                   <p className="recipe-desc">{selectedRecipe.description}</p>
