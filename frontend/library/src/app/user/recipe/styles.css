@@ -2903,9 +2903,12 @@ body {
 @media (max-width: 768px) {
   .nav-links,
   .nav-actions .scan-nav-btn,
-  .nav-actions .sign-in-btn,
   .nav-actions .avatar-container {
     display: none;
+  }
+  
+  .nav-actions .sign-in-btn {
+    display: block;
   }
 
   .hamburger-btn {

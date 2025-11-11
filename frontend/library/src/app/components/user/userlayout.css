@@ -699,8 +699,12 @@
 /* Media Queries */
 @media (max-width: 768px) {
   .nav-links,
-  .nav-actions {
+  .nav-actions .scan-nav-btn {
     display: none;
+  }
+  
+  .nav-actions {
+    display: flex;
   }
 
   .header {
