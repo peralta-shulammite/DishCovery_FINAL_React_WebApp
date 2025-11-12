@@ -101,7 +101,7 @@ const RecipeManagement = () => {
         // Sort medical conditions to match the standard order
         const standardOrder = [
           'Allergy To Nuts',
-          'Allergy To Shellfishes',
+          'Allergy To Shellfish',
           'Allergy To Eggs',
           'Allergy To Soy',
           'Allergy To Dairy',
