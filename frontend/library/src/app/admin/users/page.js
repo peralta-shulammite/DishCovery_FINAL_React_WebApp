@@ -659,34 +659,33 @@ const UserManagementContent = () => {
   return (
     <div className="users-content">
       {/* Page Header */}
-      <div className="page-header">
-        <div className="page-title-section">
-          <h1 className="page-title">User Management</h1>
-          <p className="page-description">Manage user accounts, monitor activity, and maintain a healthy app environment</p>
-        </div>
-        <div className="page-actions">
-          <button 
-            className="secondary-action-btn" 
-            onClick={() => {
-              if (selectedUsers.length === 0) {
-                alert('Please select at least one user first.');
-                return;
-              }
-              setShowBulkActionModal(true);
-            }}
-            style={{ 
-              background: selectedUsers.length > 0 ? '#2E7D32' : 'transparent',
-              color: selectedUsers.length > 0 ? 'white' : 'inherit'
-            }}
-          >
-            <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            Bulk Actions
-          </button>
+      {/* Enhanced Page Header */}
+      <div className="page-header-enhanced">
+        <div className="header-content">
+          <div className="header-text">
+            <h1 className="page-title">User Management</h1>
+            <p className="page-description">Manage user accounts, monitor activity, and maintain a healthy app environment</p>
+          </div>
+          <div className="header-actions">
+            <button 
+              className="bulk-action-btn" 
+              onClick={() => {
+                if (selectedUsers.length === 0) {
+                  alert('Please select at least one user first.');
+                  return;
+                }
+                setShowBulkActionModal(true);
+              }}
+            >
+              <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Bulk Actions {selectedUsers.length > 0 && `(${selectedUsers.length})`}
+            </button>
+          </div>
         </div>
       </div>
-
+      
       {/* Enhanced Stats Cards */}
       <div className="stats-container">
         <div className="stat-card total-users">
