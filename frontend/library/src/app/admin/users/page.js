@@ -215,20 +215,28 @@ const UserManagementContent = () => {
     }
 
     try {
+      console.log('📤 Sending message to user:', selectedUser.id);
+      console.log('📝 Message:', messageToSend);
+      
       // For single user, we'll use the bulk message API with a single user ID
-      // This saves the notification to the database (cloudbase/database)
+      // This saves the notification to the database
       const result = await adminUsersAPI.bulkSendMessage([selectedUser.id], messageToSend);
+      
       if (result.success) {
+        console.log('✅ Message sent successfully:', result);
         alert(`Message sent to ${selectedUser.username || 'user'} successfully!`);
         setShowMessageModal(false);
         setMessageText('');
         setBulkMessageText('');
         // Don't clear selectedUser if modal is still open - keep it for viewing
         // setSelectedUser(null);
+      } else {
+        console.error('❌ Message send failed:', result);
+        alert(`Failed to send message: ${result.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      alert(`Error sending message: ${error.message}`);
+      console.error('❌ Error sending message:', error);
+      alert(`Error sending message: ${error.message || 'Unknown error occurred'}`);
     }
   };
 
@@ -544,18 +552,31 @@ const UserManagementContent = () => {
       return;
     }
 
+    if (!selectedUsers || selectedUsers.length === 0) {
+      alert('Please select at least one user.');
+      return;
+    }
+
     try {
+      console.log('📤 Sending bulk message to users:', selectedUsers);
+      console.log('📝 Message:', bulkMessageText);
+      
       const result = await adminUsersAPI.bulkSendMessage(selectedUsers, bulkMessageText);
+      
       if (result.success) {
-        alert(`Message sent to ${selectedUsers.length} user(s).`);
+        console.log('✅ Bulk message sent successfully:', result);
+        alert(`Message sent to ${selectedUsers.length} user(s) successfully!`);
         setShowMessageModal(false);
         setBulkMessageText('');
         setSelectedUsers([]);
         setSelectedUser(null);
+      } else {
+        console.error('❌ Bulk message failed:', result);
+        alert(`Failed to send message: ${result.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      alert(`Error sending message: ${error.message}`);
+      console.error('❌ Error sending bulk message:', error);
+      alert(`Error sending message: ${error.message || 'Unknown error occurred'}`);
     }
   };
 
