@@ -70,14 +70,36 @@ export const adminFeedbackAPI = {
         }
       });
 
+      console.log('📡 [FEEDBACK API] Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          console.error('❌ [FEEDBACK API] Error response:', errorData);
+        } catch (parseError) {
+          const errorText = await response.text();
+          console.error('❌ [FEEDBACK API] Error text:', errorText);
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
+      console.log('✅ [FEEDBACK API] Success response:', {
+        success: data.success,
+        hasData: !!data.data,
+        hasFeedbacks: !!(data.data && data.data.feedbacks),
+        feedbackCount: data.data?.feedbacks?.length || 0
+      });
       return data;
     } catch (error) {
-      console.error('Error fetching feedback:', error);
+      console.error('❌ [FEEDBACK API] Error fetching feedback:', {
+        error: error,
+        message: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   },
