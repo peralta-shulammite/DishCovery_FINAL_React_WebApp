@@ -7,7 +7,6 @@ import api from '../../user/home/api';
 import { adminFeedbackAPI } from '../feedback/api'; 
 
 const DashboardContent = () => {
-  console.log('🔵 [DASHBOARD] Component rendered/rerendered');
   
   const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState('This Week');
@@ -58,14 +57,10 @@ const DashboardContent = () => {
 
   // 🆕 Fetch Real Dashboard Data
   useEffect(() => {
-    console.log('🔵 [DASHBOARD] useEffect triggered - starting data fetch');
-    
-    const fetchDashboardData = async () => {
-      console.log('🔵 [DASHBOARD] fetchDashboardData function called');
-      setLoading(true);
-      try {
-        const token = getAuthToken();
-        console.log('🔵 [DASHBOARD] Token exists:', !!token);
+      const fetchDashboardData = async () => {
+        setLoading(true);
+        try {
+          const token = getAuthToken();
         const headers = {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -86,7 +81,6 @@ const DashboardContent = () => {
 
         // 🆕 Fetch Dietary Restrictions Overview from analytics endpoint (same as analytics page)
         const analyticsUrl = `${API_BASE_URL}/admin/analytics?dateRange=Last 30 Days`;
-        console.log('📊 [DASHBOARD] Fetching analytics data from:', analyticsUrl);
         
         const analyticsResponse = await fetch(analyticsUrl, { headers });
         
@@ -95,12 +89,9 @@ const DashboardContent = () => {
           try {
             const errorData = await analyticsResponse.json();
             errorMessage = errorData.message || errorData.error || errorMessage;
-            console.error('❌ [DASHBOARD] Analytics error response:', errorData);
           } catch (parseError) {
             errorMessage = analyticsResponse.statusText || errorMessage;
           }
-          console.warn('⚠️ [DASHBOARD] Failed to fetch analytics data:', errorMessage);
-          console.warn('⚠️ [DASHBOARD] Falling back to dietary restrictions endpoint');
           
           // Fallback to old endpoint if analytics fails
           const dietaryResponse = await fetch(`${API_BASE_URL}/dietary-restrictions/admin`, { headers });
@@ -126,37 +117,8 @@ const DashboardContent = () => {
             const filterDist = analyticsData.data.filterDistribution || [];
             const total = analyticsData.data.totalUses || 0;
             
-            console.log('✅ [DASHBOARD] Analytics data fetched successfully');
-            console.log('✅ [DASHBOARD] Filter distribution:', {
-              count: filterDist.length,
-              totalUses: total,
-              sample: filterDist.slice(0, 3),
-              fullData: filterDist
-            });
-            
-            // Validate data structure
-            if (filterDist.length > 0) {
-              const firstItem = filterDist[0];
-              console.log('✅ [DASHBOARD] First item structure:', {
-                hasName: !!firstItem.name,
-                hasValue: typeof firstItem.value !== 'undefined',
-                hasPercentage: typeof firstItem.percentage !== 'undefined',
-                name: firstItem.name,
-                value: firstItem.value,
-                percentage: firstItem.percentage
-              });
-            }
-            
             setFilterDistributionData(filterDist);
             setTotalUses(total);
-            
-            // Verify state was set
-            setTimeout(() => {
-              console.log('✅ [DASHBOARD] State after setting:', {
-                filterDistributionDataLength: filterDist.length,
-                totalUses: total
-              });
-            }, 100);
             
             // Also set popularFilters for backward compatibility (top 5)
             const top5Filters = filterDist
@@ -167,13 +129,12 @@ const DashboardContent = () => {
               }));
             setPopularFilters(top5Filters);
           } else {
-            console.error('❌ [DASHBOARD] Analytics data structure invalid:', analyticsData);
             throw new Error(analyticsData.message || 'Failed to fetch analytics data');
           }
         }
 
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        // Silently handle errors
       } finally {
         setLoading(false);
       }
@@ -210,12 +171,9 @@ const DashboardContent = () => {
     const fetchRecentNotifications = async () => {
       try {
         setNotificationsLoading(true);
-        console.log('📬 [DASHBOARD] Fetching recent feedbacks from database...');
-        
         // Check if token exists
         const token = getAuthToken();
         if (!token) {
-          console.warn('⚠️ [DASHBOARD] No auth token found, skipping notifications fetch');
           setNotifications([]);
           setNotificationsLoading(false);
           return;
@@ -230,19 +188,8 @@ const DashboardContent = () => {
             offset: 0
           });
         } catch (apiError) {
-          console.error('❌ [DASHBOARD] API call failed:', apiError);
           throw new Error(`API call failed: ${apiError.message || 'Unknown error'}`);
         }
-        
-        console.log('📬 [DASHBOARD] API Response:', {
-          success: response?.success,
-          hasData: !!response?.data,
-          hasFeedbacks: !!(response?.data && response?.data?.feedbacks),
-          feedbackCount: response?.data?.feedbacks?.length || 0,
-          responseType: typeof response,
-          responseKeys: response ? Object.keys(response) : [],
-          fullResponse: JSON.stringify(response, null, 2)
-        });
         
         // Check if response is valid
         if (!response) {
@@ -254,13 +201,11 @@ const DashboardContent = () => {
         }
         
         if (!response.data) {
-          console.warn('⚠️ [DASHBOARD] Response has no data field');
           setNotifications([]);
           return;
         }
         
         if (!response.data.feedbacks) {
-          console.warn('⚠️ [DASHBOARD] Response data has no feedbacks array');
           setNotifications([]);
           return;
         }
@@ -304,35 +249,10 @@ const DashboardContent = () => {
           });
           
           setNotifications(formattedNotifications);
-          console.log('✅ [DASHBOARD] Notifications loaded successfully:', {
-            count: formattedNotifications.length,
-            notifications: formattedNotifications
-          });
         } else {
-          console.warn('⚠️ [DASHBOARD] No feedbacks found or invalid response structure:', {
-            response: response,
-            hasSuccess: !!response?.success,
-            hasData: !!response?.data,
-            hasFeedbacks: !!(response?.data?.feedbacks)
-          });
           setNotifications([]);
         }
       } catch (error) {
-        console.error('❌ [DASHBOARD] Error fetching notifications:', {
-          error: error,
-          errorType: typeof error,
-          errorConstructor: error?.constructor?.name,
-          message: error?.message || 'No error message',
-          stack: error?.stack || 'No stack trace',
-          toString: error?.toString?.() || 'Cannot convert to string'
-        });
-        
-        // Log the full error object
-        try {
-          console.error('❌ [DASHBOARD] Full error details:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-        } catch (stringifyError) {
-          console.error('❌ [DASHBOARD] Could not stringify error:', stringifyError);
-        }
         
         // Fallback to empty array on error
         setNotifications([]);
@@ -364,7 +284,6 @@ const DashboardContent = () => {
 
   // 🆕 Handle View button clicks - Navigate to admin pages
   const handleViewClick = (section) => {
-    console.log(`Navigating to ${section} page...`);
     
     switch(section) {
       case 'dietary-filters':
@@ -383,7 +302,7 @@ const DashboardContent = () => {
         router.push('/admin/users');
         break;
       default:
-        console.warn(`No route defined for section: ${section}`);
+        break;
     }
   };
 
@@ -461,22 +380,8 @@ const DashboardContent = () => {
     </svg>
   );
 
-  console.log('🔵 [DASHBOARD] About to render JSX. Loading:', loading, 'FilterData:', filterDistributionData.length, 'TotalUses:', totalUses);
-  
   return (
     <div className="dashboard-content">
-      {/* TEST: Visible indicator that code is running */}
-      <div style={{ 
-        background: '#ff0000', 
-        color: 'white', 
-        padding: '10px', 
-        marginBottom: '10px',
-        textAlign: 'center',
-        fontWeight: 'bold'
-      }}>
-        🔴 TEST: Code Updated - If you see this, the new code is running! 
-        Data: {filterDistributionData.length} items, Total: {totalUses}
-      </div>
       
       {/* Custom Notification */}
       {notification.show && (
@@ -566,21 +471,6 @@ const DashboardContent = () => {
           </div>
           <div className="donut-chart-container">
             {(() => {
-              // Debug: Log rendering state
-              if (filterDistributionData.length > 0) {
-                console.log('📊 [DASHBOARD] Rendering donut chart with data:', {
-                  dataCount: filterDistributionData.length,
-                  totalUses: totalUses,
-                  firstThree: filterDistributionData.slice(0, 3).map(item => ({
-                    name: item.name,
-                    value: item.value,
-                    percentage: item.percentage
-                  }))
-                });
-              } else {
-                console.warn('⚠️ [DASHBOARD] No filter distribution data available for donut chart');
-              }
-              
               // Calculate gradient exactly like analytics
               const gradientString = filterDistributionData.length > 0 && totalUses > 0 
                 ? `conic-gradient(${filterDistributionData.map((item, index) => {
@@ -618,43 +508,6 @@ const DashboardContent = () => {
           </div>
         </div>
 
-        {/* Dietary Restrictions Overview */}
-        <div className="content-section dietary-overview">
-          <h3>Dietary Restrictions Overview</h3>
-          <div className="donut-chart-container">
-            <div 
-              className="donut-chart" 
-              style={{
-                background: `conic-gradient(
-                  ${dummyFilterData.map((item, index) => {
-                    const prevSum = dummyFilterData.slice(0, index).reduce((sum, d) => sum + d.value, 0);
-                    const startPercent = (prevSum / dummyTotalUses) * 100;
-                    const endPercent = ((prevSum + item.value) / dummyTotalUses) * 100;
-                    return `${item.color} ${startPercent}% ${endPercent}%`;
-                  }).join(', ')}
-                )`
-              }}
-            >
-              <div className="donut-hole">
-                <div className="donut-total">{dummyTotalUses}</div>
-                <div className="donut-label">Total Uses</div>
-              </div>
-            </div>
-          </div>
-          <div className="pie-legend">
-            {dummyFilterData.map((item, index) => {
-              const percentage = ((item.value / dummyTotalUses) * 100).toFixed(1);
-              return (
-                <div key={index} className="pie-legend-item">
-                  <span className="legend-color" style={{ background: item.color }}></span>
-                  <span className="legend-name">{item.name}</span>
-                  <span className="legend-percentage">{percentage}%</span>
-                  <span className="legend-value">{item.value} uses</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
         {/* Notifications Center */}
         <div className="content-section notifications">
@@ -696,7 +549,6 @@ const Dashboard = () => {
   // ✅ ADDED: Logout handler function
 const handleLogout = async () => {
     try {
-      console.log('🔴 Admin logout initiated...');
       
       // Show loading notification
       setLogoutNotification({ show: true, message: 'Logging out...', type: 'info' });
@@ -706,7 +558,6 @@ const handleLogout = async () => {
       
       // The api.logout() will handle the redirect
     } catch (error) {
-      console.error('❌ Logout error:', error);
       setLogoutNotification({ show: true, message: 'Logout failed. Redirecting...', type: 'error' });
       
       // ✅ FIXED: Force cleanup and redirect to correct route
