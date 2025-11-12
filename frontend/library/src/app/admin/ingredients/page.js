@@ -615,198 +615,117 @@ const IngredientManagement = () => {
     <AdminLayout currentPage="Ingredients">
       <div className="dashboard-container">
         <div className="main-content">
-          {/* Overview Panel */}
-          <div className="stats-overview-container" style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '20px',
-            marginBottom: '24px'
-          }}>
-            <div className="stat-card" style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-              textAlign: 'center',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-            }}>
-              <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px', fontWeight: '500' }}>Total Ingredients</div>
-              <div style={{ fontSize: '28px', fontWeight: '700', color: '#2E7D32' }}>{totalIngredients}</div>
-            </div>
-            <div className="stat-card" style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-              textAlign: 'center',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-            }}>
-              <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px', fontWeight: '500' }}>Most Used</div>
-              <div style={{ fontSize: '28px', fontWeight: '700', color: '#2E7D32' }}>{mostUsed ? mostUsed.name : 'N/A'}</div>
-            </div>
-            <div className="stat-card" style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-              textAlign: 'center',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-            }}>
-              <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px', fontWeight: '500' }}>Pending Requests</div>
-              <div style={{ fontSize: '28px', fontWeight: '700', color: '#2E7D32' }}>{pendingIngredients.length}</div>
-            </div>
-          </div>
+  {/* Enhanced Page Header */}
+  <div className="page-header-enhanced">
+    <div className="header-content">
+      <div className="header-text">
+        <h1 className="page-title">Ingredient Management</h1>
+        <p className="page-description">
+          Manage ingredients, review pending requests, and maintain your ingredient database
+        </p>
+      </div>
+      <div className="header-actions">
+        <button className="add-restriction-btn" onClick={handleAddIngredient}>
+          <PlusIcon />
+          Add Ingredient
+        </button>
+      </div>
+    </div>
+  </div>
 
-          {/* Controls */}
-          <div className="controls-container" style={{
-            background: 'white',
-            padding: '24px',
-            borderRadius: '12px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-            marginBottom: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px'
-          }}>
-            <div className="filter-group" style={{ width: '100%' }}>
-              <label className="filter-label" style={{ 
-                display: 'block', 
-                marginBottom: '12px', 
-                fontWeight: '600', 
-                fontSize: '15px',
-                color: '#1f2937'
-              }}>
-                Search Ingredients
-              </label>
-              <div className="search-input-container" style={{ position: 'relative', width: '100%', maxWidth: '500px' }}>
-                <input
-                  type="text"
-                  placeholder="Search by name or category..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input-field"
-                  style={{
-                    width: '100%',
-                    padding: '12px 45px 12px 16px',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '10px',
-                    fontSize: '14px',
-                    fontFamily: 'Poppins, sans-serif',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#2E7D32';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(46, 125, 50, 0.1)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = '#e5e7eb';
-                    e.target.style.boxShadow = 'none';
-                  }}
-                />
-                <svg 
-                  style={{
-                    position: 'absolute',
-                    right: '14px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '20px',
-                    height: '20px',
-                    color: '#64748b',
-                    pointerEvents: 'none'
-                  }}
-                  viewBox="0 0 24 24" 
-                  fill="currentColor"
-                >
-                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                </svg>
+  {/* Stats Overview */}
+  <div className="stats-overview">
+    <div className="stat-item">
+      <div className="stat-value">{totalIngredients}</div>
+      <div className="stat-label">Total Ingredients</div>
+    </div>
+    <div className="stat-item">
+      <div className="stat-value">{mostUsed ? mostUsed.name : 'N/A'}</div>
+      <div className="stat-label">Most Used</div>
+    </div>
+    <div className="stat-item">
+      <div className="stat-value">{pendingIngredients.length}</div>
+      <div className="stat-label">Pending Requests</div>
+    </div>
+  </div>
+
+
+        {/* Enhanced Controls Section */}
+        <div className="controls-section">
+          <div className="controls-header">
+            <h3>Search & Filters</h3>
+          </div>
+          <div className="controls-container-inner">
+            <div className="filters-left">
+              <div className="search-section">
+                <label className="filter-label">Search Ingredients</label>
+                <div className="search-container">
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Search by name, type, or category..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <button className="search-btn">
+                    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <div className="filter-section">
+                <div className="filter-group">
+                  <label className="filter-label">Status</label>
+                  <div className="status-filters">
+                    <button 
+                      className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} 
+                      onClick={() => setStatusFilter('All')}
+                    >
+                      All ({ingredients.length})
+                    </button>
+                    <button 
+                      className={`filter-btn ${statusFilter === 'Active' ? 'active' : ''}`} 
+                      onClick={() => setStatusFilter('Active')}
+                    >
+                      Active ({ingredients.filter(ing => ing.status === 'Active').length})
+                    </button>
+                    <button 
+                      className={`filter-btn ${statusFilter === 'Inactive' ? 'active' : ''}`} 
+                      onClick={() => setStatusFilter('Inactive')}
+                    >
+                      Inactive ({ingredients.filter(ing => ing.status === 'Inactive').length})
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="filter-group">
+                  <label className="filter-label">Role</label>
+                  <select 
+                    value={categoryFilter} 
+                    onChange={(e) => setCategoryFilter(e.target.value)} 
+                    className="sort-select"
+                  >
+                    <option value="All">All Roles</option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', width: '100%' }}>
-              <div className="status-filters" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <span className="filter-label" style={{ fontWeight: '600', fontSize: '14px', color: '#374151', marginRight: '4px' }}>Status:</span>
-                <button className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')} style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                  background: statusFilter === 'All' ? '#2E7D32' : 'white',
-                  color: statusFilter === 'All' ? 'white' : '#374151',
-                  fontWeight: '500',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}>
-                  All ({ingredients.length})
-                </button>
-                <button className={`filter-btn ${statusFilter === 'Active' ? 'active' : ''}`} onClick={() => setStatusFilter('Active')} style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                  background: statusFilter === 'Active' ? '#2E7D32' : 'white',
-                  color: statusFilter === 'Active' ? 'white' : '#374151',
-                  fontWeight: '500',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}>
-                  Active ({ingredients.filter(ing => ing.status === 'Active').length})
-                </button>
-                <button className={`filter-btn ${statusFilter === 'Inactive' ? 'active' : ''}`} onClick={() => setStatusFilter('Inactive')} style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                  background: statusFilter === 'Inactive' ? '#2E7D32' : 'white',
-                  color: statusFilter === 'Inactive' ? 'white' : '#374151',
-                  fontWeight: '500',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}>
-                  Inactive ({ingredients.filter(ing => ing.status === 'Inactive').length})
-                </button>
-              </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto', flexWrap: 'wrap' }}>
-                <span className="filter-label" style={{ fontWeight: '600', fontSize: '14px', color: '#374151' }}>Role:</span>
-                <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="date-select" style={{
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                  fontSize: '14px',
-                  fontFamily: 'Poppins, sans-serif',
-                  background: 'white',
-                  cursor: 'pointer',
-                  minWidth: '160px',
-                  transition: 'all 0.2s ease'
-                }}>
-                  <option value="All">All Roles</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-                <button className="export-btn" onClick={handleExportData} style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: '#2E7D32',
-                  color: 'white',
-                  fontWeight: '600',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(46, 125, 50, 0.2)'
-                }}>
-                  <DownloadIcon />
-                  Export Data
-                </button>
-              </div>
+            <div className="action-section">
+              <button className="export-btn" onClick={handleExportData}>
+                <DownloadIcon />
+                Export
+              </button>
             </div>
           </div>
+        </div>
 
           {/* Ingredient List */}
           <div className="recipe-display list" style={{
