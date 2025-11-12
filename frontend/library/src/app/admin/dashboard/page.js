@@ -7,6 +7,7 @@ import api from '../../user/home/api';
 import { adminFeedbackAPI } from '../feedback/api'; 
 
 const DashboardContent = () => {
+  
   const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState('This Week');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -79,10 +80,10 @@ const DashboardContent = () => {
 
   // 🆕 Fetch Real Dashboard Data
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
-      try {
-        const token = getAuthToken();
+      const fetchDashboardData = async () => {
+        setLoading(true);
+        try {
+          const token = getAuthToken();
         const headers = {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -103,7 +104,6 @@ const DashboardContent = () => {
 
         // 🆕 Fetch Dietary Restrictions Overview from analytics endpoint (same as analytics page)
         const analyticsUrl = `${API_BASE_URL}/admin/analytics?dateRange=Last 30 Days`;
-        console.log('📊 [DASHBOARD] Fetching analytics data from:', analyticsUrl);
         
         const analyticsResponse = await fetch(analyticsUrl, { headers });
         
@@ -112,12 +112,9 @@ const DashboardContent = () => {
           try {
             const errorData = await analyticsResponse.json();
             errorMessage = errorData.message || errorData.error || errorMessage;
-            console.error('❌ [DASHBOARD] Analytics error response:', errorData);
           } catch (parseError) {
             errorMessage = analyticsResponse.statusText || errorMessage;
           }
-          console.warn('⚠️ [DASHBOARD] Failed to fetch analytics data:', errorMessage);
-          console.warn('⚠️ [DASHBOARD] Falling back to dietary restrictions endpoint');
           
           // Fallback to old endpoint if analytics fails
           const dietaryResponse = await fetch(`${API_BASE_URL}/dietary-restrictions/admin`, { headers });
@@ -167,24 +164,6 @@ const DashboardContent = () => {
     };
 
     fetchDashboardData();
-  }, []);
-
-  // Check if user just logged in
-  useEffect(() => {
-    // Only access sessionStorage in the browser
-    if (typeof window !== 'undefined') {
-      const justLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
-      if (justLoggedIn === 'true') {
-        setNotification({ show: true, message: 'Welcome back, Admin!', type: 'success' });
-        // Clear the flag
-        sessionStorage.removeItem('adminJustLoggedIn');
-        
-        // Auto-hide after 4 seconds
-        setTimeout(() => {
-          setNotification({ show: false, message: '', type: 'success' });
-        }, 4000);
-      }
-    }
   }, []);
 
   // 🆕 Fetch Recent Notifications (Feedbacks) from Database
@@ -274,6 +253,7 @@ const DashboardContent = () => {
           setNotifications([]);
         }
       } catch (error) {
+        
         // Fallback to empty array on error
         setNotifications([]);
       } finally {
@@ -282,6 +262,24 @@ const DashboardContent = () => {
     };
 
     fetchRecentNotifications();
+  }, []);
+
+  // Check if user just logged in
+  useEffect(() => {
+    // Only access sessionStorage in the browser
+    if (typeof window !== 'undefined') {
+      const justLoggedIn = sessionStorage.getItem('adminJustLoggedIn');
+      if (justLoggedIn === 'true') {
+        setNotification({ show: true, message: 'Welcome back, Admin!', type: 'success' });
+        // Clear the flag
+        sessionStorage.removeItem('adminJustLoggedIn');
+        
+        // Auto-hide after 4 seconds
+        setTimeout(() => {
+          setNotification({ show: false, message: '', type: 'success' });
+        }, 4000);
+      }
+    }
   }, []);
 
   // 🆕 Handle View button clicks - Navigate to admin pages
@@ -306,7 +304,7 @@ const DashboardContent = () => {
         router.push('/admin/users');
         break;
       default:
-        console.warn(`No route defined for section: ${section}`);
+        break;
     }
   };
 
@@ -384,8 +382,9 @@ const DashboardContent = () => {
     </svg>
   );
 
- return (
+  return (
     <div className="dashboard-content">
+      
       {/* Custom Notification */}
       {notification.show && (
         <div className={`admin-notification ${notification.type}`}>
@@ -463,25 +462,9 @@ const DashboardContent = () => {
 
       {/* Content Grid */}
       <div className="content-grid">
-        {/* Popular Dietary Filters */}
+        {/* Dietary Restrictions Overview - Same as Analytics Page */}
         <div className="content-section">
           <button className="section-view-btn" onClick={() => handleViewClick('dietary-filters')}>
-            View
-          </button>
-          <h3>Popular Dietary Filters</h3>
-          <div className="filter-list">
-            {popularFilters.map((item, index) => (
-              <div key={index} className="filter-item">
-                <span className="filter-name">{item.filter}</span>
-                <span className="filter-count">{item.usage.toLocaleString()} uses</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Dietary Restrictions Overview - Same as Analytics Page */}
-        <div className="content-section dietary-overview">
-          <button className="section-view-btn" onClick={() => handleViewClick('dietary-overview')}>
             View
           </button>
           <div className="chart-header">
@@ -489,18 +472,25 @@ const DashboardContent = () => {
             <p className="chart-subtitle">Percentage breakdown by restriction type</p>
           </div>
           <div className="donut-chart-container">
-            <div className="donut-chart" style={{
-              background: filterDistributionData.length > 0 && totalUses > 0 ? `conic-gradient(${filterDistributionData.map((item, index) => {
-                const startPercent = filterDistributionData.slice(0, index).reduce((sum, i) => sum + (i.percentage || 0), 0);
-                const endPercent = startPercent + (item.percentage || 0);
-                return `${COLORS[index % COLORS.length]} ${startPercent}% ${endPercent}%`;
-              }).join(', ')})` : 'conic-gradient(#e5e7eb 0% 100%)'
-            }}>
-              <div className="donut-hole">
-                <div className="donut-total">{totalUses.toLocaleString()}</div>
-                <div className="donut-label">Total Uses</div>
-              </div>
-            </div>
+            {(() => {
+              // Calculate gradient exactly like analytics
+              const gradientString = filterDistributionData.length > 0 && totalUses > 0 
+                ? `conic-gradient(${filterDistributionData.map((item, index) => {
+                    const startPercent = filterDistributionData.slice(0, index).reduce((sum, i) => sum + (i.percentage || 0), 0);
+                    const endPercent = startPercent + (item.percentage || 0);
+                    return `${COLORS[index % COLORS.length]} ${startPercent}% ${endPercent}%`;
+                  }).join(', ')})`
+                : 'conic-gradient(#e5e7eb 0% 100%)';
+              
+              return (
+                <div className="donut-chart" style={{ background: gradientString }}>
+                  <div className="donut-hole">
+                    <div className="donut-total">{totalUses.toLocaleString()}</div>
+                    <div className="donut-label">Total Uses</div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           <div className="pie-legend">
             {filterDistributionData.length > 0 ? (
@@ -560,7 +550,6 @@ const Dashboard = () => {
   // ✅ ADDED: Logout handler function
 const handleLogout = async () => {
     try {
-      console.log('🔴 Admin logout initiated...');
       
       // Show loading notification
       setLogoutNotification({ show: true, message: 'Logging out...', type: 'info' });
@@ -570,7 +559,6 @@ const handleLogout = async () => {
       
       // The api.logout() will handle the redirect
     } catch (error) {
-      console.error('❌ Logout error:', error);
       setLogoutNotification({ show: true, message: 'Logout failed. Redirecting...', type: 'error' });
       
       // ✅ FIXED: Force cleanup and redirect to correct route
