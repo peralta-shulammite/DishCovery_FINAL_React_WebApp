@@ -18,7 +18,6 @@ const DashboardContent = () => {
     pendingRequests: 0
   });
   const [popularFilters, setPopularFilters] = useState([]);
-  const [topIngredients, setTopIngredients] = useState([]);
   const [loading, setLoading] = useState(true);
 
 
@@ -68,23 +67,6 @@ const DashboardContent = () => {
                 usage: d.userCount
               }));
             setPopularFilters(sorted);
-          }
-        }
-
-        // Fetch Top Ingredients (from admin ingredients endpoint)
-        const ingredientsResponse = await fetch(`${API_BASE_URL}/admin/ingredients`, { headers });
-        if (ingredientsResponse.ok) {
-          const ingredientsData = await ingredientsResponse.json();
-          if (ingredientsData.success && ingredientsData.data) {
-            // Sort by usage and take top 5
-            const sorted = ingredientsData.data
-              .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
-              .slice(0, 5)
-              .map(ing => ({
-                ingredient: ing.name || ing.ingredient_name,
-                requests: ing.usageCount || ing.usage_count || 0
-              }));
-            setTopIngredients(sorted);
           }
         }
 
@@ -310,22 +292,6 @@ const DashboardContent = () => {
               <div key={index} className="filter-item">
                 <span className="filter-name">{item.filter}</span>
                 <span className="filter-count">{item.usage.toLocaleString()} uses</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Top Requested Ingredients */}
-        <div className="content-section">
-          <button className="section-view-btn" onClick={() => handleViewClick('ingredients')}>
-            View
-          </button>
-          <h3>Top Requested Ingredients</h3>
-          <div className="ingredient-list">
-            {topIngredients.map((item, index) => (
-              <div key={index} className="ingredient-item">
-                <span className="ingredient-name">{item.ingredient}</span>
-                <span className="ingredient-count">{item.requests} requests</span>
               </div>
             ))}
           </div>
