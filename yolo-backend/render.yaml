@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: dishcovery-yolo-detect
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: uvicorn detect_api:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 300
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PYTHONUNBUFFERED
+        value: 1
+      - key: CUDA_VISIBLE_DEVICES
+        value: -1

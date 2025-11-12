@@ -1,0 +1,67 @@
+{
+  "name": "DishCovery",
+  "short_name": "DishCovery",
+  "description": "Generate personalized recipes from your ingredients",
+  "theme_color": "#2E7D32",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "orientation": "portrait-primary",
+  "categories": ["food", "lifestyle", "utilities"],
+  "dir": "ltr",
+  "lang": "en",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "android/android-launchericon-192-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "android/android-launchericon-512-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "ios/180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "windows11/Square150x150Logo.scale-100.png",
+      "sizes": "150x150",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Generate Recipe",
+      "short_name": "Generate",
+      "description": "Generate a recipe from your ingredients",
+      "url": "/user/home",
+      "icons": [
+        {
+          "src": "android/android-launchericon-192-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "My Pantry",
+      "short_name": "Pantry",
+      "description": "View and manage your pantry",
+      "url": "/user/pantry",
+      "icons": [
+        {
+          "src": "android/android-launchericon-192-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

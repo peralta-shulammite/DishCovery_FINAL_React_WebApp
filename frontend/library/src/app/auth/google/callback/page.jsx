@@ -1,0 +1,555 @@
+"use client";
+import { Suspense } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+// API Base URL - automatically detects environment
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+
+function GoogleCallbackInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [status, setStatus] = useState('Processing...');
+  const [error, setError] = useState('');
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [email, setEmail] = useState('');
+  const [verificationError, setVerificationError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  
+  // ✅ Option 1: Password prompt after Google signup
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [passwordPromptPassword, setPasswordPromptPassword] = useState('');
+  const [passwordPromptConfirmPassword, setPasswordPromptConfirmPassword] = useState('');
+  const [passwordPromptError, setPasswordPromptError] = useState('');
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
+
+  const handleVerifySubmit = async (e) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    setVerificationError('');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: verificationCode }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Verification failed');
+      }
+
+      // ✅ SECURITY FIX: Only store token
+      localStorage.setItem('token', data.token);
+
+      sessionStorage.setItem('newUserSignup', 'true');
+      sessionStorage.removeItem('pendingVerificationEmail');
+      sessionStorage.removeItem('pendingGoogleAuth');
+
+      // ✅ Option 1: Show password prompt if this is a Google signup without password
+      if (data.user?.showPasswordPrompt && !data.user?.hasPassword) {
+        setShowPasswordPrompt(true);
+        setShowVerificationModal(false);
+        setStatus('✅ Email verified!');
+        return; // Don't redirect yet, wait for password prompt
+      }
+
+      setStatus('✅ Verification successful! Redirecting...');
+      setTimeout(() => router.push('/user/get-started'), 1000);
+
+    } catch (error) {
+      console.error('Verification error:', error);
+      setVerificationError(error.message || 'Verification failed');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to resend code');
+      }
+
+      setVerificationError('');
+      alert('✅ New verification code sent! Check your email.');
+    } catch (error) {
+      setVerificationError(error.message || 'Failed to resend code');
+    }
+  };
+
+  // ✅ Option 1: Handle password prompt after Google signup
+  const handlePasswordPromptSubmit = async (e) => {
+    e.preventDefault();
+    setIsSettingPassword(true);
+    setPasswordPromptError('');
+
+    // Validate password
+    if (passwordPromptPassword.length < 8) {
+      setPasswordPromptError('Password must be at least 8 characters long');
+      setIsSettingPassword(false);
+      return;
+    }
+
+    if (passwordPromptPassword !== passwordPromptConfirmPassword) {
+      setPasswordPromptError('Passwords do not match');
+      setIsSettingPassword(false);
+      return;
+    }
+
+    // Check password strength
+    const hasUpper = /[A-Z]/.test(passwordPromptPassword);
+    const hasLower = /[a-z]/.test(passwordPromptPassword);
+    const hasNumber = /\d/.test(passwordPromptPassword);
+
+    if (!hasUpper || !hasLower || !hasNumber) {
+      setPasswordPromptError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
+      setIsSettingPassword(false);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/user-profile/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          currentPassword: '', // Empty for Google users
+          newPassword: passwordPromptPassword 
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to set password');
+      }
+
+      // Success! Redirect to get-started
+      setStatus('✅ Password set successfully! Redirecting...');
+      setTimeout(() => router.push('/user/get-started'), 1000);
+    } catch (error) {
+      console.error('Password setting error:', error);
+      setPasswordPromptError(error.message || 'Failed to set password');
+    } finally {
+      setIsSettingPassword(false);
+    }
+  };
+
+  const handlePasswordPromptSkip = () => {
+    // User chose to skip - just redirect
+    setShowPasswordPrompt(false);
+    setStatus('✅ Redirecting...');
+    setTimeout(() => router.push('/user/get-started'), 1000);
+  };
+
+  useEffect(() => {
+    const handleCallback = async () => {
+      try {
+        const code = searchParams.get('code');
+        const stateParam = searchParams.get('state');
+        const errorParam = searchParams.get('error');
+
+        if (errorParam) {
+          setError('Google authentication cancelled');
+          setTimeout(() => router.push('/user/home'), 2000);
+          return;
+        }
+
+        if (!code || !stateParam) {
+          setError('Missing code or state from Google');
+          setTimeout(() => router.push('/user/home'), 2000);
+          return;
+        }
+
+        let mode = 'login';
+        try {
+          const decoded = JSON.parse(atob(stateParam));
+          mode = decoded.mode || 'login';
+        } catch (e) {
+          console.warn('Invalid state format, using default login');
+        }
+
+        console.log(`Processing Google ${mode}...`);
+
+        setStatus(`Authenticating with Google (${mode})...`);
+
+        const response = await fetch(`${API_BASE_URL}/auth/google/callback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, state: stateParam }),
+          credentials: 'include',
+        });
+
+        const data = await response.json();
+
+        // Handle 403 - Verification Required (could be error response)
+        if (response.status === 403 || data.requiresVerification) {
+          // Show verification modal directly on this page
+          setEmail(data.email);
+          setStatus('📧 Verification code sent to your email!');
+          setShowVerificationModal(true);
+          return;
+        }
+
+        // Handle 404 - No account found (gracefully, no console error)
+        if (response.status === 404) {
+          setError(data.message || 'No account found. Please sign up first.');
+          return; // Don't throw error, just show message
+        }
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Authentication failed');
+        }
+
+        // ✅ VALIDATE TOKEN BEFORE STORING
+        if (!data.token || typeof data.token !== 'string' || data.token.length < 20) {
+          console.error('❌ Invalid token received from server:', {
+            hasToken: !!data.token,
+            tokenType: typeof data.token,
+            tokenLength: data.token?.length,
+            tokenValue: data.token?.substring(0, 10) + '...'
+          });
+          throw new Error('Invalid token received from server. Please try again.');
+        }
+
+        // ✅ VALIDATE JWT FORMAT (should have 3 parts separated by dots)
+        const tokenParts = data.token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('❌ Invalid JWT format:', {
+            parts: tokenParts.length,
+            tokenLength: data.token.length
+          });
+          throw new Error('Invalid token format. Please try again.');
+        }
+
+        setStatus('Login successful! Redirecting...');
+        console.log('💾 Saving token to localStorage');
+        console.log('✅ Token validated:', {
+          length: data.token.length,
+          format: 'JWT',
+          parts: tokenParts.length
+        });
+        // ✅ SECURITY FIX: Only store token after validation
+        localStorage.setItem('token', data.token);
+        sessionStorage.setItem('userJustLoggedIn', 'true');
+        
+        // ✅ Option 2: Store password reminder flag for first-time Google login
+        if (data.user?.showPasswordReminder && !data.user?.hasPassword) {
+          sessionStorage.setItem('googleLoginData', JSON.stringify({
+            showPasswordReminder: true,
+            hasPassword: false
+          }));
+        }
+        
+        console.log('✅ Token saved, redirecting to home...');
+        setTimeout(() => router.push('/user/home'), 1000);
+
+      } catch (error) {
+        // Only log errors that aren't handled gracefully above
+        if (error.message !== 'No account found. Please sign up first.') {
+          console.error('Callback error:', error);
+        }
+        setError(error.message || 'Authentication failed');
+        // Don't auto-redirect for graceful errors
+        if (error.message !== 'No account found. Please sign up first.') {
+          setTimeout(() => router.push('/user/home'), 3000);
+        }
+      }
+    };
+
+    handleCallback();
+  }, [searchParams, router]);
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '100vh',
+      fontFamily: 'Arial, sans-serif',
+      background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+      color: 'white',
+      padding: '20px'
+    }}>
+      {/* Verification Modal */}
+      {showVerificationModal && (
+        <div style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          textAlign: 'center',
+          maxWidth: '450px',
+          width: '100%'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>📧</div>
+          <h2 style={{ color: '#2E7D32', marginBottom: '10px', fontSize: '24px' }}>Verify Your Email</h2>
+          <p style={{ color: '#666', marginBottom: '10px', fontSize: '14px' }}>
+            We sent a 6-digit code to:
+          </p>
+          <p style={{ color: '#333', fontWeight: 'bold', marginBottom: '20px' }}>{email}</p>
+
+          {verificationError && (
+            <div style={{
+              background: '#ffebee',
+              color: '#c62828',
+              padding: '10px',
+              borderRadius: '8px',
+              marginBottom: '15px',
+              fontSize: '14px'
+            }}>
+              {verificationError}
+            </div>
+          )}
+
+          <form onSubmit={handleVerifySubmit}>
+            <input
+              type="text"
+              placeholder="Enter 6-digit code"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              maxLength={6}
+              style={{
+                width: '100%',
+                padding: '15px',
+                fontSize: '20px',
+                textAlign: 'center',
+                border: '2px solid #ddd',
+                borderRadius: '8px',
+                marginBottom: '15px',
+                letterSpacing: '5px',
+                fontWeight: 'bold'
+              }}
+              required
+              disabled={isVerifying}
+            />
+
+            <button
+              type="submit"
+              disabled={isVerifying || verificationCode.length !== 6}
+              style={{
+                width: '100%',
+                background: isVerifying || verificationCode.length !== 6 ? '#ccc' : '#2E7D32',
+                color: 'white',
+                border: 'none',
+                padding: '15px',
+                borderRadius: '8px',
+                cursor: isVerifying || verificationCode.length !== 6 ? 'not-allowed' : 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                marginBottom: '15px'
+              }}
+            >
+              {isVerifying ? 'Verifying...' : 'Verify Email'}
+            </button>
+          </form>
+
+          <p style={{ color: '#666', fontSize: '14px' }}>
+            Didn't receive the code?{' '}
+            <button
+              onClick={handleResendCode}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#2E7D32',
+                textDecoration: 'underline',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+            >
+              Resend
+            </button>
+          </p>
+        </div>
+      )}
+
+      {/* ✅ Option 1: Password Prompt Modal */}
+      {showPasswordPrompt && (
+        <div style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          textAlign: 'center',
+          maxWidth: '450px',
+          width: '100%'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>🔐</div>
+          <h2 style={{ color: '#2E7D32', marginBottom: '10px', fontSize: '24px' }}>Set Password (Optional)</h2>
+          <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+            Create a password to enable email/password login. You can skip this and continue using Google Sign-In.
+          </p>
+
+          {passwordPromptError && (
+            <div style={{
+              background: '#ffebee',
+              color: '#c62828',
+              padding: '10px',
+              borderRadius: '8px',
+              marginBottom: '15px',
+              fontSize: '14px'
+            }}>
+              {passwordPromptError}
+            </div>
+          )}
+
+          <form onSubmit={handlePasswordPromptSubmit}>
+            <input
+              type="password"
+              placeholder="Password"
+              value={passwordPromptPassword}
+              onChange={(e) => setPasswordPromptPassword(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '15px',
+                fontSize: '16px',
+                border: '2px solid #ddd',
+                borderRadius: '8px',
+                marginBottom: '15px'
+              }}
+              required
+              disabled={isSettingPassword}
+            />
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={passwordPromptConfirmPassword}
+              onChange={(e) => setPasswordPromptConfirmPassword(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '15px',
+                fontSize: '16px',
+                border: '2px solid #ddd',
+                borderRadius: '8px',
+                marginBottom: '15px'
+              }}
+              required
+              disabled={isSettingPassword}
+            />
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button
+                type="button"
+                onClick={handlePasswordPromptSkip}
+                disabled={isSettingPassword}
+                style={{
+                  flex: 1,
+                  background: '#f5f5f5',
+                  color: '#666',
+                  border: 'none',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  cursor: isSettingPassword ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Maybe Later
+              </button>
+              <button
+                type="submit"
+                disabled={isSettingPassword || !passwordPromptPassword || !passwordPromptConfirmPassword}
+                style={{
+                  flex: 1,
+                  background: isSettingPassword || !passwordPromptPassword || !passwordPromptConfirmPassword ? '#ccc' : '#2E7D32',
+                  color: 'white',
+                  border: 'none',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  cursor: isSettingPassword || !passwordPromptPassword || !passwordPromptConfirmPassword ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {isSettingPassword ? 'Setting...' : 'Set Password'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Loading/Error Screen */}
+      {!showVerificationModal && !showPasswordPrompt && (
+        <div style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          textAlign: 'center',
+          maxWidth: '400px'
+        }}>
+          {error ? (
+            <>
+              <div style={{ fontSize: '48px', marginBottom: '20px' }}>❌</div>
+              <h2 style={{ color: '#d32f2f', marginBottom: '10px' }}>Authentication Error</h2>
+              <p style={{ color: '#666', marginBottom: '20px' }}>{error}</p>
+              <button
+                onClick={() => router.push('/user/home')}
+                style={{
+                  background: '#2E7D32',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px'
+                }}
+              >
+                Go Home
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: '48px', marginBottom: '20px' }}>
+                <div style={{
+                  border: '4px solid #f3f3f3',
+                  borderTop: '4px solid #2E7D32',
+                  borderRadius: '50%',
+                  width: '60px',
+                  height: '60px',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto'
+                }}></div>
+              </div>
+              <h2 style={{ color: '#333', marginBottom: '10px' }}>Google Sign-In</h2>
+              <p style={{ color: '#666' }}>{status}</p>
+            </>
+          )}
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ✅ Wrap with Suspense directly in the same file
+export default function GoogleCallback() {
+  return (
+    <Suspense fallback={<div>Loading Google callback...</div>}>
+      <GoogleCallbackInner />
+    </Suspense>
+  );
+}

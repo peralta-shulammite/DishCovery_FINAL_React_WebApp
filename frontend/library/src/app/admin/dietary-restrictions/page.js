@@ -1,0 +1,840 @@
+'use client';
+import React, { useState, useEffect } from 'react';
+import AdminLayout from '../../components/adminlayout';
+import { dietaryRestrictionsAPI, handleAPIError } from './api.js';
+import './styles.css';
+
+const DietaryRestrictionsManagementContent = () => {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedRestriction, setSelectedRestriction] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const restrictionsPerPage = 10;
+
+  // Database connection states
+  const [restrictions, setRestrictions] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [editingRestrictionId, setEditingRestrictionId] = useState(null);
+
+  // Form state for adding/editing restrictions
+  const [formData, setFormData] = useState({
+    name: '',
+    category: 'Allergy',
+    description: '',
+    status: 'Active',
+    visibility: 'Public',
+  });
+
+  const [categories, setCategories] = useState([]);
+  const statuses = ['Active', 'Inactive'];
+
+  // Fetch dietary restrictions from database
+  const fetchRestrictions = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const filters = {
+        search: searchTerm,
+        status: statusFilter,
+        category: categoryFilter
+      };
+      
+      console.log('Fetching dietary restrictions with filters:', filters);
+      
+      const fetchedRestrictions = await dietaryRestrictionsAPI.getAll(filters);
+      setRestrictions(fetchedRestrictions);
+      
+    } catch (err) {
+      const errorMessage = handleAPIError(err);
+      setError(errorMessage);
+      console.error('Error fetching dietary restrictions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch pending requests from database
+  const fetchPendingRequests = async () => {
+    try {
+      console.log('Fetching pending requests...');
+      
+      const fetchedRequests = await dietaryRestrictionsAPI.getPendingRequests();
+      setPendingRequests(fetchedRequests);
+      
+    } catch (err) {
+      console.warn('Error loading pending requests:', err);
+      // Don't set error for pending requests as it's not critical
+    }
+  };
+
+  // Fetch categories from database
+  const fetchCategories = async () => {
+    try {
+      console.log('Fetching categories...');
+      const fetchedCategories = await dietaryRestrictionsAPI.getCategories();
+      if (fetchedCategories && fetchedCategories.length > 0) {
+        const categoryNames = fetchedCategories.map(cat => cat.name).sort();
+        setCategories(categoryNames);
+        // Set default category if form is empty
+        if (!formData.category || !categoryNames.includes(formData.category)) {
+          setFormData(prev => ({ ...prev, category: categoryNames[0] || 'Allergy' }));
+        }
+      } else {
+        // Fallback to default categories if API fails
+        setCategories(['Allergy', 'Intolerance', 'Good For Everyone']);
+      }
+    } catch (err) {
+      console.warn('Error loading categories:', err);
+      // Fallback to default categories if API fails
+      setCategories(['Allergy', 'Intolerance', 'Good For Everyone']);
+    }
+  };
+
+  // Load data on component mount and when filters change
+  useEffect(() => {
+    fetchRestrictions();
+  }, [searchTerm, statusFilter, categoryFilter]);
+
+  // Load categories and pending requests once on mount
+  useEffect(() => {
+    fetchCategories();
+    fetchPendingRequests();
+  }, []);
+
+  const handleAddRestriction = () => {
+    setEditingRestrictionId(null);
+    resetForm();
+    setShowAddModal(true);
+  };
+
+  const handleEditRestriction = (restriction) => {
+    setEditingRestrictionId(restriction.id);
+    setSelectedRestriction(restriction);
+    setFormData({
+      name: restriction.name,
+      category: restriction.category,
+      description: restriction.description,
+      status: restriction.status,
+      visibility: restriction.visibility || 'Public',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleDeleteRestriction = async (restrictionId) => {
+    if (!window.confirm('Are you sure you want to delete this restriction?')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      await dietaryRestrictionsAPI.delete(restrictionId);
+      
+      // Remove from local state
+      setRestrictions(restrictions.filter(restriction => restriction.id !== restrictionId));
+      alert('Restriction deleted successfully!');
+      
+    } catch (err) {
+      const errorMessage = handleAPIError(err);
+      alert(`Error deleting restriction: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveRequest = async (request) => {
+    try {
+      setLoading(true);
+      
+      await dietaryRestrictionsAPI.approveRequest(request);
+      
+      alert(`Restriction "${request.name}" has been approved and added.`);
+      
+      // Refresh both restrictions and pending requests
+      fetchRestrictions();
+      fetchPendingRequests();
+      
+    } catch (err) {
+      const errorMessage = handleAPIError(err);
+      alert(`Error approving request: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectRequest = async (requestId) => {
+    if (!window.confirm('Are you sure you want to reject this request?')) {
+      return;
+    }
+
+    try {
+      await dietaryRestrictionsAPI.rejectRequest(requestId);
+      
+      // Remove from local state
+      setPendingRequests(pendingRequests.filter((r) => r.id !== requestId));
+      alert('Request rejected successfully.');
+      
+    } catch (err) {
+      const errorMessage = handleAPIError(err);
+      alert(`Error rejecting request: ${errorMessage}`);
+    }
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      setLoading(true);
+      
+      if (editingRestrictionId) {
+        // Update existing restriction
+        await dietaryRestrictionsAPI.update(editingRestrictionId, formData);
+        alert('Restriction updated successfully!');
+      } else {
+        // Create new restriction
+        await dietaryRestrictionsAPI.create(formData);
+        alert('Restriction added successfully!');
+      }
+
+      // Close modals and refresh data
+      setShowAddModal(false);
+      setShowEditModal(false);
+      resetForm();
+      fetchRestrictions();
+      
+    } catch (err) {
+      const errorMessage = handleAPIError(err);
+      alert(`Error saving restriction: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      category: categories.length > 0 ? categories[0] : 'Allergy',
+      description: '',
+      status: 'Active',
+      visibility: 'Public',
+    });
+    setSelectedRestriction(null);
+    setEditingRestrictionId(null);
+  };
+
+  const filteredRestrictions = restrictions.filter((restriction) => {
+    const matchesSearch = restriction.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === 'All' || restriction.category === categoryFilter;
+    const matchesStatus = statusFilter === 'All' || restriction.status === statusFilter;
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  // Pagination logic
+  const indexOfLastRestriction = currentPage * restrictionsPerPage;
+  const indexOfFirstRestriction = indexOfLastRestriction - restrictionsPerPage;
+  const currentRestrictions = filteredRestrictions.slice(indexOfFirstRestriction, indexOfLastRestriction);
+  const totalPages = Math.ceil(filteredRestrictions.length / restrictionsPerPage);
+
+  // Show loading state
+  if (loading && restrictions.length === 0) {
+    return (
+      <div className="main-content">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+          <div style={{ textAlign: 'center' }}>
+            <p>Loading dietary restrictions...</p>
+            <p style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+              Connecting to database...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error && restrictions.length === 0) {
+    return (
+      <div className="main-content">
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <div style={{ 
+            background: '#fee', 
+            border: '1px solid #fcc', 
+            borderRadius: '8px', 
+            padding: '20px',
+            maxWidth: '500px',
+            margin: '0 auto'
+          }}>
+            <h3 style={{ color: '#c33', marginBottom: '10px' }}>Error Loading Data</h3>
+            <p style={{ color: '#c33', marginBottom: '20px' }}>{error}</p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button 
+                onClick={fetchRestrictions} 
+                style={{ 
+                  padding: '10px 20px', 
+                  background: '#2E7D32', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Icons Components
+  const SearchIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+    </svg>
+  );
+
+  const PlusIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+    </svg>
+  );
+
+  const EditIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+    </svg>
+  );
+
+  const DeleteIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+    </svg>
+  );
+
+  const CloseIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+    </svg>
+  );
+
+    return (
+    <div className="main-content">
+      {/* Enhanced Page Header */}
+      <div className="page-header-enhanced">
+        <div className="header-content">
+          <div className="header-text">
+            <h1 className="page-title">Dietary Restrictions Management</h1>
+            <p className="page-description">Manage dietary restrictions, allergies, and food preferences</p>
+          </div>
+          <div className="header-actions">
+            <button className="add-restriction-btn" onClick={handleAddRestriction}>
+              <PlusIcon />
+              Add Restriction
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Overview Stats */}
+      <div className="stats-overview">
+        <div className="stat-item">
+          <span className="stat-value">{restrictions.length}</span>
+          <span className="stat-label">Total Restrictions</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-value">{restrictions.sort((a, b) => b.usedBy - a.usedBy)[0]?.name || 'None'}</span>
+          <span className="stat-label">Most Used</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-value">{restrictions.sort((a, b) => new Date(b.lastEdited) - new Date(a.lastEdited))[0]?.name || 'None'}</span>
+          <span className="stat-label">Recently Added</span>
+        </div>
+      </div>
+
+      {/* Enhanced Filters */}
+      <div className="controls-section">
+        <div className="controls-header">
+          <h3>Search & Filter</h3>
+        </div>
+        
+        <div className="controls-container-inner">
+        <div className="filters-left">
+          <div className="search-section">
+            <div className="search-container">
+              <input
+                type="text"
+                placeholder="Search restrictions..."
+                className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <button className="search-btn">
+                <SearchIcon />
+              </button>
+            </div>
+          </div>
+
+          <div className="filter-section">
+            <div className="filter-group">
+              <span className="filter-label">Status Filter</span>
+              <div className="status-filters">
+                <button
+                  className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('All')}
+                >
+                  All
+                </button>
+                {statuses.map((status) => (
+                  <button
+                    key={status}
+                    className={`filter-btn ${statusFilter === status ? 'active' : ''}`}
+                    onClick={() => setStatusFilter(status)}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-label">Category</span>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="sort-select"
+              >
+                <option value="All">All Categories</option>
+                {categories.length > 0 ? categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                )) : (
+                  <>
+                    <option value="Allergy">Allergy</option>
+                    <option value="Intolerance">Intolerance</option>
+                    <option value="Good For Everyone">Good For Everyone</option>
+                  </>
+                )}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="action-section">
+            <button
+              className="export-btn"
+              onClick={() => {
+            // Helper function to escape CSV values
+            const escapeCSV = (value) => {
+              if (value === null || value === undefined) return '';
+              const stringValue = String(value);
+              if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                return `"${stringValue.replace(/"/g, '""')}"`;
+              }
+              return stringValue;
+            };
+
+            const exportDate = new Date().toISOString().split('T')[0];
+            const headers = [
+              'Filter Name',
+              'Times Used',
+              'Most Requested Ingredient',
+              'Top Recipe',
+              'Export Date',
+              'Category',
+              'Description',
+              'Status'
+            ];
+
+            const csvRows = [
+              headers.map(escapeCSV).join(','),
+              ...restrictions.map((r) => {
+                const timesUsed = r.usedBy || 0;
+                const mostRequestedIngredient = 'N/A'; // Not available in current data structure
+                const topRecipe = 'N/A'; // Not available in current data structure
+
+                return [
+                  r.name,
+                  timesUsed,
+                  mostRequestedIngredient,
+                  topRecipe,
+                  exportDate,
+                  r.category,
+                  r.description || 'N/A',
+                  r.status
+                ].map(escapeCSV).join(',');
+              })
+            ];
+
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dietary-restrictions-export-${exportDate}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+}}
+            >
+              Export Data
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Restriction List Table */}
+      <div className="recipe-display list">
+        {currentRestrictions.length === 0 ? (
+          <div className="no-recipes">
+            <p>No restrictions found matching your criteria.</p>
+            {!loading && restrictions.length === 0 && (
+              <p>Start by adding your first dietary restriction!</p>
+            )}
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#374151', width: '60px' }}>#</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Restriction Name</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Category</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Description</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Status</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Used By</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentRestrictions.map((restriction, index) => {
+                const rowNumber = (currentPage - 1) * restrictionsPerPage + index + 1;
+                return (
+                <tr
+                  key={restriction.id}
+                  style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                  onClick={() => handleEditRestriction(restriction)}
+                >
+                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: '600', fontSize: '14px', color: '#64748b' }}>{rowNumber}</td>
+                  <td style={{ padding: '12px', color: '#1f2937' }}>{restriction.name}</td>
+                  <td style={{ padding: '12px', color: '#64748b' }}>{restriction.category}</td>
+                  <td style={{ padding: '12px', color: '#64748b' }}>{restriction.description}</td>
+                  <td style={{ padding: '12px' }}>
+                    <span
+                      className={`verification-badge ${restriction.status === 'Active' ? 'verified' : 'ai'}`}
+                    >
+                      {restriction.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px', color: '#64748b' }}>{restriction.usedBy} users</td>
+                  <td style={{ padding: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      className="action-btn btn-edit"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditRestriction(restriction);
+                      }}
+                    >
+                      <EditIcon />
+                      Edit
+                    </button>
+                    <button
+                      className="action-btn btn-delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteRestriction(restriction.id);
+                      }}
+                    >
+                      <DeleteIcon />
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px' }}>
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(currentPage - 1)}
+            style={{
+              padding: '8px 16px',
+              background: currentPage === 1 ? '#e5e7eb' : '#2E7D32',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Previous
+          </button>
+          <span>
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(currentPage + 1)}
+            style={{
+              padding: '8px 16px',
+              background: currentPage === totalPages ? '#e5e7eb' : '#2E7D32',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* Pending Requests */}
+      {pendingRequests.length > 0 && (
+        <div className="controls-container" style={{ marginTop: '30px' }}>
+          <h3>Pending User Requests</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Requested Term</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>User</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Date Submitted</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Suggested Description</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingRequests.map((request) => (
+                <tr key={request.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '12px', color: '#1f2937' }}>{request.name}</td>
+                  <td style={{ padding: '12px', color: '#64748b' }}>{request.user}</td>
+                  <td style={{ padding: '12px', color: '#64748b' }}>{request.dateSubmitted}</td>
+                  <td style={{ padding: '12px', color: '#64748b' }}>{request.suggestedDescription}</td>
+                  <td style={{ padding: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      className="action-btn btn-edit"
+                      onClick={() => handleApproveRequest(request)}
+                    >
+                      <EditIcon />
+                      Approve
+                    </button>
+                    <button
+                      className="action-btn btn-delete"
+                      onClick={() => handleRejectRequest(request.id)}
+                    >
+                      <DeleteIcon />
+                      Reject
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add Restriction Modal */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Add New Restriction</h2>
+              <button className="modal-close" onClick={() => setShowAddModal(false)}>
+                <CloseIcon />
+              </button>
+            </div>
+            <form onSubmit={handleFormSubmit} className="recipe-form">
+              <div className="form-section">
+                <label className="form-label">Restriction Name *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-section">
+                <label className="form-label">Category *</label>
+                <select
+                  className="form-select"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                >
+                  {categories.length > 0 ? categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  )) : (
+                    <>
+                      <option value="Allergy">Allergy</option>
+                      <option value="Intolerance">Intolerance</option>
+                      <option value="Good For Everyone">Good For Everyone</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              <div className="form-section">
+                <label className="form-label">Description</label>
+                <textarea
+                  className="form-textarea"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows="3"
+                />
+              </div>
+              <div className="form-section">
+                <label className="form-label">Status *</label>
+                <select
+                  className="form-select"
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                >
+                  {statuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-section">
+                <label className="form-label">Visibility *</label>
+                <select
+                  className="form-select"
+                  value={formData.visibility}
+                  onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
+                >
+                  <option value="Public">Public</option>
+                  <option value="Admin-only">Admin-only</option>
+                </select>
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit" disabled={loading}>
+                  {loading ? 'Adding...' : 'Add Restriction'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Restriction Modal */}
+      {showEditModal && selectedRestriction && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Restriction</h2>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>
+                <CloseIcon />
+              </button>
+            </div>
+            <form onSubmit={handleFormSubmit} className="recipe-form">
+              <div className="form-section">
+                <label className="form-label">Restriction Name *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-section">
+                <label className="form-label">Category *</label>
+                <select
+                  className="form-select"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                >
+                  {categories.length > 0 ? categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  )) : (
+                    <>
+                      <option value="Allergy">Allergy</option>
+                      <option value="Intolerance">Intolerance</option>
+                      <option value="Good For Everyone">Good For Everyone</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              <div className="form-section">
+                <label className="form-label">Description</label>
+                <textarea
+                  className="form-textarea"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows="3"
+                />
+              </div>
+              <div className="form-section">
+                <label className="form-label">Status *</label>
+                <select
+                  className="form-select"
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                >
+                  {statuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-section">
+                <label className="form-label">Visibility *</label>
+                <select
+                  className="form-select"
+                  value={formData.visibility}
+                  onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
+                >
+                  <option value="Public">Public</option>
+                  <option value="Admin-only">Admin-only</option>
+                </select>
+              </div>
+              
+              <div className="form-section">
+                <label className="form-label">Change Log</label>
+                <ul style={{ padding: '0', listStyle: 'none' }}>
+                  {selectedRestriction.changeLog?.map((log, index) => (
+                    <li key={index} style={{ color: '#64748b', marginBottom: '8px' }}>
+                      {log.date} - {log.by}: {log.change}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowEditModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit" disabled={loading}>
+                  {loading ? 'Updating...' : 'Update Restriction'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const DietaryRestrictionsManagement = () => {
+  return (
+    <AdminLayout currentPage="Dietary Restrictions">
+      <DietaryRestrictionsManagementContent />
+    </AdminLayout>
+  );
+};
+
+export default DietaryRestrictionsManagement;
