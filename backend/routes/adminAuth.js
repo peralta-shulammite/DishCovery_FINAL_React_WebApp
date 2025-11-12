@@ -2,7 +2,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import pool from '../db.js';
+import db, { pool } from '../db.js';
 import sgMail from '@sendgrid/mail';
 import nodemailer from 'nodemailer';
 

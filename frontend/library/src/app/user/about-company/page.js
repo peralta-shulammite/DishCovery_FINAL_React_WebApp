@@ -94,7 +94,7 @@ export default function CareersPage() {
 
           <div className="apply-section">
             <h4>Join Our Team</h4>
-            <p>We're looking for passionate innovators to help us grow DishCovery. Send your resume and portfolio to <a href="mailto:careers@dishcovery.com">careers@dishcovery.com</a>.</p>
+            <p>We're looking for passionate innovators to help us grow DishCovery. Send your resume and portfolio to <a href="mailto:dishcovery.org@gmail.com">dishcovery.org@gmail.com</a>.</p>
           </div>
         </div>
       </section>

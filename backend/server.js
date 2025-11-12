@@ -39,6 +39,7 @@ import scanRouter from './routes/scan.js';
 import userProfileRouter from './routes/userProfile.js';
 import feedbackRouter from './routes/feedback.js';
 import adminFeedbackRouter from './routes/adminFeedback.js';
+import contactRouter from './routes/contact.js';
 import notificationsRouter from './routes/notifications.js';
 import analyticsRouter from './routes/analytics.js';
 import migrationsRouter from './routes/migrations.js';
@@ -93,6 +94,7 @@ app.use('/api/scan', scanRouter);
 app.use('/api/user-profile', userProfileRouter);
 app.use('/api/feedback', feedbackRouter);
 app.use('/api/admin/feedback', adminFeedbackRouter);
+app.use('/api/contact', contactRouter);
 app.use('/api/admin/analytics', analyticsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/migrations', migrationsRouter);
@@ -290,6 +292,9 @@ app.listen(PORT, () => {
   console.log('   - PUT  /api/admin/feedback/:id/mark-read (🔒 Mark as Read)');
   console.log('   - PUT  /api/admin/feedback/:id/mark-unread (🔒 Mark as Unread)');
   console.log('   - DELETE /api/admin/feedback/:id (🔒 Delete Feedback)');
+  console.log('   📧 CONTACT FORM ROUTES:');
+  console.log('   - POST /api/contact/feedback (Submit Feedback - Public)');
+  console.log('   - POST /api/contact/report (Report Issue - Public)');
 });
 
 export default app;

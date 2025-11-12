@@ -226,8 +226,8 @@ router.get('/', async (req, res) => {
         r.verifier_name,
         r.verifier_credentials,
         COALESCE(AVG(uri.rating), 0) as average_rating,
-        COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
-        COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
+        COALESCE(COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END), 0) as save_count,
+        COALESCE(COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END), 0) as tried_count
       FROM recipes r
       LEFT JOIN recipe_images ri ON r.recipe_id = ri.recipe_id
       LEFT JOIN recipe_dietary_tags rdt ON r.recipe_id = rdt.recipe_id
@@ -244,6 +244,14 @@ router.get('/', async (req, res) => {
     console.log('📄 Admin: Executing recipe query with JOINs');
     const recipes = await pool.query(mainQuery, queryParams);
     console.log(`✅ Fetched ${recipes.length} recipes with images and tags`);
+    
+    // Debug: Log engagement counts from query
+    if (recipes.length > 0) {
+      console.log(`\n📊 ENGAGEMENT COUNTS FROM DATABASE QUERY:`);
+      recipes.slice(0, 5).forEach(recipe => {
+        console.log(`   Recipe ${recipe.id} (${recipe.title}): tried_count=${recipe.tried_count} (type: ${typeof recipe.tried_count}), save_count=${recipe.save_count} (type: ${typeof recipe.save_count})`);
+      });
+    }
 
     // ✅ FIXED: Fetch images separately for each recipe to avoid GROUP_CONCAT truncation
     const recipeIds = recipes.map(r => r.id);
@@ -283,12 +291,23 @@ router.get('/', async (req, res) => {
         verifier_credentials: recipe.verifier_credentials || null
       } : null;
       
-      // Prepare engagement data
+      // Prepare engagement data - ensure counts are numbers
+      const triedCount = Number(recipe.tried_count) || 0;
+      const saveCount = Number(recipe.save_count) || 0;
+      
+      console.log(`\n📊 Recipe ${recipe.id} (${recipe.title}):`);
+      console.log(`   Raw tried_count from DB:`, recipe.tried_count, `(type: ${typeof recipe.tried_count})`);
+      console.log(`   Raw save_count from DB:`, recipe.save_count, `(type: ${typeof recipe.save_count})`);
+      console.log(`   Converted triedCount:`, triedCount);
+      console.log(`   Converted saveCount:`, saveCount);
+      
       const engagement = {
-        tried_count: recipe.tried_count || 0,
-        save_count: recipe.save_count || 0,
-        average_rating: recipe.average_rating || 0
+        tried_count: triedCount,
+        save_count: saveCount,
+        average_rating: Number(recipe.average_rating) || 0
       };
+      
+      console.log(`   Engagement object being passed:`, JSON.stringify(engagement));
       
       return transformRecipeForFrontend(
         {
@@ -343,8 +362,8 @@ router.get('/:id', async (req, res) => {
         r.verifier_name,
         r.verifier_credentials,
         COALESCE(AVG(uri.rating), 0) as average_rating,
-        COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END) as save_count,
-        COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END) as tried_count
+        COALESCE(COUNT(DISTINCT CASE WHEN uri.is_saved = 1 THEN uri.user_id END), 0) as save_count,
+        COALESCE(COUNT(DISTINCT CASE WHEN uri.is_tried = 1 THEN uri.user_id END), 0) as tried_count
       FROM recipes r
       LEFT JOIN recipe_dietary_tags rdt ON r.recipe_id = rdt.recipe_id
       LEFT JOIN dietary_tags dt ON rdt.tag_id = dt.tag_id
@@ -425,9 +444,9 @@ router.get('/:id', async (req, res) => {
       ingredients,
       medicalConditions
     }, null, null, null, null, {
-      tried_count: recipe.tried_count || 0,
-      save_count: recipe.save_count || 0,
-      average_rating: recipe.average_rating || 0
+      tried_count: Number(recipe.tried_count) || 0,
+      save_count: Number(recipe.save_count) || 0,
+      average_rating: Number(recipe.average_rating) || 0
     });
 
     res.json({

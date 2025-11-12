@@ -941,11 +941,19 @@
 /* Line Chart SVG - Dashboard Theme */
 .line-chart-container {
   padding: 15px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .line-chart-svg {
   width: 100%;
   height: auto;
+  min-width: 500px;
+}
+
+.line-chart-svg text {
+  pointer-events: none;
+  user-select: none;
 }
 
 .line-chart-legend {
