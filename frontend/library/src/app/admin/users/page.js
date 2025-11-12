@@ -1022,33 +1022,6 @@ const UserManagementContent = () => {
                             <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
                           </svg>
                         </button>
-                        {user.status === 'Active' ? (
-                          <button 
-                            className="action-btn-small warning"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeactivateUser(user.id, user.username);
-                            }}
-                            title="Deactivate User"
-                          >
-                            <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm0-4V7h2v6h-2z"/>
-                            </svg>
-                          </button>
-                        ) : (
-                          <button 
-                            className="action-btn-small success"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleActivateUser(user.id, user.username);
-                            }}
-                            title="Activate User"
-                          >
-                            <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                            </svg>
-                          </button>
-                        )}
                         <button 
                           className="action-btn-small danger"
                           onClick={(e) => {
@@ -1518,18 +1491,7 @@ const UserManagementContent = () => {
 
               <div className="bulk-option-group">
                 <h4>Account Management</h4>
-                <button 
-                  className="bulk-option-btn warning"
-                  onClick={handleBulkDeactivate}
-                  disabled={selectedUsers.length === 0}
-                  style={{ opacity: selectedUsers.length === 0 ? 0.5 : 1, cursor: selectedUsers.length === 0 ? 'not-allowed' : 'pointer' }}
-                >
-                  <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17h2v-2h-2v2zm1-4c.55 0 1-.45 1-1V8c0-.55-.45-1-1-1s-1 .45-1 1v6c0 .55.45 1 1 1z"/>
-                  </svg>
-                  <span>Deactivate Users</span>
-                  <span className="option-description">Temporarily disable selected accounts</span>
-                </button>
+                
                 <button 
                   className="bulk-option-btn danger"
                   onClick={handleBulkDelete}
