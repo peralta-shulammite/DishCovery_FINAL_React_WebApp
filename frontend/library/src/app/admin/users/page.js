@@ -1475,18 +1475,6 @@ const UserManagementContent = () => {
                   <span>Send Message</span>
                   <span className="option-description">Send notification to selected users</span>
                 </button>
-                <button 
-                  className="bulk-option-btn"
-                  onClick={handleBulkSendReminder}
-                  disabled={selectedUsers.length === 0}
-                  style={{ opacity: selectedUsers.length === 0 ? 0.5 : 1, cursor: selectedUsers.length === 0 ? 'not-allowed' : 'pointer' }}
-                >
-                  <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                  </svg>
-                  <span>Send Reminder</span>
-                  <span className="option-description">Send activity reminder to inactive users</span>
-                </button>
               </div>
 
               <div className="bulk-option-group">
