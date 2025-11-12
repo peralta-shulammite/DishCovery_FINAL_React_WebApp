@@ -802,50 +802,7 @@ const DietaryRestrictionsManagementContent = () => {
                   <option value="Admin-only">Admin-only</option>
                 </select>
               </div>
-              <div className="form-section">
-                <label className="form-label">Merge with Existing Restriction (Optional)</label>
-                <select
-                  className="form-select"
-                  onChange={(e) => {
-                    if (e.target.value && window.confirm('Are you sure you want to merge this restriction?')) {
-                      const targetRestriction = restrictions.find((r) => r.id === parseInt(e.target.value));
-                      if (targetRestriction) {
-                        setRestrictions(
-                          restrictions
-                            .map((r) =>
-                              r.id === targetRestriction.id
-                                ? {
-                                    ...r,
-                                    usedBy: r.usedBy + selectedRestriction.usedBy,
-                                    changeLog: [
-                                      ...r.changeLog,
-                                      {
-                                        date: new Date().toISOString().split('T')[0],
-                                        by: 'Admin',
-                                        change: `Merged with ${selectedRestriction.name}`,
-                                      },
-                                    ],
-                                  }
-                                : r
-                            )
-                            .filter((r) => r.id !== selectedRestriction.id)
-                        );
-                        setShowEditModal(false);
-                        resetForm();
-                      }
-                    }
-                  }}
-                >
-                  <option value="">Select restriction to merge with</option>
-                  {restrictions
-                    .filter((r) => r.id !== selectedRestriction.id)
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
+              
               <div className="form-section">
                 <label className="form-label">Change Log</label>
                 <ul style={{ padding: '0', listStyle: 'none' }}>
