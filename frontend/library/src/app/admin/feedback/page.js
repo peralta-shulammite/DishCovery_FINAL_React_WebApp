@@ -381,119 +381,127 @@ const FeedbackManagementContent = () => {
     </svg>
   );
 
-  return (
+return (
     <div className="main-content">
-      {/* ========================================
-          📊 STATISTICS CARDS
-          ======================================== */}
-      <div className="simple-stats">
-        <div className="stat-card">
-          <FeedbackIcon />
-          <div className="stat-content">
-            <div className="stat-number">{stats.total}</div>
-            <div className="stat-label">Total Feedback</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <RepliedIcon />
-          <div className="stat-content">
-            <div className="stat-number">{stats.replied}</div>
-            <div className="stat-label">Replied</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <UnreadIcon />
-          <div className="stat-content">
-            <div className="stat-number">{stats.unread}</div>
-            <div className="stat-label">Unread</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <FeedbackIcon />
-          <div className="stat-content">
-            <div className="stat-number">
-              {latestFeedback ? `@${latestFeedback.user.fullName}` : 'None'}
-            </div>
-            <div className="stat-label">
-              {latestFeedback ? formatTimestamp(latestFeedback.createdAt) : 'No recent feedback'}
-            </div>
+      {/* Enhanced Page Header */}
+      <div className="page-header-enhanced">
+        <div className="header-content">
+          <div className="header-text">
+            <h1 className="page-title">Feedback Management</h1>
+            <p className="page-description">
+              Monitor, respond to, and manage user feedback efficiently
+            </p>
           </div>
         </div>
       </div>
 
-      {/* ========================================
-          🔍 FILTERS SECTION
-          ======================================== */}
-      <div className="filters-section">
-        <div className="filters-header">
-          <div className="filters-title">
-            <FilterIcon />
-            <span>Filters</span>
+      {/* Stats Overview */}
+      <div className="stats-overview">
+        <div className="stat-item">
+          <div className="stat-value">{stats.total}</div>
+          <div className="stat-label">Total Feedback</div>
+        </div>
+        <div className="stat-item">
+          <div className="stat-value">{stats.replied}</div>
+          <div className="stat-label">Replied</div>
+        </div>
+        <div className="stat-item">
+          <div className="stat-value">{stats.unread}</div>
+          <div className="stat-label">Unread</div>
+        </div>
+        <div className="stat-item">
+          <div className="stat-value">{stats.unreplied}</div>
+          <div className="stat-label">Pending Requests</div>
+        </div>
+      </div>
+{/* Enhanced Controls Section */}
+    <div className="controls-section">
+      <div className="controls-header">
+        <h3>Search & Filters</h3>
+      </div>
+      <div className="controls-container-inner">
+        <div className="filters-left">
+          <div className="search-section">
+            <label className="filter-label">Search Feedback</label>
+            <div className="search-container">
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Search by user, subject, or message..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button className="search-btn">
+                <SearchIcon />
+              </button>
+            </div>
           </div>
-          <div className="search-container">
-            <input 
-              type="text" 
-              placeholder="Search feedback..." 
-              className="search-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <button className="search-btn">
-              <SearchIcon />
-            </button>
+          
+          <div className="filter-section">
+            <div className="filter-group">
+              <label className="filter-label">Sort By</label>
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value)}
+                className="sort-select"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="unread">Unread First</option>
+              </select>
+            </div>
+            
+            <div className="filter-group">
+              <label className="filter-label">Status</label>
+              <select 
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="sort-select"
+              >
+                <option value="all">All Status</option>
+                <option value="unread">Unread</option>
+                <option value="read">Read</option>
+                <option value="replied">Replied</option>
+                <option value="unreplied">Not Replied</option>
+                <option value="pending">Pending</option>
+                <option value="resolved">Resolved</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            
+            <div className="filter-group">
+              <label className="filter-label">From Date</label>
+              <input 
+                type="date" 
+                value={dateFrom} 
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="date-select"
+              />
+            </div>
+            
+            <div className="filter-group">
+              <label className="filter-label">To Date</label>
+              <input 
+                type="date" 
+                value={dateTo} 
+                onChange={(e) => setDateTo(e.target.value)}
+                className="date-select"
+              />
+            </div>
           </div>
+        </div>
+        
+        <div className="action-section">
           <button className="clear-filters-btn" onClick={clearFilters}>
             Clear All
           </button>
-          <button className="export-btn" onClick={handleExportData} style={{ marginLeft: 'auto' }}>
+          <button className="export-btn" onClick={handleExportData}>
             <ExportIcon />
-            Export Data
+            Export
           </button>
         </div>
-        
-        <div className="filters-grid">
-          <div className="filter-group">
-            <label>Sort By:</label>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="unread">Unread First</option>
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label>Status:</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="all">All Status</option>
-              <option value="unread">Unread</option>
-              <option value="read">Read</option>
-              <option value="replied">Replied</option>
-              <option value="unreplied">Not Replied</option>
-              <option value="pending">Pending</option>
-              <option value="resolved">Resolved</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label>From Date:</label>
-            <input 
-              type="date" 
-              value={dateFrom} 
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </div>
-          
-          <div className="filter-group">
-            <label>To Date:</label>
-            <input 
-              type="date" 
-              value={dateTo} 
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-        </div>
       </div>
+    </div>
 
       {/* ========================================
           📝 RESULTS COUNT
