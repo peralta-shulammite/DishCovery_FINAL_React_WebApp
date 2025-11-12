@@ -96,13 +96,31 @@ export const transformRecipeForFrontend = (recipe, images = [], ingredients = []
     }
   }
 
-  // Build engagement object
+  // Build engagement object - ensure we get the counts correctly
+  // Debug: Log what we're receiving
+  console.log(`\n   🔍 [TRANSFORMER] Recipe ${recipe.recipe_id || recipe.id}:`);
+  console.log(`   🔍 [TRANSFORMER] engagement parameter:`, engagement);
+  console.log(`   🔍 [TRANSFORMER] engagement type:`, typeof engagement);
+  console.log(`   🔍 [TRANSFORMER] engagement?.tried_count:`, engagement?.tried_count);
+  console.log(`   🔍 [TRANSFORMER] engagement?.save_count:`, engagement?.save_count);
+  console.log(`   🔍 [TRANSFORMER] engagement?.tried:`, engagement?.tried);
+  console.log(`   🔍 [TRANSFORMER] engagement?.saved:`, engagement?.saved);
+  
+  // Try multiple ways to get the counts
+  const triedCount = Number(engagement?.tried_count) || Number(engagement?.tried) || 0;
+  const savedCount = Number(engagement?.save_count) || Number(engagement?.saved) || 0;
+  
+  console.log(`   🔍 [TRANSFORMER] Calculated triedCount:`, triedCount);
+  console.log(`   🔍 [TRANSFORMER] Calculated savedCount:`, savedCount);
+  
   const engagementData = {
-    tried: engagement?.tried_count || engagement?.tried || 0,
-    saved: engagement?.save_count || engagement?.saved || 0
+    tried: triedCount,
+    saved: savedCount
   };
+  
+  console.log(`   ✅ [TRANSFORMER] Final engagementData:`, JSON.stringify(engagementData));
 
-  return {
+  const transformedRecipe = {
     id: recipe.recipe_id || recipe.id,
     title: recipe.recipe_name || recipe.title,
     description: recipe.description || '',
@@ -116,7 +134,7 @@ export const transformRecipeForFrontend = (recipe, images = [], ingredients = []
     verificationStatus: verificationStatus,
     verifierName: verifierName,
     verifierCredentials: verifierCredentials,
-    engagement: engagementData,
+    engagement: engagementData,  // ✅ This should have tried and saved
     rating: parseFloat(engagement?.average_rating || recipe.average_rating || 4.5),
     cookTime: recipe.cook_time ? `${recipe.cook_time} min` : recipe.total_time ? `${recipe.total_time} min` : '30 min',
     prepTime: recipe.prep_time || null,
@@ -127,6 +145,17 @@ export const transformRecipeForFrontend = (recipe, images = [], ingredients = []
     createdAt: recipe.created_at,
     updatedAt: recipe.updated_at
   };
+  
+  // Final verification
+  console.log(`   ✅ [TRANSFORMER] Returning recipe with engagement:`, {
+    id: transformedRecipe.id,
+    title: transformedRecipe.title,
+    engagement: transformedRecipe.engagement,
+    'engagement.tried': transformedRecipe.engagement?.tried,
+    'engagement.saved': transformedRecipe.engagement?.saved
+  });
+  
+  return transformedRecipe;
 };
 
 /**

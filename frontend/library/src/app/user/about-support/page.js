@@ -3,11 +3,107 @@ import { useState } from 'react';
 import AboutLayout from '../../components/user-about/about';
 import './styles.css';
 
+// API Base URL
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname.includes('vercel.app')) {
+      return 'https://dishcovery-backend-wvhn.onrender.com/api';
+    }
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
 export default function AboutSupportPage() {
   const [expandedFaq, setExpandedFaq] = useState(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [reportMessage, setReportMessage] = useState('');
 
   const toggleFaq = (index) => {
     setExpandedFaq(expandedFaq === index ? null : index);
+  };
+
+  // Handle feedback form submission
+  const handleFeedbackSubmit = async (e) => {
+    e.preventDefault();
+    setFeedbackLoading(true);
+    setFeedbackMessage('');
+
+    const formData = {
+      name: e.target.name.value.trim(),
+      email: e.target.email.value.trim(),
+      message: e.target.message.value.trim()
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/contact/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setFeedbackMessage('success');
+        e.target.reset();
+      } else {
+        setFeedbackMessage(data.message || 'Failed to submit feedback. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      setFeedbackMessage('An error occurred. Please try again.');
+    } finally {
+      setFeedbackLoading(false);
+      setTimeout(() => setFeedbackMessage(''), 5000);
+    }
+  };
+
+  // Handle issue report form submission
+  const handleReportSubmit = async (e) => {
+    e.preventDefault();
+    setReportLoading(true);
+    setReportMessage('');
+
+    const formData = {
+      name: e.target['issue-name'].value.trim(),
+      email: e.target['issue-email'].value.trim(),
+      issueType: e.target['issue-type'].value,
+      description: e.target['issue-description'].value.trim()
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/contact/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setReportMessage('success');
+        e.target.reset();
+      } else {
+        setReportMessage(data.message || 'Failed to submit report. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      setReportMessage('An error occurred. Please try again.');
+    } finally {
+      setReportLoading(false);
+      setTimeout(() => setReportMessage(''), 5000);
+    }
   };
 
   return (
@@ -91,7 +187,7 @@ export default function AboutSupportPage() {
                   question: "How do I contact support?",
                   answer: (
                     <>
-                      Reach out via <a href="mailto:support@dishcovery.com">support@dishcovery.com</a> or use the contact form below. We typically respond within 24 hours.
+                      Reach out via <a href="mailto:dishcovery.org@gmail.com">dishcovery.org@gmail.com</a> or use the contact form below. We typically respond within 24 hours.
                     </>
                   )
                 }
@@ -123,7 +219,7 @@ export default function AboutSupportPage() {
 
           <div className="contact-support">
             <h3>Still Need Help?</h3>
-            <p>Reach out to our support team at <a href="mailto:support@dishcovery.com">support@dishcovery.com</a> or use the contact form in the Contact Us section.</p>
+            <p>Reach out to our support team at <a href="mailto:dishcovery.org@gmail.com">dishcovery.org@gmail.com</a> or use the contact form in the Contact Us section.</p>
           </div>
         </div>
       </section>
@@ -146,7 +242,7 @@ export default function AboutSupportPage() {
               </div>
               <h3>Email Support</h3>
               <p>Have a question or need assistance? Our support team is here to help.</p>
-              <a href="mailto:support@dishcovery.com" className="contact-link">support@dishcovery.com</a>
+              <a href="mailto:dishcovery.org@gmail.com" className="contact-link">dishcovery.org@gmail.com</a>
             </div>
 
             <div className="contact-method">
@@ -157,7 +253,7 @@ export default function AboutSupportPage() {
               </div>
               <h3>Business Inquiries</h3>
               <p>Interested in partnering with us? Reach out to discuss opportunities.</p>
-              <a href="mailto:partnerships@dishcovery.com" className="contact-link">partnerships@dishcovery.com</a>
+              <a href="mailto:dishcovery.org@gmail.com" className="contact-link">dishcovery.org@gmail.com</a>
             </div>
 
             <div className="contact-method">
@@ -178,41 +274,57 @@ export default function AboutSupportPage() {
 
           <div className="contact-form-section">
             <h3>Feedback & Suggestions</h3>
-            <form className="contact-form">
+            <form className="contact-form" onSubmit={handleFeedbackSubmit}>
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="name">Name</label>
-                  <input type="text" id="name" placeholder="Your Name" required />
+                  <input type="text" id="name" name="name" placeholder="Your Name" required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="email">Email</label>
-                  <input type="email" id="email" placeholder="Your Email" required />
+                  <input type="email" id="email" name="email" placeholder="Your Email" required />
                 </div>
               </div>
               <div className="form-group">
                 <label htmlFor="message">Your Feedback</label>
-                <textarea id="message" rows="5" placeholder="Share your thoughts..." required></textarea>
+                <textarea id="message" name="message" rows="5" placeholder="Share your thoughts..." required></textarea>
               </div>
-              <button type="submit" className="submit-btn">Submit Feedback</button>
+              {feedbackMessage && (
+                <div style={{
+                  padding: '10px',
+                  marginBottom: '15px',
+                  borderRadius: '4px',
+                  backgroundColor: feedbackMessage === 'success' ? '#d4edda' : '#f8d7da',
+                  color: feedbackMessage === 'success' ? '#155724' : '#721c24',
+                  border: `1px solid ${feedbackMessage === 'success' ? '#c3e6cb' : '#f5c6cb'}`
+                }}>
+                  {feedbackMessage === 'success' 
+                    ? '✅ Thank you for your feedback! We will review it soon.' 
+                    : `❌ ${feedbackMessage}`}
+                </div>
+              )}
+              <button type="submit" className="submit-btn" disabled={feedbackLoading}>
+                {feedbackLoading ? 'Submitting...' : 'Submit Feedback'}
+              </button>
             </form>
           </div>
 
           <div className="contact-form-section">
             <h3>Report an Issue</h3>
-            <form className="contact-form">
+            <form className="contact-form" onSubmit={handleReportSubmit}>
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="issue-name">Name</label>
-                  <input type="text" id="issue-name" placeholder="Your Name" required />
+                  <input type="text" id="issue-name" name="issue-name" placeholder="Your Name" required />
                 </div>
                 <div className="form-group">
                   <label htmlFor="issue-email">Email</label>
-                  <input type="email" id="issue-email" placeholder="Your Email" required />
+                  <input type="email" id="issue-email" name="issue-email" placeholder="Your Email" required />
                 </div>
               </div>
               <div className="form-group">
                 <label htmlFor="issue-type">Issue Type</label>
-                <select id="issue-type" required>
+                <select id="issue-type" name="issue-type" required>
                   <option value="">Select an issue type</option>
                   <option value="technical">Technical Issue</option>
                   <option value="account">Account Issue</option>
@@ -222,9 +334,25 @@ export default function AboutSupportPage() {
               </div>
               <div className="form-group">
                 <label htmlFor="issue-description">Describe the Issue</label>
-                <textarea id="issue-description" rows="5" placeholder="Please describe the issue..." required></textarea>
+                <textarea id="issue-description" name="issue-description" rows="5" placeholder="Please describe the issue..." required></textarea>
               </div>
-              <button type="submit" className="submit-btn">Report Issue</button>
+              {reportMessage && (
+                <div style={{
+                  padding: '10px',
+                  marginBottom: '15px',
+                  borderRadius: '4px',
+                  backgroundColor: reportMessage === 'success' ? '#d4edda' : '#f8d7da',
+                  color: reportMessage === 'success' ? '#155724' : '#721c24',
+                  border: `1px solid ${reportMessage === 'success' ? '#c3e6cb' : '#f5c6cb'}`
+                }}>
+                  {reportMessage === 'success' 
+                    ? '✅ Thank you for reporting this issue! We will look into it soon.' 
+                    : `❌ ${reportMessage}`}
+                </div>
+              )}
+              <button type="submit" className="submit-btn" disabled={reportLoading}>
+                {reportLoading ? 'Submitting...' : 'Report Issue'}
+              </button>
             </form>
           </div>
         </div>

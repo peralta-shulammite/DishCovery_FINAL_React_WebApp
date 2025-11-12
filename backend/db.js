@@ -5,7 +5,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
-// Get the directory where this file is located
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -125,6 +124,21 @@ const testConnection = async () => {
     console.error(`   Port: ${dbPort}`);
     console.error(`   User: ${dbUser}`);
     console.error(`   Database: ${dbName}`);
+    console.error(`   Error code: ${error.code || 'N/A'}`);
+    
+    // Provide specific guidance for ENOTFOUND errors
+    if (error.code === 'ENOTFOUND') {
+      console.error('');
+      console.error('❌ DNS Resolution Failed - Cannot resolve database hostname');
+      console.error('💡 Troubleshooting steps:');
+      console.error('   1. Verify the DB_HOST in your .env file is correct');
+      console.error('   2. Check if the database service is running');
+      console.error('   3. Verify network connectivity');
+      console.error('   4. Try pinging the hostname: ping ' + dbHost);
+      console.error(`   5. Check if .env file exists at: ${envPath}`);
+      console.error(`   6. Current working directory: ${process.cwd()}`);
+    }
+    
     console.error('');
     console.error('💡 Check your .env file for correct database configuration');
     process.exit(1);
@@ -159,6 +173,20 @@ const db = {
         
         return results;
       } catch (error) {
+        // Handle DNS resolution errors (ENOTFOUND) - database hostname cannot be resolved
+        if (error.code === 'ENOTFOUND') {
+          console.error('❌ [DB CONNECTION] DNS Resolution Failed');
+          console.error(`   Cannot resolve hostname: ${dbHost}`);
+          console.error('💡 Possible causes:');
+          console.error('   1. Database service is down or deleted');
+          console.error('   2. Incorrect hostname in .env file');
+          console.error('   3. Network connectivity issue');
+          console.error('   4. DNS server issue');
+          console.error(`   Current DB_HOST: ${process.env.DB_HOST || 'NOT SET'}`);
+          console.error(`   Current DB_PORT: ${process.env.DB_PORT || 'NOT SET'}`);
+          throw error;
+        }
+        
         // Handle connection reset errors with retry
         if ((error.code === 'ECONNRESET' || error.code === 'PROTOCOL_CONNECTION_LOST') && attempt < retries) {
           console.warn(`⚠️ Connection lost, retrying... (Attempt ${attempt}/${retries})`);

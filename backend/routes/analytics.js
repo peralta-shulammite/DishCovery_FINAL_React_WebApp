@@ -94,18 +94,19 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
       ORDER BY week_key ASC
     `;
     
-    // 4. Ingredient Request Trends (monthly for last 5 months)
+    // 4. Ingredient Request Trends (daily from Nov 5 to present)
+    // ✅ FIXED: Top Used Ingredient - All user scans combined (including pantry)
     const ingredientTrendsQuery = `
       SELECT 
-        DATE_FORMAT(created_at, '%b') as month,
-        DATE_FORMAT(created_at, '%Y-%m') as month_key,
-        ingredient_name,
-        COUNT(*) as request_count
-      FROM user_scanned_ingredients
-      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 5 MONTH)
-      GROUP BY DATE_FORMAT(created_at, '%Y-%m'), DATE_FORMAT(created_at, '%b'), ingredient_name
-      HAVING request_count >= 10
-      ORDER BY month_key ASC, request_count DESC
+        DATE_FORMAT(usi.scanned_at, '%b %d') as day,
+        DATE_FORMAT(usi.scanned_at, '%Y-%m-%d') as day_key,
+        i.ingredient_name,
+        COUNT(*) as usage_count
+      FROM user_scanned_ingredients usi
+      JOIN ingredients i ON usi.ingredient_id = i.ingredient_id
+      WHERE usi.scanned_at >= '2025-11-05'
+      GROUP BY DATE_FORMAT(usi.scanned_at, '%Y-%m-%d'), DATE_FORMAT(usi.scanned_at, '%b %d'), i.ingredient_name
+      ORDER BY day_key ASC, usage_count DESC
     `;
     
     // 5. User Activity by Hour of Day
@@ -200,23 +201,23 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
       new: parseInt(week.new_users) || 0
     }));
     
-    // Process ingredient trends data - group by month and top ingredients
+    // Process ingredient trends data - group by day and top ingredients
     const ingredientTrendsMap = {};
-    const monthSet = new Set();
+    const daySet = new Set();
     const topIngredients = new Set();
     
     ingredientTrends.forEach(trend => {
-      const month = trend.month;
-      const monthKey = trend.month_key; // e.g., '2024-01'
+      const day = trend.day; // e.g., 'Nov 12'
+      const dayKey = trend.day_key; // e.g., '2024-11-12'
       const ingredient = trend.ingredient_name;
-      const count = parseInt(trend.request_count) || 0;
+      const count = parseInt(trend.usage_count) || 0; // ✅ Changed from request_count to usage_count
       
-      if (!ingredientTrendsMap[monthKey]) {
-        ingredientTrendsMap[monthKey] = { month, data: {} };
+      if (!ingredientTrendsMap[dayKey]) {
+        ingredientTrendsMap[dayKey] = { day, data: {} };
       }
       
-      ingredientTrendsMap[monthKey].data[ingredient] = count;
-      monthSet.add(monthKey);
+      ingredientTrendsMap[dayKey].data[ingredient] = count;
+      daySet.add(dayKey);
       
       // Track top ingredients
       topIngredients.add(ingredient);
@@ -226,7 +227,7 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
     const ingredientTotals = {};
     ingredientTrends.forEach(trend => {
       const ingredient = trend.ingredient_name;
-      const count = parseInt(trend.request_count) || 0;
+      const count = parseInt(trend.usage_count) || 0; // ✅ Changed from request_count to usage_count
       ingredientTotals[ingredient] = (ingredientTotals[ingredient] || 0) + count;
     });
     
@@ -235,22 +236,37 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
       .slice(0, 4)
       .map(([name]) => name);
     
-    // Format ingredient trends for chart - use actual months from data, sorted by month_key
-    const sortedMonths = Array.from(monthSet).sort();
-    const ingredientTrendsData = sortedMonths.map(monthKey => {
-      const monthData = ingredientTrendsMap[monthKey];
-      const data = { month: monthData.month };
+    // ✅ FIX: Fill in missing days from Nov 5 to today
+    // Generate all days from Nov 5, 2025 to today
+    const startDate = new Date('2025-11-05');
+    const endDate = new Date();
+    const allDays = [];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+      const dayKey = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dayLabel = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      allDays.push({ dayKey, dayLabel });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    // Format ingredient trends for chart - fill in all days from Nov 5 to today
+    const ingredientTrendsData = allDays.map(({ dayKey, dayLabel }) => {
+      const dayData = ingredientTrendsMap[dayKey] || { data: {} };
+      const data = { day: dayLabel };
       top4Ingredients.forEach(ingredient => {
         // Use ingredient name as key (lowercase, replace spaces with underscores)
         const key = ingredient.toLowerCase().replace(/\s+/g, '_');
-        data[key] = monthData.data[ingredient] || 0;
+        data[key] = dayData.data[ingredient] || 0; // 0 if no data for this day
       });
       return data;
     });
     
-    // If no data, return empty array with at least one month for display
+    // If no data at all, return at least today
     if (ingredientTrendsData.length === 0) {
-      ingredientTrendsData.push({ month: 'Jan' });
+      const today = new Date();
+      const todayStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      ingredientTrendsData.push({ day: todayStr });
     }
     
     // Process user activity by hour

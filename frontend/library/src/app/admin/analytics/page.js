@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
 
+// ✅ Color palette for line chart
+const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'];
+
 const AnalyticsContent = () => {
   const [dateRange, setDateRange] = useState('Last 30 Days');
   const [selectedMetric, setSelectedMetric] = useState('all');
@@ -99,6 +102,15 @@ const AnalyticsContent = () => {
             userGrowth: data.data.userGrowth?.length || 0,
             ingredientTrends: data.data.ingredientTrends?.length || 0
           });
+          
+          // ✅ DEBUG: Log ingredient trends data structure
+          if (data.data.ingredientTrends && data.data.ingredientTrends.length > 0) {
+            console.log('📊 [INGREDIENT TRENDS] Full data:', JSON.stringify(data.data.ingredientTrends, null, 2));
+            console.log('📊 [INGREDIENT TRENDS] First item keys:', Object.keys(data.data.ingredientTrends[0] || {}));
+            console.log('📊 [INGREDIENT TRENDS] First item:', data.data.ingredientTrends[0]);
+          } else {
+            console.warn('⚠️ [INGREDIENT TRENDS] No data received!');
+          }
         } else {
           throw new Error(data.message || 'Failed to fetch analytics data');
         }
@@ -420,26 +432,54 @@ const AnalyticsContent = () => {
           </div>
         </div>
 
-        {/* Ingredient Request Trends - Line Chart */}
+        {/* Top Used Ingredient - Line Chart */}
         <div className="chart-card full-width">
           <div className="chart-header">
-            <h3>Top Ingredient Request Trends</h3>
-            <p className="chart-subtitle">Monthly request patterns for popular ingredients</p>
+            <h3>Top Used Ingredient</h3>
+            <p className="chart-subtitle">Daily usage patterns for most scanned ingredients across all users (Nov 5 - Present)</p>
           </div>
           <div className="line-chart-container">
             {ingredientTrendsData.length > 0 ? (
-              <svg viewBox="0 0 500 200" className="line-chart-svg">
+              <svg viewBox="0 0 500 220" className="line-chart-svg" style={{ width: '100%', height: 'auto', maxHeight: '400px' }}>
                 {/* Grid lines */}
-                <line x1="50" y1="20" x2="50" y2="170" stroke="#e5e7eb" strokeWidth="1"/>
-                <line x1="50" y1="170" x2="480" y2="170" stroke="#e5e7eb" strokeWidth="1"/>
+                <line x1="60" y1="30" x2="60" y2="180" stroke="#e5e7eb" strokeWidth="1.5"/>
+                <line x1="60" y1="180" x2="470" y2="180" stroke="#e5e7eb" strokeWidth="1.5"/>
                 {[0, 1, 2, 3, 4].map(i => (
-                  <line key={i} x1="50" y1={20 + i * 37.5} x2="480" y2={20 + i * 37.5} stroke="#f3f4f6" strokeWidth="1"/>
+                  <line key={i} x1="60" y1={30 + i * 37.5} x2="470" y2={30 + i * 37.5} stroke="#f3f4f6" strokeWidth="1"/>
                 ))}
+                
+                {/* Y-axis labels */}
+                {(() => {
+                  const maxValue = Math.max(
+                    ...ingredientTrendsData.flatMap(day => 
+                      Object.keys(day).filter(k => k !== 'day').map(key => day[key] || 0)
+                    )
+                  ) || 1;
+                  return [0, 1, 2, 3, 4].map(i => {
+                    const value = Math.round((maxValue * (4 - i)) / 4);
+                    return (
+                      <text 
+                        key={i}
+                        x="55" 
+                        y={30 + i * 37.5 + 4} 
+                        fontSize="10" 
+                        fill="#6b7280" 
+                        textAnchor="end"
+                      >
+                        {value}
+                      </text>
+                    );
+                  });
+                })()}
                 
                 {/* Dynamic ingredient lines */}
                 {(() => {
-                  // Get all unique ingredient keys from the data (excluding 'month')
-                  const ingredientKeys = Object.keys(ingredientTrendsData[0] || {}).filter(key => key !== 'month');
+                  // Get all unique ingredient keys from the data (excluding 'day')
+                  const ingredientKeys = Object.keys(ingredientTrendsData[0] || {}).filter(key => key !== 'day');
+                  
+                  // ✅ DEBUG: Log ingredient keys and data
+                  console.log('📊 [LINE CHART] Ingredient keys found:', ingredientKeys);
+                  console.log('📊 [LINE CHART] Data sample:', ingredientTrendsData.slice(0, 2));
                   
                   // Calculate max value for scaling
                   const maxValue = Math.max(
@@ -448,23 +488,33 @@ const AnalyticsContent = () => {
                     )
                   ) || 1;
                   
+                  console.log('📊 [LINE CHART] Max value:', maxValue);
+                  
                   // Chart dimensions
-                  const chartWidth = 430; // 480 - 50
-                  const chartHeight = 150; // 170 - 20
-                  const chartStartX = 50;
-                  const chartStartY = 20;
-                  const chartEndY = 170;
+                  const chartWidth = 410; // 470 - 60
+                  const chartHeight = 150; // 180 - 30
+                  const chartStartX = 60;
+                  const chartStartY = 30;
+                  const chartEndY = 180;
                   
                   // Generate points for each ingredient
                   return ingredientKeys.slice(0, 4).map((ingredientKey, index) => {
-                    const points = ingredientTrendsData.map((month, monthIndex) => {
-                      const value = month[ingredientKey] || 0;
-                      // Handle division by zero: if only one month, place it at the start
+                    const points = ingredientTrendsData.map((day, dayIndex) => {
+                      const value = day[ingredientKey] || 0;
+                      // Distribute days evenly across chart width
                       const divisor = ingredientTrendsData.length > 1 ? (ingredientTrendsData.length - 1) : 1;
-                      const x = chartStartX + (monthIndex / divisor) * chartWidth;
+                      const x = chartStartX + (dayIndex / divisor) * chartWidth;
                       const y = chartEndY - (value / maxValue) * chartHeight;
                       return `${x},${y}`;
                     }).join(' ');
+                    
+                    // ✅ DEBUG: Log points for each ingredient
+                    console.log(`📊 [LINE CHART] Ingredient ${ingredientKey} (index ${index}):`, {
+                      points,
+                      color: COLORS[index % COLORS.length],
+                      values: ingredientTrendsData.map(d => d[ingredientKey] || 0),
+                      pointCount: ingredientTrendsData.length
+                    });
                     
                     return (
                       <polyline
@@ -480,46 +530,76 @@ const AnalyticsContent = () => {
                   });
                 })()}
                 
-                {/* X-axis labels */}
-                {ingredientTrendsData.map((month, i) => {
-                  // Handle division by zero: if only one month, place it at the start
-                  const divisor = ingredientTrendsData.length > 1 ? (ingredientTrendsData.length - 1) : 1;
-                  return (
-                    <text 
-                      key={i} 
-                      x={50 + (i / divisor) * 430} 
-                      y="190" 
-                      fontSize="12" 
-                      fill="#6b7280" 
-                      textAnchor="middle"
-                    >
-                      {month.month}
-                    </text>
-                  );
-                })}
+                {/* X-axis labels - Show fewer labels to avoid crowding */}
+                {(() => {
+                  // Calculate optimal number of labels to show (max 8 labels)
+                  const maxLabels = 8;
+                  const totalDays = ingredientTrendsData.length;
+                  const labelInterval = totalDays > maxLabels ? Math.ceil(totalDays / maxLabels) : 1;
+                  
+                  // Filter days to show before mapping
+                  const daysToShow = ingredientTrendsData.filter((day, i) => {
+                    const isFirst = i === 0;
+                    const isLast = i === totalDays - 1;
+                    const isInterval = i % labelInterval === 0;
+                    return isFirst || isLast || isInterval;
+                  });
+                  
+                  return daysToShow.map((day, showIndex) => {
+                    // Find original index
+                    const originalIndex = ingredientTrendsData.indexOf(day);
+                    const divisor = totalDays > 1 ? (totalDays - 1) : 1;
+                    const x = 60 + (originalIndex / divisor) * 410;
+                    
+                    return (
+                      <text 
+                        key={`${originalIndex}-${day.day}`} 
+                        x={x} 
+                        y="205" 
+                        fontSize="7" 
+                        fill="#6b7280" 
+                        textAnchor="middle"
+                        style={{ fontFamily: 'Poppins, sans-serif' }}
+                      >
+                        {day.day}
+                      </text>
+                    );
+                  });
+                })()}
               </svg>
             ) : (
               <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
                 No ingredient trend data available
               </div>
             )}
-            <div className="line-chart-legend">
+            <div className="line-chart-legend" style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginTop: '15px' }}>
               {(() => {
                 if (ingredientTrendsData.length === 0) return null;
-                const ingredientKeys = Object.keys(ingredientTrendsData[0] || {}).filter(key => key !== 'month');
+                // ✅ FIX: Filter by 'day' not 'month'
+                const ingredientKeys = Object.keys(ingredientTrendsData[0] || {}).filter(key => key !== 'day');
                 return ingredientKeys.slice(0, 4).map((ingredientKey, index) => {
                   // Format ingredient name (replace underscores with spaces, capitalize)
                   const formattedName = ingredientKey
                     .replace(/_/g, ' ')
                     .replace(/\b\w/g, l => l.toUpperCase());
                   
+                  // ✅ Skip if name is "Day" (invalid ingredient name)
+                  if (formattedName.toLowerCase() === 'day') {
+                    return null;
+                  }
+                  
                   return (
-                    <div key={ingredientKey} className="legend-row">
+                    <div key={ingredientKey} className="legend-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span 
-                        style={{background: COLORS[index % COLORS.length]}} 
-                        className="legend-line"
+                        style={{
+                          background: COLORS[index % COLORS.length],
+                          width: '20px',
+                          height: '3px',
+                          display: 'inline-block',
+                          borderRadius: '2px'
+                        }}
                       ></span>
-                      <span>{formattedName}</span>
+                      <span style={{ fontSize: '12px', color: '#424242' }}>{formattedName}</span>
                     </div>
                   );
                 });

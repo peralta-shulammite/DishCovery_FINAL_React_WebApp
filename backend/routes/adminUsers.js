@@ -566,6 +566,55 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       'feedback'  // Delete feedback after feedback_replies (which references feedback_id)
     ];
     
+    // ✅ FIX: Try to discover tables with FK constraints automatically
+    // This is optional - if it fails, we'll continue with the manual list
+    try {
+      const [fkTables] = await connection.query(`
+        SELECT DISTINCT TABLE_NAME 
+        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+        WHERE REFERENCED_TABLE_NAME = 'users' 
+        AND TABLE_SCHEMA = DATABASE()
+      `);
+      
+      if (fkTables && fkTables.length > 0) {
+        const allUserTables = fkTables.map(row => row.TABLE_NAME);
+        const missingTables = allUserTables.filter(table => 
+          !tablesToClean.includes(table) && 
+          table !== 'users' && 
+          !table.includes('feedback_replies') // feedback_replies is handled separately
+        );
+        
+        if (missingTables.length > 0) {
+          console.warn(`⚠️ [DELETE USER] WARNING: Found ${missingTables.length} table(s) with FK to users that are NOT in cleanup list:`, missingTables);
+          console.warn(`⚠️ [DELETE USER] Automatically cleaning these tables to prevent FK constraint errors...`);
+          
+          // ✅ FIX: Automatically delete from missing tables before proceeding
+          for (const missingTable of missingTables) {
+            try {
+              console.log(`  🔧 [DELETE USER] Cleaning missing table: ${missingTable}...`);
+              const [deleteResult] = await connection.query(
+                `DELETE FROM ${missingTable} WHERE user_id = ?`,
+                [id]
+              );
+              const affectedRows = deleteResult?.affectedRows || 0;
+              if (affectedRows > 0) {
+                console.log(`  ✅ [DELETE USER] Cleaned ${missingTable}: ${affectedRows} row(s) deleted`);
+              }
+            } catch (missingTableErr) {
+              if (missingTableErr.code === 'ER_NO_SUCH_TABLE' || missingTableErr.code === '42S02') {
+                console.log(`  ⚠️ [DELETE USER] Table ${missingTable} doesn't exist, skipping`);
+              } else {
+                console.warn(`  ⚠️ [DELETE USER] Could not clean ${missingTable}:`, missingTableErr.message);
+              }
+            }
+          }
+        }
+      }
+    } catch (fkErr) {
+      console.warn(`⚠️ [DELETE USER] Could not query FK constraints (non-critical):`, fkErr.message);
+      // Continue with manual cleanup list
+    }
+    
     // Track any critical errors during cleanup
     let criticalError = null;
     
@@ -768,14 +817,12 @@ router.delete('/:id', authenticateToken, adminAuth, async (req, res) => {
       }
     }
     
-    // Delete the user (with retry logic for connection errors)
+    // Delete the user
     try {
       console.log(`  🔍 Attempting to delete user from users table...`);
-      const [deleteUserResult] = await executeQueryWithRetry(
-        connection, 
+      const [deleteUserResult] = await connection.query(
         'DELETE FROM users WHERE user_id = ?', 
-        [id],
-        3 // max retries
+        [id]
       );
       const userDeleted = deleteUserResult?.affectedRows || (Array.isArray(deleteUserResult) ? deleteUserResult.length : 0);
       if (userDeleted === 0) {

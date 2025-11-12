@@ -141,7 +141,30 @@ export const transformRecipeForFrontend = (dbData, images = null, ingredients = 
     })(),
     verifierName: verification?.verifier_name || dbData.verifierName || dbData.verifier_name || '',
     verifierCredentials: verification?.verifier_credentials || dbData.verifierCredentials || dbData.verifier_credentials || '',
-    engagement: engagement || dbData.engagement || { tried: 0, saved: 0 },
+    // ✅ FIX: Transform engagement object to ensure tried and saved are properly set
+    engagement: (() => {
+      // If engagement is passed, transform it
+      if (engagement) {
+        const triedCount = Number(engagement.tried_count) || Number(engagement.tried) || 0;
+        const savedCount = Number(engagement.save_count) || Number(engagement.saved) || 0;
+        console.log(`   ✅ [RECIPEHELPERS] Transforming engagement for recipe ${dbData.recipe_id || dbData.id}: tried=${triedCount}, saved=${savedCount}`);
+        return {
+          tried: triedCount,
+          saved: savedCount
+        };
+      }
+      // If dbData has engagement, use it
+      if (dbData.engagement) {
+        const triedCount = Number(dbData.engagement.tried_count) || Number(dbData.engagement.tried) || 0;
+        const savedCount = Number(dbData.engagement.save_count) || Number(dbData.engagement.saved) || 0;
+        return {
+          tried: triedCount,
+          saved: savedCount
+        };
+      }
+      // Default fallback
+      return { tried: 0, saved: 0 };
+    })(),
     rating: dbData.average_rating || dbData.rating || 4.5,
     created_at: dbData.created_at,
     updated_at: dbData.updated_at
