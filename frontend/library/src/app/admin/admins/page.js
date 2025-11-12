@@ -629,12 +629,6 @@ const AdminManagementPage = () => {
                           Edit
                         </button>
                         <button 
-                          className="action-btn btn-toggle"
-                          onClick={() => handleToggleStatus(admin.id)}
-                        >
-                          {admin.status === 'Active' ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button 
                           className="action-btn btn-delete"
                           onClick={() => handleDeleteAdmin(admin.id)}
                         >
