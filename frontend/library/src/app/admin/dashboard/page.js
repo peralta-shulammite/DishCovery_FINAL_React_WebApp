@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '../../components/adminlayout';
 import './styles.css';
-import api from '../../user/home/api'; 
+import api from '../../user/home/api';
+import { adminFeedbackAPI } from '../feedback/api'; 
 
 const DashboardContent = () => {
   const router = useRouter();
@@ -20,22 +21,60 @@ const DashboardContent = () => {
   const [popularFilters, setPopularFilters] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Dummy data for Dietary Restrictions Overview (not connected to backend)
-const dummyFilterData = [
-  { name: 'Vegetarian', value: 145, color: '#4caf50' },
-  { name: 'Vegan', value: 98, color: '#2196f3' },
-  { name: 'Gluten-Free', value: 87, color: '#ff9800' },
-  { name: 'Dairy-Free', value: 76, color: '#f44336' },
-  { name: 'Keto', value: 54, color: '#9c27b0' }
-];
+  // 🆕 Dietary Restrictions Overview States (same as analytics)
+  const [filterDistributionData, setFilterDistributionData] = useState([]);
+  const [totalUses, setTotalUses] = useState(0);
+  
+  // 🆕 Recent Notifications States (real feedbacks from database)
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
 
-const dummyTotalUses = dummyFilterData.reduce((sum, item) => sum + item.value, 0);
+  // ROYGBIV color scheme: Red, Orange, Yellow, Green, Blue, Indigo, Violet (same as analytics)
+  const COLORS = ['#f44336', '#ff9800', '#ffeb3b', '#4caf50', '#2196f3', '#3f51b5', '#9c27b0'];
 
-// API Base URL
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  // API Base URL - Use same pattern as analytics page
+  const getApiBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      // Client-side: check if we're on Vercel
+      if (window.location.hostname.includes('vercel.app')) {
+        return 'https://dishcovery-backend-wvhn.onrender.com/api';
+      }
+      // For localhost testing, always use localhost
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000/api';
+      }
+    }
+    // Fallback to environment variable or localhost
+    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+  };
+
+  const API_BASE_URL = getApiBaseUrl();
   
   const getAuthToken = () => {
     return localStorage.getItem('token');
+  };
+
+  // 🆕 Format time ago helper function
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return 'Unknown';
+    
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks > 1 ? 's' : ''} ago`;
+    
+    const diffMonths = Math.floor(diffDays / 30);
+    return `${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`;
   };
 
   // 🆕 Fetch Real Dashboard Data
@@ -62,26 +101,66 @@ const dummyTotalUses = dummyFilterData.reduce((sum, item) => sum + item.value, 0
           }
         }
 
-        // Fetch Dietary Filters
-        const dietaryResponse = await fetch(`${API_BASE_URL}/dietary-restrictions/admin`, { headers });
-        if (dietaryResponse.ok) {
-          const dietaryData = await dietaryResponse.json();
-          if (dietaryData.success && dietaryData.data) {
-            // Sort by usage and take top 5
-            const sorted = dietaryData.data
-              .filter(d => d.isActive)
-              .sort((a, b) => b.userCount - a.userCount)
+        // 🆕 Fetch Dietary Restrictions Overview from analytics endpoint (same as analytics page)
+        const analyticsUrl = `${API_BASE_URL}/admin/analytics?dateRange=Last 30 Days`;
+        console.log('📊 [DASHBOARD] Fetching analytics data from:', analyticsUrl);
+        
+        const analyticsResponse = await fetch(analyticsUrl, { headers });
+        
+        if (!analyticsResponse.ok) {
+          let errorMessage = `HTTP error! status: ${analyticsResponse.status}`;
+          try {
+            const errorData = await analyticsResponse.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+            console.error('❌ [DASHBOARD] Analytics error response:', errorData);
+          } catch (parseError) {
+            errorMessage = analyticsResponse.statusText || errorMessage;
+          }
+          console.warn('⚠️ [DASHBOARD] Failed to fetch analytics data:', errorMessage);
+          console.warn('⚠️ [DASHBOARD] Falling back to dietary restrictions endpoint');
+          
+          // Fallback to old endpoint if analytics fails
+          const dietaryResponse = await fetch(`${API_BASE_URL}/dietary-restrictions/admin`, { headers });
+          if (dietaryResponse.ok) {
+            const dietaryData = await dietaryResponse.json();
+            if (dietaryData.success && dietaryData.data) {
+              const sorted = dietaryData.data
+                .filter(d => d.isActive)
+                .sort((a, b) => b.userCount - a.userCount)
+                .slice(0, 5)
+                .map(d => ({
+                  filter: d.name,
+                  usage: d.userCount
+                }));
+              setPopularFilters(sorted);
+            }
+          }
+        } else {
+          const analyticsData = await analyticsResponse.json();
+          
+          if (analyticsData.success && analyticsData.data) {
+            // Set filter distribution data (same as analytics page)
+            const filterDist = analyticsData.data.filterDistribution || [];
+            const total = analyticsData.data.totalUses || 0;
+            
+            setFilterDistributionData(filterDist);
+            setTotalUses(total);
+            
+            // Also set popularFilters for backward compatibility (top 5)
+            const top5Filters = filterDist
               .slice(0, 5)
-              .map(d => ({
-                filter: d.name,
-                usage: d.userCount
+              .map(filter => ({
+                filter: filter.name,
+                usage: filter.value
               }));
-            setPopularFilters(sorted);
+            setPopularFilters(top5Filters);
+          } else {
+            throw new Error(analyticsData.message || 'Failed to fetch analytics data');
           }
         }
 
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        // Silently handle errors
       } finally {
         setLoading(false);
       }
@@ -108,20 +187,111 @@ const dummyTotalUses = dummyFilterData.reduce((sum, item) => sum + item.value, 0
     }
   }, []);
 
-  const notifications = [
-    { id: 1, type: 'restriction', message: 'New dietary restriction request: "Low FODMAP"', time: '2 hours ago' },
-    { id: 2, type: 'ingredient', message: 'Missing ingredient reported: "Tempeh"', time: '4 hours ago' },
-    { id: 3, type: 'recipe', message: 'Recipe flagged for review: "Spicy Thai Curry"', time: '6 hours ago' },
-    { id: 4, type: 'user', message: 'User feedback: Recipe recommendations not accurate', time: '1 day ago' }
-  ];
+  // 🆕 Fetch Recent Notifications (Feedbacks) from Database
+  useEffect(() => {
+    const fetchRecentNotifications = async () => {
+      try {
+        setNotificationsLoading(true);
+        // Check if token exists
+        const token = getAuthToken();
+        if (!token) {
+          setNotifications([]);
+          setNotificationsLoading(false);
+          return;
+        }
+        
+        // Fetch latest 4 feedbacks
+        let response;
+        try {
+          response = await adminFeedbackAPI.getAllFeedback({
+            sortBy: 'newest',
+            limit: 4,
+            offset: 0
+          });
+        } catch (apiError) {
+          throw new Error(`API call failed: ${apiError.message || 'Unknown error'}`);
+        }
+        
+        // Check if response is valid
+        if (!response) {
+          throw new Error('No response received from API');
+        }
+        
+        if (!response.success) {
+          throw new Error(response.message || 'API returned unsuccessful response');
+        }
+        
+        if (!response.data) {
+          setNotifications([]);
+          return;
+        }
+        
+        if (!response.data.feedbacks) {
+          setNotifications([]);
+          return;
+        }
+        
+        if (response && response.success && response.data && response.data.feedbacks) {
+          // Format feedbacks to match notification structure
+          const formattedNotifications = response.data.feedbacks.map((feedback) => {
+            // Determine notification type based on message content
+            let type = 'user';
+            let message = `User feedback: ${feedback.message || 'No message'}`;
+            
+            // Check if message contains keywords to determine type
+            const msgLower = (feedback.message || '').toLowerCase();
+            if (msgLower.includes('dietary') || msgLower.includes('restriction') || msgLower.includes('allergy')) {
+              type = 'restriction';
+              message = `New dietary restriction request: "${(feedback.message || '').substring(0, 50)}${(feedback.message || '').length > 50 ? '...' : ''}"`;
+            } else if (msgLower.includes('ingredient') || msgLower.includes('missing')) {
+              type = 'ingredient';
+              message = `Missing ingredient reported: "${(feedback.message || '').substring(0, 50)}${(feedback.message || '').length > 50 ? '...' : ''}"`;
+            } else if (msgLower.includes('recipe') || msgLower.includes('flag')) {
+              type = 'recipe';
+              message = `Recipe flagged for review: "${(feedback.message || '').substring(0, 50)}${(feedback.message || '').length > 50 ? '...' : ''}"`;
+            } else {
+              // Default to user feedback
+              const msg = feedback.message || 'No message';
+              const truncatedMessage = msg.length > 60 
+                ? msg.substring(0, 60) + '...' 
+                : msg;
+              message = `User feedback: ${truncatedMessage}`;
+            }
+            
+            return {
+              id: feedback.feedbackId || `feedback-${Math.random()}`,
+              type: type,
+              message: message,
+              time: formatTimeAgo(feedback.createdAt),
+              feedbackId: feedback.feedbackId,
+              isRead: feedback.isRead,
+              status: feedback.status
+            };
+          });
+          
+          setNotifications(formattedNotifications);
+        } else {
+          setNotifications([]);
+        }
+      } catch (error) {
+        // Fallback to empty array on error
+        setNotifications([]);
+      } finally {
+        setNotificationsLoading(false);
+      }
+    };
+
+    fetchRecentNotifications();
+  }, []);
 
   // 🆕 Handle View button clicks - Navigate to admin pages
   const handleViewClick = (section) => {
-    console.log(`Navigating to ${section} page...`);
-    
     switch(section) {
       case 'dietary-filters':
         router.push('/admin/dietary-restrictions');
+        break;
+      case 'dietary-overview':
+        router.push('/admin/analytics');
         break;
       case 'ingredients':
         router.push('/admin/ingredients');
@@ -163,35 +333,37 @@ const dummyTotalUses = dummyFilterData.reduce((sum, item) => sum + item.value, 0
       'Pending Requests',
       'Popular Dietary Filters',
       'Filter Use Count',
-      'Top Requested Ingredients',
-      'Request Count',
+      'Filter Percentage',
+      'Total Uses',
       'Generated By (Admin)',
       'Generated Date'
     ];
 
-    // Format popular filters
-    const popularFiltersList = popularFilters.map(f => f.filter).join(', ') || 'None';
-    const filterUseCounts = popularFilters.map(f => f.usage).join(', ') || '0';
-    
-    // Format top ingredients
-    const topIngredientsList = topIngredients.map(ing => ing.ingredient).join(', ') || 'None';
-    const requestCounts = topIngredients.map(ing => ing.requests).join(', ') || '0';
+    // Format filter distribution data (same structure as analytics)
+    const filterRows = filterDistributionData.map(filter => ({
+      name: filter.name,
+      count: filter.value || 0,
+      percentage: totalUses > 0 ? ((filter.value || 0) / totalUses * 100).toFixed(1) : '0.0'
+    }));
 
-    const csvRows = [
-      headers.map(escapeCSV).join(','),
-      [
-        selectedPeriod,
-        dashboardStats.newUsers,
-        dashboardStats.activeUsers,
-        dashboardStats.pendingRequests,
-        popularFiltersList,
-        filterUseCounts,
-        topIngredientsList,
-        requestCounts,
-        adminName,
-        exportDate
-      ].map(escapeCSV).join(',')
-    ];
+    const csvRows = [headers.map(escapeCSV).join(',')];
+    
+    // Add filter distribution rows
+    filterRows.forEach((filter, index) => {
+      const isFirstRow = index === 0;
+      csvRows.push([
+        isFirstRow ? selectedPeriod : '',
+        isFirstRow ? dashboardStats.newUsers : '',
+        isFirstRow ? dashboardStats.activeUsers : '',
+        isFirstRow ? dashboardStats.pendingRequests : '',
+        filter.name,
+        filter.count,
+        `${filter.percentage}%`,
+        isFirstRow ? totalUses : '',
+        isFirstRow ? adminName : '',
+        isFirstRow ? exportDate : ''
+      ].map(escapeCSV).join(','));
+    });
 
     const csvContent = csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -307,41 +479,44 @@ const dummyTotalUses = dummyFilterData.reduce((sum, item) => sum + item.value, 0
           </div>
         </div>
 
-        {/* Dietary Restrictions Overview */}
+        {/* Dietary Restrictions Overview - Same as Analytics Page */}
         <div className="content-section dietary-overview">
-          <h3>Dietary Restrictions Overview</h3>
+          <button className="section-view-btn" onClick={() => handleViewClick('dietary-overview')}>
+            View
+          </button>
+          <div className="chart-header">
+            <h3>Dietary Restrictions Overview</h3>
+            <p className="chart-subtitle">Percentage breakdown by restriction type</p>
+          </div>
           <div className="donut-chart-container">
-            <div 
-              className="donut-chart" 
-              style={{
-                background: `conic-gradient(
-                  ${dummyFilterData.map((item, index) => {
-                    const prevSum = dummyFilterData.slice(0, index).reduce((sum, d) => sum + d.value, 0);
-                    const startPercent = (prevSum / dummyTotalUses) * 100;
-                    const endPercent = ((prevSum + item.value) / dummyTotalUses) * 100;
-                    return `${item.color} ${startPercent}% ${endPercent}%`;
-                  }).join(', ')}
-                )`
-              }}
-            >
+            <div className="donut-chart" style={{
+              background: filterDistributionData.length > 0 && totalUses > 0 ? `conic-gradient(${filterDistributionData.map((item, index) => {
+                const startPercent = filterDistributionData.slice(0, index).reduce((sum, i) => sum + (i.percentage || 0), 0);
+                const endPercent = startPercent + (item.percentage || 0);
+                return `${COLORS[index % COLORS.length]} ${startPercent}% ${endPercent}%`;
+              }).join(', ')})` : 'conic-gradient(#e5e7eb 0% 100%)'
+            }}>
               <div className="donut-hole">
-                <div className="donut-total">{dummyTotalUses}</div>
+                <div className="donut-total">{totalUses.toLocaleString()}</div>
                 <div className="donut-label">Total Uses</div>
               </div>
             </div>
           </div>
           <div className="pie-legend">
-            {dummyFilterData.map((item, index) => {
-              const percentage = ((item.value / dummyTotalUses) * 100).toFixed(1);
-              return (
+            {filterDistributionData.length > 0 ? (
+              filterDistributionData.map((item, index) => (
                 <div key={index} className="pie-legend-item">
-                  <span className="legend-color" style={{ background: item.color }}></span>
-                  <span className="legend-name">{item.name}</span>
-                  <span className="legend-percentage">{percentage}%</span>
-                  <span className="legend-value">{item.value} uses</span>
+                  <span className="legend-color" style={{ background: COLORS[index % COLORS.length] }}></span>
+                  <span className="legend-name">{item.name || 'Unknown'}</span>
+                  <span className="legend-percentage">{(item.percentage || 0).toFixed(1)}%</span>
+                  <span className="legend-value">{(item.value || 0).toLocaleString()}</span>
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                No filter data available
+              </div>
+            )}
           </div>
         </div>
 
@@ -351,16 +526,26 @@ const dummyTotalUses = dummyFilterData.reduce((sum, item) => sum + item.value, 0
             View
           </button>
           <h3>Recent Notifications</h3>
-          <div className="notification-list">
-            {notifications.map((notification) => (
-              <div key={notification.id} className="notification-item">
-                <div className="notification-content">
-                  <span className="notification-message">{notification.message}</span>
-                  <span className="notification-time">{notification.time}</span>
+          {notificationsLoading ? (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+              ⏳ Loading notifications...
+            </div>
+          ) : notifications.length > 0 ? (
+            <div className="notification-list">
+              {notifications.map((notification) => (
+                <div key={notification.id} className="notification-item">
+                  <div className="notification-content">
+                    <span className="notification-message">{notification.message}</span>
+                    <span className="notification-time">{notification.time}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+              No recent notifications
+            </div>
+          )}
         </div>
       </div>
       </>

@@ -496,6 +496,15 @@ body {
   vertical-align: middle;
 }
 
+/* Override for activity column to match dates font-size only */
+.enhanced-table td .activity-stat .stat-value {
+  font-size: 14px !important;
+}
+
+.enhanced-table td .activity-stat .stat-label {
+  font-size: 14px !important;
+}
+
 .checkbox-col {
   width: 50px;
 }
@@ -613,6 +622,14 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.activity-stat .stat-value {
+  font-size: 14px !important;
+}
+
+.activity-stat .stat-label {
+  font-size: 14px !important;
 }
 
 .action-buttons {
