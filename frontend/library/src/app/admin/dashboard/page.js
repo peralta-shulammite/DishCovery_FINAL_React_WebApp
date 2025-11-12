@@ -618,6 +618,44 @@ const DashboardContent = () => {
           </div>
         </div>
 
+        {/* Dietary Restrictions Overview */}
+        <div className="content-section dietary-overview">
+          <h3>Dietary Restrictions Overview</h3>
+          <div className="donut-chart-container">
+            <div 
+              className="donut-chart" 
+              style={{
+                background: `conic-gradient(
+                  ${dummyFilterData.map((item, index) => {
+                    const prevSum = dummyFilterData.slice(0, index).reduce((sum, d) => sum + d.value, 0);
+                    const startPercent = (prevSum / dummyTotalUses) * 100;
+                    const endPercent = ((prevSum + item.value) / dummyTotalUses) * 100;
+                    return `${item.color} ${startPercent}% ${endPercent}%`;
+                  }).join(', ')}
+                )`
+              }}
+            >
+              <div className="donut-hole">
+                <div className="donut-total">{dummyTotalUses}</div>
+                <div className="donut-label">Total Uses</div>
+              </div>
+            </div>
+          </div>
+          <div className="pie-legend">
+            {dummyFilterData.map((item, index) => {
+              const percentage = ((item.value / dummyTotalUses) * 100).toFixed(1);
+              return (
+                <div key={index} className="pie-legend-item">
+                  <span className="legend-color" style={{ background: item.color }}></span>
+                  <span className="legend-name">{item.name}</span>
+                  <span className="legend-percentage">{percentage}%</span>
+                  <span className="legend-value">{item.value} uses</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Notifications Center */}
         <div className="content-section notifications">
           <button className="section-view-btn" onClick={() => handleViewClick('notifications')}>

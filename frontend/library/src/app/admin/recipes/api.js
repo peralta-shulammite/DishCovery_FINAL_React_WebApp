@@ -216,6 +216,15 @@ export const recipeAPI = {
     const endpoint = `/admin/recipes${queryString ? `?${queryString}` : ''}`;
     
     const response = await apiCall(endpoint);
+    console.log('📊 API Response:', response);
+    console.log('📊 Response.data:', response.data);
+    if (response.data && response.data.length > 0) {
+      const firstRecipe = response.data[0];
+      console.log('📊 First recipe from API:', firstRecipe);
+      console.log('📊 First recipe engagement:', firstRecipe.engagement);
+      console.log('📊 First recipe engagement FULL:', JSON.stringify(firstRecipe.engagement, null, 2));
+      console.log('📊 First recipe engagement keys:', firstRecipe.engagement ? Object.keys(firstRecipe.engagement) : 'null');
+    }
     return response.data || [];
   },
 

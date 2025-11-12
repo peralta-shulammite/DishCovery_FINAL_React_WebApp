@@ -101,7 +101,7 @@ const RecipeManagement = () => {
         // Sort medical conditions to match the standard order
         const standardOrder = [
           'Allergy To Nuts',
-          'Allergy To Shellfishes',
+          'Allergy To Shellfish',
           'Allergy To Eggs',
           'Allergy To Soy',
           'Allergy To Dairy',
@@ -150,6 +150,23 @@ const RecipeManagement = () => {
       console.log('Fetching recipes with filters:', filters);
       
       const fetchedRecipes = await recipeAPI.getAll(filters);
+      console.log('📊 Fetched recipes:', fetchedRecipes.length);
+      
+      // Debug: Log engagement data from first few recipes
+      if (fetchedRecipes.length > 0) {
+        console.log('\n📊 ENGAGEMENT DATA IN FRONTEND:');
+        fetchedRecipes.slice(0, 5).forEach(recipe => {
+          console.log(`   Recipe ${recipe.id} (${recipe.title}):`);
+          console.log(`     - engagement:`, recipe.engagement);
+          console.log(`     - engagement keys:`, recipe.engagement ? Object.keys(recipe.engagement) : 'null');
+          console.log(`     - engagement FULL:`, JSON.stringify(recipe.engagement, null, 2));
+          console.log(`     - engagement.tried:`, recipe.engagement?.tried);
+          console.log(`     - engagement.saved:`, recipe.engagement?.saved);
+          console.log(`     - tried_count:`, recipe.tried_count);
+          console.log(`     - save_count:`, recipe.save_count);
+        });
+      }
+      
       setRecipes(fetchedRecipes);
       
     } catch (err) {
