@@ -176,6 +176,13 @@ const AnalyticsContent = () => {
     return stringValue;
   };
 
+    const ExportIcon = () => (
+    <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+      <path d="M8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11 8 15.01z"/>
+    </svg>
+  );
+
   const handleExport = () => {
     // Export analytics data as CSV with specified format
     const exportDate = new Date().toISOString().split('T')[0];
@@ -319,30 +326,34 @@ const AnalyticsContent = () => {
       )}
 
       {/* Header Controls */}
-      <div className="analytics-header">
-        <div className="header-left">
-          <h2>Analytics Dashboard</h2>
-          <p className="subtitle">Comprehensive insights and performance metrics</p>
-        </div>
-        <div className="header-controls">
-          <div className="date-range-selector">
-            <label>Date Range:</label>
-            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
-              <option value="Last 7 Days">Last 7 Days</option>
-              <option value="Last 30 Days">Last 30 Days</option>
-              <option value="Last 3 Months">Last 3 Months</option>
-              <option value="Last 6 Months">Last 6 Months</option>
-              <option value="Last Year">Last Year</option>
-              <option value="Custom">Custom Range</option>
-            </select>
+      <div className="controls-section">
+        <div className="controls-header">
+          <div>
+            <h3>Analytics Dashboard</h3>
+            <p className="subtitle">Track key metrics and performance indicators</p>
           </div>
-          <button className="export-analytics-btn" onClick={handleExport}>
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
-              <path d="M8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11 8 15.01z"/>
-            </svg>
-            Export Data
-          </button>
+        </div>
+        
+        <div className="controls-container">
+          <div className="filter-section">
+            <div className="filter-group">
+              <span className="filter-label">Date Range</span>
+              <select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="sort-select">
+                <option value="Last 7 Days">Last 7 Days</option>
+                <option value="Last 30 Days">Last 30 Days</option>
+                <option value="Last 3 Months">Last 3 Months</option>
+                <option value="Last 6 Months">Last 6 Months</option>
+                <option value="Last Year">Last Year</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="action-section">
+            <button className="export-btn" onClick={handleExport}>
+              <ExportIcon />
+              Export Report
+            </button>
+          </div>
         </div>
       </div>
 

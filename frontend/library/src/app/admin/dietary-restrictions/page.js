@@ -324,88 +324,113 @@ const DietaryRestrictionsManagementContent = () => {
     </svg>
   );
 
-  return (
+    return (
     <div className="main-content">
-      {/* Overview Panel */}
-      <div className="controls-container">
-        <div className="status-filters">
-          <span className="filter-label">Total Restrictions:</span>
-          <span>{restrictions.length}</span>
+      {/* Enhanced Page Header */}
+      <div className="page-header-enhanced">
+        <div className="header-content">
+          <div className="header-text">
+            <h1 className="page-title">Dietary Restrictions Management</h1>
+            <p className="page-description">Manage dietary restrictions, allergies, and food preferences</p>
+          </div>
+          <div className="header-actions">
+            <button className="add-restriction-btn" onClick={handleAddRestriction}>
+              <PlusIcon />
+              Add Restriction
+            </button>
+          </div>
         </div>
-        <div className="status-filters">
-          <span className="filter-label">Most Used:</span>
-          <span>
-            {restrictions.sort((a, b) => b.usedBy - a.usedBy)[0]?.name || 'None'}
-          </span>
-        </div>
-        <div className="status-filters">
-          <span className="filter-label">Recently Added:</span>
-          <span>
-            {restrictions.sort((a, b) => new Date(b.lastEdited) - new Date(a.lastEdited))[0]?.name || 'None'}
-          </span>
-        </div>
-        <button className="export-btn" onClick={handleAddRestriction}>
-          <PlusIcon />
-          Add Restriction
-        </button>
       </div>
 
-      {/* Filters */}
-      <div className="controls-container">
-        <div className="search-container">
-          <input
-            type="text"
-            placeholder="Search restrictions..."
-            className="search-input"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <button className="search-btn">
-            <SearchIcon />
-          </button>
+      {/* Overview Stats */}
+      <div className="stats-overview">
+        <div className="stat-item">
+          <span className="stat-value">{restrictions.length}</span>
+          <span className="stat-label">Total Restrictions</span>
         </div>
-        <div className="status-filters">
-          <span className="filter-label">Status:</span>
-          <button
-            className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('All')}
-          >
-            All
-          </button>
-          {statuses.map((status) => (
+        <div className="stat-item">
+          <span className="stat-value">{restrictions.sort((a, b) => b.usedBy - a.usedBy)[0]?.name || 'None'}</span>
+          <span className="stat-label">Most Used</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-value">{restrictions.sort((a, b) => new Date(b.lastEdited) - new Date(a.lastEdited))[0]?.name || 'None'}</span>
+          <span className="stat-label">Recently Added</span>
+        </div>
+      </div>
+
+      {/* Enhanced Filters */}
+      <div className="controls-section">
+        <div className="controls-header">
+          <h3>Search & Filter</h3>
+        </div>
+        
+        <div className="controls-container-inner">
+        <div className="filters-left">
+          <div className="search-section">
+            <div className="search-container">
+              <input
+                type="text"
+                placeholder="Search restrictions..."
+                className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <button className="search-btn">
+                <SearchIcon />
+              </button>
+            </div>
+          </div>
+
+          <div className="filter-section">
+            <div className="filter-group">
+              <span className="filter-label">Status Filter</span>
+              <div className="status-filters">
+                <button
+                  className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('All')}
+                >
+                  All
+                </button>
+                {statuses.map((status) => (
+                  <button
+                    key={status}
+                    className={`filter-btn ${statusFilter === status ? 'active' : ''}`}
+                    onClick={() => setStatusFilter(status)}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-label">Category</span>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="sort-select"
+              >
+                <option value="All">All Categories</option>
+                {categories.length > 0 ? categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                )) : (
+                  <>
+                    <option value="Allergy">Allergy</option>
+                    <option value="Intolerance">Intolerance</option>
+                    <option value="Good For Everyone">Good For Everyone</option>
+                  </>
+                )}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="action-section">
             <button
-              key={status}
-              className={`filter-btn ${statusFilter === status ? 'active' : ''}`}
-              onClick={() => setStatusFilter(status)}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
-        <div className="date-range">
-          <span className="filter-label">Category:</span>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="date-select"
-          >
-            <option value="All">All Categories</option>
-            {categories.length > 0 ? categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            )) : (
-              <>
-                <option value="Allergy">Allergy</option>
-                <option value="Intolerance">Intolerance</option>
-                <option value="Good For Everyone">Good For Everyone</option>
-              </>
-            )}
-          </select>
-        </div>
-        <button
-          className="export-btn"
-          onClick={() => {
+              className="export-btn"
+              onClick={() => {
             // Helper function to escape CSV values
             const escapeCSV = (value) => {
               if (value === null || value === undefined) return '';
@@ -456,10 +481,12 @@ const DietaryRestrictionsManagementContent = () => {
             a.download = `dietary-restrictions-export-${exportDate}.csv`;
             a.click();
             URL.revokeObjectURL(url);
-          }}
-        >
-          Export Data
-        </button>
+}}
+            >
+              Export Data
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Restriction List Table */}
@@ -507,23 +534,21 @@ const DietaryRestrictionsManagementContent = () => {
                   <td style={{ padding: '12px', color: '#64748b' }}>{restriction.usedBy} users</td>
                   <td style={{ padding: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
-                      className="btn-edit"
+                      className="action-btn btn-edit"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditRestriction(restriction);
                       }}
-                      style={{ padding: '6px 12px', minWidth: '80px' }}
                     >
                       <EditIcon />
                       Edit
                     </button>
                     <button
-                      className="btn-delete"
+                      className="action-btn btn-delete"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteRestriction(restriction.id);
                       }}
-                      style={{ padding: '6px 12px', minWidth: '80px' }}
                     >
                       <DeleteIcon />
                       Delete
@@ -593,17 +618,15 @@ const DietaryRestrictionsManagementContent = () => {
                   <td style={{ padding: '12px', color: '#64748b' }}>{request.suggestedDescription}</td>
                   <td style={{ padding: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
-                      className="btn-edit"
+                      className="action-btn btn-edit"
                       onClick={() => handleApproveRequest(request)}
-                      style={{ padding: '6px 12px', minWidth: '80px' }}
                     >
                       <EditIcon />
                       Approve
                     </button>
                     <button
-                      className="btn-delete"
+                      className="action-btn btn-delete"
                       onClick={() => handleRejectRequest(request.id)}
-                      style={{ padding: '6px 12px', minWidth: '80px' }}
                     >
                       <DeleteIcon />
                       Reject
@@ -779,50 +802,7 @@ const DietaryRestrictionsManagementContent = () => {
                   <option value="Admin-only">Admin-only</option>
                 </select>
               </div>
-              <div className="form-section">
-                <label className="form-label">Merge with Existing Restriction (Optional)</label>
-                <select
-                  className="form-select"
-                  onChange={(e) => {
-                    if (e.target.value && window.confirm('Are you sure you want to merge this restriction?')) {
-                      const targetRestriction = restrictions.find((r) => r.id === parseInt(e.target.value));
-                      if (targetRestriction) {
-                        setRestrictions(
-                          restrictions
-                            .map((r) =>
-                              r.id === targetRestriction.id
-                                ? {
-                                    ...r,
-                                    usedBy: r.usedBy + selectedRestriction.usedBy,
-                                    changeLog: [
-                                      ...r.changeLog,
-                                      {
-                                        date: new Date().toISOString().split('T')[0],
-                                        by: 'Admin',
-                                        change: `Merged with ${selectedRestriction.name}`,
-                                      },
-                                    ],
-                                  }
-                                : r
-                            )
-                            .filter((r) => r.id !== selectedRestriction.id)
-                        );
-                        setShowEditModal(false);
-                        resetForm();
-                      }
-                    }
-                  }}
-                >
-                  <option value="">Select restriction to merge with</option>
-                  {restrictions
-                    .filter((r) => r.id !== selectedRestriction.id)
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
+              
               <div className="form-section">
                 <label className="form-label">Change Log</label>
                 <ul style={{ padding: '0', listStyle: 'none' }}>

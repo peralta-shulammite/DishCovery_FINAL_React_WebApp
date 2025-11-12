@@ -659,34 +659,33 @@ const UserManagementContent = () => {
   return (
     <div className="users-content">
       {/* Page Header */}
-      <div className="page-header">
-        <div className="page-title-section">
-          <h1 className="page-title">User Management</h1>
-          <p className="page-description">Manage user accounts, monitor activity, and maintain a healthy app environment</p>
-        </div>
-        <div className="page-actions">
-          <button 
-            className="secondary-action-btn" 
-            onClick={() => {
-              if (selectedUsers.length === 0) {
-                alert('Please select at least one user first.');
-                return;
-              }
-              setShowBulkActionModal(true);
-            }}
-            style={{ 
-              background: selectedUsers.length > 0 ? '#2E7D32' : 'transparent',
-              color: selectedUsers.length > 0 ? 'white' : 'inherit'
-            }}
-          >
-            <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            Bulk Actions
-          </button>
+      {/* Enhanced Page Header */}
+      <div className="page-header-enhanced">
+        <div className="header-content">
+          <div className="header-text">
+            <h1 className="page-title">User Management</h1>
+            <p className="page-description">Manage user accounts, monitor activity, and maintain a healthy app environment</p>
+          </div>
+          <div className="header-actions">
+            <button 
+              className="bulk-action-btn" 
+              onClick={() => {
+                if (selectedUsers.length === 0) {
+                  alert('Please select at least one user first.');
+                  return;
+                }
+                setShowBulkActionModal(true);
+              }}
+            >
+              <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              Bulk Actions {selectedUsers.length > 0 && `(${selectedUsers.length})`}
+            </button>
+          </div>
         </div>
       </div>
-
+      
       {/* Enhanced Stats Cards */}
       <div className="stats-container">
         <div className="stat-card total-users">
@@ -1023,33 +1022,6 @@ const UserManagementContent = () => {
                             <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
                           </svg>
                         </button>
-                        {user.status === 'Active' ? (
-                          <button 
-                            className="action-btn-small warning"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeactivateUser(user.id, user.username);
-                            }}
-                            title="Deactivate User"
-                          >
-                            <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm0-4V7h2v6h-2z"/>
-                            </svg>
-                          </button>
-                        ) : (
-                          <button 
-                            className="action-btn-small success"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleActivateUser(user.id, user.username);
-                            }}
-                            title="Activate User"
-                          >
-                            <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                            </svg>
-                          </button>
-                        )}
                         <button 
                           className="action-btn-small danger"
                           onClick={(e) => {
@@ -1503,34 +1475,11 @@ const UserManagementContent = () => {
                   <span>Send Message</span>
                   <span className="option-description">Send notification to selected users</span>
                 </button>
-                <button 
-                  className="bulk-option-btn"
-                  onClick={handleBulkSendReminder}
-                  disabled={selectedUsers.length === 0}
-                  style={{ opacity: selectedUsers.length === 0 ? 0.5 : 1, cursor: selectedUsers.length === 0 ? 'not-allowed' : 'pointer' }}
-                >
-                  <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                  </svg>
-                  <span>Send Reminder</span>
-                  <span className="option-description">Send activity reminder to inactive users</span>
-                </button>
               </div>
 
               <div className="bulk-option-group">
                 <h4>Account Management</h4>
-                <button 
-                  className="bulk-option-btn warning"
-                  onClick={handleBulkDeactivate}
-                  disabled={selectedUsers.length === 0}
-                  style={{ opacity: selectedUsers.length === 0 ? 0.5 : 1, cursor: selectedUsers.length === 0 ? 'not-allowed' : 'pointer' }}
-                >
-                  <svg className="icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17h2v-2h-2v2zm1-4c.55 0 1-.45 1-1V8c0-.55-.45-1-1-1s-1 .45-1 1v6c0 .55.45 1 1 1z"/>
-                  </svg>
-                  <span>Deactivate Users</span>
-                  <span className="option-description">Temporarily disable selected accounts</span>
-                </button>
+                
                 <button 
                   className="bulk-option-btn danger"
                   onClick={handleBulkDelete}

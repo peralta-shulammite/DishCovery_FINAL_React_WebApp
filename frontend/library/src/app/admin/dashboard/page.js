@@ -18,7 +18,6 @@ const DashboardContent = () => {
     pendingRequests: 0
   });
   const [popularFilters, setPopularFilters] = useState([]);
-  const [topIngredients, setTopIngredients] = useState([]);
   const [loading, setLoading] = useState(true);
 
 
@@ -68,23 +67,6 @@ const DashboardContent = () => {
                 usage: d.userCount
               }));
             setPopularFilters(sorted);
-          }
-        }
-
-        // Fetch Top Ingredients (from admin ingredients endpoint)
-        const ingredientsResponse = await fetch(`${API_BASE_URL}/admin/ingredients`, { headers });
-        if (ingredientsResponse.ok) {
-          const ingredientsData = await ingredientsResponse.json();
-          if (ingredientsData.success && ingredientsData.data) {
-            // Sort by usage and take top 5
-            const sorted = ingredientsData.data
-              .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
-              .slice(0, 5)
-              .map(ing => ({
-                ingredient: ing.name || ing.ingredient_name,
-                requests: ing.usageCount || ing.usage_count || 0
-              }));
-            setTopIngredients(sorted);
           }
         }
 
@@ -253,25 +235,47 @@ const DashboardContent = () => {
           <div className="stat-label">Pending Requests</div>
         </div>
       </div>
-      <div className="controls-container">
-        <div className="status-filters">
-          <span className="filter-label">Status:</span>
-          <button className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>All</button>
-          <button className={`filter-btn ${statusFilter === 'Pending' ? 'active' : ''}`} onClick={() => setStatusFilter('Pending')}>Pending</button>
-          <button className={`filter-btn ${statusFilter === 'Processing' ? 'active' : ''}`} onClick={() => setStatusFilter('Processing')}>Processing</button>
-          <button className={`filter-btn ${statusFilter === 'Completed' ? 'active' : ''}`} onClick={() => setStatusFilter('Completed')}>Completed</button>
-          <button className="export-btn" onClick={handleExportData} style={{ marginLeft: '10px' }}>
-            <ExportIcon />
-            Export Data
-          </button>
+      <div className="controls-section">
+        <div className="controls-header">
+          <h3>Dashboard Controls</h3>
         </div>
-        <div className="date-range">
-          <span className="filter-label">Date Range:</span>
-          <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="date-select">
-            <option value="Today">Today</option>
-            <option value="This Week">This Week</option>
-            <option value="This Month">This Month</option>
-          </select>
+        
+        <div className="controls-container">
+          <div className="filter-section">
+            <div className="filter-group">
+              <span className="filter-label">Status Filter</span>
+              <div className="status-filters">
+                <button className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>
+                  All
+                </button>
+                <button className={`filter-btn ${statusFilter === 'Pending' ? 'active' : ''}`} onClick={() => setStatusFilter('Pending')}>
+                  Pending
+                </button>
+                <button className={`filter-btn ${statusFilter === 'Processing' ? 'active' : ''}`} onClick={() => setStatusFilter('Processing')}>
+                  Processing
+                </button>
+                <button className={`filter-btn ${statusFilter === 'Completed' ? 'active' : ''}`} onClick={() => setStatusFilter('Completed')}>
+                  Completed
+                </button>
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-label">Date Range</span>
+              <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="sort-select">
+                <option value="Today">Today</option>
+                <option value="This Week">This Week</option>
+                <option value="This Month">This Month</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="action-section">
+            <button className="export-btn" onClick={handleExportData}>
+              <ExportIcon />
+              Export Data
+            </button>
+          </div>
         </div>
       </div>
 
@@ -288,22 +292,6 @@ const DashboardContent = () => {
               <div key={index} className="filter-item">
                 <span className="filter-name">{item.filter}</span>
                 <span className="filter-count">{item.usage.toLocaleString()} uses</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Top Requested Ingredients */}
-        <div className="content-section">
-          <button className="section-view-btn" onClick={() => handleViewClick('ingredients')}>
-            View
-          </button>
-          <h3>Top Requested Ingredients</h3>
-          <div className="ingredient-list">
-            {topIngredients.map((item, index) => (
-              <div key={index} className="ingredient-item">
-                <span className="ingredient-name">{item.ingredient}</span>
-                <span className="ingredient-count">{item.requests} requests</span>
               </div>
             ))}
           </div>
