@@ -505,29 +505,47 @@ const AdminManagementPage = () => {
   return (
     <AdminLayout currentPage="Admins">
       <div>
-        <div className="page-header">
-          <h1 className="page-title">Admin Management</h1>
-          <button className="add-admin-btn" onClick={() => setShowAddModal(true)}>
-            <PlusIcon />
-            Add New Admin
-          </button>
-        </div>
-
-        <div className="controls-container">
-          <div className="status-filters">
-            <span className="filter-label">Status:</span>
-            <button className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>All</button>
-            <button className={`filter-btn ${statusFilter === 'Active' ? 'active' : ''}`} onClick={() => setStatusFilter('Active')}>Active</button>
-            <button className={`filter-btn ${statusFilter === 'Inactive' ? 'active' : ''}`} onClick={() => setStatusFilter('Inactive')}>Inactive</button>
-          </div>
-          <div style={{ display: 'flex', gap: '10px', marginLeft: 'auto' }}>
-            <button className="export-btn" onClick={handleExportData}>
-              <ExportIcon />
-              Export Data
-            </button>
+        <div className="page-header-enhanced">
+          <div className="header-content">
+            <div className="header-text">
+              <h1 className="page-title">Admin Management</h1>
+              <p className="page-description">Manage administrator accounts and permissions</p>
+            </div>
+            <div className="header-actions">
+              <button className="add-admin-btn" onClick={() => setShowAddModal(true)}>
+                <PlusIcon />
+                Add New Admin
+              </button>
+            </div>
           </div>
         </div>
 
+        <div className="controls-section">
+          <div className="controls-header">
+            <h3>Filter Admins</h3>
+          </div>
+          
+          <div className="controls-container-inner">
+            <div className="filter-section">
+              <div className="filter-group">
+                <span className="filter-label">Status Filter</span>
+                <div className="status-filters">
+                  <button className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>All</button>
+                  <button className={`filter-btn ${statusFilter === 'Active' ? 'active' : ''}`} onClick={() => setStatusFilter('Active')}>Active</button>
+                  <button className={`filter-btn ${statusFilter === 'Inactive' ? 'active' : ''}`} onClick={() => setStatusFilter('Inactive')}>Inactive</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="action-section">
+              <button className="export-btn" onClick={handleExportData}>
+                <ExportIcon />
+                Export Data
+              </button>
+            </div>
+          </div>
+        </div>
+        
         <div className="admin-table-container">
           {loading ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
