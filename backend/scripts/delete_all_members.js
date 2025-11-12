@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 const envPath = join(__dirname, '..', '.env');
 dotenv.config({ path: envPath });
 
-import pool from '../db.js';
+import { pool } from '../db.js';
 
 const deleteAllMembers = async () => {
   try {

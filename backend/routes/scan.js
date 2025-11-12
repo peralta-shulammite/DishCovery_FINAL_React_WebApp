@@ -3,7 +3,7 @@ import multer from 'multer';
 import fs from 'fs';
 import axios from 'axios';
 import FormData from 'form-data';
-import pool from '../db.js';
+import { pool } from '../db.js';
 import authenticateToken from '../middleware/auth.js';
 
 const router = express.Router();

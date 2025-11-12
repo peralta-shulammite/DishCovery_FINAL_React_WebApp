@@ -1,7 +1,7 @@
 // routes/adminIngredients.js
 import express from 'express';
 import authenticateToken from '../middleware/auth.js';
-import pool from '../db.js';
+import { pool } from '../db.js';
 
 const router = express.Router();
 

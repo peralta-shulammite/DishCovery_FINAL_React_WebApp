@@ -43,7 +43,7 @@ import contactRouter from './routes/contact.js';
 import notificationsRouter from './routes/notifications.js';
 import analyticsRouter from './routes/analytics.js';
 import migrationsRouter from './routes/migrations.js';
-import pool from './db.js';
+import { pool } from './db.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;

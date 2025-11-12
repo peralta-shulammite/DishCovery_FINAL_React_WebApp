@@ -1,5 +1,5 @@
 import express from 'express';
-import pool from '../db.js';
+import { pool } from '../db.js';
 import authenticateToken from '../middleware/auth.js';
 import { transformRecipeForDB, transformRecipeForFrontend, validateRecipeData } from '../utils/recipeHelpers.js';
 

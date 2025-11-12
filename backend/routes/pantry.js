@@ -1,7 +1,7 @@
 // routes/pantry.js - Updated to connect with ingredients table
 import express from 'express';
 import authenticateToken from '../middleware/auth.js';
-import pool from '../db.js';
+import { pool } from '../db.js';
 
 const router = express.Router();
 

@@ -3,7 +3,7 @@
  * This removes empty strings from instruction arrays stored as JSON
  */
 
-import pool from '../db.js';
+import { pool } from '../db.js';
 
 const cleanupEmptyInstructions = async () => {
   let connection;

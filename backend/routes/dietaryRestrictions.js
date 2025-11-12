@@ -1,6 +1,6 @@
 // routes/dietaryRestrictions.js - ENHANCED WITH DEBUGGING
 import express from 'express';
-import pool from '../db.js';
+import { pool } from '../db.js';
 import authenticateToken from '../middleware/auth.js';
 
 const asyncHandler = (fn) => (req, res, next) => {

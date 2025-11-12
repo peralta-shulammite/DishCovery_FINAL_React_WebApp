@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import sgMail from '@sendgrid/mail';
 import nodemailer from 'nodemailer';
-import pool from '../db.js';
+import { pool } from '../db.js';
 import authenticateToken from '../middleware/auth.js';
 
 const router = express.Router();
