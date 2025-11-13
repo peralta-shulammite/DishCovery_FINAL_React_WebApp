@@ -55,6 +55,29 @@ const DashboardContent = () => {
     return localStorage.getItem('token');
   };
 
+  // 🆕 Format time ago helper function
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return 'Unknown';
+    
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks > 1 ? 's' : ''} ago`;
+    
+    const diffMonths = Math.floor(diffDays / 30);
+    return `${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`;
+  };
+
   // 🆕 Fetch Real Dashboard Data
   useEffect(() => {
       const fetchDashboardData = async () => {
@@ -142,29 +165,6 @@ const DashboardContent = () => {
 
     fetchDashboardData();
   }, []);
-
-  // 🆕 Format time ago helper function
-  const formatTimeAgo = (dateString) => {
-    if (!dateString) return 'Unknown';
-    
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    
-    const diffWeeks = Math.floor(diffDays / 7);
-    if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks > 1 ? 's' : ''} ago`;
-    
-    const diffMonths = Math.floor(diffDays / 30);
-    return `${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`;
-  };
 
   // 🆕 Fetch Recent Notifications (Feedbacks) from Database
   useEffect(() => {
@@ -284,10 +284,12 @@ const DashboardContent = () => {
 
   // 🆕 Handle View button clicks - Navigate to admin pages
   const handleViewClick = (section) => {
-    
     switch(section) {
       case 'dietary-filters':
         router.push('/admin/dietary-restrictions');
+        break;
+      case 'dietary-overview':
+        router.push('/admin/analytics');
         break;
       case 'ingredients':
         router.push('/admin/ingredients');
@@ -471,7 +473,7 @@ const DashboardContent = () => {
               {popularFilters.map((item, index) => (
                 <div key={index} className="filter-item">
                   <span className="filter-name">{item.filter || 'Unknown'}</span>
-                  <span className="filter-count">{item.usage || 0} uses</span>
+                  <span className="filter-count">{(item.usage || 0).toLocaleString()} uses</span>
                 </div>
               ))}
             </div>
@@ -484,7 +486,7 @@ const DashboardContent = () => {
 
         {/* Dietary Restrictions Overview - Same as Analytics Page */}
         <div className="content-section">
-          <button className="section-view-btn" onClick={() => handleViewClick('dietary-filters')}>
+          <button className="section-view-btn" onClick={() => handleViewClick('dietary-overview')}>
             View
           </button>
           <div className="chart-header">
@@ -529,7 +531,6 @@ const DashboardContent = () => {
             )}
           </div>
         </div>
-
 
         {/* Notifications Center */}
         <div className="content-section notifications">

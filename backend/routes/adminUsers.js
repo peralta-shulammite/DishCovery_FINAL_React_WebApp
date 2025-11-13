@@ -1027,25 +1027,36 @@ router.post('/bulk/message', authenticateToken, adminAuth, async (req, res) => {
     // Insert notifications for each user
     // Handle case where notifications table might not exist
     try {
+      console.log(`📝 Creating notifications for ${userIds.length} user(s)...`);
       const notificationValues = userIds.map(userId => [
         userId,
         'Admin Message',
-        message,
+        message.trim(),
         'admin', // notification_type enum: 'admin', 'system', 'update', 'reminder', 'feedback_reply'
         0, // is_read
         'Admin', // sender_name
         'ADMIN' // sender_role
       ]);
-      await connection.query(
+      
+      const [insertResult] = await connection.query(
         `INSERT INTO notifications (user_id, title, message, notification_type, is_read, sender_name, sender_role) VALUES ?`,
         [notificationValues]
       );
-      console.log(`  ✓ Created ${userIds.length} notifications`);
+      
+      console.log(`  ✅ Created ${insertResult.affectedRows || userIds.length} notifications successfully`);
+      console.log(`  📋 Notification details:`, {
+        title: 'Admin Message',
+        messageLength: message.trim().length,
+        type: 'admin',
+        recipientCount: userIds.length
+      });
     } catch (notifError) {
       if (notifError.code === 'ER_NO_SUCH_TABLE' || notifError.code === '42S02') {
         console.warn(`  ⚠️ Notifications table doesn't exist, skipping notification creation`);
+        console.warn(`  💡 To enable notifications, create the notifications table in your database`);
         // Continue without notifications - this is not critical
       } else {
+        console.error(`  ❌ Error creating notifications:`, notifError.message);
         throw notifError;
       }
     }
