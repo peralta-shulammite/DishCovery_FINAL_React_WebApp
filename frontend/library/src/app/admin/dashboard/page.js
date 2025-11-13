@@ -460,6 +460,28 @@ const DashboardContent = () => {
 
       {/* Content Grid */}
       <div className="content-grid">
+        {/* Popular Dietary Filters */}
+        <div className="content-section">
+          <button className="section-view-btn" onClick={() => handleViewClick('dietary-filters')}>
+            View
+          </button>
+          <h3>Popular Dietary Filters</h3>
+          {popularFilters.length > 0 ? (
+            <div className="filter-list">
+              {popularFilters.map((item, index) => (
+                <div key={index} className="filter-item">
+                  <span className="filter-name">{item.filter || 'Unknown'}</span>
+                  <span className="filter-count">{item.usage || 0} uses</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+              No filter data available
+            </div>
+          )}
+        </div>
+
         {/* Dietary Restrictions Overview - Same as Analytics Page */}
         <div className="content-section">
           <button className="section-view-btn" onClick={() => handleViewClick('dietary-filters')}>

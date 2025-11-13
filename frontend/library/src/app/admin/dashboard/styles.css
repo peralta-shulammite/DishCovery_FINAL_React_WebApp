@@ -197,8 +197,10 @@
 /* Content Grid */
 .content-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 25px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .content-section {
@@ -207,6 +209,10 @@
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .content-section h3 {
@@ -215,18 +221,24 @@
   color: #1f2937;
   margin-bottom: 25px;
   padding-bottom: 15px;
+  padding-right: 120px; /* Space for View button */
   border-bottom: 2px solid #f1f5f9;
   font-family: 'Poppins', sans-serif;
+  box-sizing: border-box;
 }
 
 /* Chart Header - Same as Analytics */
 .chart-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 25px;
   padding-bottom: 15px;
+  padding-right: 120px; /* Space for View button */
   border-bottom: 2px solid #f1f5f9;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .chart-header h3 {
@@ -364,6 +376,8 @@
   cursor: pointer;
   transition: background 0.3s;
   font-family: 'Poppins', sans-serif;
+  z-index: 10;
+  white-space: nowrap;
 }
 
 .section-view-btn:hover {
@@ -375,6 +389,8 @@
   display: flex;
   flex-direction: column;
   gap: 15px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .filter-item {
@@ -383,6 +399,9 @@
   align-items: center;
   padding: 15px 0;
   border-bottom: 1px solid #f1f5f9;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 12px;
 }
 
 .filter-name {
@@ -390,6 +409,11 @@
   font-weight: 500;
   color: #374151;
   font-family: 'Poppins', sans-serif;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .filter-count {
@@ -400,6 +424,8 @@
   border-radius: 6px;
   font-family: 'Poppins', sans-serif;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Notifications */
@@ -685,6 +711,11 @@
   .content-section * {
     max-width: 100% !important;
     box-sizing: border-box !important;
+  }
+  
+  .content-section h3 {
+    padding-right: 80px !important; /* Less space for View button on mobile */
+    font-size: 16px !important;
   }
   
   .section-view-btn {
