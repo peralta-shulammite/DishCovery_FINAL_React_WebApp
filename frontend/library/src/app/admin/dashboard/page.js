@@ -468,20 +468,20 @@ const DashboardContent = () => {
             View
           </button>
           <h3>Popular Dietary Filters</h3>
-          <div className="filter-list">
-            {popularFilters.length > 0 ? (
-              popularFilters.map((item, index) => (
+          {popularFilters.length > 0 ? (
+            <div className="filter-list">
+              {popularFilters.map((item, index) => (
                 <div key={index} className="filter-item">
-                  <span className="filter-name">{item.filter}</span>
-                  <span className="filter-count">{item.usage.toLocaleString()} uses</span>
+                  <span className="filter-name">{item.filter || 'Unknown'}</span>
+                  <span className="filter-count">{(item.usage || 0).toLocaleString()} uses</span>
                 </div>
-              ))
-            ) : (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
-                No filter data available
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+              No filter data available
+            </div>
+          )}
         </div>
 
         {/* Dietary Restrictions Overview - Same as Analytics Page */}
