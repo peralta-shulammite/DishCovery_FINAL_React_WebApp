@@ -1,5 +1,5 @@
 import express from 'express';
-import db from '../db.js';
+import db, { pool } from '../db.js';
 import authenticateToken from '../middleware/auth.js';  // ✅ Changed 'auth' to 'authenticateToken'
 
 const router = express.Router();
@@ -96,11 +96,29 @@ router.get('/', async (req, res) => {
 
     console.log('📋 Fetching feedback with filters:', { sortBy, status, search });
 
+    // Check if feedback_type column exists (for backward compatibility)
+    let feedbackTypeColumn = '';
+    try {
+      const [columns] = await db.query(`
+        SELECT COUNT(*) as count 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+          AND TABLE_NAME = 'feedback'
+          AND COLUMN_NAME = 'feedback_type'
+      `);
+      if (columns[0].count > 0) {
+        feedbackTypeColumn = 'f.feedback_type,';
+      }
+    } catch (err) {
+      console.warn('⚠️ Could not check for feedback_type column:', err.message);
+    }
+
     let query = `
       SELECT 
         f.feedback_id,
         f.user_id,
         f.message,
+        ${feedbackTypeColumn || "'' as feedback_type,"}
         f.status,
         f.unread_by_admin,
         f.unread_by_user,
@@ -204,6 +222,7 @@ router.get('/', async (req, res) => {
             fullName: `${f.user_first_name} ${f.user_last_name}`
           },
           message: f.message,
+          feedbackType: f.feedback_type || 'general',
           status: f.status,
           isRead: f.unread_by_admin === 0,
           isReplied: f.reply_count > 0,
@@ -238,11 +257,29 @@ router.get('/:id', async (req, res) => {
     const feedbackId = req.params.id;
     console.log('🔍 Fetching feedback details:', feedbackId);
 
+    // Check if feedback_type column exists (for backward compatibility)
+    let feedbackTypeColumn = '';
+    try {
+      const [columns] = await db.query(`
+        SELECT COUNT(*) as count 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+          AND TABLE_NAME = 'feedback'
+          AND COLUMN_NAME = 'feedback_type'
+      `);
+      if (columns[0].count > 0) {
+        feedbackTypeColumn = 'f.feedback_type,';
+      }
+    } catch (err) {
+      console.warn('⚠️ Could not check for feedback_type column:', err.message);
+    }
+
     const feedback = await db.query(
       `SELECT 
         f.feedback_id,
         f.user_id,
         f.message,
+        ${feedbackTypeColumn || "'' as feedback_type,"}
         f.status,
         f.unread_by_admin,
         f.unread_by_user,
@@ -291,6 +328,7 @@ router.get('/:id', async (req, res) => {
           fullName: `${feedbackData.user_first_name} ${feedbackData.user_last_name}`
         },
         message: feedbackData.message,
+        feedbackType: feedbackData.feedback_type || 'general',
         status: feedbackData.status,
         isRead: feedbackData.unread_by_admin === 0,
         isReplied: replies.length > 0,
@@ -645,6 +683,137 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete feedback',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// ========================================
+// ✅ APPROVE MEDICAL CONDITION REQUEST
+// ========================================
+router.post('/:id/approve-medical-condition', authenticateToken, async (req, res) => {
+  let connection;
+  
+  try {
+    const feedbackId = req.params.id;
+    const adminId = req.user.adminId;
+    
+    console.log(`✅ Admin approving medical condition request:`, { feedbackId, adminId });
+
+    // Get feedback details
+    const feedback = await db.query(
+      'SELECT feedback_id, user_id, message, feedback_type FROM feedback WHERE feedback_id = ? AND feedback_type = ?',
+      [feedbackId, 'medical_condition']
+    );
+
+    if (!feedback || feedback.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Medical condition request not found'
+      });
+    }
+
+    const feedbackData = feedback[0];
+    const conditionName = feedbackData.message.trim();
+
+    // Get connection for transaction
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Determine category_id based on condition name
+    // Category 1 = Allergy, Category 2 = Intolerance
+    let categoryId = 1; // Default to Allergy
+    const lowerCondition = conditionName.toLowerCase();
+    if (lowerCondition.includes('intolerance') || lowerCondition.includes('intolerant')) {
+      categoryId = 2;
+    }
+
+    // Create restriction in restrictions table
+    const [result] = await connection.query(
+      `INSERT INTO restrictions (restriction_name, category_id, description, severity_level, is_active, created_at) 
+       VALUES (?, ?, ?, ?, ?, NOW())`,
+      [conditionName, categoryId, `User-submitted medical condition: ${conditionName}`, 'Medium', 1]
+    );
+
+    const restrictionId = result.insertId;
+
+    // Update feedback status to resolved
+    await connection.query(
+      'UPDATE feedback SET status = ?, updated_at = NOW() WHERE feedback_id = ?',
+      ['resolved', feedbackId]
+    );
+
+    await connection.commit();
+
+    console.log(`✅ Medical condition "${conditionName}" approved and added as restriction ID: ${restrictionId}`);
+    
+    res.json({
+      success: true,
+      message: `Medical condition "${conditionName}" has been approved and added to the system.`,
+      data: {
+        restrictionId,
+        restrictionName: conditionName
+      }
+    });
+
+  } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
+    console.error('❌ Error approving medical condition:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve medical condition',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+});
+
+// ========================================
+// ❌ REJECT MEDICAL CONDITION REQUEST
+// ========================================
+router.post('/:id/reject-medical-condition', authenticateToken, async (req, res) => {
+  try {
+    const feedbackId = req.params.id;
+    const { reason } = req.body;
+    
+    console.log(`❌ Admin rejecting medical condition request:`, { feedbackId, reason });
+
+    // Verify it's a medical condition request
+    const feedback = await db.query(
+      'SELECT feedback_id, message, feedback_type FROM feedback WHERE feedback_id = ? AND feedback_type = ?',
+      [feedbackId, 'medical_condition']
+    );
+
+    if (!feedback || feedback.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Medical condition request not found'
+      });
+    }
+
+    // Update feedback status to rejected
+    await db.query(
+      'UPDATE feedback SET status = ?, updated_at = NOW() WHERE feedback_id = ?',
+      ['rejected', feedbackId]
+    );
+
+    console.log(`✅ Medical condition request rejected: ${feedback[0].message}`);
+    
+    res.json({
+      success: true,
+      message: 'Medical condition request has been rejected.'
+    });
+
+  } catch (error) {
+    console.error('❌ Error rejecting medical condition:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject medical condition',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

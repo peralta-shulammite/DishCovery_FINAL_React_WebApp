@@ -166,7 +166,7 @@ router.get('/info', authenticateToken, async (req, res) => {
     console.log('📥 Fetching user info for user ID:', userId);
     
     const users = await db.query(`
-      SELECT user_id, email, first_name, last_name, profile_picture_url, created_at, last_login, google_id, password_hash, is_new_user
+      SELECT user_id, email, first_name, last_name, profile_picture_url, created_at, last_login, google_id, password_hash, is_new_user, cooking_for_type
       FROM users
       WHERE user_id = ?
     `, [userId]);
@@ -190,28 +190,9 @@ router.get('/info', authenticateToken, async (req, res) => {
     );
     const hasCompletedOnboarding = restrictionsResult[0]?.count > 0 || user.is_new_user === 0;
     
-    // Get member info if user is cooking for someone else
-    let cookingFor = 'Myself';
-    let memberName = null;
-    let memberId = null;
-    try {
-      // ✅ FIX: db.query already returns rows array, no need to destructure
-      const memberRows = await db.query(
-        'SELECT member_id, name FROM user_members WHERE user_id = ? AND cooking_for_type = ? ORDER BY created_at DESC LIMIT 1',
-        [userId, 'profile_setup']
-      );
-      if (memberRows && memberRows.length > 0) {
-        cookingFor = memberRows[0].name;
-        memberName = memberRows[0].name;
-        memberId = memberRows[0].member_id;
-        console.log('✅ Found member profile:', { memberId, memberName, cookingFor });
-      } else {
-        console.log('ℹ️ No member profile found, defaulting to "Myself"');
-      }
-    } catch (memberError) {
-      // If table doesn't exist or query fails, default to "Myself"
-      console.log('⚠️ Could not fetch member info:', memberError.message);
-    }
+    // Get cooking for preference from cooking_for_type column
+    let cookingFor = user.cooking_for_type || 'Myself';
+    console.log('✅ Cooking for type:', cookingFor);
     
     console.log('✅ User info fetched:', { 
       userId: user.user_id, 
@@ -222,8 +203,7 @@ router.get('/info', authenticateToken, async (req, res) => {
       isGoogleUser: isGoogleUser,
       isNewUser: user.is_new_user === 1,
       hasCompletedOnboarding: hasCompletedOnboarding,
-      cookingFor: cookingFor,
-      memberId: memberId
+      cookingFor: cookingFor
     });
 
     res.json({
@@ -240,9 +220,7 @@ router.get('/info', authenticateToken, async (req, res) => {
         hasPassword: !!user.password_hash,
         isNewUser: user.is_new_user === 1,
         hasCompletedOnboarding: hasCompletedOnboarding,
-        cookingFor: cookingFor,
-        memberName: memberName,
-        memberId: memberId
+        cookingFor: cookingFor
       }
     });
 
@@ -984,6 +962,79 @@ router.delete('/account', authenticateToken, async (req, res) => {
         console.error('❌ Error releasing connection:', releaseErr.message);
       }
     }
+  }
+});
+
+// GET user's family members
+router.get('/members', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log('📥 Fetching members for user:', userId);
+
+    const members = await db.query(`
+      SELECT
+        member_id,
+        name,
+        relationship,
+        age_group,
+        created_at
+      FROM user_members
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `, [userId]);
+
+    console.log(`✅ Found ${members.length} members for user ${userId}`);
+
+    res.json({
+      success: true,
+      data: members
+    });
+  } catch (error) {
+    console.error('❌ Error fetching members:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch members',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// PUT update cooking for preference (text only)
+router.put('/cooking-for', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { cookingFor } = req.body;
+
+    console.log('💾 Updating cooking for preference:', {
+      userId,
+      cookingFor
+    });
+
+    // Update cooking_for_type in users table
+    await db.query(`
+      UPDATE users
+      SET
+        cooking_for_type = ?,
+        updated_at = NOW()
+      WHERE user_id = ?
+    `, [cookingFor || 'Myself', userId]);
+
+    console.log('✅ Cooking for preference updated successfully');
+
+    res.json({
+      success: true,
+      message: 'Cooking for preference updated successfully',
+      data: {
+        cookingFor
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error updating cooking for preference:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update cooking for preference',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

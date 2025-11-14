@@ -364,17 +364,26 @@ export default function GetStarted() {
     try {
       setLoading(true);
       console.log('💾 Saving dietary profile...');
-      
+
+      // ✅ Validate that at least one preference is selected
+      if (dietaryData.medicalConditions.length === 0 && dietaryData.excludedIngredients.length === 0) {
+        setError('Please select at least one medical condition or excluded ingredient to continue.');
+        setLoading(false);
+        return;
+      }
+
       // ✅ FIX: Only send memberId if cooking for "Others", otherwise send null
       // This ensures dietary preferences are saved to the correct profile (user or member)
       const finalMemberId = cookingFor === 'Others' ? memberId : null;
-      
+
       console.log('📊 Save data preparation:', {
         cookingFor,
         memberId,
         finalMemberId,
         hasMedicalConditions: dietaryData.medicalConditions.length > 0,
-        hasExcludedIngredients: dietaryData.excludedIngredients.length > 0
+        hasExcludedIngredients: dietaryData.excludedIngredients.length > 0,
+        medicalConditions: dietaryData.medicalConditions,
+        excludedIngredients: dietaryData.excludedIngredients
       });
       
       // Prepare data for API
@@ -397,15 +406,20 @@ export default function GetStarted() {
         body: JSON.stringify(saveData)
       });
 
+      console.log('📡 Save response status:', response.status, response.statusText);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ Save failed:', errorData);
         throw new Error(errorData.message || 'Failed to save');
       }
 
       const result = await response.json();
-      
+
+      console.log('📥 Save response:', result);
+
       if (result.success) {
-        console.log('✅ Profile saved successfully');
+        console.log('✅ Profile saved successfully', result.data);
         setIsSaved(true);
         
         // Clear new user signup flag since onboarding is complete
@@ -450,9 +464,12 @@ export default function GetStarted() {
     }));
   };
 
-  const handleSendCustom = (category) => {
+  const handleSendCustom = async (category) => {
     const value = customInputs[category].trim();
-    if (value) {
+    if (!value) return;
+
+    // Only handle medical condition requests for now
+    if (category !== 'medicalConditions') {
       setFeedbackMessages(prev => ({
         ...prev,
         [category]: 'Thanks! We\'ll review your suggestion.'
@@ -461,13 +478,74 @@ export default function GetStarted() {
         ...prev,
         [category]: ''
       }));
-      // Clear feedback after 3 seconds
       setTimeout(() => {
         setFeedbackMessages(prev => ({
           ...prev,
           [category]: ''
         }));
       }, 3000);
+      return;
+    }
+
+    // Send medical condition request to backend
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        setFeedbackMessages(prev => ({
+          ...prev,
+          [category]: 'Please log in to submit a request.'
+        }));
+        return;
+      }
+
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          feedbackMessage: value,
+          feedbackType: 'medical_condition'
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setFeedbackMessages(prev => ({
+          ...prev,
+          [category]: 'Thanks! We\'ll review your medical condition request.'
+        }));
+        setCustomInputs(prev => ({
+          ...prev,
+          [category]: ''
+        }));
+        // Clear feedback after 5 seconds
+        setTimeout(() => {
+          setFeedbackMessages(prev => ({
+            ...prev,
+            [category]: ''
+          }));
+        }, 5000);
+      } else {
+        throw new Error(result.message || 'Failed to submit request');
+      }
+    } catch (error) {
+      console.error('Error submitting medical condition request:', error);
+      setFeedbackMessages(prev => ({
+        ...prev,
+        [category]: 'Failed to submit. Please try again.'
+      }));
+      setTimeout(() => {
+        setFeedbackMessages(prev => ({
+          ...prev,
+          [category]: ''
+        }));
+      }, 3000);
+    } finally {
+      setLoading(false);
     }
   };
 

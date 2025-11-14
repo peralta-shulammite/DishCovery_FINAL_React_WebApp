@@ -233,6 +233,68 @@ const FeedbackManagementContent = () => {
   };
 
   // ========================================
+  // ✅ APPROVE MEDICAL CONDITION REQUEST
+  // ========================================
+  const approveMedicalCondition = async (feedbackId) => {
+    if (!confirm('Are you sure you want to approve this medical condition request? It will be added to the system.')) {
+      return;
+    }
+
+    try {
+      setLoadingModal(true);
+      const result = await adminFeedbackAPI.approveMedicalCondition(feedbackId);
+      await loadStats();
+      await loadFeedback();
+      
+      if (selectedFeedback && selectedFeedback.feedbackId === feedbackId) {
+        closeModal();
+      }
+      
+      console.log('✅ Medical condition approved:', result);
+      alert(result.message || 'Medical condition approved and added to the system successfully!');
+    } catch (error) {
+      console.error('❌ Error approving medical condition:', error);
+      alert(error.message || 'Failed to approve medical condition');
+    } finally {
+      setLoadingModal(false);
+    }
+  };
+
+  // ========================================
+  // ❌ REJECT MEDICAL CONDITION REQUEST
+  // ========================================
+  const rejectMedicalCondition = async (feedbackId) => {
+    const reason = prompt('Please provide a reason for rejecting this medical condition request (optional):');
+    
+    if (reason === null) {
+      return; // User cancelled
+    }
+
+    if (!confirm('Are you sure you want to reject this medical condition request?')) {
+      return;
+    }
+
+    try {
+      setLoadingModal(true);
+      const result = await adminFeedbackAPI.rejectMedicalCondition(feedbackId, reason || '');
+      await loadStats();
+      await loadFeedback();
+      
+      if (selectedFeedback && selectedFeedback.feedbackId === feedbackId) {
+        closeModal();
+      }
+      
+      console.log('✅ Medical condition rejected:', result);
+      alert(result.message || 'Medical condition request rejected successfully.');
+    } catch (error) {
+      console.error('❌ Error rejecting medical condition:', error);
+      alert(error.message || 'Failed to reject medical condition');
+    } finally {
+      setLoadingModal(false);
+    }
+  };
+
+  // ========================================
   // 🧹 CLEAR FILTERS
   // ========================================
   const clearFilters = () => {
@@ -533,6 +595,16 @@ return (
                   <div className="user-details">
                     <div className="username">{feedback.user.fullName}</div>
                     <div className="timestamp">{formatTimestamp(feedback.createdAt)}</div>
+                    {feedback.feedbackType === 'medical_condition' && (
+                      <div style={{ 
+                        marginTop: '4px', 
+                        fontSize: '12px', 
+                        color: '#059669', 
+                        fontWeight: '600' 
+                      }}>
+                        🏥 Pending Medical Condition
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="feedback-status">
@@ -615,12 +687,40 @@ return (
                 </div>
                 
                 <div className="modal-content">
+                  {/* Medical Condition Label */}
+                  {selectedFeedback.feedbackType === 'medical_condition' && (
+                    <div style={{
+                      background: '#ecfdf5',
+                      border: '1px solid #059669',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      marginBottom: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span style={{ fontSize: '20px' }}>🏥</span>
+                      <div>
+                        <div style={{ fontWeight: '600', color: '#059669', marginBottom: '4px' }}>
+                          Pending Medical Condition Request
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>
+                          This is a request to add a new medical condition to the system.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Original Feedback Message */}
                   <div className="feedback-message">
                     <div style={{ 
                       marginBottom: '12px'
                     }}>
-                      <strong>User's Feedback:</strong>
+                      <strong>
+                        {selectedFeedback.feedbackType === 'medical_condition' 
+                          ? 'Requested Medical Condition:' 
+                          : 'User\'s Feedback:'}
+                      </strong>
                     </div>
                     {selectedFeedback.message}
                   </div>
@@ -697,6 +797,36 @@ return (
                 </div>
                 
                 <div className="modal-actions">
+                  {/* Medical Condition Approve/Reject Buttons */}
+                  {selectedFeedback.feedbackType === 'medical_condition' && selectedFeedback.status === 'pending' && (
+                    <>
+                      <button 
+                        className="modal-btn success" 
+                        onClick={() => approveMedicalCondition(selectedFeedback.feedbackId)}
+                        disabled={loadingModal}
+                        style={{ 
+                          background: '#059669', 
+                          color: 'white',
+                          marginRight: '8px'
+                        }}
+                      >
+                        ✅ Approve & Add to System
+                      </button>
+                      <button 
+                        className="modal-btn danger" 
+                        onClick={() => rejectMedicalCondition(selectedFeedback.feedbackId)}
+                        disabled={loadingModal}
+                        style={{ 
+                          background: '#dc2626', 
+                          color: 'white',
+                          marginRight: '8px'
+                        }}
+                      >
+                        ❌ Reject Request
+                      </button>
+                    </>
+                  )}
+                  
                   <button 
                     className="modal-btn primary" 
                     onClick={sendReply} 
@@ -708,7 +838,7 @@ return (
                   <button 
                     className="modal-btn secondary" 
                     onClick={closeModal}
-                    disabled={sendingReply}
+                    disabled={sendingReply || loadingModal}
                   >
                     Cancel
                   </button>

@@ -10,27 +10,67 @@ const router = express.Router();
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { feedbackMessage } = req.body;
+    const { feedbackMessage, feedbackType = 'general' } = req.body;
 
-    console.log('📝 New feedback submission:', { userId });
+    console.log('📝 New feedback submission:', { userId, feedbackType });
 
     if (!feedbackMessage || feedbackMessage.trim().length === 0) {
       return res.status(400).json({ success: false, message: 'Feedback message is required' });
     }
 
-    if (feedbackMessage.trim().length < 10) {
-      return res.status(400).json({ success: false, message: 'Feedback message must be at least 10 characters long' });
+    // For medical condition requests, allow shorter messages (just the condition name)
+    const minLength = feedbackType === 'medical_condition' ? 3 : 10;
+    if (feedbackMessage.trim().length < minLength) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Feedback message must be at least ${minLength} characters long` 
+      });
     }
 
     if (feedbackMessage.trim().length > 2000) {
       return res.status(400).json({ success: false, message: 'Feedback message must not exceed 2000 characters' });
     }
 
-    const result = await db.query(
-      `INSERT INTO feedback (user_id, message, status, unread_by_admin, unread_by_user)
-       VALUES (?, ?, 'pending', 1, 0)`,
-      [userId, feedbackMessage.trim()]
-    );
+    // Validate feedbackType
+    const validTypes = ['general', 'medical_condition', 'issue_report'];
+    const finalFeedbackType = validTypes.includes(feedbackType) ? feedbackType : 'general';
+
+    // For medical condition, format the message
+    const finalMessage = finalFeedbackType === 'medical_condition' 
+      ? feedbackMessage.trim() 
+      : feedbackMessage.trim();
+
+    // Check if feedback_type column exists (for backward compatibility)
+    let hasFeedbackTypeColumn = false;
+    try {
+      const [columns] = await db.query(`
+        SELECT COUNT(*) as count 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+          AND TABLE_NAME = 'feedback'
+          AND COLUMN_NAME = 'feedback_type'
+      `);
+      hasFeedbackTypeColumn = columns[0].count > 0;
+    } catch (err) {
+      console.warn('⚠️ Could not check for feedback_type column:', err.message);
+    }
+
+    // Insert feedback with or without feedback_type column
+    let result;
+    if (hasFeedbackTypeColumn) {
+      result = await db.query(
+        `INSERT INTO feedback (user_id, message, feedback_type, status, unread_by_admin, unread_by_user)
+         VALUES (?, ?, ?, 'pending', 1, 0)`,
+        [userId, finalMessage, finalFeedbackType]
+      );
+    } else {
+      // Fallback: insert without feedback_type column
+      result = await db.query(
+        `INSERT INTO feedback (user_id, message, status, unread_by_admin, unread_by_user)
+         VALUES (?, ?, 'pending', 1, 0)`,
+        [userId, finalMessage]
+      );
+    }
 
     console.log('✅ Feedback submitted successfully:', result.insertId);
 
