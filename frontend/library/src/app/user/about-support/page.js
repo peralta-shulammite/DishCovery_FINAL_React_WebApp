@@ -42,7 +42,10 @@ export default function AboutSupportPage() {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/contact/feedback`, {
+      const apiUrl = `${API_BASE_URL}/contact/feedback`;
+      console.log('Submitting feedback to:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -50,9 +53,22 @@ export default function AboutSupportPage() {
         body: JSON.stringify(formData)
       });
 
+      if (!response.ok) {
+        // Try to parse error response
+        let errorMessage = 'Failed to submit feedback. Please try again.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          errorMessage = `Server error (${response.status}): ${response.statusText}`;
+        }
+        setFeedbackMessage(errorMessage);
+        return;
+      }
+
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (data.success) {
         setFeedbackMessage('success');
         e.target.reset();
       } else {
@@ -60,7 +76,15 @@ export default function AboutSupportPage() {
       }
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      setFeedbackMessage('An error occurred. Please try again.');
+      let errorMessage = 'An error occurred. Please try again.';
+      
+      if (error.message === 'Failed to fetch') {
+        errorMessage = 'Unable to connect to the server. Please check if the backend server is running and try again.';
+      } else if (error.message) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
+      setFeedbackMessage(errorMessage);
     } finally {
       setFeedbackLoading(false);
       setTimeout(() => setFeedbackMessage(''), 5000);
@@ -81,7 +105,10 @@ export default function AboutSupportPage() {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/contact/report`, {
+      const apiUrl = `${API_BASE_URL}/contact/report`;
+      console.log('Submitting report to:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -89,9 +116,22 @@ export default function AboutSupportPage() {
         body: JSON.stringify(formData)
       });
 
+      if (!response.ok) {
+        // Try to parse error response
+        let errorMessage = 'Failed to submit report. Please try again.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          errorMessage = `Server error (${response.status}): ${response.statusText}`;
+        }
+        setReportMessage(errorMessage);
+        return;
+      }
+
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (data.success) {
         setReportMessage('success');
         e.target.reset();
       } else {
@@ -99,7 +139,15 @@ export default function AboutSupportPage() {
       }
     } catch (error) {
       console.error('Error submitting report:', error);
-      setReportMessage('An error occurred. Please try again.');
+      let errorMessage = 'An error occurred. Please try again.';
+      
+      if (error.message === 'Failed to fetch') {
+        errorMessage = 'Unable to connect to the server. Please check if the backend server is running and try again.';
+      } else if (error.message) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
+      setReportMessage(errorMessage);
     } finally {
       setReportLoading(false);
       setTimeout(() => setReportMessage(''), 5000);

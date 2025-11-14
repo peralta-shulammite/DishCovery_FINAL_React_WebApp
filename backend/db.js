@@ -150,11 +150,12 @@ const db = {
   // Custom query method with smart logging and reconnection
   query: async (sql, params = [], retries = 3) => {
     const isDevelopment = process.env.NODE_ENV !== 'production';
+    const enableQueryLogging = process.env.ENABLE_QUERY_LOGGING === 'true'; // Only log if explicitly enabled
     
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        // Only log in development mode or for errors
-        if (isDevelopment) {
+        // Only log if explicitly enabled (reduces console spam)
+        if (enableQueryLogging && isDevelopment) {
           const shortSql = sql.length > 100 ? sql.substring(0, 100) + '...' : sql;
           console.log('🔍 Query:', shortSql);
           if (params && params.length) {
@@ -165,8 +166,8 @@ const db = {
         // Execute query
         const [results] = await pool.query(sql, params);
         
-        // Log success in development
-        if (isDevelopment) {
+        // Only log success if explicitly enabled
+        if (enableQueryLogging && isDevelopment) {
           const rowCount = results.length || results.affectedRows || 0;
           console.log(`✅ Success: ${rowCount} row(s)`);
         }

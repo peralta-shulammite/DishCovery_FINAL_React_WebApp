@@ -140,6 +140,31 @@ export const profileAPI = {
     }
   },
 
+  // Update cooking for preference
+  updateCookingFor: async (cookingForData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/user-profile/cooking-for`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cookingForData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error updating cooking for:', error);
+      throw error;
+    }
+  },
+
   // Upload profile picture
   uploadProfilePicture: async (file) => {
     try {

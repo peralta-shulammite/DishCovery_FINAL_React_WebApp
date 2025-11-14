@@ -65,6 +65,7 @@ export default function UserProfilePage() {
   // Profile editing states
   const [dishCoveryEditingProfile, setDishCoveryEditingProfile] = useState(false);
   const [dishCoveryEditingPreferences, setDishCoveryEditingPreferences] = useState(false);
+  const [dishCoveryEditingCookingFor, setDishCoveryEditingCookingFor] = useState(false);
   const [dishCoveryShowChangePassword, setDishCoveryShowChangePassword] = useState(false);
   const [dishCoveryShowFeedbackModal, setDishCoveryShowFeedbackModal] = useState(false);
   const [dishCoveryShowDeactivateModal, setDishCoveryShowDeactivateModal] = useState(false);
@@ -82,6 +83,7 @@ export default function UserProfilePage() {
   const [dishCoveryTempFirstName, setDishCoveryTempFirstName] = useState('User');
   const [dishCoveryTempLastName, setDishCoveryTempLastName] = useState('');
   const [dishCoveryTempEmail, setDishCoveryTempEmail] = useState('');
+  const [dishCoveryTempCookingFor, setDishCoveryTempCookingFor] = useState('Myself');
   const [dishCoveryCurrentPassword, setDishCoveryCurrentPassword] = useState('');
   const [dishCoveryNewPassword, setDishCoveryNewPassword] = useState('');
   const [dishCoveryConfirmPassword, setDishCoveryConfirmPassword] = useState('');
@@ -137,16 +139,12 @@ export default function UserProfilePage() {
         const response = await profileAPI.getUserInfo();
         
         if (response && response.success && response.data) {
-          const { firstName, lastName, email, profilePicture, googleId, cookingFor, memberId, memberName } = response.data;
-          
+          const { firstName, lastName, email, profilePicture, googleId, cookingFor } = response.data;
+
           // Check if user is Google user (has googleId but no password set yet)
           const hasPassword = response.data.hasPassword !== false; // Default to true if not provided
           const isGoogleUser = !!googleId && !hasPassword;
-          
-          // Determine cooking for display (backend returns "Myself" or member name)
-          // If memberName exists, use it; otherwise use cookingFor; default to "Myself"
-          const cookingForDisplay = memberName || cookingFor || 'Myself';
-          
+
           // ✅ Log profile picture info for debugging
           console.log('📸 Profile picture from API:', {
             exists: !!profilePicture,
@@ -154,14 +152,9 @@ export default function UserProfilePage() {
             length: profilePicture?.length || 0,
             preview: profilePicture ? profilePicture.substring(0, 50) + '...' : 'null'
           });
-          
-          console.log('👤 Member info from API:', {
-            memberId: memberId,
-            memberName: memberName,
-            cookingFor: cookingFor,
-            cookingForDisplay: cookingForDisplay
-          });
-          
+
+          console.log('👤 Cooking for from API:', cookingFor || 'Myself');
+
           setDishCoveryUser({
             firstName: firstName || 'User',
             lastName: lastName || '',
@@ -170,13 +163,13 @@ export default function UserProfilePage() {
             createdAt: response.data.createdAt || null,
             lastLogin: response.data.lastLogin || null,
             isGoogleUser: isGoogleUser,
-            cookingFor: cookingForDisplay,
-            memberId: memberId || null
+            cookingFor: cookingFor || 'Myself'
           });
-          
+
           setDishCoveryTempFirstName(firstName || 'User');
           setDishCoveryTempLastName(lastName || '');
           setDishCoveryTempEmail(email || '');
+          setDishCoveryTempCookingFor(cookingFor || 'Myself');
           
           console.log('✅ User info loaded successfully:', {
             firstName,
@@ -670,6 +663,36 @@ export default function UserProfilePage() {
     setDishCoveryTempLastName(dishCoveryUser.lastName);
     setDishCoveryTempEmail(dishCoveryUser.email);
     setDishCoveryEditingProfile(false);
+  };
+
+  const dishCoveryHandleSaveCookingFor = async () => {
+    try {
+      console.log('💾 Saving cooking for preference...', {
+        cookingFor: dishCoveryTempCookingFor
+      });
+
+      const response = await profileAPI.updateCookingFor({
+        cookingFor: dishCoveryTempCookingFor
+      });
+
+      if (response && response.success) {
+        setDishCoveryUser((prev) => ({
+          ...prev,
+          cookingFor: dishCoveryTempCookingFor
+        }));
+
+        setDishCoveryEditingCookingFor(false);
+        console.log('✅ Cooking for preference updated successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error updating cooking for:', error);
+      alert(error.message || 'Failed to update cooking for preference. Please try again.');
+    }
+  };
+
+  const dishCoveryHandleCancelCookingForEdit = () => {
+    setDishCoveryTempCookingFor(dishCoveryUser.cookingFor);
+    setDishCoveryEditingCookingFor(false);
   };
 
   const dishCoveryHandleChangePassword = async () => {
@@ -1502,9 +1525,53 @@ export default function UserProfilePage() {
                           </div>
                           <div className="info-item-fixed">
                             <span className="info-label-fixed">Cooking for:</span>
-                            <span className="info-value-fixed">
-                              {dishCoveryUser.cookingFor || 'Myself'}
-                            </span>
+                            {dishCoveryEditingCookingFor ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                                <input
+                                  type="text"
+                                  value={dishCoveryTempCookingFor}
+                                  onChange={(e) => setDishCoveryTempCookingFor(e.target.value)}
+                                  className="form-input-fixed"
+                                  placeholder="e.g., Myself, Family, Kids"
+                                  style={{ flex: 1 }}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                      dishCoveryHandleSaveCookingFor();
+                                    }
+                                  }}
+                                />
+                                <button
+                                  className="save-btn-fixed"
+                                  onClick={dishCoveryHandleSaveCookingFor}
+                                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  className="cancel-btn-fixed"
+                                  onClick={dishCoveryHandleCancelCookingForEdit}
+                                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                                <span className="info-value-fixed" style={{ flex: 1 }}>
+                                  {dishCoveryUser.cookingFor || 'Myself'}
+                                </span>
+                                <button
+                                  className="edit-btn-fixed"
+                                  onClick={() => setDishCoveryEditingCookingFor(true)}
+                                  style={{ padding: '4px 8px', fontSize: '12px' }}
+                                >
+                                  <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '14px', height: '14px' }}>
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                                  </svg>
+                                  Edit
+                                </button>
+                              </div>
+                            )}
                           </div>
                           <div className="info-item-fixed">
                             <span className="info-label-fixed">Email Address</span>
