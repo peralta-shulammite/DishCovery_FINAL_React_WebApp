@@ -2,10 +2,17 @@
 import express from 'express';
 import db from '../db.js';
 import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
 const router = express.Router();
 
-// Gmail SMTP transporter for admin notifications (saves SendGrid quota)
+// SENDGRID HTTP API - FALLBACK ONLY (to save SendGrid quota, we use Gmail SMTP first)
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('✅ SendGrid HTTP API configured as fallback for contact forms');
+}
+
+// GMAIL SMTP - PRIMARY METHOD (saves SendGrid quota)
 const gmailTransporter = process.env.EMAIL_USER && process.env.EMAIL_APP_PASSWORD
   ? nodemailer.createTransport({
       host: 'smtp.gmail.com',
@@ -38,7 +45,8 @@ const getAdminEmails = async () => {
   }
 };
 
-// Send admin notification email using Gmail SMTP
+// Send admin notification email using Gmail SMTP (to save SendGrid quota) with SendGrid fallback
+// ✅ PRIORITY: Use Gmail SMTP first to save SendGrid quota, fallback to SendGrid if SMTP fails
 const sendAdminNotificationEmail = async (adminEmails, subject, htmlContent) => {
   // TEST MODE: Just log, don't send (saves emails during testing)
   if (process.env.TEST_MODE === 'true') {
@@ -48,29 +56,82 @@ const sendAdminNotificationEmail = async (adminEmails, subject, htmlContent) => 
     return true;
   }
 
-  if (!gmailTransporter) {
-    console.error('❌ Gmail SMTP not configured. Cannot send admin notification.');
-    return false;
-  }
+  const hasSendGrid = process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL;
 
-  try {
-    // Send to all admins in parallel
-    const emailPromises = adminEmails.map(email => 
-      gmailTransporter.sendMail({
-        from: `"DishCovery Notifications" <${process.env.EMAIL_USER || 'dishcovery.org@gmail.com'}>`,
-        to: email,
-        subject: subject,
-        html: htmlContent
-      })
-    );
+  // ✅ PRIORITY 1: Try Gmail SMTP first (saves SendGrid quota)
+  if (gmailTransporter) {
+    try {
+      // Send to all admins in parallel
+      const emailPromises = adminEmails.map(email => 
+        gmailTransporter.sendMail({
+          from: `"DishCovery Notifications" <${process.env.EMAIL_USER || 'dishcovery.org@gmail.com'}>`,
+          to: email,
+          subject: subject,
+          html: htmlContent
+        })
+      );
 
-    await Promise.all(emailPromises);
-    console.log(`✅ Admin notification email sent via Gmail SMTP to ${adminEmails.length} admin(s)`);
-    return true;
-  } catch (error) {
-    console.error('❌ Error sending admin notification email:', error);
-    // Don't throw - email failure shouldn't break the submission
-    return false;
+      await Promise.all(emailPromises);
+      console.log(`✅ Admin notification email sent via Gmail SMTP to ${adminEmails.length} admin(s) (saved SendGrid quota)`);
+      return true;
+    } catch (smtpError) {
+      console.warn('⚠️ Gmail SMTP failed, trying SendGrid fallback:', smtpError.message);
+      // ✅ FALLBACK: Use SendGrid if SMTP fails (works on Vercel)
+      if (hasSendGrid) {
+        try {
+          const emailPromises = adminEmails.map(email => 
+            sgMail.send({
+              to: email,
+              from: {
+                email: process.env.SENDGRID_FROM_EMAIL,
+                name: 'DishCovery Notifications'
+              },
+              subject: subject,
+              html: htmlContent
+            })
+          );
+          await Promise.all(emailPromises);
+          console.log(`✅ Admin notification email sent via SendGrid (SMTP fallback) to ${adminEmails.length} admin(s)`);
+          return true;
+        } catch (sendGridError) {
+          console.error('❌ Both Gmail SMTP and SendGrid failed:', sendGridError.message);
+          // Don't throw - email failure shouldn't break the submission
+          return false;
+        }
+      } else {
+        console.error(`❌ Gmail SMTP failed and SendGrid not configured. SMTP error: ${smtpError.message}`);
+        // Don't throw - email failure shouldn't break the submission
+        return false;
+      }
+    }
+  } else {
+    // ✅ FALLBACK: No SMTP configured, use SendGrid directly
+    if (hasSendGrid) {
+      try {
+        const emailPromises = adminEmails.map(email => 
+          sgMail.send({
+            to: email,
+            from: {
+              email: process.env.SENDGRID_FROM_EMAIL,
+              name: 'DishCovery Notifications'
+            },
+            subject: subject,
+            html: htmlContent
+          })
+        );
+        await Promise.all(emailPromises);
+        console.log(`✅ Admin notification email sent via SendGrid (no SMTP configured) to ${adminEmails.length} admin(s)`);
+        return true;
+      } catch (error) {
+        console.error('❌ Error sending admin notification email via SendGrid:', error);
+        // Don't throw - email failure shouldn't break the submission
+        return false;
+      }
+    } else {
+      console.error('❌ Neither Gmail SMTP nor SendGrid is configured');
+      // Don't throw - email failure shouldn't break the submission
+      return false;
+    }
   }
 };
 
