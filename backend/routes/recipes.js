@@ -382,41 +382,76 @@ router.get('/', optionalAuth, async (req, res) => {
     query += ` LIMIT ${finalLimit} OFFSET ${finalOffset}`;
     // Do NOT push limit/offset to params array
 
-    console.log('📝 Final query:', query);
-    console.log('🔢 Query params:', params);
-    console.log('📊 Pagination:', { finalLimit, finalOffset });
+    // Reduced logging - only log if ENABLE_QUERY_LOGGING is set
+    if (process.env.ENABLE_QUERY_LOGGING === 'true') {
+      console.log('📝 Final query:', query);
+      console.log('🔢 Query params:', params);
+      console.log('📊 Pagination:', { finalLimit, finalOffset });
+    }
 
     const recipes = await db.query(query, params);
-    console.log(`✅ Fetched ${recipes.length} recipes`);
+    
+    if (process.env.ENABLE_QUERY_LOGGING === 'true') {
+      console.log(`✅ Fetched ${recipes.length} recipes`);
+    }
 
-    const enrichedRecipes = await Promise.all(recipes.map(async (recipe) => {
+    // ✅ PERFORMANCE FIX: Batch fetch all images, ingredients, and tags instead of N+1 queries
+    const recipeIds = recipes.map(r => r.id);
+    let imagesMap = {};
+    let ingredientsMap = {};
+    let tagsMap = {};
+
+    if (recipeIds.length > 0) {
+      // Batch fetch all images for all recipes in one query
+      const [allImages, allIngredients, allTags] = await Promise.all([
+        db.query(
+          `SELECT recipe_id, image_url, display_order, is_primary 
+           FROM recipe_images 
+           WHERE recipe_id IN (${recipeIds.map(() => '?').join(',')}) 
+           ORDER BY recipe_id, is_primary DESC, display_order ASC`,
+          recipeIds
+        ),
+        db.query(
+          `SELECT recipe_id, category, ingredient_name, alternative_name, display_order 
+           FROM recipe_ingredients_detailed 
+           WHERE recipe_id IN (${recipeIds.map(() => '?').join(',')}) 
+           ORDER BY recipe_id, category, display_order`,
+          recipeIds
+        ),
+        db.query(
+          `SELECT rdt.recipe_id, dt.tag_name, dt.tag_category 
+           FROM dietary_tags dt
+           INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id
+           WHERE rdt.recipe_id IN (${recipeIds.map(() => '?').join(',')})`,
+          recipeIds
+        )
+      ]);
+
+      // Build maps for O(1) lookup
+      allImages.forEach(img => {
+        if (!imagesMap[img.recipe_id]) imagesMap[img.recipe_id] = [];
+        imagesMap[img.recipe_id].push(img);
+      });
+
+      allIngredients.forEach(ing => {
+        if (!ingredientsMap[ing.recipe_id]) ingredientsMap[ing.recipe_id] = [];
+        ingredientsMap[ing.recipe_id].push(ing);
+      });
+
+      allTags.forEach(tag => {
+        if (!tagsMap[tag.recipe_id]) tagsMap[tag.recipe_id] = [];
+        tagsMap[tag.recipe_id].push(tag);
+      });
+    }
+
+    const enrichedRecipes = recipes.map((recipe) => {
       try {
         recipe.instructions = parseInstructions(recipe.instructions);
 
-        const images = await db.query(
-          'SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC',
-          [recipe.id]
-        );
-        
-        // ✅ Debug: Log images for specific recipe (e.g., Sinugba)
-        if (recipe.recipe_name && recipe.recipe_name.toLowerCase().includes('sinugba')) {
-          console.log(`🔍 [${recipe.recipe_name}] Recipe ID: ${recipe.id}`);
-          console.log(`🔍 [${recipe.recipe_name}] Images from database:`, images);
-          console.log(`🔍 [${recipe.recipe_name}] Image URLs:`, images.map(img => img.image_url));
-        }
-
-        const ingredients = await db.query(
-          'SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order',
-          [recipe.id]
-        );
-
-        const tags = await db.query(
-          `SELECT dt.tag_name, dt.tag_category 
-           FROM dietary_tags dt
-           INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id
-           WHERE rdt.recipe_id = ?`,
-          [recipe.id]
-        );
+        // Get from maps instead of querying
+        const images = imagesMap[recipe.id] || [];
+        const ingredients = ingredientsMap[recipe.id] || [];
+        const tags = tagsMap[recipe.id] || [];
 
         // Get verification data from recipes table (not recipe_verification)
         const verification = recipe.verification_status ? {
@@ -443,17 +478,8 @@ router.get('/', optionalAuth, async (req, res) => {
         return transformed;
       } catch (err) {
         console.error(`❌ Error enriching recipe ${recipe.id}:`, err);
-        // ✅ Try to fetch images even if there's an error with other data
-        let fallbackImages = [];
-        try {
-          const fallbackImagesQuery = await db.query(
-            'SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC',
-            [recipe.id]
-          );
-          fallbackImages = fallbackImagesQuery.map(img => img.image_url).filter(Boolean);
-        } catch (imgErr) {
-          console.warn(`⚠️ Could not fetch images for recipe ${recipe.id}:`, imgErr.message);
-        }
+        // ✅ Use images from map (already fetched in batch)
+        const fallbackImages = (imagesMap[recipe.id] || []).map(img => img.image_url).filter(Boolean);
         
         return {
           id: recipe.id,
@@ -475,7 +501,7 @@ router.get('/', optionalAuth, async (req, res) => {
           servings: recipe.servings || 4
         };
       }
-    }));
+    });
 
     res.json({ 
       success: true, 
@@ -546,14 +572,61 @@ router.get('/search', async (req, res) => {
     const searchPattern = `%${searchTerm}%`;
     const recipes = await db.query(query, [searchPattern, searchPattern]);
 
-    const enrichedRecipes = await Promise.all(recipes.map(async (recipe) => {
+    // ✅ PERFORMANCE FIX: Batch fetch all images, ingredients, and tags instead of N+1 queries
+    const recipeIds = recipes.map(r => r.id);
+    let imagesMap = {};
+    let ingredientsMap = {};
+    let tagsMap = {};
+
+    if (recipeIds.length > 0) {
+      const [allImages, allIngredients, allTags] = await Promise.all([
+        db.query(
+          `SELECT recipe_id, image_url, display_order, is_primary 
+           FROM recipe_images 
+           WHERE recipe_id IN (${recipeIds.map(() => '?').join(',')}) 
+           ORDER BY recipe_id, is_primary DESC, display_order ASC`,
+          recipeIds
+        ),
+        db.query(
+          `SELECT recipe_id, category, ingredient_name, alternative_name, display_order 
+           FROM recipe_ingredients_detailed 
+           WHERE recipe_id IN (${recipeIds.map(() => '?').join(',')}) 
+           ORDER BY recipe_id, category, display_order`,
+          recipeIds
+        ),
+        db.query(
+          `SELECT rdt.recipe_id, dt.tag_name, dt.tag_category 
+           FROM dietary_tags dt
+           INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id
+           WHERE rdt.recipe_id IN (${recipeIds.map(() => '?').join(',')})`,
+          recipeIds
+        )
+      ]);
+
+      // Build maps for O(1) lookup
+      allImages.forEach(img => {
+        if (!imagesMap[img.recipe_id]) imagesMap[img.recipe_id] = [];
+        imagesMap[img.recipe_id].push(img);
+      });
+
+      allIngredients.forEach(ing => {
+        if (!ingredientsMap[ing.recipe_id]) ingredientsMap[ing.recipe_id] = [];
+        ingredientsMap[ing.recipe_id].push(ing);
+      });
+
+      allTags.forEach(tag => {
+        if (!tagsMap[tag.recipe_id]) tagsMap[tag.recipe_id] = [];
+        tagsMap[tag.recipe_id].push(tag);
+      });
+    }
+
+    const enrichedRecipes = recipes.map((recipe) => {
       recipe.instructions = parseInstructions(recipe.instructions);
 
-      const [images, ingredients, tags] = await Promise.all([
-        db.query('SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC', [recipe.id]),
-        db.query('SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order', [recipe.id]),
-        db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [recipe.id])
-      ]);
+      // Get from maps instead of querying
+      const images = imagesMap[recipe.id] || [];
+      const ingredients = ingredientsMap[recipe.id] || [];
+      const tags = tagsMap[recipe.id] || [];
       
       // Get verification data from recipes table (not recipe_verification)
       const verification = recipe.verification_status ? {
@@ -570,7 +643,7 @@ router.get('/search', async (req, res) => {
 
       transformed.instructions = recipe.instructions;
       return transformed;
-    }));
+    });
 
     res.json({
       success: true,
@@ -633,17 +706,70 @@ router.get('/recommended', async (req, res) => {
 
     const recipes = await db.query(query, params);
 
-    const enrichedRecipes = await Promise.all(recipes.map(async (recipe) => {
-      recipe.instructions = parseInstructions(recipe.instructions);
+    // ✅ PERFORMANCE FIX: Batch fetch all images, ingredients, and tags instead of N+1 queries
+    const recipeIds = recipes.map(r => r.id);
+    let imagesMap = {};
+    let ingredientsMap = {};
+    let tagsMap = {};
 
-      const [images, ingredients, tags, verification] = await Promise.all([
-        db.query('SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC', [recipe.id]),
-        db.query('SELECT category, ingredient_name, alternative_name, display_order FROM recipe_ingredients_detailed WHERE recipe_id = ? ORDER BY category, display_order', [recipe.id]),
-        db.query(`SELECT dt.tag_name, dt.tag_category FROM dietary_tags dt INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id WHERE rdt.recipe_id = ?`, [recipe.id]),
-        // Get verification data from recipes table (not recipe_verification) - removed query
+    if (recipeIds.length > 0) {
+      const [allImages, allIngredients, allTags] = await Promise.all([
+        db.query(
+          `SELECT recipe_id, image_url, display_order, is_primary 
+           FROM recipe_images 
+           WHERE recipe_id IN (${recipeIds.map(() => '?').join(',')}) 
+           ORDER BY recipe_id, is_primary DESC, display_order ASC`,
+          recipeIds
+        ),
+        db.query(
+          `SELECT recipe_id, category, ingredient_name, alternative_name, display_order 
+           FROM recipe_ingredients_detailed 
+           WHERE recipe_id IN (${recipeIds.map(() => '?').join(',')}) 
+           ORDER BY recipe_id, category, display_order`,
+          recipeIds
+        ),
+        db.query(
+          `SELECT rdt.recipe_id, dt.tag_name, dt.tag_category 
+           FROM dietary_tags dt
+           INNER JOIN recipe_dietary_tags rdt ON dt.tag_id = rdt.tag_id
+           WHERE rdt.recipe_id IN (${recipeIds.map(() => '?').join(',')})`,
+          recipeIds
+        )
       ]);
 
-      const transformed = transformRecipeForFrontend(recipe, images, ingredients, tags, verification[0], {
+      // Build maps for O(1) lookup
+      allImages.forEach(img => {
+        if (!imagesMap[img.recipe_id]) imagesMap[img.recipe_id] = [];
+        imagesMap[img.recipe_id].push(img);
+      });
+
+      allIngredients.forEach(ing => {
+        if (!ingredientsMap[ing.recipe_id]) ingredientsMap[ing.recipe_id] = [];
+        ingredientsMap[ing.recipe_id].push(ing);
+      });
+
+      allTags.forEach(tag => {
+        if (!tagsMap[tag.recipe_id]) tagsMap[tag.recipe_id] = [];
+        tagsMap[tag.recipe_id].push(tag);
+      });
+    }
+
+    const enrichedRecipes = recipes.map((recipe) => {
+      recipe.instructions = parseInstructions(recipe.instructions);
+
+      // Get from maps instead of querying
+      const images = imagesMap[recipe.id] || [];
+      const ingredients = ingredientsMap[recipe.id] || [];
+      const tags = tagsMap[recipe.id] || [];
+
+      // Get verification data from recipes table (not recipe_verification)
+      const verification = recipe.verification_status ? {
+        verification_status: recipe.verification_status,
+        verifier_name: recipe.verifier_name || null,
+        verifier_credentials: recipe.verifier_credentials || null
+      } : null;
+
+      const transformed = transformRecipeForFrontend(recipe, images, ingredients, tags, verification, {
         tried_count: recipe.tried_count,
         save_count: recipe.save_count,
         average_rating: recipe.average_rating
@@ -651,7 +777,7 @@ router.get('/recommended', async (req, res) => {
 
       transformed.instructions = recipe.instructions;
       return transformed;
-    }));
+    });
 
     res.json({ success: true, data: enrichedRecipes });
   } catch (error) {
@@ -1382,36 +1508,44 @@ router.post('/filter', optionalAuth, async (req, res) => {
       throw new Error(`Database query failed: ${queryError.message}`);
     }
 
-    // Fetch images separately for each recipe to avoid GROUP_CONCAT truncation
-    const recipesWithImages = await Promise.all(recipes.map(async (recipe) => {
+    // ✅ PERFORMANCE FIX: Batch fetch all images instead of N+1 queries
+    const recipeIds = recipes.map(r => r.id);
+    let imagesMap = {};
+
+    if (recipeIds.length > 0) {
       try {
-        const images = await db.query(
-          'SELECT image_url, display_order, is_primary FROM recipe_images WHERE recipe_id = ? ORDER BY is_primary DESC, display_order ASC',
-          [recipe.id]
+        const allImages = await db.query(
+          `SELECT recipe_id, image_url, display_order, is_primary 
+           FROM recipe_images 
+           WHERE recipe_id IN (${recipeIds.map(() => '?').join(',')}) 
+           ORDER BY recipe_id, is_primary DESC, display_order ASC`,
+          recipeIds
         );
-        
-        // ✅ Debug: Log images for all recipes to identify image issues
-        const imageUrls = images.map(img => img.image_url).filter(Boolean);
-        console.log(`🔍 [FILTER] Recipe ID: ${recipe.id}, Title: ${recipe.recipe_name || recipe.title}`);
-        console.log(`   Images found: ${imageUrls.length}`);
-        if (imageUrls.length > 0) {
-          console.log(`   Image URLs: ${imageUrls.join(', ')}`);
-        } else {
-          console.log(`   ⚠️ No images found for recipe ${recipe.id}`);
-        }
-        
-        return {
-          ...recipe,
-          images: imageUrls
-        };
+
+        // Build map for O(1) lookup
+        allImages.forEach(img => {
+          if (!imagesMap[img.recipe_id]) imagesMap[img.recipe_id] = [];
+          imagesMap[img.recipe_id].push(img);
+        });
       } catch (imgError) {
-        console.warn(`⚠️ Error fetching images for recipe ${recipe.id}:`, imgError.message);
-        return {
-          ...recipe,
-          images: []
-        };
+        console.warn(`⚠️ Error batch fetching images:`, imgError.message);
       }
-    }));
+    }
+
+    const recipesWithImages = recipes.map((recipe) => {
+      const images = imagesMap[recipe.id] || [];
+      const imageUrls = images.map(img => img.image_url).filter(Boolean);
+      
+      // Reduced logging - only log if ENABLE_QUERY_LOGGING is set
+      if (process.env.ENABLE_QUERY_LOGGING === 'true' && imageUrls.length === 0) {
+        console.log(`⚠️ No images found for recipe ${recipe.id}`);
+      }
+      
+      return {
+        ...recipe,
+        images: imageUrls
+      };
+    });
 
     // Transform recipes - add "Good For Everyone" tag
     let transformedRecipes = [];

@@ -36,6 +36,20 @@ router.post('/member', authenticateToken, async (req, res) => {
       relationship: relationshipValue
     });
 
+    // ✅ Check if user exists in users table (required for foreign key constraint)
+    const [userCheck] = await pool.query(
+      'SELECT user_id FROM users WHERE user_id = ?',
+      [userId]
+    );
+
+    if (!userCheck || userCheck.length === 0) {
+      console.error('❌ User not found in users table:', userId);
+      return res.status(400).json({
+        success: false,
+        message: 'User account not found. Member profiles can only be created for regular users, not admin accounts.'
+      });
+    }
+
     // Insert member into database
     // mysql2/promise returns [ResultSetHeader, fields] for INSERT queries
     // ResultSetHeader contains insertId, affectedRows, etc.
@@ -47,6 +61,16 @@ router.post('/member', authenticateToken, async (req, res) => {
       `, [userId, trimmedName, relationshipValue]);
     } catch (queryError) {
       console.error('❌ Database query error:', queryError);
+      
+      // Provide more helpful error message for foreign key constraint
+      if (queryError.code === 'ER_NO_REFERENCED_ROW_2') {
+        return res.status(400).json({
+          success: false,
+          message: 'User account not found. Please ensure you are logged in as a regular user account, not an admin account.',
+          error: process.env.NODE_ENV === 'development' ? queryError.message : undefined
+        });
+      }
+      
       throw queryError;
     }
 

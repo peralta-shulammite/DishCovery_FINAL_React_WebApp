@@ -242,5 +242,58 @@ export const adminFeedbackAPI = {
       console.error('Error deleting feedback:', error);
       throw error;
     }
+  },
+
+  // ========================================
+  // ✅ APPROVE MEDICAL CONDITION REQUEST
+  // ========================================
+  approveMedicalCondition: async (feedbackId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}/approve-medical-condition`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error approving medical condition:', error);
+      throw error;
+    }
+  },
+
+  // ========================================
+  // ❌ REJECT MEDICAL CONDITION REQUEST
+  // ========================================
+  rejectMedicalCondition: async (feedbackId, reason = '') => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/feedback/${feedbackId}/reject-medical-condition`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error rejecting medical condition:', error);
+      throw error;
+    }
   }
 };
