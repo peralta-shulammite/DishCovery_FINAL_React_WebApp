@@ -1106,12 +1106,7 @@ body {
   animation: slideInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both;
 }
 
-.recipes-container.recipes-list {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-  animation: slideInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both;
-}
+
 
 /* Add this new rule */
 .recipes-container-new.recipes-list {
@@ -2750,15 +2745,15 @@ body {
 .alternative-content {
   margin-top: 8px;
   padding: 12px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 0.1));
-  border-left: 3px solid #3b82f6;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), rgba(251, 191, 36, 0.1));
+  border-left: 3px solid #fbbf24;
   border-radius: 0 8px 8px 0;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.1);
 }
 
 .alternative-label {
   font-size: 11px;
-  color: #0369a1;
+  color: #a16207;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -2769,7 +2764,7 @@ body {
 
 .alternative-text {
   font-size: 13px;
-  color: #1e40af;
+  color: #92400e;
   font-weight: 500;
   line-height: 1.4;
 }
