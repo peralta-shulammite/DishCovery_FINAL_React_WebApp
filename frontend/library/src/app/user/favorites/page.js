@@ -62,6 +62,10 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
+
   // ✅ Authentication check - redirect to home if not logged in
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -222,8 +226,8 @@ export default function FavoritesPage() {
     }
   };
 
-  // Filter and sort recipes
-  const dishCoveryFilteredAndSortedRecipes = dishCoveryFavoriteRecipes
+// Filter and sort recipes
+  const dishCoveryFilteredRecipes = dishCoveryFavoriteRecipes
     .filter(recipe => 
       recipe.title.toLowerCase().includes(dishCoverySearchQuery.toLowerCase()) ||
       recipe.description.toLowerCase().includes(dishCoverySearchQuery.toLowerCase())
@@ -238,6 +242,17 @@ export default function FavoritesPage() {
           return 0;
       }
     });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(dishCoveryFilteredRecipes.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const dishCoveryFilteredAndSortedRecipes = dishCoveryFilteredRecipes.slice(startIndex, endIndex);
+
+  // Reset to first page when search or sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dishCoverySearchQuery, dishCoverySortBy]);
 
   // Helper functions from recipe page
   const renderStars = (rating) => {
@@ -379,6 +394,63 @@ export default function FavoritesPage() {
     setRecipeToRemove(null);
   };
 
+  // Pagination handlers
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    // Scroll to top of recipes container
+    if (dishCoveryTopRef.current) {
+      dishCoveryTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      handlePageChange(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      handlePageChange(currentPage + 1);
+    }
+  };
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxPagesToShow = 5;
+    
+    if (totalPages <= maxPagesToShow) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push('...');
+        pages.push(currentPage - 1);
+        pages.push(currentPage);
+        pages.push(currentPage + 1);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
+    
   return (
     <UserLayout 
       isLoggedIn={dishCoveryIsLoggedIn}
@@ -474,105 +546,96 @@ export default function FavoritesPage() {
               </div>
             )}
 
-            {!loading && !error && dishCoveryFilteredAndSortedRecipes.length > 0 && (
-              <div className={`recipes-container-new ${dishCoveryViewMode === 'grid' ? 'recipes-grid-new' : 'recipes-list'}`}>
-                {dishCoveryFilteredAndSortedRecipes.map((recipe) => (
-                  <div
-                    key={recipe.id}
-                    className={`recipe-card ${dishCoveryViewMode === 'list' ? 'list-view' : ''}`}
-                    onClick={() => openModal(recipe)}
-                  >
-                    <div className="recipe-image-container">
-                      <img
-                        src={(() => {
-                          const imageSrc = Array.isArray(recipe.images) ? recipe.images[0] : recipe.images;
-                          // ✅ Debug: Log image source for specific recipe (e.g., Sinugba)
-                          if (recipe.title && recipe.title.toLowerCase().includes('sinugba')) {
-                            console.log(`🔍 [${recipe.title}] Recipe ID: ${recipe.id}`);
-                            console.log(`🔍 [${recipe.title}] Images array:`, recipe.images);
-                            console.log(`🔍 [${recipe.title}] Image source:`, imageSrc);
-                          }
-                          return imageSrc;
-                        })()}
-                        alt={recipe.title}
-                        className="recipe-image"
-                        onError={(e) => { 
-                          console.error(`❌ Image failed to load for recipe ${recipe.title}:`, e.target.src);
-                          e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
-                        }}
-                      />
-                    </div>
-                    {/* Recipe Content */}
-                    <div className="recipe-content">
-                      <h3 className="recipe-title">{recipe.title}</h3>
-
-                      <p className="recipe-description">{recipe.description}</p>
-
-                      <div className="recipe-meta">
+{!loading && !error && dishCoveryFilteredAndSortedRecipes.length > 0 && (
+              <>
+                <div className={`recipes-container-new ${dishCoveryViewMode === 'grid' ? 'recipes-grid-new' : 'recipes-list'}`}>
+                  {dishCoveryFilteredAndSortedRecipes.map((recipe) => (
+                    <div
+                      key={recipe.id}
+                      className={`recipe-card ${dishCoveryViewMode === 'list' ? 'list-view' : ''}`}
+                      onClick={() => openModal(recipe)}
+                    >
+                      <div className="recipe-image-container">
+                        <img
+                          src={(() => {
+                            const imageSrc = Array.isArray(recipe.images) ? recipe.images[0] : recipe.images;
+                            if (recipe.title && recipe.title.toLowerCase().includes('sinugba')) {
+                              console.log(`🔍 [${recipe.title}] Recipe ID: ${recipe.id}`);
+                              console.log(`🔍 [${recipe.title}] Images array:`, recipe.images);
+                              console.log(`🔍 [${recipe.title}] Image source:`, imageSrc);
+                            }
+                            return imageSrc;
+                          })()}
+                          alt={recipe.title}
+                          className="recipe-image"
+                          onError={(e) => { 
+                            console.error(`❌ Image failed to load for recipe ${recipe.title}:`, e.target.src);
+                            e.target.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=No+Image';
+                          }}
+                        />
+                      </div>
+                      <div className="recipe-content">
+                        <h3 className="recipe-title">{recipe.title}</h3>
+                        <p className="recipe-description">{recipe.description}</p>
+                        <div className="recipe-meta">
                         <div className="recipe-meta-info">
                           <div className="meta-item">
-                            <FontAwesomeIcon icon={faUsers} />
-                            {recipe.servings} servings
+                            <FontAwesomeIcon icon={faUsers} className="meta-icon" />
+                            <span>{recipe.servings} {recipe.servings === '8+' ? 'servings' : recipe.servings === 1 ? 'serving' : 'servings'}</span>
                           </div>
                         </div>
-                        
-                        <div className="meal-type-container">
-                          {(() => {
-                            // Parse meal types - handle array, comma-separated string, or single value
-                            let mealTypes = [];
-                            if (Array.isArray(recipe.mealType)) {
-                              mealTypes = recipe.mealType.filter(m => m && m.trim());
-                            } else if (typeof recipe.mealType === 'string' && recipe.mealType.includes(',')) {
-                              mealTypes = recipe.mealType.split(',').map(m => m.trim()).filter(m => m);
-                            } else if (recipe.mealType) {
-                              mealTypes = [recipe.mealType];
-                            }
-                            
-                            return mealTypes.map((mealType, index) => (
-                              <span key={index} className="meal-type-badge">
-                                <FontAwesomeIcon icon={faUtensils} />
-                                {mealType}
-                              </span>
-                            ));
-                          })()}
+                          <div className="meal-type-container">
+                            {(() => {
+                              let mealTypes = [];
+                              if (Array.isArray(recipe.mealType)) {
+                                mealTypes = recipe.mealType.filter(m => m && m.trim());
+                              } else if (typeof recipe.mealType === 'string' && recipe.mealType.includes(',')) {
+                                mealTypes = recipe.mealType.split(',').map(m => m.trim()).filter(m => m);
+                              } else if (recipe.mealType) {
+                                mealTypes = [recipe.mealType];
+                              }
+                              return mealTypes.map((mealType, index) => (
+                                <span key={index} className="meal-type-badge">
+                                  <FontAwesomeIcon icon={faUtensils} />
+                                  {mealType}
+                                </span>
+                              ));
+                            })()}
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="recipe-tags">
-                        <div className="tags-container">
-                          {(recipe.dietaryTags || []).slice(0, 3).map(tag => {
-                            const isGoodForEveryone = tag === 'Good For Everyone';
-                            return (
-                              <span 
-                                key={tag} 
-                                className={`recipe-tag dietary ${isGoodForEveryone ? 'good-for-everyone' : ''}`}
-                              >
-                                {tag}
+                        <div className="recipe-tags">
+                          <div className="tags-container">
+                            {(recipe.dietaryTags || []).slice(0, 3).map(tag => {
+                              const isGoodForEveryone = tag === 'Good For Everyone';
+                              return (
+                                <span 
+                                  key={tag} 
+                                  className={`recipe-tag dietary ${isGoodForEveryone ? 'good-for-everyone' : ''}`}
+                                >
+                                  {tag}
+                                </span>
+                              );
+                            })}
+                            {(recipe.dietaryTags || []).length > 3 && (
+                              <span className="tags-more">
+                                +{(recipe.dietaryTags || []).length - 3} more
                               </span>
-                            );
-                          })}
-                          {(recipe.dietaryTags || []).length > 3 && (
-                            <span className="tags-more">
-                              +{(recipe.dietaryTags || []).length - 3} more
-                            </span>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="recipe-engagement">
+                        <div className="recipe-engagement">
                         <button 
-                          className={`engagement-item engagement-button`}
+                          className="engagement-button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Handle tried action if needed
                           }}
-                          title="Mark as tried"
+                          title="People who tried this recipe"
                         >
                           <FontAwesomeIcon icon={faEye} />
-                          {recipe.engagement?.tried || 0} tried
+                          <span>{recipe.engagement?.tried || 0} {(recipe.engagement?.tried || 0) === 1 ? 'person' : 'people'} tried this</span>
                         </button>
                         <button 
-                          className={`engagement-item engagement-button favorited`}
+                          className="engagement-button favorited"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRemoveConfirmation(recipe.id);
@@ -580,13 +643,54 @@ export default function FavoritesPage() {
                           title="Remove from favorites"
                         >
                           <FontAwesomeIcon icon={faHeart} />
-                          {recipe.engagement?.saved || 0} saved
+                          <span>{recipe.engagement?.saved || 0} saved</span>
                         </button>
                       </div>
+                     
+                      </div>
                     </div>
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="pagination-container">
+                    <button 
+                      className="pagination-btn pagination-prev" 
+                      onClick={handlePrevPage}
+                      disabled={currentPage === 1}
+                    >
+                      <FontAwesomeIcon icon={faChevronLeft} />
+                      Previous
+                    </button>
+                    
+                    <div className="pagination-numbers">
+                      {getPageNumbers().map((page, index) => (
+                        page === '...' ? (
+                          <span key={`ellipsis-${index}`} className="pagination-ellipsis">...</span>
+                        ) : (
+                          <button
+                            key={page}
+                            className={`pagination-number ${currentPage === page ? 'active' : ''}`}
+                            onClick={() => handlePageChange(page)}
+                          >
+                            {page}
+                          </button>
+                        )
+                      ))}
+                    </div>
+                    
+                    <button 
+                      className="pagination-btn pagination-next" 
+                      onClick={handleNextPage}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                      <FontAwesomeIcon icon={faChevronRight} />
+                    </button>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </main>
         </div>
@@ -602,6 +706,32 @@ export default function FavoritesPage() {
               <div className="modal-header">
                 <h1 className="modal-title">{selectedRecipe.title}</h1>
                 <p className="modal-subtitle">{selectedRecipe.description}</p>
+                
+                <div className="recipe-preview-meta">
+                  {selectedRecipe.servings && (
+                    <div className="preview-servings">
+                      <FontAwesomeIcon icon={faUsers} />
+                      <span>{selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}</span>
+                    </div>
+                  )}
+                  
+                  <div className="preview-meal-types">
+                    {(() => {
+                      const mealTypes = Array.isArray(selectedRecipe.mealType) 
+                        ? selectedRecipe.mealType 
+                        : typeof selectedRecipe.mealType === 'string' && selectedRecipe.mealType.includes(',')
+                          ? selectedRecipe.mealType.split(',').map(m => m.trim()).filter(m => m)
+                          : [selectedRecipe.mealType];
+                      
+                      return mealTypes.map((mealType, index) => (
+                        <span key={index} className="preview-meal-badge">
+                          <FontAwesomeIcon icon={faUtensils} />
+                          {mealType}
+                        </span>
+                      ));
+                    })()}
+                  </div>
+                </div>
               </div>
               
               <div className="modal-body" ref={modalBodyRef} onScroll={handleModalScroll}>
@@ -715,28 +845,6 @@ export default function FavoritesPage() {
                     </div>
                   )}
                   
-                  {selectedRecipe.mealType && (() => {
-                    // Split meal types if it's a string with commas, or use array if already an array
-                    const mealTypes = Array.isArray(selectedRecipe.mealType) 
-                      ? selectedRecipe.mealType 
-                      : typeof selectedRecipe.mealType === 'string' && selectedRecipe.mealType.includes(',')
-                        ? selectedRecipe.mealType.split(',').map(m => m.trim()).filter(m => m)
-                        : [selectedRecipe.mealType];
-                    
-                    return (
-                      <div className="modal-section">
-                        <h3 className="section-title">Meal Type</h3>
-                        <div className="modal-tags">
-                          {mealTypes.map((mealType, index) => (
-                            <span key={index} className="modal-tag meal-type">
-                              <FontAwesomeIcon icon={faUtensils} />
-                              {mealType}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
                   
                   {(selectedRecipe.medicalConditions || []).length > 0 && (
                     <div className="modal-section">
@@ -747,18 +855,6 @@ export default function FavoritesPage() {
                             {condition}
                           </span>
                         ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {selectedRecipe.servings && (
-                    <div className="modal-section">
-                      <h3 className="section-title">Servings</h3>
-                      <div className="modal-tags">
-                        <span className="modal-tag servings">
-                          <FontAwesomeIcon icon={faUsers} />
-                          {selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}
-                        </span>
                       </div>
                     </div>
                   )}

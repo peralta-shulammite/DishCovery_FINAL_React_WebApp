@@ -173,7 +173,7 @@ export default function AboutSupportPage() {
                 },
                 {
                   question: "Can I customize recipes?",
-                  answer: "Yes, adjust recipes based on dietary preferences or available ingredients in the customization menu. You can filter by allergens, dietary restrictions, and cooking time."
+                  answer: "Yes, adjust recipes based on dietary preferences or available ingredients in the customization menu. You can filter by allergens and dietary restrictions."
                 },
                 {
                   question: "What if the app doesn't recognize an ingredient?",

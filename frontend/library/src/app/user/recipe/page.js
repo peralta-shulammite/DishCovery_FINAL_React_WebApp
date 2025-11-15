@@ -1141,10 +1141,10 @@ const RecipePage = () => {
 
                       <div className="recipe-meta">
                         <div className="recipe-meta-info">
-                          <div className="meta-item">
-                            <FontAwesomeIcon icon={faUsers} />
-                            {recipe.servings} servings
-                          </div>
+                        <div className="meta-item">
+                          <FontAwesomeIcon icon={faUsers} className="meta-icon" />
+                          <span>{recipe.servings} {recipe.servings === '8+' ? 'servings' : recipe.servings === 1 ? 'serving' : 'servings'}</span>
+                        </div>
                         </div>
                         
                         <div className="meal-type-container">
@@ -1191,29 +1191,28 @@ const RecipePage = () => {
                       </div>
 
                       <div className="recipe-engagement">
-                        <button 
-                          className={`engagement-item engagement-button ${triedRecipes.has(recipe.id) ? 'tried' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleTried(recipe.id);
-                          }}
-                          title={triedRecipes.has(recipe.id) ? 'You tried this recipe' : 'Mark as tried'}
-                        >
-                          <FontAwesomeIcon icon={faEye} />
-                          {recipe.engagement?.tried || 0} tried
-                        </button>
-                        <button 
-                          className={`engagement-item engagement-button ${favoritedRecipes.has(recipe.id) ? 'favorited' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleFavorite(recipe.id);
-                          }}
-                          title={favoritedRecipes.has(recipe.id) ? 'Remove from favorites' : 'Add to favorites'}
-                        >
-                          <FontAwesomeIcon icon={favoritedRecipes.has(recipe.id) ? faHeart : faHeartRegular} />
-                          {recipe.engagement?.saved || 0} saved
-                        </button>
-                        </div>
+                      <button 
+                        className="engagement-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        title="People who tried this recipe"
+                      >
+                        <FontAwesomeIcon icon={faEye} />
+                        <span>{recipe.engagement?.tried || 0} {(recipe.engagement?.tried || 0) === 1 ? 'person' : 'people'} tried this</span>
+                      </button>
+                      <button 
+                        className={`engagement-button ${favoritedRecipes.has(recipe.id) ? 'favorited' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(recipe.id);
+                        }}
+                        title={favoritedRecipes.has(recipe.id) ? 'Remove from favorites' : 'Add to favorites'}
+                      >
+                        <FontAwesomeIcon icon={favoritedRecipes.has(recipe.id) ? faHeart : faHeartRegular} />
+                        <span>{recipe.engagement?.saved || 0} saved</span>
+                      </button>
+                    </div>
                         </div>
                       </div>
                       );
@@ -1408,6 +1407,32 @@ const RecipePage = () => {
               <div className="modal-header">
                 <h1 className="modal-title">{selectedRecipe.title}</h1>
                 <p className="modal-subtitle">{selectedRecipe.description}</p>
+                
+                <div className="recipe-preview-meta">
+                  {selectedRecipe.servings && (
+                    <div className="preview-servings">
+                      <FontAwesomeIcon icon={faUsers} />
+                      <span>{selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}</span>
+                    </div>
+                  )}
+                  
+                  <div className="preview-meal-types">
+                    {(() => {
+                      const mealTypes = Array.isArray(selectedRecipe.mealType) 
+                        ? selectedRecipe.mealType 
+                        : typeof selectedRecipe.mealType === 'string' && selectedRecipe.mealType.includes(',')
+                          ? selectedRecipe.mealType.split(',').map(m => m.trim()).filter(m => m)
+                          : [selectedRecipe.mealType];
+                      
+                      return mealTypes.map((mealType, index) => (
+                        <span key={index} className="preview-meal-badge">
+                          <FontAwesomeIcon icon={faUtensils} />
+                          {mealType}
+                        </span>
+                      ));
+                    })()}
+                  </div>
+                </div>
               </div>
               
               <div className="modal-body" ref={modalBodyRef} onScroll={handleModalScroll}>
@@ -1527,54 +1552,6 @@ const RecipePage = () => {
                         {selectedRecipe.dietaryTags.map((tag, index) => (
                           <span key={index} className="modal-tag dietary">{tag}</span>
                         ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {selectedRecipe.mealType && (() => {
-                    // Split meal types if it's a string with commas, or use array if already an array
-                    const mealTypes = Array.isArray(selectedRecipe.mealType) 
-                      ? selectedRecipe.mealType 
-                      : typeof selectedRecipe.mealType === 'string' && selectedRecipe.mealType.includes(',')
-                        ? selectedRecipe.mealType.split(',').map(m => m.trim()).filter(m => m)
-                        : [selectedRecipe.mealType];
-                    
-                    return (
-                    <div className="modal-section">
-                      <h3 className="section-title">Meal Type</h3>
-                      <div className="modal-tags">
-                          {mealTypes.map((mealType, index) => (
-                            <span key={index} className="modal-tag meal-type">
-                          <FontAwesomeIcon icon={faUtensils} />
-                              {mealType}
-                        </span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  
-                  {(selectedRecipe.medicalConditions || []).length > 0 && (
-                    <div className="modal-section">
-                      <h3 className="section-title">Medical Conditions (Allergies & Intolerances)</h3>
-                      <div className="modal-tags">
-                        {selectedRecipe.medicalConditions.map((condition, index) => (
-                          <span key={index} className="modal-tag medical-condition">
-                            {condition}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {selectedRecipe.servings && (
-                    <div className="modal-section">
-                      <h3 className="section-title">Servings</h3>
-                      <div className="modal-tags">
-                        <span className="modal-tag servings">
-                          <FontAwesomeIcon icon={faUsers} />
-                          {selectedRecipe.servings} {selectedRecipe.servings === '8+' ? 'servings' : selectedRecipe.servings === '1' ? 'serving' : 'servings'}
-                        </span>
                       </div>
                     </div>
                   )}
