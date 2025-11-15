@@ -957,65 +957,8 @@ const RecipeManagement = () => {
             </div>
           </div>
 
-          {/* Row 2: All Filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            {/* Status Filters */}
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button 
-                className={`filter-btn ${statusFilter === 'All' ? 'active' : ''}`} 
-                onClick={() => setStatusFilter('All')}
-                style={{
-                  padding: '10px 16px',
-                  border: statusFilter === 'All' ? 'none' : '2px solid #e5e7eb',
-                  background: statusFilter === 'All' ? '#2E7D32' : 'white',
-                  color: statusFilter === 'All' ? 'white' : '#374151',
-                  borderRadius: '20px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  fontFamily: 'Poppins, sans-serif',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                All
-              </button>
-              <button 
-                className={`filter-btn ${statusFilter === 'AI-generated' ? 'active' : ''}`} 
-                onClick={() => setStatusFilter('AI-generated')}
-                style={{
-                  padding: '10px 16px',
-                  border: statusFilter === 'AI-generated' ? 'none' : '2px solid #e5e7eb',
-                  background: statusFilter === 'AI-generated' ? '#2E7D32' : 'white',
-                  color: statusFilter === 'AI-generated' ? 'white' : '#374151',
-                  borderRadius: '20px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  fontFamily: 'Poppins, sans-serif',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                AI-generated
-              </button>
-              <button 
-                className={`filter-btn ${statusFilter === 'Verified' ? 'active' : ''}`} 
-                onClick={() => setStatusFilter('Verified')}
-                style={{
-                  padding: '10px 16px',
-                  border: statusFilter === 'Verified' ? 'none' : '2px solid #e5e7eb',
-                  background: statusFilter === 'Verified' ? '#2E7D32' : 'white',
-                  color: statusFilter === 'Verified' ? 'white' : '#374151',
-                  borderRadius: '20px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  fontFamily: 'Poppins, sans-serif',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                Verified
-              </button>
-            </div>
+
 
             {/* Meal Type Dropdown */}
             <select 
