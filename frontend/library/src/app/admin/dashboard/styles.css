@@ -7,6 +7,24 @@
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Fix sidebar collapse spacing */
+.dashboard-content {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+/* Ensure full width when sidebar is collapsed */
+.admin-content-wrapper {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* Stats Cards - Keep original design with 4px colored left border */
@@ -199,7 +217,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 25px;
-  width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
   box-sizing: border-box;
 }
 
@@ -313,6 +333,27 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.pie-legend::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pie-legend::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.pie-legend::-webkit-scrollbar-thumb {
+  background: #2E7D32;
+  border-radius: 10px;
+}
+
+.pie-legend::-webkit-scrollbar-thumb:hover {
+  background: #1b5e20;
 }
 
 .pie-legend-item {
@@ -559,11 +600,13 @@
   }
   
   /* Stats Cards - Keep original mobile layout exactly as it was */
- .stats-container {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 8px !important;
-    margin-bottom: 14px !important;
+  .stats-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+    width: 100% !important;
+    max-width: 100% !important;
   }
   
   .stat-card:nth-child(3) {
