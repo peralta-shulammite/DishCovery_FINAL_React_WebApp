@@ -166,51 +166,33 @@ export default function AboutSupportPage() {
           </p>
 
           <div className="help-categories">
-            <div className="help-category">
-              <h3>Getting Started</h3>
-              <ul className="help-links">
-                <li><a href="#signup">How to Sign Up</a></li>
-                <li><a href="#scanning">Scanning Ingredients</a></li>
-                <li><a href="#recipes">Generating Recipes</a></li>
-              </ul>
-            </div>
-
-            <div className="help-category">
-              <h3>Account & Settings</h3>
-              <ul className="help-links">
-                <li><a href="#profile">Managing Your Profile</a></li>
-                <li><a href="#dietary">Setting Dietary Restrictions</a></li>
-                <li><a href="#password">Resetting Your Password</a></li>
-              </ul>
-            </div>
-
-            <div className="help-category">
-              <h3>Using DishCovery</h3>
-              <ul className="help-links">
-                <li><a href="#ingredient-recognition">Ingredient Recognition</a></li>
-                <li><a href="#meal-customization">Customizing Meals</a></li>
-                <li><a href="#saving-recipes">Saving Recipes</a></li>
-              </ul>
-            </div>
-
-            <div className="help-category">
-              <h3>Recipes & Nutrition</h3>
-              <ul className="help-links">
-                <li><a href="#verification">Recipe Verification Process</a></li>
-                <li><a href="#allergens">Managing Allergens</a></li>
-                <li><a href="#diet-tips">Healthy Diet Tips</a></li>
-              </ul>
-            </div>
-
-            <div className="help-category">
-              <h3>Technical Support</h3>
-              <ul className="help-links">
-                <li><a href="#errors">Common Errors</a></li>
-                <li><a href="#troubleshooting">Troubleshooting Guide</a></li>
-              </ul>
-            </div>
+          <div className="help-category">
+            <h3>Getting Started</h3>
+            <ul className="help-links">
+              <li><a href="#signup">How to Sign Up</a></li>
+              <li><a href="#scanning">Scanning Ingredients</a></li>
+              <li><a href="#recipes">Generating Recipes</a></li>
+            </ul>
           </div>
 
+          <div className="help-category">
+            <h3>Account & Settings</h3>
+            <ul className="help-links">
+              <li><a href="#profile">Managing Your Profile</a></li>
+              <li><a href="#dietary">Setting Dietary Restrictions</a></li>
+              <li><a href="#password">Resetting Your Password</a></li>
+            </ul>
+          </div>
+
+          <div className="help-category">
+            <h3>Using DishCovery</h3>
+            <ul className="help-links">
+              <li><a href="#ingredient-recognition">Ingredient Recognition</a></li>
+              <li><a href="#meal-customization">Customizing Meals</a></li>
+              <li><a href="#saving-recipes">Saving Recipes</a></li>
+            </ul>
+          </div>
+        </div>
           <div className="faq-section">
             <h3>Frequently Asked Questions</h3>
             <div className="faq-list">
