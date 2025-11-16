@@ -141,6 +141,9 @@ router.post('/', upload.single('image'), async (req, res) => {
       detections: detectionsWithIds,
       matched_ingredients: matched,
       unmatched_ingredients: unmatched,
+      // Include AI summary if available
+      ai_summary: response.data.ai_summary || null,
+      gemini_enabled: response.data.gemini_enabled || false,
     });
   } catch (error) {
     console.error('❌ Detection error:', error.message);

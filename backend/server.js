@@ -231,6 +231,10 @@ app.listen(PORT, () => {
   console.log(`   - YOLO_API_URL: ${process.env.YOLO_API_URL ? '✅ ' + process.env.YOLO_API_URL : '❌ NOT SET'}`);
   console.log(`   - JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Set' : '❌ NOT SET (using default)'}`);
   console.log('');
+  // Extra explicit production-only log to make it very clear in deployment logs
+  if ((process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    console.log(`🏷️  Production YOLO_API_URL in use: ${process.env.YOLO_API_URL || 'NOT SET'}`);
+  }
   console.log('📋 Available routes:');
   console.log('   - GET  /api/health');
   console.log('   - POST /api/auth/register');
