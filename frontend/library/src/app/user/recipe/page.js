@@ -591,60 +591,9 @@ const RecipePage = () => {
     };
   }, [selectedRecipe, favoritedRecipes]);
 
-  // Auto-sync check every 30 seconds
-  useEffect(() => {
-    // ✅ Don't auto-sync if we're in filtered mode (ingredients parameter present)
-    const urlParams = new URLSearchParams(window.location.search);
-    const ingredientsParam = urlParams.get('ingredients');
-    if (ingredientsParam) {
-      console.log('⏭️ Skipping auto-sync - filtered mode active');
-      return;
-    }
-    
-    const syncInterval = setInterval(async () => {
-      try {
-        const { needsUpdate } = await recipeAPI.checkForUpdates();
-        if (needsUpdate) {
-          console.log('Updates detected, refreshing recipes...');
-          fetchRecipes();
-        }
-      } catch (error) {
-        console.error('Error checking for updates:', error);
-      }
-    }, 30000);
-    
-    return () => clearInterval(syncInterval);
-  }, []);
+  // ✅ REMOVED: Auto-sync check to prevent auto-refresh
 
-  // Auto-refresh when tab becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // ✅ Don't refresh if we're in filtered mode (ingredients parameter present)
-        const urlParams = new URLSearchParams(window.location.search);
-        const ingredientsParam = urlParams.get('ingredients');
-        if (ingredientsParam) {
-          console.log('⏭️ Skipping refresh - filtered mode active');
-          return;
-        }
-        
-        console.log('Tab became visible, checking for updates...');
-        recipeAPI.checkForUpdates().then(({ needsUpdate }) => {
-          if (needsUpdate) {
-            fetchRecipes();
-          }
-        }).catch(error => {
-          console.error('Error checking updates on visibility change:', error);
-        });
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
+  // ✅ REMOVED: Auto-refresh when tab becomes visible to prevent auto-refresh
 
   const handleLoadMore = () => {
     if (!loading && hasMore) {
@@ -1468,17 +1417,19 @@ const RecipePage = () => {
                   </div>
                   
                   {/* Verification Badge Section - Moved above engagement buttons */}
-                  <div className="verification-section">
-                    <div className="verification-main">
-                      <FontAwesomeIcon 
-                        className="verification-icon"
-                        icon={faShieldAlt}
-                      />
-                      <span className="verification-status">
-                        Checked by: Cecilia Alamag, RND, MSc
-                      </span>
+                  {selectedRecipe.verifierName && (
+                    <div className="verification-section">
+                      <div className="verification-main">
+                        <FontAwesomeIcon 
+                          className="verification-icon"
+                          icon={faShieldAlt}
+                        />
+                        <span className="verification-status">
+                          Checked by: {selectedRecipe.verifierName}{selectedRecipe.verifierCredentials ? `, ${selectedRecipe.verifierCredentials}` : ''}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   
                   <div className="modal-stats">
                     <button 
