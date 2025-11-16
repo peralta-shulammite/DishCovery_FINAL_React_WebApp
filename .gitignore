@@ -42,4 +42,4 @@ env-backup.env
 env-local-backup.env
 
 # Nested folder (should not be tracked)
-DishCovery_FINAL_React_WebApp/
+DishCovery_FINAL_React_WebApp/backend/.env.local
