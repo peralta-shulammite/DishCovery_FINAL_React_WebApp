@@ -2,7 +2,7 @@
   "name": "DishCovery",
   "short_name": "DishCovery",
   "description": "Generate personalized recipes from your ingredients",
-  "theme_color": "#2E7D32",
+  "theme_color": "#ffffff",
   "background_color": "#ffffff",
   "display": "standalone",
   "scope": "/",
