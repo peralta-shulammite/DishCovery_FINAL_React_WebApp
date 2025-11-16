@@ -117,25 +117,38 @@ export default function TutorialPage() {
               </div>
               <div className="content-body">
                 <p className="lead-text">
-                  The Getting Started section guides new and returning users through the first steps of using DishCovery. It includes logging in, signing up, and completing the Get Started setup form to personalize your experience.
+                  The Getting Started section guides both new and returning users through their first steps with DishCovery. This includes logging in, signing up, and completing the Get Started setup form to personalize your experience.
                 </p>
 
                 <div className="feature-highlight">
                   <h3>Log In</h3>
-                  <p>Log In allows existing users to access their DishCovery account using their email and password. Once logged in, users can view their saved recipes, manage their pantry ingredients, update their preferences, and continue exploring all DishCovery features.</p>
-                  <img src="/images/tutorial/1image.png" alt="Log In screen" className="tutorial-image" />
+                  <p>The Log In page allows existing users to access their DishCovery account using their email and password. Once logged in, you can view saved recipes, manage pantry ingredients, update preferences, and explore all features.</p>
+                  <div className="tutorial-image-container">
+                    <img src="/images/tutorial/1image.png" alt="Log In screen" />
+                  </div>
                 </div>
 
                 <div className="feature-highlight">
                   <h3>Sign Up</h3>
-                  <p>Sign Up is for new users who want to create a DishCovery account. You will need to provide your first name, last name, email, password, and confirm your password — or you can sign up using your Google account. After signing up, you will be directed to the Get Started setup page to answer a few questions that help personalize your DishCovery experience.</p>
-                  <img src="/images/tutorial/2image.png" alt="Sign Up form" className="tutorial-image" />
+                  <p>The Sign Up page is for new users who want to create a DishCovery account. You will provide your first name, last name, email, password, and confirm your password — or you may sign up using your Google account. After creating an account, you will be directed to the Get Started setup form.</p>
+                  <div className="tutorial-image-container">
+                    <img src="/images/tutorial/2image.png" alt="Sign Up form" />
+                  </div>
                 </div>
 
                 <div className="feature-highlight">
                   <h3>The Get Started Form</h3>
-                  <p>The Get Started form is the next step for new users. In this form, you choose whether you are setting up DishCovery for yourself or for your household. You then provide your dietary restrictions, allergens, meal preferences, and any cultural food considerations. Completing this form allows DishCovery to generate personalized recipe suggestions that meet your specific needs.</p>
-                  <img src="/images/tutorial/3image.png" alt="Get Started personalization form" className="tutorial-image" />
+                  <p>The Get Started form personalizes your DishCovery experience. Here, you will indicate whether you are setting up DishCovery for yourself or your household. You will then provide details about:</p>
+                  <ul style={{ marginLeft: '20px', marginBottom: '16px' }}>
+                    <li>Dietary restrictions</li>
+                    <li>Medical conditions (allergens included)</li>
+                    <li>Excluded ingredients</li>
+                    <li>Meal preferences</li>
+                  </ul>
+                  <p>This ensures that all generated recipes match your needs and restrictions.</p>
+                  <div className="tutorial-image-container">
+                    <img src="/images/tutorial/3image.png" alt="Get Started personalization form" />
+                  </div>
                 </div>
               </div>
             </section>
@@ -147,10 +160,65 @@ export default function TutorialPage() {
               </div>
               <div className="content-body">
                 <p className="lead-text">
-                  The Account & Settings section allows you to manage your profile and keep it up to date. You can update personal information, adjust dietary restrictions, manage allergens, and set meal preferences or cultural considerations. You can also reset your password or modify other account settings at any time. Keeping your account information current ensures that DishCovery continues to provide the most accurate and personalized recommendations.
+                  The Account & Settings section allows you to manage your profile and keep your experience accurate and personalized.
                 </p>
+
                 <div className="feature-highlight">
-                  <img src="/images/tutorial/4image.png" alt="Account settings dashboard" className="tutorial-image" />
+                  <h3>Edit Personal Information</h3>
+                  <p>Update your name, email, and other personal details anytime.</p>
+                </div>
+
+                <div className="feature-highlight">
+                  <h3>Update Dietary Restrictions</h3>
+                  <p>Modify information that affects your meal suggestions:</p>
+                  <ul style={{ marginLeft: '20px', marginBottom: '16px' }}>
+                    <li>Medical conditions (with allergens included here)</li>
+                    <li>Excluded ingredients</li>
+                    <li>Meal preferences</li>
+                  </ul>
+                  <p>DishCovery uses this data to filter unsafe options and suggest meals appropriate for your needs.</p>
+                </div>
+
+                <div className="feature-highlight">
+                  <h3>Manage Allergens</h3>
+                  <p>Allergens are part of the Medical Conditions section. You can add or remove allergens to ensure safe and filtered recipe suggestions.</p>
+                </div>
+
+                <div className="feature-highlight">
+                  <h3>Reset Your Password</h3>
+                  <p>Through the User Profile page, you can use the Change Password option to update your password securely.</p>
+                </div>
+
+                <div className="feature-highlight">
+                  <div className="tutorial-image-container">
+                    <img src="/images/tutorial/4image.png" alt="Account settings dashboard" />
+                  </div>
+                </div>
+
+                <div className="feature-highlight">
+                  <h3>Favorites & Saved Recipes</h3>
+                  <p>All recipes you save are stored in the Favorites page. This allows you to easily revisit meals you love or plan to cook later.</p>
+                  <div className="tutorial-image-container">
+                    <img src="/images/tutorial/14image.png" alt="Favorites page preview" />
+                  </div>
+                </div>
+
+                <div className="feature-highlight">
+                  <h3>Activity Tracking</h3>
+                  <p>DishCovery records your recent actions to help you stay organized and quickly access what you need.</p>
+
+                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#2E7D32', margin: '16px 0 8px' }}>Recent Scans</h4>
+                  <p>View your most recently scanned ingredients. This helps you recheck or re-add items without scanning again.</p>
+
+                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#2E7D32', margin: '16px 0 8px' }}>Last Opened Recipes</h4>
+                  <p>You can also view a list of your recently opened recipes, giving you quick access to dishes you were exploring earlier.</p>
+
+                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#2E7D32', margin: '16px 0 8px' }}>Send Feedback</h4>
+                  <p>Use the Feedback feature to send suggestions, report issues, or share your experience.</p>
+
+                  <div className="tutorial-image-container">
+                    <img src="/images/tutorial/15image.png" alt="Activity and recent actions interface" />
+                  </div>
                 </div>
               </div>
             </section>
@@ -162,10 +230,11 @@ export default function TutorialPage() {
               </div>
               <div className="content-body">
                 <p className="lead-text">
-                  Using DishCovery involves adding ingredients, generating recipes, and customizing meals. Ingredients can be added either manually by way of your pantry or quickly using the Ingredient Recognition scanner with your camera. Once your ingredients are added, you can generate recipes that match your dietary needs and available items. You can also modify recipes according to your preferences and save your favorites for easy access in the future.
+                  Using DishCovery includes adding ingredients, generating recipes, and customizing your meals. You may add ingredients manually through the Pantry, or use the Ingredient Recognition scanner with your camera.
                 </p>
-                <div className="feature-highlight">
-                  <img src="/images/tutorial/5image.png" alt="Adding ingredients via pantry and scanner" className="tutorial-image" />
+                <p>Once ingredients are added, DishCovery generates recipes that match your dietary restrictions, preferences, and available items. Recipes can be customized and saved to your Favorites for later use.</p>
+                <div className="tutorial-image-container">
+                  <img src="/images/tutorial/5image.png" alt="Pantry selection and camera scanner" />
                 </div>
               </div>
             </section>
@@ -177,10 +246,11 @@ export default function TutorialPage() {
               </div>
               <div className="content-body">
                 <p className="lead-text">
-                  DishCovery provides recipes that are tailored to your dietary restrictions and preferences. All recipes are carefully reviewed and approved by professional nutritionists and dietitians to ensure accuracy, health standards, and nutritional value. The app also manages allergens and provides food warnings to keep your meals safe. In addition, DishCovery includes nutrition-focused tips and guidance to help you make healthier food choices every day.
+                  DishCovery provides tailored recipe suggestions based on your needs. All recipes are reviewed by nutritionists and approved by dietitians to ensure health accuracy and safety.
                 </p>
-                <div className="feature-highlight">
-                  <img src="/images/tutorial/6image.png" alt="Recipe details with nutrition info" className="tutorial-image" />
+                <p>The app also handles allergens and food warnings, helping you maintain healthier eating habits every day.</p>
+                <div className="tutorial-image-container">
+                  <img src="/images/tutorial/6image.png" alt="Recipe details with nutrition info" />
                 </div>
               </div>
             </section>
@@ -192,15 +262,15 @@ export default function TutorialPage() {
               </div>
               <div className="content-body">
                 <p className="lead-text">
-                  If you encounter any issues while using DishCovery, you can get support through multiple channels. Users can submit feedback or send emails through the app. The Support and Contact Us sections provide additional guidance, and step-by-step troubleshooting guides are available to help resolve common problems efficiently. This ensures that your experience with the app remains smooth and hassle-free.
+                  If you encounter issues, DishCovery provides multiple support channels. You can send feedback, contact the team through email, or visit the Support and Contact Us sections. Troubleshooting guides are also available for common problems.
                 </p>
-                <div className="feature-highlight">
-                  <img src="/images/tutorial/7image.png" alt="Support contact form" className="tutorial-image" />
+                <div className="tutorial-image-container">
+                  <img src="/images/tutorial/7image.png" alt="Support contact form" />
                 </div>
               </div>
             </section>
 
-            {/* === Full Tutorial Steps === */}
+            {/* === Full Tutorial === */}
             <section id="full-tutorial" className="content-section">
               <div className="section-header">
                 <h2 className="section-title">Full DishCovery Tutorial</h2>
@@ -212,8 +282,10 @@ export default function TutorialPage() {
                     <div className="timeline-marker">1</div>
                     <div className="timeline-content">
                       <h4>Log In or Create an Account</h4>
-                      <p>When you open DishCovery for the first time, you can either log in to an existing account or sign up for a new one. Signing up requires entering your first name, last name, email, password, and confirming your password, or you can sign up with Google. After logging in or signing up, you are directed to the Get Started setup form.</p>
-                      <img src="/images/tutorial/8image.png" alt="Login and signup screen" className="tutorial-image" />
+                      <p>Open DishCovery and either log in or sign up. After entering your details, you are directed to the Get Started setup form.</p>
+                      <div className="tutorial-image-container">
+                        <img src="/images/tutorial/8image.png" alt="Login and signup screen" />
+                      </div>
                     </div>
                   </div>
 
@@ -222,8 +294,10 @@ export default function TutorialPage() {
                     <div className="timeline-marker">2</div>
                     <div className="timeline-content">
                       <h4>Complete the Get Started Form</h4>
-                      <p>The Get Started form is where you personalize your DishCovery experience. You choose whether you are setting up the app for yourself or your household, and provide dietary restrictions, allergens, meal preferences, and any cultural considerations. Completing this form ensures that all recipe suggestions and recommendations are tailored to your needs.</p>
-                      <img src="/images/tutorial/9image.png" alt="Get Started form fields" className="tutorial-image" />
+                      <p>Provide your dietary restrictions, medical conditions (including allergens), excluded ingredients, and meal preferences to personalize your experience.</p>
+                      <div className="tutorial-image-container">
+                        <img src="/images/tutorial/9image.png" alt="Get Started form fields" />
+                      </div>
                     </div>
                   </div>
 
@@ -232,8 +306,10 @@ export default function TutorialPage() {
                     <div className="timeline-marker">3</div>
                     <div className="timeline-content">
                       <h4>Install DishCovery on Your Phone (PWA)</h4>
-                      <p>DishCovery works on both web and mobile. If you are using a mobile device, you can install the Progressive Web App by tapping the “Install App” button, usually in your browser menu. Once installed, DishCovery will appear on your home screen like a normal app, making it easy to access anytime. You can also log in from any device using your account.</p>
-                      <img src="/images/tutorial/10image.png" alt="PWA install prompt" className="tutorial-image" />
+                      <p>DishCovery works on both web and mobile. On mobile browsers, tap Install App to add it to your home screen as a Progressive Web App.</p>
+                      <div className="tutorial-image-container">
+                        <img src="/images/tutorial/10image.png" alt="PWA install prompt" />
+                      </div>
                     </div>
                   </div>
 
@@ -242,8 +318,10 @@ export default function TutorialPage() {
                     <div className="timeline-marker">4</div>
                     <div className="timeline-content">
                       <h4>Add Ingredients (Pantry or Scanner)</h4>
-                      <p>Ingredients can be added to your account in two ways. You can browse your pantry inside the app and select the items manually, or you can use the Ingredient Recognition scanner to quickly add items using your camera. This ensures your ingredients are ready for recipe generation.</p>
-                      <img src="/images/tutorial/11image.png" alt="Pantry selection and camera scanner" className="tutorial-image" />
+                      <p>Add ingredients manually through the Pantry or use the Ingredient Recognition scanner with your camera for fast detection.</p>
+                      <div className="tutorial-image-container">
+                        <img src="/images/tutorial/11image.png" alt="Pantry selection and camera scanner" />
+                      </div>
                     </div>
                   </div>
 
@@ -252,8 +330,10 @@ export default function TutorialPage() {
                     <div className="timeline-marker">5</div>
                     <div className="timeline-content">
                       <h4>Generate Recipes</h4>
-                      <p>After adding ingredients, DishCovery generates recipes that match your dietary restrictions, preferences, and available items. All recipes are nutritionist-verified and dietitian-approved for accuracy and health.</p>
-                      <img src="/images/tutorial/12image.png" alt="Generated recipe results" className="tutorial-image" />
+                      <p>DishCovery generates recipes based on your dietary restrictions and available ingredients. All recipes are verified by nutrition professionals.</p>
+                      <div className="tutorial-image-container">
+                        <img src="/images/tutorial/12image.png" alt="Generated recipe results" />
+                      </div>
                     </div>
                   </div>
 
@@ -262,8 +342,10 @@ export default function TutorialPage() {
                     <div className="timeline-marker">6</div>
                     <div className="timeline-content">
                       <h4>Customize & Save Recipes</h4>
-                      <p>DishCovery allows you to modify recipes based on the ingredients you have and your meal preferences. You can save recipes to your collection for easy access later, making meal planning efficient while maintaining a personalized and healthy diet.</p>
-                      <img src="/images/tutorial/13image.png" alt="Recipe customization and save button" className="tutorial-image" />
+                      <p>Modify recipes to fit your personal preferences or available ingredients. Save meals to your Favorites for easy access later.</p>
+                      <div className="tutorial-image-container">
+                        <img src="/images/tutorial/13image.png" alt="Recipe customization and save button" />
+                      </div>
                     </div>
                   </div>
                 </div>
