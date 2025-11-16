@@ -44,6 +44,7 @@ import notificationsRouter from './routes/notifications.js';
 import analyticsRouter from './routes/analytics.js';
 import migrationsRouter from './routes/migrations.js';
 import pool from './db.js';
+import { checkGeminiConnectivity } from './utils/gemini.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -299,6 +300,39 @@ app.listen(PORT, () => {
   console.log('   📧 CONTACT FORM ROUTES:');
   console.log('   - POST /api/contact/feedback (Submit Feedback - Public)');
   console.log('   - POST /api/contact/report (Report Issue - Public)');
+
+  // Non-blocking Gemini connectivity check (logs reachable status)
+  try {
+    const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    
+    console.log('🔗 Checking Gemini connectivity (optional - detection will work without it)...');
+    console.log(`   📋 Model: ${geminiModel}`);
+    console.log(`   🔑 API Key: ${geminiApiKey ? `✅ Set (${geminiApiKey.substring(0, 10)}...)` : '❌ Not set'}`);
+    
+    checkGeminiConnectivity().then(result => {
+      if (result && result.ok) {
+        console.log(`✅ Gemini available (model: ${geminiModel}) — enrichment enabled`);
+        console.log(`   🌐 Endpoint: https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`);
+        console.log(`   🎯 Status: Ready for ingredient enrichment`);
+      } else {
+        console.warn('ℹ️ Gemini not available:', result?.detail || 'unknown error');
+        console.warn('   → Detection will still work, but without AI enrichment.');
+        console.warn('   → To enable Gemini enrichment:');
+        console.warn('     1. Go to Google Cloud Console (https://console.cloud.google.com/)');
+        console.warn('     2. Create a project or select an existing one');
+        console.warn('     3. Enable "Generative Language API" in APIs & Services → Library');
+        console.warn('     4. Go to APIs & Services → Credentials → Create API Key');
+        console.warn('     5. Copy the Cloud Console API key (NOT from AI Studio - those are different)');
+        console.warn('     6. Update GEMINI_API_KEY and GEMINI_MODEL in .env or .env.local');
+      }
+    }).catch(err => {
+      console.warn('ℹ️ Gemini connectivity check error (non-blocking):', err.message || err);
+      console.warn('   → Stack:', err.stack);
+    });
+  } catch (err) {
+    console.warn('ℹ️ Gemini connectivity check failed (non-blocking):', err.message || err);
+  }
 });
 
 export default app;

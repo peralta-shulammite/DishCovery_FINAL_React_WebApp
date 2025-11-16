@@ -5,11 +5,19 @@ import axios from 'axios';
 import FormData from 'form-data';
 import pool from '../db.js';
 import authenticateToken from '../middleware/auth.js';
+import enrichWithGemini from '../utils/gemini.js';
 
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
 const DETECTION_API_URL = process.env.YOLO_API_URL || 'http://localhost:8000/detect';
+// Simple in-memory cache for Gemini mappings (key: original label -> suggested result)
+const geminiCache = new Map();
+const GEMINI_CONF_THRESHOLD = parseFloat(process.env.GEMINI_CONF_THRESHOLD || '0.7');
+
+function getConfidenceFromDetection(det) {
+  return Number(det.confidence ?? det.score ?? det.conf ?? 0);
+}
 
 /**
  * ✅ Safe query wrapper (fully compatible with Aiven + localhost)
@@ -111,12 +119,73 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     console.log(`✅ Detection complete: ${response.data.num_detections} ingredients found`);
 
-    // Match detected ingredients
-    const detectionsWithIds = await Promise.all(
-      response.data.detections.map(async (det) => {
+    // If no detections, skip Gemini entirely
+    const detections = Array.isArray(response.data.detections) ? response.data.detections : [];
+    if (detections.length === 0) {
+      console.log('ℹ️ No detections — skipping Gemini enrichment');
+      return res.json({
+        success: true,
+        device: response.data.device,
+        total_detections: response.data.num_detections || 0,
+        matched_count: 0,
+        unmatched_count: 0,
+        detections: [],
+        matched_ingredients: [],
+        unmatched_ingredients: [],
+        ai_summary: response.data.ai_summary || null,
+        gemini_enabled: false,
+      });
+    }
+
+    // Decide which labels need Gemini enrichment: low-confidence or likely-unmatched
+    const toEnrichLabels = new Set();
+    const preMatches = [];
+
+    // First pass: for high-confidence detections, try DB match to avoid Gemini calls
+    for (const det of detections) {
+      const conf = getConfidenceFromDetection(det);
+      if (conf >= GEMINI_CONF_THRESHOLD) {
         const dbMatch = await matchIngredientToDatabase(det.class_name);
+        if (dbMatch.matched) {
+          preMatches.push({ det, dbMatch });
+          continue;
+        }
+      }
+      // mark for enrichment (either low confidence or no DB match)
+      toEnrichLabels.add(det.class_name);
+    }
+
+    // Remove labels already cached
+    const labelsToCall = Array.from(toEnrichLabels).filter(l => !geminiCache.has(l));
+
+    // Call Gemini if there are labels to enrich
+    let geminiResults = null;
+    if (labelsToCall.length > 0 && process.env.GEMINI_API_KEY) {
+      console.log(`🔁 Enriching ${labelsToCall.length} label(s) with Gemini`);
+      geminiResults = await enrichWithGemini(labelsToCall);
+      if (Array.isArray(geminiResults)) {
+        for (const r of geminiResults) {
+          if (r && r.original) geminiCache.set(r.original, r);
+        }
+        console.log(`✅ Gemini enrichment successful`);
+      } else {
+        console.log(`ℹ️ Gemini enrichment skipped (will match raw detection names)`);
+      }
+    } else if (labelsToCall.length > 0) {
+      console.log('ℹ️ GEMINI_API_KEY not set — skipping enrichment (will match raw detection names)');
+    }
+
+    // Now produce final detectionsWithIds using recommended name (Gemini suggestion if available)
+    const detectionsWithIds = await Promise.all(
+      detections.map(async (det) => {
+        const cached = geminiCache.get(det.class_name);
+        const nameToMatch = cached?.suggested || det.class_name;
+        const dbMatch = await matchIngredientToDatabase(nameToMatch);
         return {
           ...det,
+          suggested_name: cached?.suggested || null,
+          gemini_conf: cached?.confidence ?? null,
+          gemini_alternatives: cached?.alternatives || [],
           ingredient_id: dbMatch.id,
           ingredient_name: dbMatch.name,
           db_matched: dbMatch.matched,
