@@ -2369,18 +2369,28 @@ export default function DishCoveryLanding() {
         </div>
       )}
 
-      {dishCoveryShowVideoModal && (
-        <div className="modal-overlay" onClick={dishCoveryCloseModal}>
-          <div className="modal-content video-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
-            <div style={{padding: '20px', textAlign: 'center'}}>
-              <img src="/images/food-carousel/grilled-veggies.jpg" alt="Healthy Cooking Demo" style={{maxWidth: '100%', borderRadius: '8px', marginBottom: '16px'}} />
-              <h3 style={{color: '#2E7D32', marginBottom: '12px'}}>Demo Video Coming Soon!</h3>
-              <p style={{color: '#666'}}>We're preparing an exciting video tutorial showing you how to use DishCovery to create amazing, healthy meals.</p>
-            </div>
-          </div>
+{dishCoveryShowVideoModal && (
+  <div className="modal-overlay" onClick={dishCoveryCloseModal}>
+    <div
+      className="modal-content video-modal"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
+
+          <iframe
+            width="100%"
+            height="315"
+            style={{ borderRadius: "8px" }}
+            src="https://www.youtube.com/embed/biS2gxuGZyk?autoplay=1"
+            title="DishCovery Demo Video"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          ></iframe>
         </div>
-      )}
+      </div>
+    )}
+
 
       {/* Floating Install App Button - Only show when app is not installed */}
       {!dishCoveryIsAppInstalled && (
