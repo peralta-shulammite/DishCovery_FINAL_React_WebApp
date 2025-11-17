@@ -1603,42 +1603,52 @@ export default function DishCoveryLanding() {
         </div>
       </section>
 
-      <section className="how-to-use-section" id="/pantry">
-        <h2 className="section-title">How to Use</h2>
-        <div className="how-to-content">
-          <div className="how-to-steps">
-            <div className="step-item">
-              <div className="step-number">1</div>
-              <p className="step-text">Set your dietary needs, allergies, and food preferences.</p>
-            </div>
-            <div className="step-item">
-              <div className="step-number">2</div>
-              <p className="step-text">Scan ingredients using real-time detection to scan what you have at home.</p>
-            </div>
-            <div className="step-item">
-              <div className="step-number">3</div>
-              <p className="step-text">Get suggested recipes based on your ingredients and preferences.</p>
-            </div>
-          </div>
-          <div 
-            className="how-to-video" 
-            onClick={dishCoveryHandleVideoClick}
-            onTouchStart={(e) => {
-              e.currentTarget.style.opacity = '0.8';
-            }}
-            onTouchEnd={(e) => {
-              e.currentTarget.style.opacity = '1';
-            }}
-          >
-            <img src="https://youtu.be/biS2gxuGZyk" alt="Video Preview" className="video-preview" />
-            <div className="video-placeholder">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-      </section>
+<section className="how-to-use-section" id="/pantry">
+  <h2 className="section-title">How to Use</h2>
+  <div className="how-to-content">
+
+    <div className="how-to-steps">
+      <div className="step-item">
+        <div className="step-number">1</div>
+        <p className="step-text">Set your dietary needs, allergies, and food preferences.</p>
+      </div>
+      <div className="step-item">
+        <div className="step-number">2</div>
+        <p className="step-text">Scan ingredients using real-time detection to scan what you have at home.</p>
+      </div>
+      <div className="step-item">
+        <div className="step-number">3</div>
+        <p className="step-text">Get suggested recipes based on your ingredients and preferences.</p>
+      </div>
+    </div>
+
+    {/* CLICKABLE VIDEO */}
+    <div 
+      className="how-to-video" 
+      onClick={dishCoveryHandleVideoClick}
+      onTouchStart={(e) => {
+        e.currentTarget.style.opacity = '0.8';
+      }}
+      onTouchEnd={(e) => {
+        e.currentTarget.style.opacity = '1';
+      }}
+    >
+      <img 
+        src="https://img.youtube.com/vi/biS2gxuGZyk/maxresdefault.jpg" 
+        alt="Video Preview" 
+        className="video-preview" 
+      />
+
+      <div className="video-placeholder">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</section>
+
 
       <section className="confidence-section" id="/home">
         <div className="confidence-header">
