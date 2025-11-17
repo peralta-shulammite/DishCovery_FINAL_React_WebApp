@@ -52,6 +52,8 @@ export default function DishCoveryLanding() {
   const [dishCoveryPasswordPromptEmail, setDishCoveryPasswordPromptEmail] = useState('');
   const [dishCoveryIsPasswordCreation, setDishCoveryIsPasswordCreation] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+
 
 
   // ✅ Recipe carousel state
