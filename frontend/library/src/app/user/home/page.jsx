@@ -2377,16 +2377,17 @@ export default function DishCoveryLanding() {
     >
       <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
 
-          <iframe
-            width="100%"
-            height="315"
-            style={{ borderRadius: "8px" }}
-            src="https://www.youtube.com/embed/biS2gxuGZyk?autoplay=1"
-            title="DishCovery Demo Video"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          ></iframe>
+        <iframe
+          className="video-iframe"
+          width="100%"
+          height="100%"
+          style={{ borderRadius: "12px" }}
+          src="https://www.youtube.com/embed/biS2gxuGZyk?autoplay=1"
+          title="DishCovery Video"
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        ></iframe>
         </div>
       </div>
     )}
