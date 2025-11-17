@@ -1630,7 +1630,7 @@ export default function DishCoveryLanding() {
               e.currentTarget.style.opacity = '1';
             }}
           >
-            <img src="https://via.placeholder.com/400x300.png?text=Healthy+Cooking+Demo" alt="Video Preview" className="video-preview" />
+            <img src="https://youtu.be/biS2gxuGZyk" alt="Video Preview" className="video-preview" />
             <div className="video-placeholder">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M8 5v14l11-7z"/>
