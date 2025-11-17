@@ -51,6 +51,8 @@ export default function DishCoveryLanding() {
   const [dishCoveryShowPasswordPrompt, setDishCoveryShowPasswordPrompt] = useState(false);
   const [dishCoveryPasswordPromptEmail, setDishCoveryPasswordPromptEmail] = useState('');
   const [dishCoveryIsPasswordCreation, setDishCoveryIsPasswordCreation] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+
 
   // ✅ Recipe carousel state
   const [dishCoveryCarouselRecipes, setDishCoveryCarouselRecipes] = useState([]);
@@ -1622,32 +1624,44 @@ export default function DishCoveryLanding() {
       </div>
     </div>
 
-    {/* CLICKABLE VIDEO */}
-    <div 
-      className="how-to-video" 
-      onClick={dishCoveryHandleVideoClick}
-      onTouchStart={(e) => {
-        e.currentTarget.style.opacity = '0.8';
-      }}
-      onTouchEnd={(e) => {
-        e.currentTarget.style.opacity = '1';
-      }}
-    >
-      <img 
-        src="https://img.youtube.com/vi/biS2gxuGZyk/maxresdefault.jpg" 
-        alt="Video Preview" 
-        className="video-preview" 
-      />
-
-      <div className="video-placeholder">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
+    {/* VIDEO THAT SWITCHES FROM IMAGE → YOUTUBE */}
+      <div 
+        className="how-to-video"
+        onClick={() => setShowVideo(true)}
+        onTouchStart={(e) => (e.currentTarget.style.opacity = '0.8')}
+        onTouchEnd={(e) => (e.currentTarget.style.opacity = '1')}
+      >
+        {showVideo ? (
+          /* REAL YOUTUBE VIDEO */
+          <iframe
+            className="video-preview"
+            width="100%"
+            height="100%"
+            src="https://www.youtube.com/embed/biS2gxuGZyk?autoplay=1"
+            title="DishCovery Video"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          ></iframe>
+        ) : (
+          <>
+            <img 
+              src="https://img.youtube.com/vi/biS2gxuGZyk/maxresdefault.jpg"
+              alt="Video Preview"
+              className="video-preview"
+            />
+            <div className="video-placeholder">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            </div>
+          </>
+        )}
       </div>
-    </div>
 
-  </div>
-</section>
+    </div>
+  </section>
+
 
 
       <section className="confidence-section" id="/home">
