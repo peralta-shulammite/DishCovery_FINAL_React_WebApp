@@ -11,16 +11,12 @@ import { INGREDIENT_CATEGORIES, getCategoryCount, getCategoryName } from '../uti
 // Note: API_BASE_URL should NOT include /api to avoid double /api/api/ in URLs
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
-    // Client-side: check if we're on Vercel
-    if (window.location.hostname.includes('vercel.app')) {
-      return 'https://dishcovery-backend-wvhn.onrender.com';
-    }
     // For localhost testing, always use localhost
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 'http://localhost:5000';
     }
   }
-  // Fallback to environment variable or localhost (ensure it doesn't include /api)
+  // Use environment variable for production/Vercel deployment (ensure it doesn't include /api)
   const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
   return envUrl.replace(/\/api\/?$/, ''); // Remove trailing /api if present
 };

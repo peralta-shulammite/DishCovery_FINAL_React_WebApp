@@ -6,9 +6,6 @@ import './styles.css';
 // API Base URL
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
-    if (window.location.hostname.includes('vercel.app')) {
-      return 'https://dishcovery-backend-wvhn.onrender.com/api';
-    }
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 'http://localhost:5000/api';
     }
