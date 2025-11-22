@@ -19,7 +19,14 @@ export default function TutorialPage() {
   const scrollToSection = (id) => {
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const offset = window.innerWidth <= 768 ? 100 : 40;
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
       setIsMenuOpen(false);
     }
   };
@@ -45,28 +52,28 @@ export default function TutorialPage() {
 
   return (
     <>
-      {/* === NAVIGATION BAR === */}
+      {/* === SIDEBAR NAVIGATION === */}
       <nav className="tutorial-nav">
+        <div className="nav-logo" onClick={() => scrollToSection('getting-started')}>
+          DishCovery
+        </div>
+
+        {/* Desktop Menu */}
+        <ul className="nav-menu desktop">
+          {navItems.map((item) => (
+            <li key={item.id}>
+              <button
+                onClick={() => scrollToSection(item.id)}
+                className={`nav-link ${activeSection === item.id ? 'active' : ''}`}
+              >
+                {item.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        {/* Mobile Menu Container */}
         <div className="nav-container">
-          <div className="nav-logo" onClick={() => scrollToSection('getting-started')}>
-            <span style={{ fontWeight: 800, color: '#2E7D32', fontFamily: 'Poppins, sans-serif' }}>
-              DishCovery
-            </span>
-          </div>
-
-          <ul className="nav-menu desktop">
-            {navItems.map((item) => (
-              <li key={item.id}>
-                <button
-                  onClick={() => scrollToSection(item.id)}
-                  className={`nav-link ${activeSection === item.id ? 'active' : ''}`}
-                >
-                  {item.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-
           <button
             className="mobile-menu-toggle"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -76,6 +83,7 @@ export default function TutorialPage() {
           </button>
         </div>
 
+        {/* Mobile Menu */}
         <div className={`mobile-menu ${isMenuOpen ? 'open' : ''}`}>
           <ul>
             {navItems.map((item) => (
@@ -101,11 +109,9 @@ export default function TutorialPage() {
         <div className="about-layout">
           <main className="about-content">
             {/* Header */}
-            <header className="tutorial-header" style={{ textAlign: 'center', marginBottom: '60px', marginTop: '80px' }}>
-              <h1 style={{ fontSize: '2.8rem', fontWeight: 800, color: '#2E7D32', fontFamily: 'Poppins, sans-serif', letterSpacing: '-1px' }}>
-                DishCovery Tutorial
-              </h1>
-              <p style={{ fontSize: '1.1rem', color: '#2E7D32', maxWidth: '700px', margin: '16px auto 0' }}>
+            <header className="tutorial-header">
+              <h1>DishCovery Tutorial</h1>
+              <p>
                 Master every feature of DishCovery and start cooking healthier, smarter meals today.
               </p>
             </header>
@@ -139,7 +145,7 @@ export default function TutorialPage() {
                 <div className="feature-highlight">
                   <h3>The Get Started Form</h3>
                   <p>The Get Started form personalizes your DishCovery experience. Here, you will indicate whether you are setting up DishCovery for yourself or your household. You will then provide details about:</p>
-                  <ul style={{ marginLeft: '20px', marginBottom: '16px' }}>
+                  <ul>
                     <li>Dietary restrictions</li>
                     <li>Medical conditions (allergens included)</li>
                     <li>Excluded ingredients</li>
@@ -160,44 +166,20 @@ export default function TutorialPage() {
               </div>
               <div className="content-body">
                 <p className="lead-text">
-                  The Account & Settings section allows you to manage your profile and keep your experience accurate and personalized.
+                  The Account & Settings section allows you to manage your profile, update your preferences, and control how DishCovery personalizes your recipe recommendations.
                 </p>
 
                 <div className="feature-highlight">
-                  <h3>Edit Personal Information</h3>
-                  <p>Update your name, email, and other personal details anytime.</p>
-                </div>
-
-                <div className="feature-highlight">
-                  <h3>Update Dietary Restrictions</h3>
-                  <p>Modify information that affects your meal suggestions:</p>
-                  <ul style={{ marginLeft: '20px', marginBottom: '16px' }}>
-                    <li>Medical conditions (with allergens included here)</li>
-                    <li>Excluded ingredients</li>
-                    <li>Meal preferences</li>
-                  </ul>
-                  <p>DishCovery uses this data to filter unsafe options and suggest meals appropriate for your needs.</p>
-                </div>
-
-                <div className="feature-highlight">
-                  <h3>Manage Allergens</h3>
-                  <p>Allergens are part of the Medical Conditions section. You can add or remove allergens to ensure safe and filtered recipe suggestions.</p>
-                </div>
-
-                <div className="feature-highlight">
-                  <h3>Reset Your Password</h3>
-                  <p>Through the User Profile page, you can use the Change Password option to update your password securely.</p>
-                </div>
-
-                <div className="feature-highlight">
+                  <h3>Profile Settings</h3>
+                  <p>Update your personal information including your name, email, password, and profile picture. You can also manage your account security settings and notification preferences here.</p>
                   <div className="tutorial-image-container">
-                    <img src="/images/tutorial/4image.png" alt="Account settings dashboard" />
+                    <img src="/images/tutorial/14image.png" alt="Profile settings interface" />
                   </div>
                 </div>
 
                 <div className="feature-highlight">
-                  <h3>Favorites & Saved Recipes</h3>
-                  <p>All recipes you save are stored in the Favorites page. This allows you to easily revisit meals you love or plan to cook later.</p>
+                  <h3>My Favorites</h3>
+                  <p>Access all your saved recipes in one convenient location. Organize your favorites by meal type, cooking time, or dietary preferences for easy meal planning.</p>
                   <div className="tutorial-image-container">
                     <img src="/images/tutorial/14image.png" alt="Favorites page preview" />
                   </div>
@@ -207,13 +189,13 @@ export default function TutorialPage() {
                   <h3>Activity Tracking</h3>
                   <p>DishCovery records your recent actions to help you stay organized and quickly access what you need.</p>
 
-                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#2E7D32', margin: '16px 0 8px' }}>Recent Scans</h4>
+                  <h4>Recent Scans</h4>
                   <p>View your most recently scanned ingredients. This helps you recheck or re-add items without scanning again.</p>
 
-                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#2E7D32', margin: '16px 0 8px' }}>Last Opened Recipes</h4>
+                  <h4>Last Opened Recipes</h4>
                   <p>You can also view a list of your recently opened recipes, giving you quick access to dishes you were exploring earlier.</p>
 
-                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#2E7D32', margin: '16px 0 8px' }}>Send Feedback</h4>
+                  <h4>Send Feedback</h4>
                   <p>Use the Feedback feature to send suggestions, report issues, or share your experience.</p>
 
                   <div className="tutorial-image-container">
@@ -276,7 +258,7 @@ export default function TutorialPage() {
                 <h2 className="section-title">Full DishCovery Tutorial</h2>
               </div>
               <div className="content-body">
-                <div className="story-timeline" style={{ counterReset: 'step' }}>
+                <div className="story-timeline">
                   {/* Step 1 */}
                   <div className="timeline-item">
                     <div className="timeline-marker">1</div>
