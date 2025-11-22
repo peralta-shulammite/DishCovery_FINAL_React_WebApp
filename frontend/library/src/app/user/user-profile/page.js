@@ -1292,94 +1292,77 @@ export default function UserProfilePage() {
                 </div>
               </section>
 
-              {/* ========================================
-                  🆕 UPDATED SUPPORT SECTION WITH NOTIFICATION BADGE
-                  ======================================== */}
               <section className="activity-section">
-                <h2 className="activity-section-title">
-                  <svg className="activity-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 13h-2v-2h2v2zm0-4h-2V7h2v4z" />
-                  </svg>
-                  Support
-                  {dishCoveryUnreadRepliesCount > 0 && (
-                    <span style={{
-                      marginLeft: '10px',
-                      background: '#2E7D32',
-                      color: 'white',
-                      borderRadius: '12px',
-                      padding: '2px 8px',
-                      fontSize: '12px',
-                      fontWeight: '600'
-                    }}>
-                      {dishCoveryUnreadRepliesCount} new {dishCoveryUnreadRepliesCount === 1 ? 'reply' : 'replies'}
-                    </span>
-                  )}
-                </h2>
+                <div className="section-header-with-action">
+                  <div className="activity-section-title">
+                    <svg className="activity-icon" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                    </svg>
+                    Support
+                  </div>
+                </div>
+                
                 <div className="support-actions">
                   <button
-                    className="support-btn feedback-btn"
+                    className="support-btn"
                     onClick={() => setDishCoveryShowFeedbackModal(true)}
                   >
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/>
                     </svg>
                     Send Feedback
                   </button>
+                  
                   <button
-                    className="support-btn"
+                    className={`support-btn ${dishCoveryUnreadRepliesCount > 0 ? 'support-btn-with-badge' : ''}`}
                     onClick={() => {
                       setDishCoveryShowFeedbackHistoryModal(true);
                       loadFeedbackHistory();
                     }}
-                    style={{ position: 'relative' }}
                   >
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
                     </svg>
                     My Feedback History
                     {dishCoveryUnreadRepliesCount > 0 && (
-                      <span style={{
-                        position: 'absolute',
-                        top: '-5px',
-                        right: '-5px',
-                        background: '#dc2626',
-                        color: 'white',
-                        borderRadius: '50%',
-                        width: '20px',
-                        height: '20px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        {dishCoveryUnreadRepliesCount}
-                      </span>
+                      <span className="unread-badge">{dishCoveryUnreadRepliesCount}</span>
                     )}
                   </button>
                 </div>
-              </section>
 
-              <section className="activity-section logout-section-minimal">
-                <div className="logout-content-minimal">
-                  <div className="logout-item-minimal">
-                    <span className="logout-label-minimal">Log Out</span>
-                    <button
-                      className="logout-btn-minimal"
+                {/* DANGER ZONE */}
+                <div className="danger-zone">
+                  <div className="danger-zone-title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v4h-2z"/>
+                    </svg>
+                    Danger Zone
+                  </div>
+
+                  <div className="danger-action-card">
+                    <div className="danger-action-info">
+                      <div className="danger-action-title">Log Out</div>
+                      <div className="danger-action-description">
+                        End your current session
+                      </div>
+                    </div>
+                    <button 
+                      className="danger-btn-small"
                       onClick={dishCoveryHandleLogout}
                     >
                       Log Out
                     </button>
                   </div>
-                </div>
-              </section>
 
-              <section className="activity-section danger-section-minimal">
-                <div className="danger-content-minimal">
-                  <div className="danger-item-minimal">
-                    <span className="danger-label">Delete Account</span>
-                    <button
-                      className="danger-btn-minimal"
+                  <div className="danger-action-card">
+                    <div className="danger-action-info">
+                      <div className="danger-action-title">Delete Account</div>
+                      <div className="danger-action-description">
+                        Permanently remove your account and all data
+                      </div>
+                    </div>
+                    <button 
+                      className="danger-btn-small"
                       onClick={() => setDishCoveryShowDeactivateModal(true)}
                     >
                       Delete
@@ -1524,33 +1507,33 @@ export default function UserProfilePage() {
                             </span>
                           </div>
                           <div className="info-item-fixed">
-                            <span className="info-label-fixed">Cooking for:</span>
-                            {dishCoveryEditingCookingFor ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                              <span className="info-label-fixed">Cooking for:</span>
+                              {dishCoveryEditingCookingFor ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
                                 <input
                                   type="text"
                                   value={dishCoveryTempCookingFor}
                                   onChange={(e) => setDishCoveryTempCookingFor(e.target.value)}
                                   className="form-input-fixed"
                                   placeholder="e.g., Myself, Family, Kids"
-                                  style={{ flex: 1 }}
+                                  style={{ flex: 1, minWidth: 0 }}
                                   onKeyPress={(e) => {
                                     if (e.key === 'Enter') {
                                       dishCoveryHandleSaveCookingFor();
                                     }
                                   }}
                                 />
-                                <button
+                               <button
                                   className="save-btn-fixed"
                                   onClick={dishCoveryHandleSaveCookingFor}
-                                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                                  style={{ flex: 'none' }}
                                 >
                                   Save
                                 </button>
                                 <button
                                   className="cancel-btn-fixed"
                                   onClick={dishCoveryHandleCancelCookingForEdit}
-                                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                                  style={{ flex: 'none' }}
                                 >
                                   Cancel
                                 </button>

@@ -38,6 +38,8 @@ export default function GetStarted() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [excludedSearchTerm, setExcludedSearchTerm] = useState('');
   
   // Load restrictions from database
   const [apiRestrictions, setApiRestrictions] = useState({
@@ -106,7 +108,7 @@ export default function GetStarted() {
         // - We're currently on step 3 (confirmation page)
         // - Onboarding was just completed (to prevent redirect loop)
         // - User is a new signup
-        if (hasCompleted && !isNewSignup && !onboardingComplete && step !== 3) {
+        if (hasCompleted && !isNewSignup && !onboardingComplete && step !== 4) {
           console.log('✅ User has completed onboarding, redirecting to home...');
           window.location.replace('/user/home');
           return;
@@ -345,15 +347,28 @@ export default function GetStarted() {
         // If cooking for "Myself", just proceed to next step
         setStep(2);
       }
-    } else if (step === 2) {
-      setStep(3);
-    }
-  };
+      } else if (step === 2) {
+            // Clear search term when moving from step 2 to 3
+            setSearchTerm('');
+            setStep(3);
+          } else if (step === 3) {
+            // Clear excluded search term when moving from step 3 to 4
+            setExcludedSearchTerm('');
+            setStep(4);
+          }
+        };
 
-  const handlePrev = () => {
-    setStep(step - 1);
-    setIsSaved(false);
-  };
+      const handlePrev = () => {
+          // Clear search terms when going back
+          if (step === 2) {
+            setSearchTerm('');
+          }
+          if (step === 3) {
+            setExcludedSearchTerm('');
+          }
+          setStep(step - 1);
+          setIsSaved(false);
+        };
 
   // Save dietary profile to API
   const handleSave = async () => {
@@ -556,7 +571,22 @@ export default function GetStarted() {
       : ['Allergy To Nuts', 'Allergy To Shellfishes', 'Allergy To Eggs', 'Allergy To Soy', 'Allergy To Dairy', 'Allergy To Sesame Seeds', 'Allergy To Legumes', 'Gluten Intolerance', 'Lactose Intolerance']
   };
 
+    // Filter medical conditions based on search
+  const filteredMedicalConditions = apiRestrictions.medicalConditions.filter(condition =>
+    condition.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter excluded ingredients based on search
+  const filteredExcludedIngredients = availableIngredients.filter(ingredient =>
+    ingredient.toLowerCase().includes(excludedSearchTerm.toLowerCase())
+  );
+
+  const handleSkipExcludedIngredients = () => {
+    setStep(4); // Skip to summary step
+  };
+  
   const renderStep1 = () => (
+    
     <div className="step-content">
       <h1 className="step-title">Who are you cooking for?</h1>
       <p className="step-subtitle">Create a profile for yourself or someone else.</p>
@@ -654,9 +684,8 @@ export default function GetStarted() {
 
   const renderStep2 = () => (
     <div className="step-content">
-      <h1 className="step-title">
-        {cookingFor === 'Myself' ? 'What are your dietary needs?' : `What are ${personName || 'their'} dietary needs?`}
-      </h1>
+      <h1 className="step-title">Medical Conditions</h1>
+      <p className="step-subtitle">Select all allergies and intolerances that apply to you</p>
       {error && (
         <div className="error-message">
           {error}
@@ -665,71 +694,181 @@ export default function GetStarted() {
       
       <div className="form-sections">
         {/* Medical Conditions */}
-        {renderDietarySection(
-          'Medical Conditions (Allergies & Intolerances)',
-          'medicalConditions',
-          'Select all allergies and intolerances that apply',
-          'Can\'t find your condition? Send it to us'
-        )}
-
-        {/* Excluded Ingredients */}
         <div className="dietary-section">
-          <h3 className="section-title">Excluded Ingredients</h3>
-          <p className="section-subtitle">Select ingredients you want to avoid</p>
+          <h3 className="section-title">Allergies & Intolerances</h3>
+          <p className="section-subtitle">Select all that apply</p>
+          
+          {/* Search Input */}
+          <div className="search-container">
+              <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search medical conditions..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          
+
           <div className="checkbox-grid">
-            {availableIngredients.length > 0 ? (
-              availableIngredients.map((ingredient) => (
-                <label key={ingredient} className="checkbox-item">
+            {filteredMedicalConditions.length > 0 ? (
+              filteredMedicalConditions.map((option) => (
+                <label key={option} className="checkbox-item">
                   <input
                     type="checkbox"
-                    checked={dietaryData.excludedIngredients.includes(ingredient)}
-                    onChange={() => handleDietaryChange('excludedIngredients', ingredient)}
+                    checked={dietaryData.medicalConditions.includes(option)}
+                    onChange={() => handleDietaryChange('medicalConditions', option)}
                   />
                   <span className="checkmark"></span>
-                  {ingredient}
+                  {option}
                 </label>
               ))
             ) : (
-              <p style={{ color: '#666', fontSize: '14px' }}>Loading ingredients...</p>
+              <p style={{ color: '#424242', fontSize: '0.875rem', padding: '20px', textAlign: 'center' }}>
+                No medical conditions found matching "{searchTerm}"
+              </p>
+            )}
+          </div>
+          
+          <div className="fallback-section">
+            <p className="fallback-text">Can't find your condition? Send it to us</p>
+            <div className="custom-input-group">
+              <input
+                type="text"
+                className="custom-input"
+                placeholder="Type here..."
+                value={customInputs.medicalConditions}
+                onChange={(e) => handleCustomInput('medicalConditions', e.target.value)}
+              />
+              <button 
+                className="btn btn-send"
+                onClick={() => handleSendCustom('medicalConditions')}
+                disabled={!customInputs.medicalConditions.trim()}
+              >
+                Send
+              </button>
+            </div>
+            {feedbackMessages.medicalConditions && (
+              <p className="feedback-message">{feedbackMessages.medicalConditions}</p>
             )}
           </div>
         </div>
       </div>
 
       <div className="nav-buttons">
-        <button className="btn btn-secondary" onClick={handlePrev}>
-          <span className="btn-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </span>
-          Previous
+        <button className="btn btn-icon-only btn-secondary" onClick={handlePrev}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
         <button 
-          className="btn btn-primary" 
+          className="btn btn-icon-only btn-primary" 
           onClick={handleNext}
           disabled={loading}
         >
-          {loading ? 'Loading...' : 'Next Step'}
-          <span className="btn-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
       </div>
     </div>
   );
 
-  const renderStep3 = () => (
+      const renderStep3 = () => (
+        <div className="step-content">
+          <h1 className="step-title">Excluded Ingredients</h1>
+          <p className="step-subtitle">Select ingredients you want to avoid in your recipes</p>
+          {error && (
+            <div className="error-message">
+              {error}
+            </div>
+          )}
+          
+    <div className="form-sections">
+            <div className="dietary-section">
+              <h3 className="section-title">Ingredients to Avoid</h3>
+              <p className="section-subtitle">Choose any ingredients you prefer not to use</p>
+              
+              {/* Search Input */}
+              <div className="search-container">
+                  <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Search ingredients to exclude..."
+                  value={excludedSearchTerm}
+                  onChange={(e) => setExcludedSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <div className="checkbox-grid">
+                {availableIngredients.length > 0 ? (
+                  filteredExcludedIngredients.length > 0 ? (
+                    filteredExcludedIngredients.map((ingredient) => (
+                      <label key={ingredient} className="checkbox-item">
+                        <input
+                          type="checkbox"
+                          checked={dietaryData.excludedIngredients.includes(ingredient)}
+                          onChange={() => handleDietaryChange('excludedIngredients', ingredient)}
+                        />
+                        <span className="checkmark"></span>
+                        {ingredient}
+                      </label>
+                    ))
+                  ) : (
+                    <p style={{ color: '#424242', fontSize: '0.875rem', padding: '20px', textAlign: 'center' }}>
+                      No ingredients found matching "{excludedSearchTerm}"
+                    </p>
+                  )
+                ) : (
+                  <p style={{ color: '#666', fontSize: '14px' }}>Loading ingredients...</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+      <div className="nav-buttons">
+        <button className="btn btn-icon-only btn-secondary" onClick={handlePrev}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <button 
+          className="btn btn-outline" 
+          onClick={handleSkipExcludedIngredients}
+        >
+          Skip
+        </button>
+        <button 
+          className="btn btn-icon-only btn-primary" 
+          onClick={handleNext}
+          disabled={loading}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 12h14m-7-7l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderStep4 = () => (
     <div className="step-content">
       {isSaved ? (
         <div className="success-message">
           <div className="success-icon">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" fill="#059669"/>
-              <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline points="22,4 12,14.01 9,11.01" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           </div>
           <h1 className="welcome-title">Welcome, {personName}!</h1>
           <p className="welcome-text">
@@ -762,19 +901,12 @@ export default function GetStarted() {
             </div>
           </div>
           <div className="nav-buttons">
-            <button className="btn btn-secondary" onClick={handlePrev}>
-              <span className="btn-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </span>
-              Back
-            </button>
-            <button className="btn btn-outline" onClick={() => setStep(2)}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <button className="btn btn-icon-only btn-secondary" onClick={handlePrev}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
+            </button>
+            <button className="btn btn-outline" onClick={() => setStep(3)}>
               Edit
             </button>
             <button 
@@ -782,14 +914,7 @@ export default function GetStarted() {
               onClick={handleSave}
               disabled={loading}
             >
-              {loading ? 'Saving...' : 'Save Profile'}
-              <span className="btn-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="17,21 17,13 7,13 7,21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <polyline points="7,3 7,8 15,8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </span>
+              {loading ? 'Saving...' : 'Save'}
             </button>
           </div>
         </>
@@ -802,6 +927,7 @@ export default function GetStarted() {
       case 1: return renderStep1();
       case 2: return renderStep2();
       case 3: return renderStep3();
+      case 4: return renderStep4();
       default: return null;
     }
   };
@@ -825,12 +951,12 @@ export default function GetStarted() {
           gap: '12px',
           animation: 'slideIn 0.3s ease-out'
         }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" fill="white"/>
-            <path d="M9 12l2 2 4-4" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <polyline points="22,4 12,14.01 9,11.01" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
           <div>
-            <div style={{ fontWeight: 'bold', fontSize: '16px' }}>Welcome to DishCovery! 🎉</div>
+            <div style={{ fontWeight: 'bold', fontSize: '16px' }}>Welcome to DishCovery!</div>
             <div style={{ fontSize: '14px', opacity: 0.9 }}>Let's set up your profile to get personalized recipes</div>
           </div>
         </div>
@@ -847,6 +973,7 @@ export default function GetStarted() {
             <div className={`step-circle ${step >= 1 ? 'active' : ''}`}>1</div>
             <div className={`step-circle ${step >= 2 ? 'active' : ''}`}>2</div>
             <div className={`step-circle ${step >= 3 ? 'active' : ''}`}>3</div>
+            <div className={`step-circle ${step >= 4 ? 'active' : ''}`}>4</div>
           </div>
           {renderStep()}
         </div>
