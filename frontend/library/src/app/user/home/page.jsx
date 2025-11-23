@@ -1623,40 +1623,26 @@ export default function DishCoveryLanding() {
       </div>
     </div>
 
-    {/* VIDEO THAT SWITCHES FROM IMAGE → YOUTUBE */}
-      <div 
-        className="how-to-video"
-        onClick={() => setShowVideo(true)}
-        onTouchStart={(e) => (e.currentTarget.style.opacity = '0.8')}
-        onTouchEnd={(e) => (e.currentTarget.style.opacity = '1')}
-      >
-        {showVideo ? (
-          /* REAL YOUTUBE VIDEO */
-          <iframe
-            className="video-preview"
-            width="100%"
-            height="100%"
-            src="https://www.youtube.com/embed/biS2gxuGZyk?autoplay=1"
-            title="DishCovery Video"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          ></iframe>
-        ) : (
-          <>
-            <img 
-              src="https://img.youtube.com/vi/biS2gxuGZyk/maxresdefault.jpg"
-              alt="Video Preview"
-              className="video-preview"
-            />
-            <div className="video-placeholder">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-            </div>
-          </>
-        )}
+    <div 
+      className="how-to-video"
+      onClick={() => setDishCoveryShowVideoModal(true)}
+      style={{ cursor: 'pointer' }}
+      onTouchStart={(e) => e.currentTarget.style.opacity = '0.85'}
+      onTouchEnd={(e) => e.currentTarget.style.opacity = '1'}
+      onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+      onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+    >
+      <img 
+        src="https://img.youtube.com/vi/biS2gxuGZyk/maxresdefault.jpg"
+        alt="How to Use DishCovery"
+        className="video-preview"
+      />
+      <div className="video-placeholder">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
       </div>
+    </div>
 
     </div>
   </section>
@@ -2368,28 +2354,26 @@ export default function DishCoveryLanding() {
         </div>
       )}
 
-{dishCoveryShowVideoModal && (
-  <div className="modal-overlay" onClick={dishCoveryCloseModal}>
-    <div
-      className="modal-content video-modal"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
+      {dishCoveryShowVideoModal && (
+        <div className="modal-overlay" onClick={dishCoveryCloseModal}>
+          <div
+            className="modal-content video-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="close-btn" onClick={dishCoveryCloseModal}>×</button>
 
-        <iframe
-          className="video-iframe"
-          width="100%"
-          height="100%"
-          style={{ borderRadius: "12px" }}
-          src="https://www.youtube.com/embed/biS2gxuGZyk?autoplay=1"
-          title="DishCovery Video"
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        ></iframe>
+            <div className="video-responsive-wrapper">
+              <iframe
+                src="https://www.youtube.com/embed/biS2gxuGZyk?autoplay=1&rel=0"
+                title="How to Use DishCovery"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              ></iframe>
+            </div>
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
 
       {/* Floating Install App Button - Only show when app is not installed */}

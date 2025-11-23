@@ -69,6 +69,7 @@ export default function UserProfilePage() {
   const [dishCoveryShowChangePassword, setDishCoveryShowChangePassword] = useState(false);
   const [dishCoveryShowFeedbackModal, setDishCoveryShowFeedbackModal] = useState(false);
   const [dishCoveryShowDeactivateModal, setDishCoveryShowDeactivateModal] = useState(false);
+  const [dishCoveryShowDeleteExpanded, setDishCoveryShowDeleteExpanded] = useState(false);
 
   // ========================================
   // 🆕 FEEDBACK STATES
@@ -1304,7 +1305,7 @@ export default function UserProfilePage() {
                 
                 <div className="support-actions">
                   <button
-                    className="support-btn"
+                    className="support-btn-compact"
                     onClick={() => setDishCoveryShowFeedbackModal(true)}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1314,7 +1315,7 @@ export default function UserProfilePage() {
                   </button>
                   
                   <button
-                    className={`support-btn ${dishCoveryUnreadRepliesCount > 0 ? 'support-btn-with-badge' : ''}`}
+                    className={`support-btn-compact ${dishCoveryUnreadRepliesCount > 0 ? 'support-btn-with-badge' : ''}`}
                     onClick={() => {
                       setDishCoveryShowFeedbackHistoryModal(true);
                       loadFeedbackHistory();
@@ -1341,35 +1342,47 @@ export default function UserProfilePage() {
 
                   <div className="danger-action-card">
                     <div className="danger-action-info">
-                      <div className="danger-action-title">Log Out</div>
-                      <div className="danger-action-description">
-                        End your current session
-                      </div>
-                    </div>
-                    <button 
-                      className="danger-btn-small"
-                      onClick={dishCoveryHandleLogout}
-                    >
-                      Log Out
-                    </button>
-                  </div>
-
-                  <div className="danger-action-card">
-                    <div className="danger-action-info">
                       <div className="danger-action-title">Delete Account</div>
                       <div className="danger-action-description">
                         Permanently remove your account and all data
                       </div>
                     </div>
                     <button 
-                      className="danger-btn-small"
-                      onClick={() => setDishCoveryShowDeactivateModal(true)}
+                      className="danger-expand-btn"
+                      onClick={() => setDishCoveryShowDeleteExpanded(!dishCoveryShowDeleteExpanded)}
                     >
-                      Delete
+                      {dishCoveryShowDeleteExpanded ? 'Cancel' : 'Delete Account'}
                     </button>
                   </div>
+
+                  {dishCoveryShowDeleteExpanded && (
+                    <div className="danger-confirmation-card">
+                      <p className="danger-confirmation-text">
+                        ⚠️ This action cannot be undone. Are you sure you want to delete your account?
+                      </p>
+                      <button 
+                        className="danger-btn-small"
+                        onClick={() => setDishCoveryShowDeactivateModal(true)}
+                      >
+                        Yes, Delete My Account
+                      </button>
+                    </div>
+                  )}
                 </div>
               </section>
+
+              {/* LOGOUT LINK - Outside Danger Zone */}
+              <div className="logout-section mobile-logout">
+                <button 
+                  className="logout-link"
+                  onClick={dishCoveryHandleLogout}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                  </svg>
+                  Log Out
+                </button>
+              </div>
             </div>
 
             <div className="right-panel">
