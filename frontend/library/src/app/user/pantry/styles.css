@@ -785,11 +785,11 @@ body.modal-open {
   object-fit: cover;
   margin: 0 auto;
   display: block;
-  transition: transform 0.3s ease;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); /* smoother + longer */
 }
 
 .ingredient-card:hover .ingredient-image {
-  transform: scale(1.05);
+  transform: scale(1.18);
 }
 
 .ingredient-checkmark {
@@ -992,8 +992,9 @@ body.modal-open {
   }
 
   .ingredient-image {
-    width: 60px;
-    height: 60px;
+    width: 68px;
+    height: 68px;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .ingredient-name {
@@ -1067,8 +1068,9 @@ body.modal-open {
   }
 
   .ingredient-image {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .ingredient-name {
