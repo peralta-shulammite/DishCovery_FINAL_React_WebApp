@@ -707,6 +707,10 @@
     display: flex;
   }
 
+  .avatar-container {
+    display: none;
+  }
+
   .header {
     justify-content: space-between;
     padding: 10px 12px;

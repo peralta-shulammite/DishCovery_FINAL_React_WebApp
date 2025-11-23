@@ -388,11 +388,11 @@
 }
 
 /* Support Actions */
-/* Support Actions */
 .support-actions {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex-direction: row;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .support-btn {
@@ -436,6 +436,39 @@
 }
 
 .support-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* Compact Support Buttons */
+.support-btn-compact {
+  background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Poppins', sans-serif;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.15);
+  position: relative;
+  white-space: nowrap;
+  width: auto;
+}
+
+.support-btn-compact:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(46, 125, 50, 0.25);
+}
+
+.support-btn-compact svg {
   width: 16px;
   height: 16px;
   fill: currentColor;
@@ -527,6 +560,93 @@
   color: white;
   transform: translateY(-1px);
   box-shadow: 0 3px 8px rgba(211, 47, 47, 0.25);
+}
+
+/* Logout Section - Subtle Design */
+.logout-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  justify-content: center;
+}
+
+.logout-link {
+  background: #F5F5F5;
+  color: #424242;
+  border: 2px solid #E0E0E0;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Poppins', sans-serif;
+  border-radius: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+.logout-link:hover {
+  background: #424242;
+  color: white;
+  border-color: #424242;
+  transform: translateX(0);
+}
+
+.logout-link svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logout-link:hover svg {
+  transform: translateX(3px);
+}
+
+/* Danger Expand Button */
+.danger-expand-btn {
+  background: transparent;
+  color: #D32F2F;
+  border: 2px solid #D32F2F;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Poppins', sans-serif;
+  flex-shrink: 0;
+}
+
+.danger-expand-btn:hover {
+  background: rgba(211, 47, 47, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Danger Confirmation Card */
+.danger-confirmation-card {
+  background: rgba(211, 47, 47, 0.05);
+  border: 1.5px solid rgba(211, 47, 47, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: slideInUp 0.3s ease;
+}
+
+.danger-confirmation-text {
+  font-size: 13px;
+  color: #D32F2F;
+  font-weight: 500;
+  text-align: center;
+  margin: 0;
+  line-height: 1.5;
 }
 
 .unread-badge {

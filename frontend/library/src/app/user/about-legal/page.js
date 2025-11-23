@@ -11,99 +11,107 @@ export default function LegalPage() {
         </div>
         <div className="content-body">
           <p className="lead-text">
-            DishCovery values your privacy. This Privacy Policy explains how we collect, use, and protect your personal information in compliance with the Philippine Data Privacy Act of 2012 (RA 10173).
+            DishCovery values your privacy and is committed to protecting your personal information in compliance with the Philippine Data Privacy Act of 2012 (Republic Act No. 10173).
           </p>
           <p className="last-updated">
-            Last Updated: September 20, 2025
+            Effective Date: September 20, 2025
           </p>
 
           <div className="policy-section">
-            <h3>Introduction</h3>
+            <h3>1. Introduction</h3>
             <p>
-              At DishCovery, we are committed to protecting your personal information and ensuring transparency about how your data is handled. This Privacy Policy outlines the types of data we collect, how we use it, and the measures we take to safeguard it.
+              This Privacy Policy describes how DishCovery collects, uses, stores, and protects your personal information when you access or use our web application and related services. By creating an account or using our platform, you acknowledge that you have read and understood this Privacy Policy and consent to the data practices described herein. We are committed to maintaining transparency about our data handling practices and ensuring that your personal information is treated with the utmost care and security.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Information We Collect</h3>
-            <p>We collect the following types of information when you use our web app:</p>
-            <ul>
-              <li><strong>Personal Information:</strong> Name, email address, and contact information provided during account creation or inquiries.</li>
-              <li><strong>Non-Personal Information:</strong> Usage data (e.g., recipes viewed, interactions with the app), device information (e.g., browser type, IP address), and cookies or similar tracking technologies for analytics.</li>
-            </ul>
-          </div>
-
-          <div className="policy-section">
-            <h3>How We Use Your Information</h3>
-            <p>We use your information to:</p>
-            <ul>
-              <li>Create and manage your account.</li>
-              <li>Provide personalized recipe recommendations and improve our services.</li>
-              <li>Respond to your inquiries or customer support requests.</li>
-              <li>Send optional updates, announcements, or promotional offers (you may opt out at any time).</li>
-              <li>Analyze app usage to enhance functionality and user experience.</li>
-            </ul>
-          </div>
-
-          <div className="policy-section">
-            <h3>Data Sharing and Disclosure</h3>
+            <h3>2. Information Collection</h3>
             <p>
-              We do not sell or rent your personal data. We may share your information in the following cases:
+              In order to provide you with our services, we collect certain types of information from users of the DishCovery platform. The information we collect falls into two primary categories: personal information that directly identifies you, and non-personal information that helps us understand how our services are being used and how we can improve them.
             </p>
-            <ul>
-              <li><strong>Service Providers:</strong> With trusted third-party providers (e.g., analytics, hosting, or payment processors) under strict confidentiality agreements.</li>
-              <li><strong>Legal Compliance:</strong> When required by law, legal processes, or to protect our rights, safety, or property.</li>
-            </ul>
-          </div>
-
-          <div className="policy-section">
-            <h3>Data Retention</h3>
             <p>
-              We retain your personal information only for as long as necessary to provide our services or as required by applicable laws. You may request deletion of your account at any time, after which your data will be removed in accordance with our deletion criteria.
+              <strong>Personal Information:</strong> When you create an account with DishCovery, we collect your name, email address, and contact information. This information is necessary for account creation, authentication, and communication regarding your use of our services.
+            </p>
+            <p>
+              <strong>Usage and Device Information:</strong> We automatically collect certain information about how you interact with our platform, including the recipes you view, features you use, and preferences you set. Additionally, we gather device information such as your browser type, operating system, IP address, and access times. We may also use cookies and similar tracking technologies to analyze platform usage, remember your preferences, and improve your overall experience.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Cookies and Tracking</h3>
+            <h3>3. Use of Information</h3>
             <p>
-              DishCovery uses cookies and similar technologies to improve your experience and analyze app performance. You can manage cookie preferences through your browser settings or our cookie consent tool.
+              The personal and non-personal information we collect serves several important purposes in delivering and improving our services. We use your information to create and manage your account, authenticate your identity, and provide you with access to DishCovery's features and functionalities. Your usage data helps us generate personalized recipe recommendations tailored to your preferences and dietary needs.
+            </p>
+            <p>
+              We also utilize collected information to respond to your inquiries, provide customer support, and address any issues you may encounter while using the platform. With your consent, we may send you updates, announcements, newsletters, or promotional offers about new features, recipes, or other content that may interest you. You retain the right to opt out of such communications at any time through your account settings or by following the unsubscribe instructions in our emails.
+            </p>
+            <p>
+              Furthermore, we analyze aggregated and anonymized usage data to understand user behavior, identify trends, enhance platform functionality, and improve the overall user experience. This analysis helps us make informed decisions about feature development and service improvements.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Your Rights</h3>
+            <h3>4. Information Sharing and Disclosure</h3>
             <p>
-              Under the Philippine Data Privacy Act, you have the right to:
+              DishCovery does not sell, rent, or trade your personal information to third parties for their marketing purposes. We share your information only in the specific circumstances outlined below, and always under strict confidentiality and security requirements.
             </p>
-            <ul>
-              <li>Access, correct, or update your personal information.</li>
-              <li>Withdraw consent for data processing.</li>
-              <li>Request deletion of your data.</li>
-              <li>Lodge a complaint with the National Privacy Commission (NPC).</li>
-            </ul>
             <p>
-              To exercise these rights, please contact us at <a href="mailto:privacy@dishcovery.com">privacy@dishcovery.com</a>.
+              <strong>Service Providers:</strong> We may engage trusted third-party service providers to perform functions on our behalf, such as hosting services, data analytics, email delivery, and payment processing. These providers are granted access to your personal information only to the extent necessary to perform their designated functions and are contractually obligated to maintain the confidentiality and security of your data.
+            </p>
+            <p>
+              <strong>Legal Requirements:</strong> We may disclose your information when required by law, legal process, litigation, or governmental request. We may also share information when we believe in good faith that disclosure is necessary to protect our rights, your safety or the safety of others, investigate fraud, or respond to a government request.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Security Measures</h3>
+            <h3>5. Data Retention</h3>
             <p>
-              We implement industry-standard security measures, including encryption, secure servers, and restricted access, to protect your personal data from unauthorized access, disclosure, alteration, or destruction.
+              We retain your personal information for as long as your account remains active or as necessary to provide you with our services. If you choose to delete your account, we will remove your personal information from our active databases in accordance with our data retention policies and applicable legal requirements. However, certain information may be retained in our backup systems or archives for a limited period as required by law or for legitimate business purposes such as fraud prevention, dispute resolution, or compliance with legal obligations.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Policy Updates</h3>
+            <h3>6. Cookies and Tracking Technologies</h3>
             <p>
-              We may update this Privacy Policy periodically to reflect changes in our practices or legal requirements. Significant changes will be communicated by posting the updated policy on our web app with the effective date.
+              DishCovery employs cookies, web beacons, and similar tracking technologies to enhance your browsing experience, remember your preferences, and analyze how users interact with our platform. Cookies are small text files stored on your device that help us recognize you on subsequent visits and maintain your session state. You have the ability to control cookie preferences through your browser settings, though disabling certain cookies may limit your ability to use some features of our platform. Our cookie usage helps us improve service performance, understand user preferences, and deliver more relevant content and features.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Contact Information</h3>
+            <h3>7. Your Rights Under Philippine Data Privacy Law</h3>
             <p>
-              For questions or concerns about this Privacy Policy, please contact us at <a href="mailto:privacy@dishcovery.com">privacy@dishcovery.com</a> or through our contact form on the app.
+              Under the Philippine Data Privacy Act of 2012, you are afforded certain rights regarding your personal information. You have the right to access your personal data and obtain copies of the information we hold about you. You may request corrections or updates to any inaccurate or incomplete personal information in your account. You have the right to object to or restrict certain types of data processing, and you may withdraw your consent for data processing activities that require your consent.
+            </p>
+            <p>
+              Additionally, you have the right to request the deletion of your account and associated personal data, subject to legal retention requirements. You may also lodge a complaint with the National Privacy Commission of the Philippines if you believe your data privacy rights have been violated. To exercise any of these rights, please contact us at <a href="mailto:dishcovery.org@gmail.com">dishcovery.org@gmail.com</a>. We will respond to your request within the timeframe required by applicable law.
+            </p>
+          </div>
+
+          <div className="policy-section">
+            <h3>8. Data Security</h3>
+            <p>
+              The security of your personal information is of paramount importance to DishCovery. We implement industry-standard security measures designed to protect your data from unauthorized access, disclosure, alteration, or destruction. These measures include encryption of data in transit and at rest, secure server infrastructure, regular security assessments, and restricted access controls that limit data access to authorized personnel only. While we strive to protect your personal information, no method of transmission over the internet or electronic storage is completely secure, and we cannot guarantee absolute security.
+            </p>
+          </div>
+
+          <div className="policy-section">
+            <h3>9. Children's Privacy</h3>
+            <p>
+              DishCovery is not intended for use by individuals under the age of 18. We do not knowingly collect personal information from minors. If we become aware that we have inadvertently collected personal information from a person under 18 years of age, we will take steps to delete such information from our systems as quickly as possible.
+            </p>
+          </div>
+
+          <div className="policy-section">
+            <h3>10. Changes to This Privacy Policy</h3>
+            <p>
+              We may update this Privacy Policy from time to time to reflect changes in our practices, legal requirements, or operational needs. When we make material changes to this policy, we will notify you by posting the updated policy on our platform with a new effective date, and we may also send you a notification via email or through the platform. We encourage you to review this Privacy Policy periodically to stay informed about how we protect your information. Your continued use of DishCovery after any modifications to this Privacy Policy constitutes your acceptance of the updated terms.
+            </p>
+          </div>
+
+          <div className="policy-section">
+            <h3>11. Contact Information</h3>
+            <p>
+              If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at <a href="mailto:dishcovery.org@gmail.com">dishcovery.org@gmail.com</a>. You may also reach us through the contact form available on our platform. We are committed to addressing your inquiries and resolving any issues in a timely and professional manner.
             </p>
           </div>
         </div>
@@ -115,111 +123,114 @@ export default function LegalPage() {
         </div>
         <div className="content-body">
           <p className="lead-text">
-            Welcome to DishCovery! By creating an account or using our services, you agree to comply with and be bound by the following Terms of Service. Please read them carefully before using our web app.
+            These Terms of Service govern your use of DishCovery and constitute a legally binding agreement between you and DishCovery. Please read these terms carefully before using our services.
           </p>
           <p className="last-updated">
-            Last Updated: September 20, 2025
+            Effective Date: September 20, 2025
           </p>
 
           <div className="policy-section">
-            <h3>Introduction</h3>
+            <h3>1. Agreement to Terms</h3>
             <p>
-              These Terms of Service govern your use of DishCovery, including our web app and related services. By accessing or using our services, you acknowledge that you have read, understood, and agree to be bound by these terms and our Privacy Policy.
+              By accessing or using the DishCovery web application and related services, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service and our Privacy Policy. These terms apply to all users of the platform, including visitors, registered users, and contributors. If you do not agree with any part of these terms, you must discontinue use of our services immediately. Your continued use of DishCovery following any modifications to these Terms of Service constitutes your acceptance of such changes.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Acceptance of Terms</h3>
+            <h3>2. Eligibility and Account Registration</h3>
             <p>
-              By accessing or using DishCovery, you agree to these Terms of Service. You will be required to confirm your agreement by checking a box during account creation or before using certain features. If you do not agree, please do not use our services.
+              You must be at least 18 years of age to create an account and use DishCovery. If you are under 18, you may use our services only with the involvement and consent of a parent or legal guardian. By registering for an account, you represent and warrant that you have the legal capacity to enter into this binding agreement and that all information you provide during the registration process is accurate, current, and complete.
+            </p>
+            <p>
+              You are responsible for maintaining the confidentiality of your account credentials, including your password, and for all activities that occur under your account. You agree to immediately notify us of any unauthorized access to or use of your account by contacting <a href="mailto:dishcovery.org@gmail.com">dishcovery.org@gmail.com</a>. You may not share your account with others or allow any third party to access your account.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Eligibility</h3>
+            <h3>3. User Conduct and Responsibilities</h3>
             <p>
-              You must be at least 18 years old or have the consent of a parent or legal guardian to use DishCovery. By using the app, you represent that you meet these eligibility requirements and have the legal capacity to enter into this agreement.
+              When using DishCovery, you agree to conduct yourself in a lawful and respectful manner. You are responsible for ensuring that all information you provide to the platform is accurate, current, and complete. You agree not to post, upload, transmit, or share any content that is unlawful, harmful, threatening, abusive, harassing, defamatory, vulgar, obscene, invasive of another's privacy, hateful, or racially or ethnically objectionable.
+            </p>
+            <p>
+              You may not use DishCovery for any purpose that is illegal under Philippine law or the laws of your jurisdiction. Prohibited activities include but are not limited to: attempting to gain unauthorized access to our systems or networks; interfering with or disrupting the integrity or performance of the platform; using automated scripts, bots, or other automated means to access or scrape content from the platform; transmitting viruses, malware, or other harmful code; impersonating any person or entity or falsely representing your affiliation with any person or entity; and violating the intellectual property rights of DishCovery or any third party.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>User Responsibilities</h3>
-            <p>You agree to:</p>
-            <ul>
-              <li>Provide accurate and complete information when creating your account.</li>
-              <li>Follow our community guidelines and not post, upload, or share content that is offensive, defamatory, obscene, or violates the rights of others.</li>
-              <li>Not misuse the service, including engaging in spamming, hacking, or other illegal activities.</li>
-            </ul>
-          </div>
-
-          <div className="policy-section">
-            <h3>Account and Security</h3>
+            <h3>4. Intellectual Property Rights</h3>
             <p>
-              You are responsible for maintaining the confidentiality of your login credentials and for all activities under your account. You agree not to share your account with others or use another person's account. Notify us immediately at <a href="mailto:support@dishcovery.com">support@dishcovery.com</a> if you suspect your account has been compromised.
+              All content, features, and functionality available on DishCovery, including but not limited to text, graphics, logos, images, software, and the overall design of the platform, are owned by DishCovery or its licensors and are protected by Philippine and international copyright, trademark, patent, and other intellectual property laws. You are granted a limited, non-exclusive, non-transferable license to access and use the platform for your personal, non-commercial use only.
+            </p>
+            <p>
+              You may not copy, reproduce, distribute, modify, create derivative works from, publicly display, publicly perform, republish, download, store, or transmit any material from DishCovery without our prior written consent, except as necessary for normal use of the platform or as permitted by applicable law. When you submit, post, or upload content to DishCovery (such as user-generated recipes, comments, or reviews), you grant us a non-exclusive, worldwide, royalty-free, perpetual, irrevocable license to use, reproduce, modify, adapt, publish, translate, distribute, and display such content in connection with operating and promoting our services.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Use of the Service</h3>
+            <h3>5. Paid Services and Subscriptions</h3>
             <p>
-              You may use DishCovery only for lawful purposes and in compliance with all applicable Philippine laws and regulations. Prohibited activities include:
-            </p>
-            <ul>
-              <li>Attempting to interfere with or disrupt the app's functionality.</li>
-              <li>Using automated scripts or bots to access or scrape the app.</li>
-              <li>Violating the intellectual property rights of DishCovery or third parties.</li>
-            </ul>
-          </div>
-
-          <div className="policy-section">
-            <h3>Content Ownership and Licensing</h3>
-            <p>
-              All content and materials on DishCovery, including logos, designs, text, and images, are owned by DishCovery and protected under Philippine intellectual property laws. You may not copy, reproduce, or distribute them without written permission.
+              Certain features or services offered through DishCovery may require payment of fees or subscription charges. All fees will be clearly disclosed prior to your purchase or subscription. By purchasing a paid service or subscription, you agree to pay all applicable fees and authorize us to charge your designated payment method. Fees are non-refundable except as expressly stated in our refund policy or as required by applicable law.
             </p>
             <p>
-              By uploading or submitting content to DishCovery (e.g., user-generated recipes or comments), you grant us a non-exclusive, worldwide, royalty-free license to use, display, and distribute that content in connection with our services.
+              Subscription services will automatically renew at the end of each billing period unless you cancel your subscription before the renewal date. You may cancel your subscription at any time through your account settings. Upon cancellation, you will continue to have access to the paid features until the end of your current billing period, after which your access will be downgraded to the free tier or terminated, depending on the service.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Payment and Subscriptions</h3>
+            <h3>6. Service Modifications and Termination</h3>
             <p>
-              Certain features of DishCovery may require payment or subscriptions. All fees, billing terms, refunds, and cancellation policies will be clearly outlined during the subscription process. You agree to provide accurate payment information and authorize us to charge applicable fees.
+              DishCovery reserves the right to modify, suspend, or discontinue any aspect of our services at any time, with or without notice. We may also impose limits on certain features or restrict your access to parts or all of the platform without liability. We reserve the right to terminate or suspend your account and access to our services immediately, without prior notice or liability, if you breach these Terms of Service, engage in prohibited activities, or for any other reason at our sole discretion.
+            </p>
+            <p>
+              You may terminate your account at any time by contacting us at <a href="mailto:dishcovery.org@gmail.com">dishcovery.org@gmail.com</a> or using the account deletion feature in your settings. Upon termination, your right to use the platform will immediately cease, and we may delete your account data in accordance with our data retention policies.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Termination of Service</h3>
+            <h3>7. Disclaimers and Limitation of Liability</h3>
             <p>
-              We reserve the right to suspend or terminate your account if you violate these Terms of Service, engage in prohibited activities, or for any other reason at our discretion. You may terminate your account at any time by contacting us or using the account deletion feature.
+              DishCovery is provided on an "as is" and "as available" basis without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, or non-infringement. We do not warrant that the platform will be uninterrupted, secure, or error-free, or that defects will be corrected. We do not guarantee the accuracy, reliability, or completeness of any content on the platform, including user-generated content and recipes.
+            </p>
+            <p>
+              To the fullest extent permitted by applicable law, DishCovery shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the platform; any conduct or content of any third party on the platform; unauthorized access, use, or alteration of your transmissions or content; or any other matter relating to the platform. Our total liability to you for any claims arising from or related to these Terms of Service or your use of the platform shall not exceed the amount you have paid to us in the twelve months preceding the claim, or one hundred Philippine pesos (PHP 100), whichever is greater.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Limitation of Liability</h3>
+            <h3>8. Indemnification</h3>
             <p>
-              DishCovery will not be liable for any indirect, incidental, or consequential damages arising from your use or inability to use our services, including but not limited to damages caused by misuse, downtime, or data loss, to the fullest extent permitted by law.
+              You agree to defend, indemnify, and hold harmless DishCovery and its officers, directors, employees, contractors, agents, licensors, and suppliers from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising out of or relating to your violation of these Terms of Service or your use of the platform, including but not limited to your user content, any use of the platform's content or services other than as expressly authorized in these Terms of Service, or your breach of any representation or warranty contained herein.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Dispute Resolution</h3>
+            <h3>9. Governing Law and Dispute Resolution</h3>
             <p>
-              These Terms of Service are governed by the laws of the Philippines. Any disputes arising from or related to these terms will be resolved through negotiation or, if necessary, arbitration in accordance with Philippine law. You agree to submit to the jurisdiction of the courts in the Philippines for any legal proceedings.
+              These Terms of Service and any disputes arising from or relating to them or your use of DishCovery shall be governed by and construed in accordance with the laws of the Republic of the Philippines, without regard to its conflict of law principles. Any legal action or proceeding arising out of or related to these Terms of Service shall be instituted exclusively in the courts of the Philippines, and you consent to the personal jurisdiction of such courts.
+            </p>
+            <p>
+              In the event of any dispute, controversy, or claim arising out of or relating to these Terms of Service or your use of the platform, you agree to first attempt to resolve the dispute informally by contacting us at <a href="mailto:dishcovery.org@gmail.com">dishcovery.org@gmail.com</a>. If the dispute cannot be resolved through informal negotiation within thirty (30) days, either party may pursue resolution through binding arbitration in accordance with Philippine law, or through the appropriate courts in the Philippines.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Changes to Terms</h3>
+            <h3>10. Modifications to Terms</h3>
             <p>
-              DishCovery may update these Terms of Service from time to time. We will notify users of significant changes by posting them on our web app. Continued use of the service after changes constitutes acceptance of the updated terms.
+              DishCovery reserves the right to modify or update these Terms of Service at any time at our sole discretion. When we make material changes to these terms, we will post the updated version on our platform with a new effective date and may notify you via email or through a prominent notice on the platform. Your continued use of DishCovery after the effective date of any modifications constitutes your acceptance of the updated Terms of Service. If you do not agree with the modified terms, you must discontinue use of our services and may close your account.
             </p>
           </div>
 
           <div className="policy-section">
-            <h3>Contact Information</h3>
+            <h3>11. General Provisions</h3>
             <p>
-              For questions or concerns about these Terms of Service, please contact us at <a href="mailto:support@dishcovery.com">support@dishcovery.com</a> or through our contact form on the app.
+              These Terms of Service, together with our Privacy Policy and any other legal notices or agreements published by us on the platform, constitute the entire agreement between you and DishCovery concerning your use of the platform and supersede any prior agreements or understandings. If any provision of these Terms of Service is found to be invalid or unenforceable, the remaining provisions shall remain in full force and effect. Our failure to enforce any right or provision of these Terms of Service shall not constitute a waiver of such right or provision. These terms are personal to you and may not be assigned or transferred without our prior written consent.
+            </p>
+          </div>
+
+          <div className="policy-section">
+            <h3>12. Contact Information</h3>
+            <p>
+              If you have any questions, concerns, or feedback regarding these Terms of Service, please contact us at <a href="mailto:dishcovery.org@gmail.com">dishcovery.org@gmail.com</a>. You may also reach us through the contact form available on our platform. We are committed to addressing your inquiries in a timely manner and maintaining open communication with our users.
             </p>
           </div>
         </div>
