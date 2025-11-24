@@ -54,6 +54,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "https://dishcovery-frontend-tau.vercel.app",
+  "https://main.db872bmzczj7s.amplifyapp.com",
   /\.vercel\.app$/
 ];
 
