@@ -884,11 +884,55 @@
   border-radius: 16px;
   width: 90%;
   max-width: 400px;
+  height: 480px;
+  max-height: 90vh;
   text-align: center;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   animation: modalScaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
+
+/* Custom scrollbar for modal */
+.modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: rgba(46, 125, 50, 0.3);
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(46, 125, 50, 0.5);
+}
+
+/* Ensure close button stays fixed at top */
+.modal-content .close-btn {
+  position: sticky;
+  top: 16px;
+  z-index: 10;
+  margin-bottom: -20px;
+}
+
+
+
+
+
+
+
+
+
+
+
 
 .modal-content.video-modal {
   max-width: 900px;
@@ -966,6 +1010,56 @@
 .modal-input:focus {
   border-color: #2E7D32;
   outline: none;
+}
+
+/* Password Requirements Styles */
+.password-requirements {
+  margin-bottom: 12px;
+  margin-top: -8px;
+}
+
+.password-requirements-title {
+  font-size: 11px;
+  color: #616161;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.password-requirements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.password-requirement-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.password-requirement-item.valid {
+  color: #2E7D32;
+}
+
+.password-requirement-item.invalid {
+  color: #757575;
+}
+
+.requirement-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.password-requirement-item.valid .requirement-icon {
+  fill: #2E7D32;
+}
+
+.password-requirement-item.invalid .requirement-icon {
+  fill: #BDBDBD;
 }
 
 .forgot-password {
@@ -1477,6 +1571,8 @@
   .modal-content {
     padding: 16px;
     max-width: 320px;
+    height: 450px;
+    max-height: 85vh;
   }
 
   .modal-content.video-modal {
@@ -1638,6 +1734,8 @@
   .modal-content {
     padding: 12px;
     max-width: 280px;
+    height: 420px;
+    max-height: 80vh;
   }
 }
 
@@ -2656,4 +2754,3 @@
   height: 100%;
   border: none;
 }
-

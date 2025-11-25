@@ -638,11 +638,15 @@
   bottom: 0;
   left: 0;
   right: 0;
+  width: 100%;
   background: white;
   display: none;
-  justify-content: space-around;
+  justify-content: space-evenly;
   align-items: center;
-  padding: 8px 0;
+  /* default safe-area offset uses CSS env(), JS overrides via CSS var */
+  --safe-area-offset: env(safe-area-inset-bottom, 0px);
+  padding: 8px 0 calc(8px + var(--safe-area-offset));
+  box-sizing: border-box;
   box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.05);
   z-index: 10;
   border-top: 1px solid rgba(0, 0, 0, 0.03);
