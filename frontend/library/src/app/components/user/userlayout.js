@@ -4,15 +4,14 @@ import Link from 'next/link';
 import './userlayout.css';
 import { notificationsAPI } from '../../user/utils/notificationsAPI';
 
-// API Base URL - Fix: Use correct backend URL for Vercel deployment and localhost
+
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
-    // For localhost testing, always use localhost
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return 'http://localhost:5000/api';
     }
   }
-  // Use environment variable for production/Vercel deployment
+
   return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
 };
 
@@ -24,6 +23,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
+  const [safeAreaInsetBottom, setSafeAreaInsetBottom] = useState(0);
   const avatarRef = useRef(null);
   const [hoverStates, setHoverStates] = useState({
     logo: false,
@@ -32,7 +32,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     avatar: false,
   });
 
-  // 🆕 Real notifications from API
+
   const [messages, setMessages] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -41,7 +41,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     setHoverStates((prev) => ({ ...prev, [element]: isHover }));
   };
 
-  // 🆕 Load notifications from API
+
   const loadNotifications = useCallback(async () => {
     if (!isLoggedIn) return;
     
@@ -52,7 +52,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
       const response = await notificationsAPI.getNotifications(20);
       
       if (response && response.success && response.data) {
-        // Transform API data to match UI format
+
         const formattedNotifications = response.data.map(notification => {
           const createdDate = new Date(notification.created_at);
           const now = new Date();
@@ -87,7 +87,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
         console.log('✅ Notifications loaded:', formattedNotifications.length);
       }
       
-      // Load unread count
+
       const count = await notificationsAPI.getUnreadCount();
       setUnreadCount(count);
       
@@ -104,19 +104,42 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     loadNotifications();
   }, [loadNotifications]);
 
-  // ✅ Auto-refresh notifications every 30 seconds
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) {
+      return;
+    }
+
+    const viewport = window.visualViewport;
+
+    const updateSafeArea = () => {
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setSafeAreaInsetBottom(inset);
+    };
+
+    updateSafeArea();
+    viewport.addEventListener('resize', updateSafeArea);
+    viewport.addEventListener('scroll', updateSafeArea);
+
+    return () => {
+      viewport.removeEventListener('resize', updateSafeArea);
+      viewport.removeEventListener('scroll', updateSafeArea);
+    };
+  }, []);
+
+
   useEffect(() => {
     if (!isLoggedIn) return;
     
     const interval = setInterval(() => {
       console.log('🔄 Auto-refreshing notifications...');
       loadNotifications();
-    }, 30000); // Refresh every 30 seconds
+    }, 30000); 
     
     return () => clearInterval(interval);
   }, [isLoggedIn, loadNotifications]);
 
-  // ✅ Refresh notifications when page becomes visible
+
   useEffect(() => {
     if (!isLoggedIn) return;
     
@@ -159,7 +182,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     try {
       console.log('🚪 Logging out user...');
       
-      // Clear all localStorage items
+
       const itemsToRemove = [
         'token', 
         'isAdmin', 
@@ -183,44 +206,44 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
         localStorage.removeItem(item);
       });
       
-      // Clear sessionStorage
+
       sessionStorage.clear();
       
       console.log('✅ All user data cleared');
       
-      // Call onLogout if provided (for state updates in parent components)
+
       if (onLogout) {
         onLogout();
       }
       
-      // Close dropdowns
+
       setShowAvatarDropdown(false);
       setShowMobileMenu(false);
       
-      // Redirect to home page
+
       window.location.href = '/user/home';
     } catch (error) {
       console.error('❌ Logout error:', error);
-      // Force redirect even on error
+
       window.location.href = '/user/home';
     }
   };
 
   const handleDeleteMessage = async (messageId) => {
     try {
-      // Optimistically remove from UI
+
       setMessages(messages.filter(msg => msg.id !== messageId));
       setUnreadCount(prev => {
         const message = messages.find(msg => msg.id === messageId);
         return message && !message.isRead ? Math.max(0, prev - 1) : prev;
       });
       
-      // Call API
+
       await notificationsAPI.deleteNotification(messageId);
       console.log('✅ Notification deleted');
     } catch (error) {
       console.error('❌ Error deleting notification:', error);
-      // Reload notifications on error
+
       const response = await notificationsAPI.getNotifications(20);
       if (response && response.success) {
         const formatted = response.data.map(n => ({
@@ -237,19 +260,18 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     }
   };
 
-  // 🆕 Handle Reply Button Click
+
   const handleReplyClick = (messageId) => {
     setReplyingTo(messageId);
     setReplyText('');
   };
 
-  // 🆕 Handle Cancel Reply
   const handleCancelReply = () => {
     setReplyingTo(null);
     setReplyText('');
   };
 
-  // 🆕 Handle Send Reply - Creates feedback entry
+
   const handleSendReply = async (messageId) => {
     if (!replyText.trim()) {
       alert('⚠️ Please enter a reply message');
@@ -270,11 +292,11 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
 
       console.log('📤 Sending reply as feedback...');
 
-      // Get the original notification to include context
+
       const originalMessage = messages.find(msg => msg.id === messageId);
       const contextMessage = `[In reply to: "${originalMessage?.subject || 'notification'}"]\n\n${replyText.trim()}`;
 
-      // Submit as feedback to admin
+
       const response = await fetch(`${API_BASE_URL}/feedback`, {
         method: 'POST',
         headers: {
@@ -294,15 +316,14 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
       const result = await response.json();
       console.log('✅ Reply sent as feedback:', result);
 
-      // Mark original notification as read
       await notificationsAPI.markAsRead(messageId);
 
-      // Update UI
+
       setMessages(messages.map(msg => 
         msg.id === messageId ? { ...msg, isRead: true } : msg
       ));
 
-      // Clear reply state
+
       setReplyingTo(null);
       setReplyText('');
 
@@ -319,13 +340,13 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
     if (!message) return;
     
     try {
-      // Optimistically update UI
+
       setMessages(messages.map(msg => 
         msg.id === messageId ? { ...msg, isRead: !msg.isRead } : msg
       ));
       setUnreadCount(prev => message.isRead ? prev + 1 : Math.max(0, prev - 1));
       
-      // Call API
+
       if (message.isRead) {
         await notificationsAPI.markAsUnread(messageId);
         console.log('✅ Marked as unread');
@@ -335,7 +356,7 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
       }
     } catch (error) {
       console.error('❌ Error toggling read status:', error);
-      // Revert on error
+
       setMessages(messages.map(msg => 
         msg.id === messageId ? { ...msg, isRead: message.isRead } : msg
       ));
@@ -529,7 +550,10 @@ export default function UserLayout({ children, isLoggedIn, user, onSignInClick, 
 
       {children}
 
-      <nav className="mobile-bottom-nav">
+      <nav
+        className="mobile-bottom-nav"
+        style={{ '--safe-area-offset': `${safeAreaInsetBottom}px` }}
+      >
         <Link href="/user/home" className="bottom-nav-link">
           <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
