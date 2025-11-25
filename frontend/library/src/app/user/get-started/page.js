@@ -303,9 +303,9 @@ export default function GetStarted() {
 
           // Handle successful response (200-299 status codes)
           if (!responseText) {
-            // If response is empty but status is ok, assume success
-            console.warn('⚠️ Empty response body, but status is OK. Assuming success.');
-            setStep(2);
+            // ❌ Empty response - cannot proceed without memberId
+            console.error('❌ Empty response body - cannot create member profile');
+            setError('Failed to create member profile. Please try again.');
             setLoading(false);
             return;
           }
@@ -321,24 +321,21 @@ export default function GetStarted() {
             setMemberId(data.memberId);
             setStep(2); // Move to next step
           } else if (data.success) {
-            // Response says success but no memberId - might be OK if member already exists
-            console.log('✅ Member profile operation completed (no memberId returned)');
-            setStep(2); // Move to next step
+            // ❌ Response indicates success but no memberId - cannot proceed
+            console.error('❌ Member profile response missing memberId');
+            setError('Failed to create member profile. Please try again.');
           } else {
-            // If we get here, response was OK but format is unexpected
-            console.warn('⚠️ Unexpected response format, but status was OK:', data);
-            // Still proceed since the database operation likely succeeded
-            setStep(2);
+            // ❌ Unexpected response format
+            console.error('❌ Unexpected response format:', data);
+            setError('Failed to create member profile. Please try again.');
           }
         } catch (error) {
           console.error('❌ Unexpected error creating member profile:', error);
-          // Only show error if it's a network error or similar
+          // Show error and do NOT proceed without memberId
           if (error.name === 'TypeError' && error.message.includes('fetch')) {
             setError('Network error. Please check your connection and try again.');
           } else {
-            // For other errors, log but don't block - member might have been created
-            console.warn('⚠️ Error occurred but proceeding - member may have been created:', error.message);
-            setStep(2); // Proceed to next step
+            setError('Failed to create member profile. Please try again.');
           }
         } finally {
           setLoading(false);
