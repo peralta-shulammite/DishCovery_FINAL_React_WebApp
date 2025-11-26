@@ -1984,7 +1984,7 @@ export default function DishCoveryLanding() {
       {/* ✅ Option 3: Password Creation Prompt Modal */}
       {dishCoveryShowPasswordPrompt && (
         <div className="modal-overlay" onClick={() => setDishCoveryShowPasswordPrompt(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content forgot-password-modal" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={() => setDishCoveryShowPasswordPrompt(false)}>×</button>
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <div style={{ fontSize: '48px', marginBottom: '10px' }}>🔐</div>

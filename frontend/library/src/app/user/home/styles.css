@@ -534,9 +534,15 @@
 }
 
 .how-to-video {
-  flex: 1;
   position: relative;
-  cursor: pointer;
+  border-radius: 20px; /* Matches reference's soft corners */
+  overflow: hidden;
+  background: white; /* Clean white card like reference */
+  transition: transform 0.3s ease; /* Subtle lift on hover */
+}
+
+.how-to-video:hover {
+  transform: translateY(-2px); /* Light lift, no heavy shadow */
 }
 
 .video-preview {
@@ -884,8 +890,9 @@
   border-radius: 16px;
   width: 90%;
   max-width: 400px;
-  height: 480px;
+  min-height: 180px;     /* Reduced from fixed 480px */
   max-height: 90vh;
+  height: auto;          /* NEW: Let it grow/shrink with content */
   text-align: center;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   animation: modalScaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -893,6 +900,13 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+.modal-content > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 /* Custom scrollbar for modal */
@@ -922,17 +936,6 @@
   z-index: 10;
   margin-bottom: -20px;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 .modal-content.video-modal {
   max-width: 900px;
@@ -1569,17 +1572,28 @@
   }
 
   .modal-content {
-    padding: 16px;
-    max-width: 320px;
-    height: 450px;
-    max-height: 85vh;
+    background: #FFFFFF;
+    padding: 20px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 400px;
+    min-height: 180px;     /* Reduced from fixed 480px */
+    max-height: 90vh;
+    height: auto;          /* NEW: Let it grow/shrink with content */
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    animation: modalScaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
   }
 
   .modal-content.video-modal {
     max-width: 100%;
     padding: 8px;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgb(255, 255, 255);
     border: none;
   }
 
@@ -1732,10 +1746,21 @@
   }
 
   .modal-content {
-    padding: 12px;
-    max-width: 280px;
-    height: 420px;
-    max-height: 80vh;
+    background: #FFFFFF;
+    padding: 20px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 400px;
+    min-height: 180px;     /* Reduced from fixed 480px */
+    max-height: 90vh;
+    height: auto;          /* NEW: Let it grow/shrink with content */
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    animation: modalScaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
   }
 }
 
@@ -2730,10 +2755,10 @@
 /* ==================== END NEW PWA FLOATING INSTALL BUTTON STYLES ==================== */
 
 .video-modal {
-  max-width: 900px;
-  width: 95%;
-  padding: 20px;
-  background: #000;
+  max-width: 400px;
+  width: 75%;
+  padding: 6px;
+  background: #ffffff;
   border-radius: 16px;
 }
 
@@ -2743,7 +2768,7 @@
   height: 0;
   overflow: hidden;
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .video-responsive-wrapper iframe {
@@ -2753,4 +2778,21 @@
   width: 100%;
   height: 100%;
   border: none;
+}
+
+/* Mobile responsive for video modal */
+@media (max-width: 768px) {
+  .video-modal {
+    max-width: 90%;
+    width: 90%;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .video-modal {
+    max-width: 95%;
+    width: 95%;
+    padding: 6px;
+  }
 }
