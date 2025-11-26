@@ -1378,6 +1378,19 @@ body {
   font-family: var(--font-family-heading);
 }
 
+.recipe-subtitle {
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* New recipe title with green theme */
 .recipes-container-new .recipe-title {
   color: #2E7D32;
@@ -1988,6 +2001,16 @@ body {
   line-height: 1.5;
 }
 
+.modal-recipe-subtitle {
+  font-size: 16px;
+  color: #666;
+  font-style: italic;
+  margin-bottom: 8px;
+  margin-top: 4px;
+  line-height: 1.5;
+  padding-right: 50px;
+}
+
 /* Recipe Preview Meta in Modal Header */
 .recipe-preview-meta {
   display: flex;
@@ -2069,6 +2092,19 @@ body {
   .preview-meal-badge {
     font-size: 12px;
     padding: 4px 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .recipe-subtitle {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  
+  .modal-recipe-subtitle {
+    font-size: 14px;
+    margin-bottom: 6px;
+    padding-right: 40px;
   }
 }
 
