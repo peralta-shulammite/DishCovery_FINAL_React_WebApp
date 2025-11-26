@@ -3774,21 +3774,21 @@ body {
 
 /* Filter Modal Styles */
 .filter-modal-content {
-  background: #FFFFFF;
-  max-width: 500px;
-  width: 90vw;
-  max-height: 85vh;
+  background: white;
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  animation: slideInUp 0.3s ease;
-  overflow: hidden;
-  position: relative;
+  width: 90%;
+  max-width: 600px;
+  max-height: 65vh;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  animation: modalScaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  position: relative;
 }
 
 .filter-modal-header {
-  padding: 24px 24px 16px 24px;
+  padding: 16px 20px 12px 20px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
@@ -3797,7 +3797,7 @@ body {
 }
 
 .filter-modal-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--primary-color);
   margin: 0;
@@ -3815,7 +3815,7 @@ body {
 }
 
 .filter-modal-body {
-  padding: 24px;
+  padding: 16px 20px;
   overflow-y: auto;
   flex: 1;
   scroll-behavior: smooth;
@@ -3841,7 +3841,7 @@ body {
 }
 
 .filter-modal-section {
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .filter-modal-section:last-child {
@@ -3849,10 +3849,10 @@ body {
 }
 
 .filter-modal-section-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-color);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   font-family: var(--font-family-heading);
 }
 
@@ -3884,8 +3884,8 @@ body {
 .filter-modal-option {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: 10px;
+  padding: 10px;
   border-radius: 8px;
   cursor: pointer;
   transition: background var(--transition);
@@ -3969,7 +3969,7 @@ body {
 }
 
 .filter-modal-footer {
-  padding: 16px 24px;
+  padding: 12px 20px;
   border-top: 1px solid var(--border-color);
   display: flex;
   gap: 12px;
@@ -3982,7 +3982,7 @@ body {
   color: var(--text-color);
   border: 1px solid #E0E0E0;
   border-radius: 8px;
-  padding: 12px 20px;
+  padding: 10px 18px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -4000,7 +4000,7 @@ body {
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 12px 20px;
+  padding: 10px 18px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

@@ -576,6 +576,9 @@ export default function FavoritesPage() {
                       </div>
                       <div className="recipe-content">
                         <h3 className="recipe-title">{recipe.title}</h3>
+                        {recipe.subtitle && (
+                          <p className="recipe-subtitle">{recipe.subtitle}</p>
+                        )}
                         <p className="recipe-description">{recipe.description}</p>
                         <div className="recipe-meta">
                         <div className="recipe-meta-info">
@@ -705,6 +708,9 @@ export default function FavoritesPage() {
               
               <div className="modal-header">
                 <h1 className="modal-title">{selectedRecipe.title}</h1>
+                {selectedRecipe.subtitle && (
+                  <p className="modal-recipe-subtitle">{selectedRecipe.subtitle}</p>
+                )}
                 <p className="modal-subtitle">{selectedRecipe.description}</p>
                 
                 <div className="recipe-preview-meta">
