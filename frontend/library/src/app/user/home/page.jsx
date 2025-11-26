@@ -1872,9 +1872,9 @@ export default function DishCoveryLanding() {
 
             <button className="modal-signin-btn" onClick={dishCoveryHandleSignInSubmit}>Sign In</button>
             <div className="modal-or">or</div>
-<button 
+            <button 
               className="google-signin-btn" 
-              onClick={dishCoveryHandleGoogleSignup}
+              onClick={dishCoveryHandleGoogleLogin}
               onMouseEnter={() => dishCoveryHandleHover('googleButton', true)}
               onMouseLeave={() => dishCoveryHandleHover('googleButton', false)}
               style={{

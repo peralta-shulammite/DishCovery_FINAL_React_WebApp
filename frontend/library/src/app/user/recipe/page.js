@@ -1083,8 +1083,11 @@ const RecipePage = () => {
                       
                     </div>
                     {/* Recipe Content */}
-                    <div className="recipe-content">
+                      <div className="recipe-content">
                       <h3 className="recipe-title">{recipe.title}</h3>
+                      {recipe.subtitle && (
+                        <p className="recipe-subtitle">{recipe.subtitle}</p>
+                      )}
 
                       <p className="recipe-description">{recipe.description}</p>
 
@@ -1355,6 +1358,9 @@ const RecipePage = () => {
               
               <div className="modal-header">
                 <h1 className="modal-title">{selectedRecipe.title}</h1>
+                {selectedRecipe.subtitle && (
+                  <p className="modal-recipe-subtitle">{selectedRecipe.subtitle}</p>
+                )}
                 <p className="modal-subtitle">{selectedRecipe.description}</p>
                 
                 <div className="recipe-preview-meta">

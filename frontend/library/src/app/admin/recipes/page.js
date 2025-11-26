@@ -36,6 +36,7 @@ const RecipeManagement = () => {
   // Form state for adding/editing recipes
   const [formData, setFormData] = useState({
     title: '',
+    subtitle: '',
     description: '',
     images: [],
     mealType: ['Light Meal'], // Changed to array for multi-select
@@ -300,6 +301,7 @@ const RecipeManagement = () => {
 
       setFormData({
         ...fullRecipe,
+        subtitle: fullRecipe.subtitle || '',
         images: validateImages(fullRecipe.images || fullRecipe.image_url ? [fullRecipe.image_url] : []),
         ingredients: {
           main: convertIngredients(fullRecipe.ingredients.main),
@@ -403,6 +405,7 @@ const RecipeManagement = () => {
   const resetForm = () => {
     setFormData({
       title: '',
+      subtitle: '',
       description: '',
       images: [],
       mealType: ['Light Meal'], // Changed to array for multi-select
@@ -1210,13 +1213,24 @@ const RecipeManagement = () => {
               </div>
               <form onSubmit={handleFormSubmit} className="recipe-form">
                 <div className="form-section">
-                  <label className="form-label">Recipe Title *</label>
+                <label className="form-label">Recipe Title *</label>
                   <input
                     type="text"
                     className="form-input"
                     value={formData.title}
                     onChange={(e) => setFormData({...formData, title: e.target.value})}
                     required
+                  />
+                </div>
+
+                <div className="form-section">
+                  <label className="form-label">Recipe Subtitle</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.subtitle}
+                    onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
+                    placeholder="Add a short tagline or subtitle (optional)"
                   />
                 </div>
 
@@ -1688,8 +1702,19 @@ const RecipeManagement = () => {
         {showViewModal && selectedRecipe && (
           <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
             <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
+            <div className="modal-header">
                 <h2>{selectedRecipe.title}</h2>
+                {selectedRecipe.subtitle && (
+                  <p style={{ 
+                    fontSize: '16px', 
+                    color: '#666', 
+                    marginTop: '8px',
+                    fontWeight: '400',
+                    fontStyle: 'italic'
+                  }}>
+                    {selectedRecipe.subtitle}
+                  </p>
+                )}
                 <button className="modal-close" onClick={() => setShowViewModal(false)}>×</button>
               </div>
               <div className="recipe-details">

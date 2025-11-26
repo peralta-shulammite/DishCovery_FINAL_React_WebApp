@@ -119,6 +119,7 @@ const IngredientManagement = () => {
   // Form state for adding/editing ingredients
   const [formData, setFormData] = useState({
     name: '',
+    subtitle: '',
     type: '',
     category: 'Main Ingredient',
     image: null,
@@ -188,6 +189,7 @@ const IngredientManagement = () => {
     const isUrl = ingredient.image && (ingredient.image.startsWith('http://') || ingredient.image.startsWith('https://'));
     setFormData({
       name: ingredient.name,
+      subtitle: ingredient.subtitle || '',
       type: ingredient.type || '',
       category: ingredient.category,
       image: ingredient.image,
@@ -289,6 +291,7 @@ const IngredientManagement = () => {
   const resetForm = () => {
     setFormData({
       name: '',
+      subtitle: '',
       type: '',
       category: 'Main Ingredient',
       image: null,
@@ -1216,6 +1219,17 @@ const IngredientManagement = () => {
                   </div>
 
                   <div className="form-section">
+                    <label className="form-label">Subtitle</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.subtitle}
+                      onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                      placeholder="Add a short description or tagline (optional)"
+                    />
+                  </div>
+
+                  <div className="form-section">
                     <label className="form-label">Type *</label>
                     <select
                       className="form-select"
@@ -1393,7 +1407,7 @@ const IngredientManagement = () => {
                   </button>
                 </div>
                 <form onSubmit={handleFormSubmit} className="recipe-form">
-                  <div className="form-section">
+                <div className="form-section">
                     <label className="form-label">Ingredient Name *</label>
                     <input
                       type="text"
@@ -1402,6 +1416,17 @@ const IngredientManagement = () => {
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Enter ingredient name"
                       required
+                    />
+                  </div>
+
+                  <div className="form-section">
+                    <label className="form-label">Subtitle</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.subtitle}
+                      onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                      placeholder="Add a short description or tagline (optional)"
                     />
                   </div>
 

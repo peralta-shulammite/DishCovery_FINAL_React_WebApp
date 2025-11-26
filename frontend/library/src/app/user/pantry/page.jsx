@@ -622,6 +622,9 @@ export default function DishCoveryPantry() {
                 </div>
                 <div className="ingredient-info">
                   <h3 className="ingredient-name">{ingredient.name}</h3>
+                  {ingredient.subtitle && (
+                    <p className="ingredient-subtitle">{ingredient.subtitle}</p>
+                  )}
                   <span className="ingredient-category">{ingredient.ingredient_type || ingredient.category || 'Other'}</span>
                 </div>
               </div>
