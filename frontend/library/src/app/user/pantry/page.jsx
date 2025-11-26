@@ -146,6 +146,7 @@ export default function DishCoveryPantry() {
   const [dishCoveryError, setDishCoveryError] = useState(null);
   const [dishCoverySaving, setDishCoverySaving] = useState(false);
   const [dishCoveryGenerating, setDishCoveryGenerating] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   
   // Request ingredient modal
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -521,6 +522,20 @@ export default function DishCoveryPantry() {
 
         <div className="pantry-search-section">
           <div className="search-and-filter-container">
+            {/* Mobile filter toggle button */}
+            <button 
+              className="mobile-filter-toggle"
+              onClick={() => setShowMobileFilters(true)}
+              aria-label="Toggle filters"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
+              </svg>
+              <span>Filters</span>
+              {dishCoverySelectedCategory !== 'All' && (
+                <span className="filter-active-badge">1</span>
+              )}
+            </button>
             <div className="search-container">
               <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
@@ -537,7 +552,7 @@ export default function DishCoveryPantry() {
               )}
             </div>
             
-            <div className="category-filters">
+            <div className="category-filters desktop-only">
               {dishCoveryCategories.map((category) => (
                 <button
                   key={category.id}
@@ -674,6 +689,61 @@ export default function DishCoveryPantry() {
           </div>
         )}
       </main>
+
+      {showMobileFilters && (
+        <div className="mobile-filter-modal-overlay" onClick={() => setShowMobileFilters(false)}>
+          <div className="mobile-filter-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-filter-modal-header">
+              <h2>Filter Ingredients</h2>
+              <button 
+                className="mobile-filter-modal-close"
+                onClick={() => setShowMobileFilters(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mobile-filter-modal-body">
+              <div className="mobile-filter-section">
+                <label className="mobile-filter-label">Category</label>
+                <div className="mobile-filter-chips">
+                  {dishCoveryCategories.map((category) => (
+                    <button
+                      key={category.id}
+                      className={`mobile-filter-chip ${dishCoverySelectedCategory === category.id ? 'mobile-chip-active' : ''}`}
+                      onClick={() => setDishCoverySelectedCategory(category.id)}
+                    >
+                      <span className="chip-icon">{category.icon}</span>
+                      <span className="chip-text">{category.name}</span>
+                      <span className="chip-count">
+                        {dishCoveryGetCategoryCount(category.id)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mobile-filter-modal-actions">
+              <button 
+                className="mobile-filter-clear-btn"
+                onClick={() => {
+                  setDishCoverySelectedCategory('All');
+                  setDishCoverySearchTerm('');
+                }}
+              >
+                Clear All
+              </button>
+              <button 
+                className="mobile-filter-apply-btn"
+                onClick={() => setShowMobileFilters(false)}
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Request Ingredient Modal */}
       {showRequestModal && (
