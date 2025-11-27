@@ -57,6 +57,7 @@ export default function UserProfilePage() {
     profilePicture: null,
     isGoogleUser: false,
     cookingFor: 'Myself',
+    cookingForName: 'Myself',
     memberId: null,
   });
   const dishCoveryAvatarRef = useRef(null);
@@ -138,9 +139,9 @@ export default function UserProfilePage() {
         console.log('📥 Loading user profile info from API...');
         
         const response = await profileAPI.getUserInfo();
-        
+
         if (response && response.success && response.data) {
-          const { firstName, lastName, email, profilePicture, googleId, cookingFor } = response.data;
+          const { firstName, lastName, email, profilePicture, googleId, cookingFor, cookingForName } = response.data;
 
           // Check if user is Google user (has googleId but no password set yet)
           const hasPassword = response.data.hasPassword !== false; // Default to true if not provided
@@ -154,7 +155,7 @@ export default function UserProfilePage() {
             preview: profilePicture ? profilePicture.substring(0, 50) + '...' : 'null'
           });
 
-          console.log('👤 Cooking for from API:', cookingFor || 'Myself');
+          console.log('👤 Cooking for from API:', cookingFor || 'Myself', ', Name:', cookingForName);
 
           setDishCoveryUser({
             firstName: firstName || 'User',
@@ -164,7 +165,8 @@ export default function UserProfilePage() {
             createdAt: response.data.createdAt || null,
             lastLogin: response.data.lastLogin || null,
             isGoogleUser: isGoogleUser,
-            cookingFor: cookingFor || 'Myself'
+            cookingFor: cookingFor || 'Myself',
+            cookingForName: cookingForName || 'Myself'
           });
 
           setDishCoveryTempFirstName(firstName || 'User');
@@ -668,19 +670,49 @@ export default function UserProfilePage() {
 
   const dishCoveryHandleSaveCookingFor = async () => {
     try {
+      // Normalize the cookingFor value: if it doesn't match "Myself" (case-insensitive), treat as "Others"
+      const normalizedCookingFor = dishCoveryTempCookingFor?.trim().toLowerCase() === 'myself' 
+        ? 'Myself' 
+        : 'Others';
+
+      // Store the original entered text as memberName (will be used to create/update member record if "Others")
+      const memberName = normalizedCookingFor === 'Others' 
+        ? dishCoveryTempCookingFor?.trim() 
+        : undefined;
+
       console.log('💾 Saving cooking for preference...', {
-        cookingFor: dishCoveryTempCookingFor
+        originalValue: dishCoveryTempCookingFor,
+        normalizedValue: normalizedCookingFor,
+        memberName: memberName
       });
 
       const response = await profileAPI.updateCookingFor({
-        cookingFor: dishCoveryTempCookingFor
+        cookingFor: normalizedCookingFor,
+        memberName: memberName
       });
 
       if (response && response.success) {
-        setDishCoveryUser((prev) => ({
-          ...prev,
-          cookingFor: dishCoveryTempCookingFor
-        }));
+        // Reload user info to get updated cookingForName
+        const userInfoResponse = await profileAPI.getUserInfo();
+        if (userInfoResponse && userInfoResponse.success) {
+          const { firstName, lastName, email, profilePicture, googleId, cookingFor, cookingForName } = userInfoResponse.data;
+          setDishCoveryUser((prev) => ({
+            ...prev,
+            firstName,
+            lastName,
+            email,
+            profilePicture,
+            isGoogleUser: !!googleId,
+            cookingFor: cookingFor || 'Myself',
+            cookingForName: cookingForName || 'Myself'
+          }));
+        } else {
+          // Fallback: just update cookingFor
+          setDishCoveryUser((prev) => ({
+            ...prev,
+            cookingFor: normalizedCookingFor
+          }));
+        }
 
         setDishCoveryEditingCookingFor(false);
         console.log('✅ Cooking for preference updated successfully');
@@ -1554,7 +1586,7 @@ export default function UserProfilePage() {
                             ) : (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
                                 <span className="info-value-fixed" style={{ flex: 1 }}>
-                                  {dishCoveryUser.cookingFor || 'Myself'}
+                                  {dishCoveryUser.cookingForName || 'Myself'}
                                 </span>
                                 <button
                                   className="edit-btn-fixed"

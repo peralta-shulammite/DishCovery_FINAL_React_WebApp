@@ -388,45 +388,58 @@ export default function DishCoveryLanding() {
             setDishCoveryIsLoggedIn(true);
             
             // Check if user needs to complete onboarding
-            // Check dietary preferences to see if onboarding is complete
+            // ✅ FIX: Use is_new_user flag from backend (same logic as get-started page)
+            // Backend sets is_new_user = 0 even with empty saves, so this is reliable
             const checkOnboarding = async () => {
               // ✅ FIX: Skip onboarding check if profile was just saved
               const profileJustSaved = sessionStorage.getItem('profileJustSaved') === 'true';
               const onboardingComplete = sessionStorage.getItem('onboardingComplete') === 'true';
+              const onboardingJustCompleted = sessionStorage.getItem('onboardingJustCompleted');
+              const isNewSignup = sessionStorage.getItem('newUserSignup') === 'true';
               
-              if (profileJustSaved || onboardingComplete) {
+              // Check if onboarding was just completed (within last 15 seconds)
+              const justCompleted = onboardingJustCompleted && (Date.now() - parseInt(onboardingJustCompleted)) < 15000;
+              
+              if (profileJustSaved || onboardingComplete || justCompleted) {
                 console.log('⏭️ Skipping onboarding check - profile just saved or onboarding marked complete');
-                // Clear the flags after a short delay to allow navigation to complete
-                setTimeout(() => {
-                  sessionStorage.removeItem('profileJustSaved');
-                  sessionStorage.removeItem('onboardingComplete');
-                }, 1000);
+                // Don't clear flags here - let get-started page handle it
+                // This prevents race conditions
+                return;
+              }
+              
+              // Don't redirect new signups - let them complete onboarding
+              if (isNewSignup) {
+                console.log('⏭️ Skipping onboarding check - new user signup in progress');
                 return;
               }
               
               try {
-                const dietaryRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/user-profile/dietary`, {
+                // ✅ FIX: Use /user-profile/info endpoint which returns isNewUser flag
+                // This is the same endpoint used by get-started page
+                const profileRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/api/user-profile/info`, {
                   headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
-                if (dietaryRes.ok) {
-                  const dietaryData = await dietaryRes.json();
-                  const hasCompleted = (dietaryData.data?.medicalConditions?.length > 0) || 
-                                      (dietaryData.data?.excludedIngredients?.length > 0);
+                if (profileRes.ok) {
+                  const profileData = await profileRes.json();
+                  // ✅ FIX: Check isNewUser flag (is_new_user = 0 means onboarding complete)
+                  // This works even if user skipped everything (empty arrays)
+                  const hasCompleted = profileData.data?.isNewUser === false || profileData.data?.isNewUser === 0;
                   
                   if (!hasCompleted) {
-                    console.log('🆕 User has not completed onboarding, redirecting to get-started...');
+                    console.log('🆕 User has not completed onboarding (isNewUser = true), redirecting to get-started...');
                     window.location.href = '/user/get-started';
+                  } else {
+                    console.log('✅ User has completed onboarding (isNewUser = false)');
                   }
                 } else {
-                  // If error, assume they haven't completed onboarding
-                  console.log('🆕 User has not completed onboarding, redirecting to get-started...');
-                  window.location.href = '/user/get-started';
+                  // If error, don't redirect - might be a temporary issue
+                  console.log('⚠️ Could not check onboarding status, assuming completed to avoid redirect loop');
                 }
               } catch (err) {
-                // If error, assume they haven't completed onboarding
-                console.log('🆕 User has not completed onboarding, redirecting to get-started...');
-                window.location.href = '/user/get-started';
+                // If error, don't redirect - might be a temporary issue
+                console.log('⚠️ Error checking onboarding status:', err.message);
+                console.log('⚠️ Assuming onboarding completed to avoid redirect loop');
               }
             };
             

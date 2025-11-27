@@ -192,10 +192,23 @@ router.get('/info', authenticateToken, async (req, res) => {
     
     // Get cooking for preference from cooking_for_type column
     let cookingFor = user.cooking_for_type || 'Myself';
-    console.log('✅ Cooking for type:', cookingFor);
-    
-    console.log('✅ User info fetched:', { 
-      userId: user.user_id, 
+    let cookingForName = cookingFor; // Default to the same value
+
+    // If cooking for "Others", fetch the member's name
+    if (cookingFor === 'Others') {
+      const memberResult = await db.query(
+        'SELECT name FROM user_members WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+        [userId]
+      );
+      if (memberResult && memberResult.length > 0) {
+        cookingForName = memberResult[0].name;
+      }
+    }
+
+    console.log('✅ Cooking for type:', cookingFor, ', Name:', cookingForName);
+
+    console.log('✅ User info fetched:', {
+      userId: user.user_id,
       firstName: user.first_name,
       lastName: user.last_name,
       email: user.email,
@@ -203,7 +216,8 @@ router.get('/info', authenticateToken, async (req, res) => {
       isGoogleUser: isGoogleUser,
       isNewUser: user.is_new_user === 1,
       hasCompletedOnboarding: hasCompletedOnboarding,
-      cookingFor: cookingFor
+      cookingFor: cookingFor,
+      cookingForName: cookingForName
     });
 
     res.json({
@@ -220,7 +234,8 @@ router.get('/info', authenticateToken, async (req, res) => {
         hasPassword: !!user.password_hash,
         isNewUser: user.is_new_user === 1,
         hasCompletedOnboarding: hasCompletedOnboarding,
-        cookingFor: cookingFor
+        cookingFor: cookingFor,
+        cookingForName: cookingForName
       }
     });
 
@@ -374,6 +389,15 @@ router.put('/dietary', authenticateToken, async (req, res) => {
     // preferredDiets removed - dietary lifestyle category removed
 
     console.log('📝 Updating dietary preferences for user:', userId);
+    console.log('📊 Update data:', {
+      medicalConditionsCount: (medicalConditions || []).length,
+      excludedIngredientsCount: (excludedIngredients || []).length,
+      medicalConditions: medicalConditions || [],
+      excludedIngredients: excludedIngredients || []
+    });
+
+    // ✅ Allow empty updates - user can clear all preferences if they want
+    // This is valid: user might want to remove all restrictions/ingredients
 
     // Get connection for transaction
     connection = await db.getConnection();
@@ -385,12 +409,14 @@ router.put('/dietary', authenticateToken, async (req, res) => {
         'DELETE FROM user_restrictions WHERE user_id = ? AND member_id IS NULL',
         [userId]
       );
+      console.log('🗑️ Deleted existing user restrictions');
 
       // Delete existing excluded ingredients
       await connection.query(
         'DELETE FROM user_excluded_ingredients WHERE user_id = ? AND member_id IS NULL',
         [userId]
       );
+      console.log('🗑️ Deleted existing excluded ingredients');
 
       // Get restriction IDs from restriction_name (only medical conditions - dietary lifestyle removed)
       const allRestrictions = [
@@ -400,6 +426,7 @@ router.put('/dietary', authenticateToken, async (req, res) => {
       ];
 
       if (allRestrictions.length > 0) {
+        console.log(`📋 Processing ${allRestrictions.length} medical conditions...`);
         const placeholders = allRestrictions.map(() => '?').join(',');
         const [restrictionData] = await connection.query(
           `SELECT restriction_id, restriction_name FROM restrictions WHERE restriction_name IN (${placeholders})`,
@@ -414,19 +441,28 @@ router.put('/dietary', authenticateToken, async (req, res) => {
               [userId, restriction.restriction_id, 'active']
             );
           }
+          console.log(`✅ Inserted ${restrictionData.length} medical conditions`);
+        } else {
+          console.log('⚠️ No matching restrictions found in database');
         }
+      } else {
+        console.log('ℹ️ No medical conditions to insert (empty array is valid - user cleared all)');
       }
 
       // Insert excluded ingredients
       if (excludedIngredients && excludedIngredients.length > 0) {
+        console.log(`🥗 Processing ${excludedIngredients.length} excluded ingredients...`);
         for (const ingredient of excludedIngredients) {
-          if (ingredient.trim()) {
+          if (ingredient && ingredient.trim()) {
             await connection.query(
               'INSERT INTO user_excluded_ingredients (user_id, member_id, ingredient_name) VALUES (?, NULL, ?)',
               [userId, ingredient.trim()]
             );
           }
         }
+        console.log('✅ Excluded ingredients inserted');
+      } else {
+        console.log('ℹ️ No excluded ingredients to insert (empty array is valid - user cleared all)');
       }
 
       // Mark user as having completed onboarding (set is_new_user to 0)
@@ -1003,11 +1039,18 @@ router.get('/members', authenticateToken, async (req, res) => {
 router.put('/cooking-for', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { cookingFor } = req.body;
+    const { cookingFor, memberName } = req.body;
+
+    // Normalize the cookingFor value: if it doesn't match "Myself" (case-insensitive), treat as "Others"
+    const normalizedCookingFor = cookingFor?.trim().toLowerCase() === 'myself' 
+      ? 'Myself' 
+      : 'Others';
 
     console.log('💾 Updating cooking for preference:', {
       userId,
-      cookingFor
+      originalValue: cookingFor,
+      normalizedValue: normalizedCookingFor,
+      memberName: memberName
     });
 
     // Update cooking_for_type in users table
@@ -1017,7 +1060,59 @@ router.put('/cooking-for', authenticateToken, async (req, res) => {
         cooking_for_type = ?,
         updated_at = NOW()
       WHERE user_id = ?
-    `, [cookingFor || 'Myself', userId]);
+    `, [normalizedCookingFor, userId]);
+
+    // If cooking for "Others", ensure a member record exists in user_members table
+    if (normalizedCookingFor === 'Others') {
+      // Check if user already has a member record
+      const existingMembers = await db.query(
+        'SELECT member_id, name FROM user_members WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+        [userId]
+      );
+
+      if (!existingMembers || existingMembers.length === 0) {
+        // No member exists, create one
+        // Use memberName if provided, otherwise use the original cookingFor value (trimmed)
+        const nameToUse = memberName?.trim() || cookingFor?.trim() || 'Family Member';
+        
+        console.log('📝 Creating member record in user_members table:', {
+          userId,
+          name: nameToUse
+        });
+
+        const insertResult = await db.query(`
+          INSERT INTO user_members (user_id, name, relationship, cooking_for_type)
+          VALUES (?, ?, 'Other', 'profile_setup')
+        `, [userId, nameToUse]);
+
+        // db.query returns ResultSetHeader directly for INSERT queries
+        const memberId = insertResult?.insertId || null;
+
+        console.log('✅ Member record created successfully:', {
+          memberId: memberId,
+          name: nameToUse
+        });
+      } else {
+        // Member exists - optionally update the name if memberName is provided and different
+        if (memberName && memberName.trim() && memberName.trim() !== existingMembers[0].name) {
+          console.log('📝 Updating existing member name:', {
+            memberId: existingMembers[0].member_id,
+            oldName: existingMembers[0].name,
+            newName: memberName.trim()
+          });
+
+          await db.query(`
+            UPDATE user_members
+            SET name = ?
+            WHERE member_id = ?
+          `, [memberName.trim(), existingMembers[0].member_id]);
+
+          console.log('✅ Member name updated successfully');
+        } else {
+          console.log('ℹ️ Member record already exists, keeping existing name:', existingMembers[0].name);
+        }
+      }
+    }
 
     console.log('✅ Cooking for preference updated successfully');
 
@@ -1025,7 +1120,7 @@ router.put('/cooking-for', authenticateToken, async (req, res) => {
       success: true,
       message: 'Cooking for preference updated successfully',
       data: {
-        cookingFor
+        cookingFor: normalizedCookingFor
       }
     });
   } catch (error) {

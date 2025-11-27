@@ -87,61 +87,45 @@ export default function GetStarted() {
     }
     
     if (token) {
-      // Check if user has already completed onboarding
-      fetch(`${API_BASE_URL}/user-profile/dietary`, {
+      // ✅ FIX: Use /user-profile/info endpoint (same as home page) which returns isNewUser flag
+      // This endpoint is more reliable and consistent
+      fetch(`${API_BASE_URL}/user-profile/info`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch dietary preferences');
+        if (!res.ok) throw new Error('Failed to fetch profile');
         return res.json();
       })
-      .then(dietaryData => {
-        // If user has medical conditions or excluded ingredients, they've completed onboarding
-        const hasCompleted = (dietaryData.data?.medicalConditions?.length > 0) || 
-                            (dietaryData.data?.excludedIngredients?.length > 0);
-        
+      .then(data => {
+        // ✅ FIX: Use data.data structure from /user-profile/info endpoint
+        const userData = data.data || data;
+        setUserProfile(userData);
+
+        // ✅ FIX: Check if user completed onboarding using is_new_user flag
+        // Backend sets is_new_user = 0 even with empty saves, so this is reliable
+        const hasCompleted = userData.isNewUser === false || userData.isNewUser === 0;
+
         // Only redirect if they're not a new signup (check sessionStorage)
         const isNewSignup = sessionStorage.getItem('newUserSignup') === 'true';
         const onboardingComplete = sessionStorage.getItem('onboardingComplete') === 'true';
-        
+        const profileJustSaved = sessionStorage.getItem('profileJustSaved') === 'true';
+
         // Don't redirect if:
-        // - We're currently on step 3 (confirmation page)
         // - Onboarding was just completed (to prevent redirect loop)
-        // - User is a new signup
-        if (hasCompleted && !isNewSignup && !onboardingComplete && step !== 4) {
-          console.log('✅ User has completed onboarding, redirecting to home...');
+        // - User is a new signup (let them complete onboarding)
+        // - We're currently on step 4 (confirmation page)
+        // - Profile was just saved (prevent race condition)
+        if (hasCompleted && !isNewSignup && !onboardingComplete && !profileJustSaved && step !== 4) {
+          console.log('✅ User has completed onboarding (is_new_user = 0), redirecting to home...');
+          // Clear any stale flags before redirecting
+          sessionStorage.removeItem('newUserSignup');
           window.location.replace('/user/home');
           return;
         }
-        
-        // Load user profile for display
-        return fetch(`${API_BASE_URL}/users/profile`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
       })
-      .then(res => {
-        if (res && res.ok) {
-          return res.json();
-        }
-        return null;
-      })
-      .then(data => {
-        if (data) setUserProfile(data);
-      })
-        .catch(err => {
-        // If error fetching dietary preferences, assume they haven't completed onboarding
-        console.log('User has not completed onboarding yet');
-        
-        // Still try to load profile
-        fetch(`${API_BASE_URL}/users/profile`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        .then(res => {
-          if (!res.ok) throw new Error('Failed to fetch profile');
-          return res.json();
-        })
-        .then(data => setUserProfile(data))
-        .catch(err => console.error('Failed to load user profile:', err));
+      .catch(err => {
+        // If error fetching profile, assume they haven't completed onboarding
+        console.log('User has not completed onboarding yet:', err);
       });
     }
   }, [isSaved, loading, step]); // Add dependencies to prevent unnecessary re-runs
@@ -373,12 +357,15 @@ export default function GetStarted() {
       setLoading(true);
       console.log('💾 Saving dietary profile...');
 
-      // ✅ Validate that at least one preference is selected
-      if (dietaryData.medicalConditions.length === 0 && dietaryData.excludedIngredients.length === 0) {
-        setError('Please select at least one medical condition or excluded ingredient to continue.');
-        setLoading(false);
-        return;
-      }
+      // ✅ FIX: Allow users to skip both medical conditions and excluded ingredients
+      // Backend already supports empty saves and sets is_new_user = 0
+      // Empty arrays are valid - user might not have any restrictions or excluded ingredients
+      // This is intentional: users can complete onboarding without selecting anything
+      // if (dietaryData.medicalConditions.length === 0 && dietaryData.excludedIngredients.length === 0) {
+      //   setError('Please select at least one medical condition or excluded ingredient to continue.');
+      //   setLoading(false);
+      //   return;
+      // }
 
       // ✅ FIX: Only send memberId if cooking for "Others", otherwise send null
       // This ensures dietary preferences are saved to the correct profile (user or member)
@@ -398,6 +385,7 @@ export default function GetStarted() {
       // Excluded ingredients are already an array
       const saveData = {
         memberId: finalMemberId,
+        cookingFor: cookingFor, // Add cooking_for_type to save data
         dietaryRestrictions: [], // No longer used - replaced by medicalConditions
         medicalConditions: dietaryData.medicalConditions,
         preferredDiets: [], // Dietary Lifestyle Tags removed
@@ -433,9 +421,19 @@ export default function GetStarted() {
         // Clear new user signup flag since onboarding is complete
         sessionStorage.removeItem('newUserSignup');
         
-        // Set flags to prevent useEffect from redirecting back
+        // Set flags to prevent useEffect and home page from redirecting back
+        // These flags will be checked in both get-started and home page
         sessionStorage.setItem('profileJustSaved', 'true');
         sessionStorage.setItem('onboardingComplete', 'true');
+        sessionStorage.setItem('onboardingJustCompleted', Date.now().toString()); // Timestamp for extra safety
+        
+        // Clear flags after a delay to prevent stale data (10 seconds should be enough)
+        setTimeout(() => {
+          sessionStorage.removeItem('profileJustSaved');
+          sessionStorage.removeItem('onboardingComplete');
+          sessionStorage.removeItem('onboardingJustCompleted');
+          console.log('🧹 Cleared onboarding flags after redirect');
+        }, 10000);
         
         // Redirect immediately using replace to prevent back navigation
         // Use replace instead of href to prevent going back to get-started
@@ -763,8 +761,14 @@ export default function GetStarted() {
             <path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <button 
-          className="btn btn-icon-only btn-primary" 
+        <button
+          className="btn btn-outline"
+          onClick={handleNext}
+        >
+          Skip
+        </button>
+        <button
+          className="btn btn-icon-only btn-primary"
           onClick={handleNext}
           disabled={loading}
         >
