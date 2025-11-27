@@ -1503,11 +1503,10 @@ export default function DishCoveryLanding() {
             </button>
 
             <a
-              href="/pantry"
+              href="/user/how-it-works"
               className={`how-to-use ${dishCoveryHoverStates.howToUse ? 'how-to-use-hover' : ''}`}
               onMouseEnter={() => dishCoveryHandleHover('howToUse', true)}
               onMouseLeave={() => dishCoveryHandleHover('howToUse', false)}
-              onClick={dishCoveryHandlePantryClick}
               onTouchStart={(e) => {
                 e.currentTarget.style.opacity = '0.8';
               }}
@@ -1753,7 +1752,7 @@ export default function DishCoveryLanding() {
           <ul className="footer-links">
           <li><a href="/Scanning" onClick={dishCoveryHandleScanningClick} onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>Smart Scanning</a></li>
           <li><a href="/pantry" onClick={dishCoveryHandlePantryClick} onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>Pantry Management</a></li>
-          <li><a href="/how-it-works" onClick={(e) => { if (!dishCoveryIsLoggedIn) { e.preventDefault(); setDishCoveryShowSignInModal(true); } }} onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>How It Works</a></li>
+          <li><a href="/user/how-it-works" onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>How It Works</a></li>
         </ul>
       </div>
 
