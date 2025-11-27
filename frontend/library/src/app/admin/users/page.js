@@ -1198,6 +1198,66 @@ const UserManagementContent = () => {
                     </div>
                   </div>
 
+                  {/* Cooking For Section */}
+                  <div className="preference-group-fixed" style={{ marginTop: '16px' }}>
+                    <h3 className="preference-group-label" style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#1976D2',
+                      fontFamily: 'Poppins, sans-serif',
+                      margin: '0 0 8px 0'
+                    }}>Cooking For</h3>
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      background: 'rgba(25, 118, 210, 0.1)',
+                      color: '#1976D2',
+                      border: '1px solid rgba(25, 118, 210, 0.2)',
+                      display: 'inline-block'
+                    }}>
+                      {selectedUser?.cookingForName || 'Myself'}
+                    </div>
+                  </div>
+
+                  {/* Excluded Ingredients Section */}
+                  <div className="preference-group-fixed" style={{ marginTop: '16px' }}>
+                    <h3 className="preference-group-label" style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#F57C00',
+                      fontFamily: 'Poppins, sans-serif',
+                      margin: '0 0 8px 0'
+                    }}>Excluded Ingredients</h3>
+                    <div className="tags-container-fixed" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {selectedUser?.excludedIngredients && selectedUser.excludedIngredients.length > 0 ? (
+                        selectedUser.excludedIngredients.map((ingredient, index) => (
+                          <div
+                            key={index}
+                            className="tag-fixed"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '4px 8px',
+                              borderRadius: '12px',
+                              fontSize: '10px',
+                              fontWeight: '500',
+                              background: 'rgba(245, 124, 0, 0.1)',
+                              color: '#F57C00',
+                              border: '1px solid rgba(245, 124, 0, 0.2)'
+                            }}
+                          >
+                            <span>{ingredient}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <span style={{ color: '#999', fontSize: '14px' }}>No excluded ingredients</span>
+                      )}
+                    </div>
+                  </div>
+
                 </div>
               </div>
 

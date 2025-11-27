@@ -136,7 +136,7 @@ export default function DishCoveryPantry() {
   // Pantry states - Always start with empty selection (no pre-selected ingredients)
   const [dishCoverySelectedIngredients, setDishCoverySelectedIngredients] = useState([]);
   const [dishCoverySearchTerm, setDishCoverySearchTerm] = useState('');
-  const [dishCoverySelectedCategory, setDishCoverySelectedCategory] = useState('All');
+  const [dishCoverySelectedCategory, setDishCoverySelectedCategory] = useState(['All']);
   const [dishCoverySortBy, setDishCoverySortBy] = useState('name');
   const [dishCoveryShowSortMenu, setDishCoveryShowSortMenu] = useState(false);
   
@@ -327,13 +327,13 @@ export default function DishCoveryPantry() {
   const dishCoveryFilteredIngredients = dishCoveryIngredients
     .filter(ingredient => {
       // Search filter
-      const matchesSearch = !dishCoverySearchTerm || 
+      const matchesSearch = !dishCoverySearchTerm ||
         ingredient.name.toLowerCase().includes(dishCoverySearchTerm.toLowerCase());
-      
+
       // Category filter - use ingredient_type from database (not category)
-      const matchesCategory = dishCoverySelectedCategory === 'All' || 
-        (ingredient.ingredient_type && ingredient.ingredient_type === dishCoverySelectedCategory);
-      
+      const matchesCategory = dishCoverySelectedCategory.includes('All') ||
+                              dishCoverySelectedCategory.includes(ingredient.ingredient_type);
+
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
@@ -529,8 +529,28 @@ export default function DishCoveryPantry() {
 
         <div className="pantry-search-section">
           <div className="search-and-filter-container">
-            {/* Mobile filter toggle button */}
-            <button 
+
+            {/* SEARCH BAR FIRST – centered */}
+            <div className="search-container">
+              <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
+
+              <input
+                type="text"
+                placeholder="Search ingredients..."
+                className="search-input"
+                value={dishCoverySearchTerm}
+                onChange={(e) => setDishCoverySearchTerm(e.target.value)}
+              />
+
+              {dishCoverySearchTerm && (
+                <button className="clear-search" onClick={() => setDishCoverySearchTerm('')}>×</button>
+              )}
+            </div>
+
+            {/* Mobile filter button – moved BELOW search */}
+            <button
               className="mobile-filter-toggle"
               onClick={() => setShowMobileFilters(true)}
               aria-label="Toggle filters"
@@ -539,41 +559,49 @@ export default function DishCoveryPantry() {
                 <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
               </svg>
               <span>Filters</span>
-              {dishCoverySelectedCategory !== 'All' && (
-                <span className="filter-active-badge">1</span>
+
+              {!dishCoverySelectedCategory.includes('All') && dishCoverySelectedCategory.length > 0 && (
+                <span className="filter-active-badge">{dishCoverySelectedCategory.length}</span>
               )}
             </button>
-            <div className="search-container">
-              <svg className="search-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-              </svg>
-              <input
-                type="text"
-                placeholder="Search ingredients..."
-                className="search-input"
-                value={dishCoverySearchTerm}
-                onChange={(e) => setDishCoverySearchTerm(e.target.value)}
-              />
-              {dishCoverySearchTerm && (
-                <button className="clear-search" onClick={() => setDishCoverySearchTerm('')}>×</button>
-              )}
-            </div>
-            
+
+            {/* CATEGORY FILTER BUTTONS (now green) */}
             <div className="category-filters desktop-only">
               {dishCoveryCategories.map((category) => (
                 <button
                   key={category.id}
-                  className={`filter-chip ${dishCoverySelectedCategory === category.id ? 'filter-chip-active' : ''}`}
-                  onClick={() => setDishCoverySelectedCategory(category.id)}
+                  className={`filter-chip ${dishCoverySelectedCategory.includes(category.id) ? 'filter-chip-active' : ''}`}
+                  onClick={() => {
+                    if (category.id === 'All') {
+                      // Reset to All
+                      setDishCoverySelectedCategory(['All']);
+                    } else {
+                      // Multi-select logic
+                      setDishCoverySelectedCategory(prev => {
+                        // Remove 'All' if present
+                        const newSelection = prev.filter(id => id !== 'All');
+
+                        // Toggle category
+                        if (newSelection.includes(category.id)) {
+                          // Remove category
+                          const filtered = newSelection.filter(id => id !== category.id);
+                          return filtered.length === 0 ? ['All'] : filtered;
+                        } else {
+                          // Add category
+                          return [...newSelection, category.id];
+                        }
+                      });
+                    }
+                  }}
                 >
                   <span className="filter-icon">{category.icon}</span>
                   {category.name}
                   <span className="filter-count">{dishCoveryGetCategoryCount(category.id)}</span>
                 </button>
               ))}
-              
-              {dishCoverySelectedCategory !== 'All' && (
-                <button className="clear-filters-btn" onClick={() => setDishCoverySelectedCategory('All')}>
+
+              {!dishCoverySelectedCategory.includes('All') && dishCoverySelectedCategory.length > 0 && (
+                <button className="clear-filters-btn" onClick={() => setDishCoverySelectedCategory(['All'])}>
                   <svg viewBox="0 0 24 24" fill="currentColor" style={{width: '12px', height: '12px'}}>
                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                   </svg>
@@ -581,6 +609,7 @@ export default function DishCoveryPantry() {
                 </button>
               )}
             </div>
+
           </div>
         </div>
 
@@ -588,7 +617,9 @@ export default function DishCoveryPantry() {
           <div className="section-header">
             <div className="results-count">
               {dishCoveryFilteredIngredients.length} ingredient{dishCoveryFilteredIngredients.length !== 1 ? 's' : ''} found
-              {dishCoverySelectedCategory !== 'All' && ` in ${getCategoryName(dishCoverySelectedCategory)}`}
+              {!dishCoverySelectedCategory.includes('All') && dishCoverySelectedCategory.length > 0 && (
+                ` in ${dishCoverySelectedCategory.map(id => getCategoryName(id)).join(', ')}`
+              )}
             </div>
             
             <div className="sort-dropdown">
@@ -695,38 +726,38 @@ export default function DishCoveryPantry() {
           </div>
         </div>
 
-        {dishCoveryFilteredIngredients.length === 0 && (dishCoverySearchTerm || dishCoverySelectedCategory !== 'All') && (
+        {dishCoveryFilteredIngredients.length === 0 && (dishCoverySearchTerm || !dishCoverySelectedCategory.includes('All')) && (
           <div className="no-results">
             <svg className="no-results-icon" viewBox="0 0 24 24" fill="currentColor">
               <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
             </svg>
             <h3>No ingredients found</h3>
             <p>
-              {dishCoverySearchTerm && dishCoverySelectedCategory !== 'All' 
-                ? `No "${dishCoverySearchTerm}" found in ${dishCoveryCategories.find(c => c.id === dishCoverySelectedCategory)?.name}.`
-                : dishCoverySearchTerm 
+              {dishCoverySearchTerm && !dishCoverySelectedCategory.includes('All')
+                ? `No "${dishCoverySearchTerm}" found in ${dishCoverySelectedCategory.map(id => getCategoryName(id)).join(', ')}.`
+                : dishCoverySearchTerm
                 ? `No ingredients match "${dishCoverySearchTerm}".`
-                : `No ingredients in ${dishCoveryCategories.find(c => c.id === dishCoverySelectedCategory)?.name}.`
+                : `No ingredients in ${dishCoverySelectedCategory.map(id => getCategoryName(id)).join(', ')}.`
               }
             </p>
             <div style={{display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap'}}>
               {dishCoverySearchTerm && (
-                <button 
+                <button
                   className="clear-search-btn"
                   onClick={() => setDishCoverySearchTerm('')}
                 >
                   Clear Search
                 </button>
               )}
-              {dishCoverySelectedCategory !== 'All' && (
-                <button 
+              {!dishCoverySelectedCategory.includes('All') && (
+                <button
                   className="clear-search-btn"
-                  onClick={() => setDishCoverySelectedCategory('All')}
+                  onClick={() => setDishCoverySelectedCategory(['All'])}
                 >
                   Show All Categories
                 </button>
               )}
-              <button 
+              <button
                 className="clear-search-btn"
                 onClick={() => setShowRequestModal(true)}
                 style={{ background: '#2E7D32' }}
@@ -758,8 +789,22 @@ export default function DishCoveryPantry() {
                   {dishCoveryCategories.map((category) => (
                     <button
                       key={category.id}
-                      className={`mobile-filter-chip ${dishCoverySelectedCategory === category.id ? 'mobile-chip-active' : ''}`}
-                      onClick={() => setDishCoverySelectedCategory(category.id)}
+                      className={`mobile-filter-chip ${dishCoverySelectedCategory.includes(category.id) ? 'mobile-chip-active' : ''}`}
+                      onClick={() => {
+                        if (category.id === 'All') {
+                          setDishCoverySelectedCategory(['All']);
+                        } else {
+                          setDishCoverySelectedCategory(prev => {
+                            const newSelection = prev.filter(id => id !== 'All');
+                            if (newSelection.includes(category.id)) {
+                              const filtered = newSelection.filter(id => id !== category.id);
+                              return filtered.length === 0 ? ['All'] : filtered;
+                            } else {
+                              return [...newSelection, category.id];
+                            }
+                          });
+                        }
+                      }}
                     >
                       <span className="chip-icon">{category.icon}</span>
                       <span className="chip-text">{category.name}</span>
@@ -773,16 +818,16 @@ export default function DishCoveryPantry() {
             </div>
 
             <div className="mobile-filter-modal-actions">
-              <button 
+              <button
                 className="mobile-filter-clear-btn"
                 onClick={() => {
-                  setDishCoverySelectedCategory('All');
+                  setDishCoverySelectedCategory(['All']);
                   setDishCoverySearchTerm('');
                 }}
               >
                 Clear All
               </button>
-              <button 
+              <button
                 className="mobile-filter-apply-btn"
                 onClick={() => setShowMobileFilters(false)}
               >

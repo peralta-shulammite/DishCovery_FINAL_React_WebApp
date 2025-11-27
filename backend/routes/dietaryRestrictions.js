@@ -136,9 +136,10 @@ router.post('/user/save', authenticateToken, async (req, res) => {
       });
     }
 
-    const { 
-      memberId = null, 
-      dietaryRestrictions = [], 
+    const {
+      memberId = null,
+      cookingFor = 'Myself',
+      dietaryRestrictions = [],
       excludedIngredients = [],
       medicalConditions = []
       // preferredDiets removed - dietary lifestyle category removed
@@ -294,6 +295,15 @@ router.post('/user/save', authenticateToken, async (req, res) => {
 
     console.log(`\n📊 Ingredients Summary:`);
     console.log(`   ✅ Successfully added: ${ingredientsAdded}`);
+
+    // Update cooking_for_type - only update main user's table (NOT member's table)
+    // Value will be "Myself" or "Others"
+    // If "Others", the member's name is stored in user_members.name
+    await connection.query(
+      'UPDATE users SET cooking_for_type = ? WHERE user_id = ?',
+      [cookingFor, req.user.userId]
+    );
+    console.log(`✅ Updated user's cooking_for_type to: ${cookingFor}`);
 
     // Mark user as having completed onboarding (set is_new_user to 0)
     await connection.query(

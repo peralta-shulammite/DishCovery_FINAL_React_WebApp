@@ -1828,6 +1828,30 @@ body.modal-open {
 @media (max-width: 768px) {
   .mobile-filter-toggle {
     display: flex;
+    background: #2E7D32 !important;      /* green */
+    color: #ffffff !important;            /* white text */
+    border: 2px solid #1B5E20 !important;
+
+    width: auto !important;               /* small width */
+    padding: 6px 12px !important;         /* make button smaller */
+    font-size: 13px !important;           /* smaller text */
+    align-self: flex-start !important;    /* left align */
+    gap: 6px !important;                  /* tighter spacing */
+    border-radius: 10px !important;       /* slightly smaller shape */
+    height: auto !important;              /* compact height */
+  }
+
+  .mobile-filter-toggle svg {
+    width: 16px !important;
+    height: 16px !important;
+    fill: #ffffff !important;             /* white icon */
+  }
+
+  .filter-active-badge {
+    width: 18px !important;
+    height: 18px !important;
+    right: -6px !important;               /* adjust badge for smaller button */
+    font-size: 10px !important;
   }
 
   .category-filters {

@@ -37,6 +37,7 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
           u.email_verified,
           u.google_id,
           u.profile_picture_url as profilePicture,
+          u.cooking_for_type as cookingFor,
           CASE
             -- New users (created within 1 month) are Active by default
             WHEN u.created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN 'Active'
@@ -111,12 +112,12 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
 
       // Try to get excluded ingredients (no longer used for dietary lifestyle)
       try {
-        // Properly destructure [rows, fields] from pool.query()
+        // ✅ FIX: Select ingredient_name directly (no JOIN needed - stored as text in table)
+        // Table schema: user_excluded_ingredients (user_id, member_id, ingredient_name VARCHAR)
         const [excludedData] = await pool.query(`
-          SELECT i.ingredient_name
-          FROM user_excluded_ingredients uei
-          JOIN ingredients i ON uei.ingredient_id = i.ingredient_id
-          WHERE uei.user_id = ? AND uei.member_id IS NULL
+          SELECT ingredient_name
+          FROM user_excluded_ingredients
+          WHERE user_id = ? AND member_id IS NULL
         `, [user.id]);
         excludedIngredients = excludedData.map(e => e.ingredient_name);
       } catch (err) {
@@ -225,6 +226,26 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
       const lastActiveText = formatLastActive(user.lastActive);
       const joinedDateText = formatDate(user.joinedDate);
 
+      // Get cooking for preference and fetch member name if "Others"
+      let cookingFor = user.cookingFor || 'Myself';
+      let cookingForName = cookingFor; // Default to the same value
+
+      // If cooking for "Others", fetch the member's name
+      if (cookingFor === 'Others') {
+        try {
+          const [memberResult] = await pool.query(
+            'SELECT name FROM user_members WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+            [user.id]
+          );
+          if (memberResult && memberResult.length > 0) {
+            cookingForName = memberResult[0].name;
+          }
+        } catch (err) {
+          // If member lookup fails, keep default
+          console.log('Note: Failed to fetch member name for user', user.id);
+        }
+      }
+
       return {
         id: user.id,
         profilePicture: user.profilePicture || `https://ui-avatars.com/api/?name=${user.first_name}+${user.last_name}&background=2E7D32&color=fff`,
@@ -238,6 +259,8 @@ router.get('/', authenticateToken, adminAuth, async (req, res) => {
         diets: [], // Not used anymore (removed from UI)
         medicalConditions: medicalConditions, // From restrictions with category 'Allergy' or 'Intolerance'
         dietaryLifestyle: [], // Dietary lifestyle removed - no longer needed
+        cookingFor: cookingFor, // "Myself" or "Others"
+        cookingForName: cookingForName, // Display name (member name if "Others")
         recipesViewed: recipesViewed,
         recipesSaved: recipesSaved,
         ingredientsScanned: ingredientsScanned,
