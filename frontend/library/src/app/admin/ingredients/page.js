@@ -939,7 +939,14 @@ const IngredientManagement = () => {
                             No Image
                           </div>
                         </td>
-                        <td style={{ padding: '16px 12px', fontWeight: '600', fontSize: '14px', color: '#1f2937' }}>{ingredient.name}</td>
+                        <td style={{ padding: '16px 12px' }}>
+                          <div style={{ fontWeight: '600', fontSize: '14px', color: '#1f2937' }}>{ingredient.name}</div>
+                          {ingredient.subtitle && (
+                            <div style={{ fontSize: '12px', color: '#6b7280', fontStyle: 'italic', marginTop: '4px' }}>
+                              ({ingredient.subtitle})
+                            </div>
+                          )}
+                        </td>
                         <td style={{ padding: '16px 12px' }}>
                           {ingredient.type ? (
                             <span className="meal-type" style={{
@@ -1219,13 +1226,13 @@ const IngredientManagement = () => {
                   </div>
 
                   <div className="form-section">
-                    <label className="form-label">Subtitle</label>
+                    <label className="form-label">Subtitle (Tagalog Name)</label>
                     <input
                       type="text"
                       className="form-input"
                       value={formData.subtitle}
                       onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                      placeholder="Add a short description or tagline (optional)"
+                      placeholder="e.g., Pakwan, Luya, Almendras (optional)"
                     />
                   </div>
 
@@ -1420,13 +1427,13 @@ const IngredientManagement = () => {
                   </div>
 
                   <div className="form-section">
-                    <label className="form-label">Subtitle</label>
+                    <label className="form-label">Subtitle (Tagalog Name)</label>
                     <input
                       type="text"
                       className="form-input"
                       value={formData.subtitle}
                       onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                      placeholder="Add a short description or tagline (optional)"
+                      placeholder="e.g., Pakwan, Luya, Almendras (optional)"
                     />
                   </div>
 

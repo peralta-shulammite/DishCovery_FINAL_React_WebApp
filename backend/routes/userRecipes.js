@@ -165,6 +165,7 @@ router.get('/saved', async (req, res) => {
       SELECT 
         r.recipe_id as id,
         r.recipe_name as title,
+        r.subtitle,
         r.description,
         r.prep_time,
         r.cook_time,
@@ -183,7 +184,7 @@ router.get('/saved', async (req, res) => {
       LEFT JOIN user_recipe_interactions uri_saves ON r.recipe_id = uri_saves.recipe_id AND uri_saves.is_saved = 1
       LEFT JOIN user_recipe_interactions uri_tries ON r.recipe_id = uri_tries.recipe_id AND uri_tries.is_tried = 1
      WHERE uri.user_id = ? AND uri.is_saved = 1
-      GROUP BY r.recipe_id, r.recipe_name, r.description, r.prep_time, r.cook_time, r.total_time, r.image_url, r.meal_type, r.dish_type, r.servings
+      GROUP BY r.recipe_id, r.recipe_name, r.subtitle, r.description, r.prep_time, r.cook_time, r.total_time, r.image_url, r.meal_type, r.dish_type, r.servings
       ORDER BY MAX(uri.saved_at) DESC
       LIMIT ? OFFSET ?
     `;
@@ -221,6 +222,7 @@ router.get('/saved', async (req, res) => {
       
       return {
         ...recipe,
+        subtitle: recipe.subtitle || null,
         images: images,
         engagement: {
           tried: recipe.tried_count || 0,
@@ -722,6 +724,7 @@ router.get('/recommendations', async (req, res) => {
       SELECT 
        r.recipe_id as id,
         r.recipe_name as title,
+        r.subtitle,
         r.description,
         r.prep_time,
         r.cook_time,

@@ -613,6 +613,7 @@ export default function DishCoveryLanding() {
           allRecipes = recipesData.data.map(recipe => ({
             id: recipe.id,
             name: recipe.title || recipe.recipe_name,
+            subtitle: recipe.subtitle || null,
             mealType: recipe.meal_type || 'Other',
             servings: recipe.servings || 1,
             img: recipe.image_url || recipe.images?.[0] || '/images/food-carousel/default.jpg'
@@ -634,6 +635,7 @@ export default function DishCoveryLanding() {
               const userRecipes = userRecipesData.data.map(recipe => ({
                 id: recipe.id || recipe.recipe_id,
                 name: recipe.title || recipe.recipe_name,
+                subtitle: recipe.subtitle || null,
                 mealType: recipe.meal_type || 'Other',
                 servings: recipe.servings || 1,
                 img: recipe.image_url || recipe.images?.[0] || '/images/food-carousel/default.jpg'
@@ -1503,11 +1505,10 @@ export default function DishCoveryLanding() {
             </button>
 
             <a
-              href="/pantry"
+              href="/user/how-it-works"
               className={`how-to-use ${dishCoveryHoverStates.howToUse ? 'how-to-use-hover' : ''}`}
               onMouseEnter={() => dishCoveryHandleHover('howToUse', true)}
               onMouseLeave={() => dishCoveryHandleHover('howToUse', false)}
-              onClick={dishCoveryHandlePantryClick}
               onTouchStart={(e) => {
                 e.currentTarget.style.opacity = '0.8';
               }}
@@ -1590,6 +1591,9 @@ export default function DishCoveryLanding() {
                     />
                     <div className="recipe-info">
                       <span className="recipe-name">{recipe.name}</span>
+                      {recipe.subtitle && (
+                        <span className="recipe-subtitle" style={{ fontSize: '12px', color: 'white', fontStyle: 'italic', display: 'block', marginTop: '4px' }}>({recipe.subtitle})</span>
+                      )}
                       <span className="recipe-details">
                         {recipe.mealType || 'Other'} • {recipe.servings || 1} {recipe.servings === 1 ? 'serving' : 'servings'}
                       </span>
@@ -1619,6 +1623,9 @@ export default function DishCoveryLanding() {
                     />
                     <div className="recipe-info">
                       <span className="recipe-name">{recipe.name}</span>
+                      {recipe.subtitle && (
+                        <span className="recipe-subtitle" style={{ fontSize: '12px', color: 'white', fontStyle: 'italic', display: 'block', marginTop: '4px' }}>({recipe.subtitle})</span>
+                      )}
                       <span className="recipe-details">
                         {recipe.mealType || 'Other'} • {recipe.servings || 1} {recipe.servings === 1 ? 'serving' : 'servings'}
                       </span>
@@ -1753,7 +1760,7 @@ export default function DishCoveryLanding() {
           <ul className="footer-links">
           <li><a href="/Scanning" onClick={dishCoveryHandleScanningClick} onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>Smart Scanning</a></li>
           <li><a href="/pantry" onClick={dishCoveryHandlePantryClick} onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>Pantry Management</a></li>
-          <li><a href="/how-it-works" onClick={(e) => { if (!dishCoveryIsLoggedIn) { e.preventDefault(); setDishCoveryShowSignInModal(true); } }} onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>How It Works</a></li>
+          <li><a href="/user/how-it-works" onTouchStart={(e) => { e.currentTarget.style.opacity = '0.8'; }} onTouchEnd={(e) => { e.currentTarget.style.opacity = '1'; }}>How It Works</a></li>
         </ul>
       </div>
 

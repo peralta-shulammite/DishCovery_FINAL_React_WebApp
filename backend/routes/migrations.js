@@ -162,33 +162,138 @@ router.post('/add-categ-role-column', authenticateToken, async (req, res) => {
 router.post('/normalize-type-singular', authenticateToken, async (req, res) => {
   try {
     if (!req.user.isAdmin) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Admin access required to run migrations' 
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required to run migrations'
       });
     }
 
     const runNormalize = await loadMigration('../migrations/normalize_type_singular.js');
     if (!runNormalize) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Migration file not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Migration file not found'
       });
     }
 
     console.log('🔄 Admin requested migration: normalize-type-singular');
     await runNormalize();
-    
-    res.json({ 
-      success: true, 
-      message: 'Migration completed successfully' 
+
+    res.json({
+      success: true,
+      message: 'Migration completed successfully'
     });
   } catch (error) {
     console.error('❌ Migration error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Migration failed', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message
+    });
+  }
+});
+
+// Run migration to rename tagalog_des to subtitle
+router.post('/rename-tagalog-des-to-subtitle', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required to run migrations'
+      });
+    }
+
+    const runRenameMigration = await loadMigration('../migrations/rename_tagalog_des_to_subtitle.js');
+    if (!runRenameMigration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Migration file not found'
+      });
+    }
+
+    console.log('🔄 Admin requested migration: rename-tagalog-des-to-subtitle');
+    await runRenameMigration();
+
+    res.json({
+      success: true,
+      message: 'Migration completed successfully'
+    });
+  } catch (error) {
+    console.error('❌ Migration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message
+    });
+  }
+});
+
+// Run migration to rename tagalog_des to subtitle in recipes table
+router.post('/rename-tagalog-des-to-subtitle-recipes', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required to run migrations'
+      });
+    }
+
+    const runRenameRecipesMigration = await loadMigration('../migrations/rename_tagalog_des_to_subtitle_recipes.js');
+    if (!runRenameRecipesMigration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Migration file not found'
+      });
+    }
+
+    console.log('🔄 Admin requested migration: rename-tagalog-des-to-subtitle-recipes');
+    await runRenameRecipesMigration();
+
+    res.json({
+      success: true,
+      message: 'Migration completed successfully'
+    });
+  } catch (error) {
+    console.error('❌ Migration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message
+    });
+  }
+});
+
+// Run migration to drop tagalog_des column from recipes table
+router.post('/drop-tagalog-des-recipes', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required to run migrations'
+      });
+    }
+
+    const runDropTagalogDesMigration = await loadMigration('../migrations/drop_tagalog_des_recipes_migration.js');
+    if (!runDropTagalogDesMigration) {
+      return res.status(404).json({
+        success: false,
+        message: 'Migration file not found'
+      });
+    }
+
+    console.log('🔄 Admin requested migration: drop-tagalog-des-recipes');
+    await runDropTagalogDesMigration();
+
+    res.json({
+      success: true,
+      message: 'Migration completed successfully'
+    });
+  } catch (error) {
+    console.error('❌ Migration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message
     });
   }
 });

@@ -1150,6 +1150,11 @@ const RecipeManagement = () => {
                 </div>
                 <div className="recipe-info">
                   <h3 className="recipe-title">{recipe.title}</h3>
+                  {recipe.subtitle && (
+                    <p style={{ fontSize: '13px', color: '#6b7280', fontStyle: 'italic', margin: '-8px 0 8px 0' }}>
+                      {recipe.subtitle}
+                    </p>
+                  )}
                   <p className="recipe-description">{recipe.description}</p>
                   <div className="recipe-meta">
                     <div className="meal-type-container">
@@ -1224,13 +1229,13 @@ const RecipeManagement = () => {
                 </div>
 
                 <div className="form-section">
-                  <label className="form-label">Recipe Subtitle</label>
+                  <label className="form-label">Subtitle (Tagalog Name)</label>
                   <input
                     type="text"
                     className="form-input"
                     value={formData.subtitle}
                     onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
-                    placeholder="Add a short tagline or subtitle (optional)"
+                    placeholder="e.g., Ensaladang Pakwan (optional)"
                   />
                 </div>
 
@@ -1705,10 +1710,10 @@ const RecipeManagement = () => {
             <div className="modal-header">
                 <h2>{selectedRecipe.title}</h2>
                 {selectedRecipe.subtitle && (
-                  <p style={{ 
-                    fontSize: '16px', 
-                    color: '#666', 
-                    marginTop: '8px',
+                  <p style={{
+                    fontSize: '14px',
+                    color: '#6b7280',
+                    marginTop: '4px',
                     fontWeight: '400',
                     fontStyle: 'italic'
                   }}>

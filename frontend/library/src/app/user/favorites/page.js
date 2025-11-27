@@ -116,9 +116,18 @@ export default function FavoritesPage() {
               mealTypes = [recipe.meal_type];
             }
             
+            // Debug: Log subtitle for first few recipes
+            if (recipe.title && (recipe.title.includes('Tuna') || recipe.title.includes('Sweet'))) {
+              console.log(`🔍 [FAVORITES PAGE] Recipe: ${recipe.title}`);
+              console.log(`   - subtitle:`, recipe.subtitle);
+              console.log(`   - subtitle type:`, typeof recipe.subtitle);
+              console.log(`   - subtitle truthy:`, !!recipe.subtitle);
+            }
+            
             return {
               id: recipe.id || recipe.recipe_id,
               title: recipe.title || recipe.name || recipe.recipe_name,
+              subtitle: recipe.subtitle || null,
               description: recipe.description || '',
               images: (() => {
                 // ✅ Prioritize images array from backend
@@ -576,8 +585,8 @@ export default function FavoritesPage() {
                       </div>
                       <div className="recipe-content">
                         <h3 className="recipe-title">{recipe.title}</h3>
-                        {recipe.subtitle && (
-                          <p className="recipe-subtitle">{recipe.subtitle}</p>
+                        {recipe.subtitle && String(recipe.subtitle).trim() !== '' && (
+                          <p className="recipe-subtitle">({recipe.subtitle})</p>
                         )}
                         <p className="recipe-description">{recipe.description}</p>
                         <div className="recipe-meta">
@@ -709,7 +718,7 @@ export default function FavoritesPage() {
               <div className="modal-header">
                 <h1 className="modal-title">{selectedRecipe.title}</h1>
                 {selectedRecipe.subtitle && (
-                  <p className="modal-recipe-subtitle">{selectedRecipe.subtitle}</p>
+                  <p className="modal-recipe-subtitle">({selectedRecipe.subtitle})</p>
                 )}
                 <p className="modal-subtitle">{selectedRecipe.description}</p>
                 

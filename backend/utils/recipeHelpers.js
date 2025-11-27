@@ -15,6 +15,7 @@ export const transformRecipeForDB = (frontendData) => {
   return {
     recipe: {
       recipe_name: frontendData.title,
+      subtitle: frontendData.subtitle || null,
       description: frontendData.description,
       instructions: (() => {
         // Filter out empty instructions before joining
@@ -112,6 +113,7 @@ export const transformRecipeForFrontend = (dbData, images = null, ingredients = 
   return {
     id: dbData.recipe_id || dbData.id,
     title: dbData.recipe_name || dbData.title,
+    subtitle: dbData.subtitle || null,
     description: dbData.description,
     instructions: dbData.instructions ?
       (dbData.instructions.includes('\n') ? dbData.instructions.split('\n') : [dbData.instructions]) :

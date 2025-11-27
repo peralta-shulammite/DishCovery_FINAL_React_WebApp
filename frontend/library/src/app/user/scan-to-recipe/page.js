@@ -258,6 +258,7 @@ const RecipePage = () => {
       const newRecipes = payload.map(recipe => ({
         id: recipe.id || recipe.recipe_id,
         title: recipe.title || recipe.name || recipe.recipe_name,
+        subtitle: recipe.subtitle || null,
         description: recipe.description || '',
         images: Array.isArray(recipe.images) && recipe.images.length > 0 
           ? recipe.images 
@@ -775,6 +776,9 @@ const RecipePage = () => {
                     <div className="recipe-content">
                       {/* Title */}
                       <h3 className="recipe-title">{recipe.title}</h3>
+                      {recipe.subtitle && (
+                        <p className="recipe-subtitle" style={{ fontSize: '13px', color: '#6b7280', fontStyle: 'italic', margin: '-8px 0 8px 0' }}>({recipe.subtitle})</p>
+                      )}
 
                       {/* Description */}
                       <p className="recipe-description">{recipe.description}</p>
