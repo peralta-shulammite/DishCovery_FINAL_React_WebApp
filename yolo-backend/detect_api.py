@@ -12,6 +12,14 @@ import os
 from typing import Optional, List, Dict
 from datetime import datetime
 
+# DirectML import - CRITICAL for AMD GPU support
+try:
+    import torch_directml
+    DIRECTML_AVAILABLE = True
+except ImportError:
+    DIRECTML_AVAILABLE = False
+    torch_directml = None
+
 # Optional Gemini AI import - won't break if package is not installed
 try:
     import google.generativeai as genai
@@ -44,17 +52,27 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting Dishcovery YOLO Detection API at {startup_time}")
     model_loading = True
     try:
-        # Auto-detect device: use GPU if available, otherwise CPU
-        if torch.cuda.is_available():
-            device = "cuda"
-            logger.info(f"Using device: {device} (GPU: {torch.cuda.get_device_name(0)})")
-            logger.info(f"CUDA Version: {torch.version.cuda}")
+        # Auto-detect device: DirectML for AMD GPU (RX 580), fallback to CPU
+        if DIRECTML_AVAILABLE:
+            try:
+                device = torch_directml.device()
+                logger.info("=" * 60)
+                logger.info("✅ DirectML INITIALIZED SUCCESSFULLY!")
+                logger.info(f"Device: {device}")
+                logger.info(f"Device name: {torch_directml.device_name(0)}")
+                logger.info("AMD RX 580 GPU - ACTIVATED!")
+                logger.info("=" * 60)
+            except Exception as e:
+                logger.warning(f"DirectML device creation failed: {e}")
+                device = "cpu"
+                logger.info("Falling back to CPU mode")
         else:
+            logger.warning("torch-directml NOT INSTALLED!")
+            logger.warning("Install it with: pip install torch-directml")
             device = "cpu"
-            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-            logger.info(f"Using device: {device} (CPU mode - no GPU detected)")
+            logger.info("Using CPU mode")
         
-        logger.info("Loading YOLOv8 model...")
+        logger.info("Loading YOLOv8 model with DirectML...")
         
         # Check if model file exists
         if not os.path.exists("best.pt"):
@@ -62,12 +80,18 @@ async def lifespan(app: FastAPI):
         
         # Load model
         model = YOLO("best.pt")
-        model.to(device)
         
-        # Warm up model
-        logger.info("Warming up model...")
-        dummy_img = Image.new('RGB', (224, 224), color='white')
-        _ = model.predict(dummy_img, conf=0.25, verbose=False)
+        # Move model to DirectML device if available
+        if DIRECTML_AVAILABLE and device != "cpu":
+            try:
+                model.to(device)
+                logger.info("✅ Model successfully moved to DirectML device (AMD RX 580)")
+            except Exception as e:
+                logger.warning(f"Failed to move model to DirectML: {e}")
+                logger.info("Model will use CPU instead")
+                device = "cpu"
+        else:
+            logger.info("Model loaded on CPU")
         
         logger.info(f"Model loaded successfully! Classes: {len(model.names)}")
         logger.info(f"Available classes: {model.names}")
@@ -133,13 +157,19 @@ async def root():
         start_dt = datetime.fromisoformat(startup_time)
         uptime_seconds = (datetime.now() - start_dt).total_seconds()
     
+    device_info = str(device)
+    if DIRECTML_AVAILABLE and device != "cpu":
+        device_info = f"DirectML (AMD RX 580) - {device}"
+    
     return {
         "status": "online",
         "service": "Dishcovery YOLO Detection API",
         "timestamp": datetime.now().isoformat(),
         "startup_time": startup_time,
         "uptime_seconds": uptime_seconds,
-        "device": device,
+        "device": device_info,
+        "directml_available": DIRECTML_AVAILABLE,
+        "gpu_active": DIRECTML_AVAILABLE and device != "cpu",
         "model_loaded": model is not None,
         "model_loading": model_loading,
         "model_error": model_load_error,
@@ -179,7 +209,7 @@ async def health_check():
                 "startup_time": startup_time,
                 "uptime_seconds": uptime_seconds,
                 "message": "Model is being loaded, please wait...",
-                "device": device
+                "device": str(device)
             }
         )
     
@@ -192,7 +222,7 @@ async def health_check():
                 "startup_time": startup_time,
                 "uptime_seconds": uptime_seconds,
                 "message": model_load_error,
-                "device": device
+                "device": str(device)
             }
         )
     
@@ -201,8 +231,9 @@ async def health_check():
         "timestamp": current_time,
         "startup_time": startup_time,
         "uptime_seconds": uptime_seconds,
-        "device": device,
-        "cuda_available": torch.cuda.is_available(),
+        "device": str(device),
+        "directml_available": DIRECTML_AVAILABLE,
+        "gpu_active": DIRECTML_AVAILABLE and device != "cpu",
         "model_loaded": model is not None,
         "classes": len(model.names) if model else 0,
         "gemini_enabled": gemini_enabled
@@ -337,7 +368,8 @@ async def detect_ingredients(file: UploadFile = File(...), is_live: bool = False
         
         response_data = {
             "success": True,
-            "device": device,
+            "device": str(device),
+            "gpu_active": DIRECTML_AVAILABLE and device != "cpu",
             "num_detections": len(detections),
             "detections": detections,
             "class_names": model.names,
@@ -358,13 +390,9 @@ async def detect_ingredients(file: UploadFile = File(...), is_live: bool = False
         raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
     
     finally:
-        # FREE GPU MEMORY AFTER EVERY REQUEST!
-        if device == "cuda":
-            torch.cuda.empty_cache()
-            logger.info("Cleared GPU cache")
-        
         gc.collect()
-        logger.info("Garbage collection completed")
+        if not is_live:
+            logger.info("Garbage collection completed")
 
 if __name__ == "__main__":
     import uvicorn
