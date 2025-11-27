@@ -2,25 +2,24 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-from ultralytics import YOLO
+import onnxruntime as ort
 from PIL import Image
+import numpy as np
 import io
-import torch
 import logging
 import gc
 import os
 from typing import Optional, List, Dict
 from datetime import datetime
 
-# DirectML import - CRITICAL for AMD GPU support
+# Load environment variables
 try:
-    import torch_directml
-    DIRECTML_AVAILABLE = True
+    from dotenv import load_dotenv
+    load_dotenv()
 except ImportError:
-    DIRECTML_AVAILABLE = False
-    torch_directml = None
+    pass
 
-# Optional Gemini AI import - won't break if package is not installed
+# Gemini AI
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
@@ -28,7 +27,6 @@ except ImportError:
     GEMINI_AVAILABLE = False
     genai = None
 
-# Configure logging with timestamps
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -36,88 +34,99 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-model = None
-device = None
+session = None
+class_names = {}
 model_loading = False
 model_load_error = None
 gemini_model = None
 gemini_enabled = False
-startup_time = None  # Track when the service started
+startup_time = None
+gpu_active = False
+device_name = "CPU"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    global model, device, model_loading, model_load_error, gemini_model, gemini_enabled, startup_time
+    global session, class_names, model_loading, model_load_error, gemini_model, gemini_enabled, startup_time, gpu_active, device_name
     startup_time = datetime.now().isoformat()
-    logger.info(f"Starting Dishcovery YOLO Detection API at {startup_time}")
+    logger.info(f"Starting DishCovery ONNX Detection API at {startup_time}")
     model_loading = True
+    
     try:
-        # Auto-detect device: DirectML for AMD GPU (RX 580), fallback to CPU
-        if DIRECTML_AVAILABLE:
+        # Initialize ONNX Runtime with DirectML
+        logger.info("=" * 60)
+        logger.info("Initializing ONNX Runtime with DirectML...")
+        
+        providers = ort.get_available_providers()
+        logger.info(f"Available providers: {providers}")
+        
+        # Try DirectML first, fallback to CPU
+        if 'DmlExecutionProvider' in providers:
             try:
-                device = torch_directml.device()
-                logger.info("=" * 60)
-                logger.info("✅ DirectML INITIALIZED SUCCESSFULLY!")
-                logger.info(f"Device: {device}")
-                logger.info(f"Device name: {torch_directml.device_name(0)}")
-                logger.info("AMD RX 580 GPU - ACTIVATED!")
-                logger.info("=" * 60)
+                session = ort.InferenceSession("best.onnx", providers=['DmlExecutionProvider'])
+                active_provider = session.get_providers()[0]
+                if active_provider == 'DmlExecutionProvider':
+                    gpu_active = True
+                    device_name = "AMD RX 580 (DirectML)"
+                    logger.info("✅ DirectML GPU ACTIVATED!")
+                    logger.info(f"Device: {device_name}")
+                    logger.info("=" * 60)
+                else:
+                    raise Exception("DmlExecutionProvider not active")
             except Exception as e:
-                logger.warning(f"DirectML device creation failed: {e}")
-                device = "cpu"
-                logger.info("Falling back to CPU mode")
+                logger.warning(f"DirectML initialization failed: {e}")
+                logger.info("Falling back to CPU...")
+                session = ort.InferenceSession("best.onnx", providers=['CPUExecutionProvider'])
+                gpu_active = False
+                device_name = "CPU"
         else:
-            logger.warning("torch-directml NOT INSTALLED!")
-            logger.warning("Install it with: pip install torch-directml")
-            device = "cpu"
+            logger.warning("DmlExecutionProvider not available")
             logger.info("Using CPU mode")
+            session = ort.InferenceSession("best.onnx", providers=['CPUExecutionProvider'])
+            gpu_active = False
+            device_name = "CPU"
         
-        logger.info("Loading YOLOv8 model with DirectML...")
+        logger.info(f"Model loaded successfully!")
+        logger.info(f"Active provider: {session.get_providers()[0]}")
+        logger.info(f"GPU Active: {gpu_active}")
         
-        # Check if model file exists
-        if not os.path.exists("best.pt"):
-            raise FileNotFoundError("Model file 'best.pt' not found. Please upload your trained model.")
+        # Load class names from model metadata or file
+        try:
+            metadata = session.get_modelmeta()
+            if metadata.custom_metadata_map:
+                import json
+                names_str = metadata.custom_metadata_map.get('names', '{}')
+                class_names = json.loads(names_str)
+                logger.info(f"Loaded {len(class_names)} classes from model metadata")
+        except:
+            # Fallback: hardcoded class names
+            class_names = {
+                0: 'Bay-Leaf', 1: 'Beef', 2: 'BitterGourd', 3: 'BottleGourd', 4: 'Broccoli',
+                5: 'Cabbage', 6: 'Carrots', 7: 'Cauliflower', 8: 'Chicken', 9: 'Egg',
+                10: 'Eggplant', 11: 'Galunggong', 12: 'Garlic', 13: 'Ginger', 14: 'Milkfish',
+                15: 'Onion', 16: 'Papaya', 17: 'Pechay', 18: 'Pork', 19: 'Potato',
+                20: 'Pumpkin', 21: 'Sayote', 22: 'StringBeans', 23: 'Tilapia', 24: 'Tomato',
+                25: 'WaterSpinach', 26: 'Calamansi', 27: 'Almond', 28: 'Apple', 29: 'Asparagus',
+                30: 'Avocado', 31: 'Banana', 32: 'Beans', 33: 'Beet', 34: 'Bell Pepper',
+                35: 'Blackberry', 36: 'Blueberry', 37: 'Brussels Sprouts', 38: 'Celery',
+                39: 'Cherry', 40: 'Corn', 41: 'Cucumber', 42: 'Grape', 43: 'Green Bean',
+                44: 'Green Onion', 45: 'Hot Pepper', 46: 'Kiwi', 47: 'Lemon', 48: 'Lettuce',
+                49: 'Lime', 50: 'Mandarin', 51: 'Mushroom', 52: 'Orange', 53: 'Pattypan Squash',
+                54: 'Pea', 55: 'Peach', 56: 'Pear', 57: 'Pineapple', 58: 'Radish',
+                59: 'Raspberry', 60: 'Strawberry', 61: 'Vegetable Marrow', 62: 'Watermelon'
+            }
+            logger.info(f"Using fallback class names: {len(class_names)} classes")
         
-        # Load model
-        model = YOLO("best.pt")
-        
-        # Move model to DirectML device if available
-        if DIRECTML_AVAILABLE and device != "cpu":
-            try:
-                model.to(device)
-                logger.info("✅ Model successfully moved to DirectML device (AMD RX 580)")
-            except Exception as e:
-                logger.warning(f"Failed to move model to DirectML: {e}")
-                logger.info("Model will use CPU instead")
-                device = "cpu"
-        else:
-            logger.info("Model loaded on CPU")
-        
-        logger.info(f"Model loaded successfully! Classes: {len(model.names)}")
-        logger.info(f"Available classes: {model.names}")
-        
-        # Initialize Gemini AI
-        if not GEMINI_AVAILABLE:
-            logger.info("google-generativeai package not installed - AI summaries disabled")
-            logger.info("To enable: pip install google-generativeai")
-            gemini_enabled = False
-        else:
+        # Initialize Gemini
+        if GEMINI_AVAILABLE:
             gemini_api_key = os.getenv("GEMINI_API_KEY")
-            gemini_model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
             if gemini_api_key:
                 try:
-                    logger.info("Initializing Gemini AI...")
                     genai.configure(api_key=gemini_api_key)
-                    gemini_model = genai.GenerativeModel(gemini_model_name)
+                    gemini_model = genai.GenerativeModel("gemini-2.5-flash")
                     gemini_enabled = True
-                    logger.info(f"Gemini AI initialized successfully! (model: {gemini_model_name})")
+                    logger.info("Gemini AI initialized")
                 except Exception as e:
-                    logger.warning(f"Failed to initialize Gemini AI: {str(e)}")
-                    logger.warning("Detection summaries will not use AI enhancement")
-                    gemini_enabled = False
-            else:
-                logger.info("GEMINI_API_KEY not set - AI summaries disabled")
-                gemini_enabled = False
+                    logger.warning(f"Gemini init failed: {e}")
         
         gc.collect()
         
@@ -128,19 +137,12 @@ async def lifespan(app: FastAPI):
     finally:
         model_loading = False
     
-    logger.info(f"API startup complete at {datetime.now().isoformat()}")
+    logger.info(f"API startup complete")
     yield
     
-    # Shutdown
-    shutdown_time = datetime.now().isoformat()
-    uptime = ""
-    if startup_time:
-        start_dt = datetime.fromisoformat(startup_time)
-        uptime_seconds = (datetime.now() - start_dt).total_seconds()
-        uptime = f" (uptime: {uptime_seconds:.1f}s)"
-    logger.info(f"Shutting down at {shutdown_time}{uptime}")
+    logger.info(f"Shutting down...")
 
-app = FastAPI(title="Dishcovery YOLO Detection API", lifespan=lifespan)
+app = FastAPI(title="DishCovery ONNX Detection API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -150,249 +152,173 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def preprocess(image: Image.Image, input_size=640):
+    """Preprocess image for YOLO ONNX model"""
+    # Resize
+    img_resized = image.resize((input_size, input_size))
+    
+    # Convert to numpy array
+    img_data = np.array(img_resized).astype(np.float32)
+    
+    # Normalize to [0, 1]
+    img_data = img_data / 255.0
+    
+    # Transpose to CHW format (channels, height, width)
+    img_data = np.transpose(img_data, (2, 0, 1))
+    
+    # Add batch dimension
+    img_data = np.expand_dims(img_data, axis=0)
+    
+    return img_data
+
+def postprocess(output, conf_threshold=0.70, iou_threshold=0.45, orig_size=(640, 640), input_size=640):
+    """Postprocess YOLO ONNX output"""
+    detections = []
+    
+    # Handle different output formats
+    if isinstance(output, list):
+        output = output[0]
+    
+    # Output shape: [1, num_predictions, 85] or [1, 85, num_predictions]
+    if output.shape[2] > output.shape[1]:
+        output = np.transpose(output, (0, 2, 1))
+    
+    predictions = output[0]
+    
+    scale_x = orig_size[0] / input_size
+    scale_y = orig_size[1] / input_size
+    
+    for pred in predictions:
+        confidence = pred[4]
+        
+        if confidence < conf_threshold:
+            continue
+        
+        # Get class scores
+        class_scores = pred[5:]
+        class_id = int(np.argmax(class_scores))
+        class_conf = class_scores[class_id]
+        
+        if class_conf < conf_threshold:
+            continue
+        
+        # Get bbox (center_x, center_y, width, height)
+        cx, cy, w, h = pred[0:4]
+        
+        # Convert to corner coordinates
+        x1 = int((cx - w/2) * scale_x)
+        y1 = int((cy - h/2) * scale_y)
+        x2 = int((cx + w/2) * scale_x)
+        y2 = int((cy + h/2) * scale_y)
+        
+        detections.append({
+            "bbox": [x1, y1, x2, y2],
+            "bbox_normalized": [
+                x1 / orig_size[0],
+                y1 / orig_size[1],
+                x2 / orig_size[0],
+                y2 / orig_size[1]
+            ],
+            "confidence": round(float(confidence * class_conf), 3),
+            "class_id": class_id,
+            "class_name": class_names.get(class_id, f"class_{class_id}")
+        })
+    
+    return detections
+
 @app.get("/")
 async def root():
-    uptime_seconds = None
-    if startup_time:
-        start_dt = datetime.fromisoformat(startup_time)
-        uptime_seconds = (datetime.now() - start_dt).total_seconds()
-    
-    device_info = str(device)
-    if DIRECTML_AVAILABLE and device != "cpu":
-        device_info = f"DirectML (AMD RX 580) - {device}"
-    
     return {
         "status": "online",
-        "service": "Dishcovery YOLO Detection API",
-        "timestamp": datetime.now().isoformat(),
-        "startup_time": startup_time,
-        "uptime_seconds": uptime_seconds,
-        "device": device_info,
-        "directml_available": DIRECTML_AVAILABLE,
-        "gpu_active": DIRECTML_AVAILABLE and device != "cpu",
-        "model_loaded": model is not None,
-        "model_loading": model_loading,
-        "model_error": model_load_error,
-        "gemini_enabled": gemini_enabled
-    }
-
-@app.get("/ping")
-@app.head("/ping")
-async def ping():
-    uptime_seconds = None
-    if startup_time:
-        start_dt = datetime.fromisoformat(startup_time)
-        uptime_seconds = (datetime.now() - start_dt).total_seconds()
-    
-    return {
-        "status": "pong",
-        "timestamp": datetime.now().isoformat(),
-        "uptime_seconds": uptime_seconds,
-        "service": "Dishcovery YOLO Detection API"
+        "service": "DishCovery ONNX Detection API",
+        "device": device_name,
+        "gpu_active": gpu_active,
+        "model_loaded": session is not None,
+        "gemini_enabled": gemini_enabled,
+        "classes": len(class_names)
     }
 
 @app.get("/health")
-@app.head("/health")  
-async def health_check():
-    current_time = datetime.now().isoformat()
-    uptime_seconds = None
-    if startup_time:
-        start_dt = datetime.fromisoformat(startup_time)
-        uptime_seconds = (datetime.now() - start_dt).total_seconds()
-    
-    if model_loading:
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": "loading",
-                "timestamp": current_time,
-                "startup_time": startup_time,
-                "uptime_seconds": uptime_seconds,
-                "message": "Model is being loaded, please wait...",
-                "device": str(device)
-            }
-        )
-    
-    if model_load_error:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "error",
-                "timestamp": current_time,
-                "startup_time": startup_time,
-                "uptime_seconds": uptime_seconds,
-                "message": model_load_error,
-                "device": str(device)
-            }
-        )
-    
+async def health():
     return {
-        "status": "healthy" if model is not None else "unhealthy",
-        "timestamp": current_time,
-        "startup_time": startup_time,
-        "uptime_seconds": uptime_seconds,
-        "device": str(device),
-        "directml_available": DIRECTML_AVAILABLE,
-        "gpu_active": DIRECTML_AVAILABLE and device != "cpu",
-        "model_loaded": model is not None,
-        "classes": len(model.names) if model else 0,
-        "gemini_enabled": gemini_enabled
+        "status": "healthy" if session else "unhealthy",
+        "device": device_name,
+        "gpu_active": gpu_active,
+        "provider": session.get_providers()[0] if session else None,
+        "classes": len(class_names)
     }
 
-def resize_image(image, max_size=224):
-    width, height = image.size
-    
-    if width <= max_size and height <= max_size:
-        return image
-    
-    if width > height:
-        new_width = max_size
-        new_height = int((max_size / width) * height)
-    else:
-        new_height = max_size
-        new_width = int((max_size / height) * width)
-    
-    logger.info(f"Resizing from {width}x{height} to {new_width}x{new_height}")
-    return image.resize((new_width, new_height), Image.LANCZOS)
-
 async def generate_ai_summary(detections: List[Dict]) -> Optional[str]:
-    if not GEMINI_AVAILABLE or not gemini_enabled or not gemini_model:
+    if not gemini_enabled or not detections:
         return None
     
     try:
-        if not detections:
-            return None
-        
         ingredients = [f"{det['class_name']} ({det['confidence']*100:.1f}%)" for det in detections]
-        ingredient_list = ", ".join(ingredients)
-        
-        prompt = f"""You are a helpful cooking assistant. Based on the following detected ingredients from an image, provide a brief, friendly summary (2-3 sentences) that:
-1. Lists the main ingredients detected
-2. Suggests what dish could be made with these ingredients
-3. Mentions any interesting combinations
-Detected ingredients: {ingredient_list}
-Provide a concise, natural summary in a friendly tone:"""
+        prompt = f"""Brief cooking summary (2-3 sentences):
+Detected: {', '.join(ingredients)}
+Suggest a dish and mention combinations."""
         
         response = gemini_model.generate_content(prompt)
-        summary = response.text.strip()
-        logger.info("Generated AI summary using Gemini")
-        return summary
-        
-    except Exception as e:
-        logger.warning(f"Failed to generate AI summary: {str(e)}")
+        return response.text.strip()
+    except:
         return None
 
 @app.post("/scan")
-async def scan_ingredients(file: UploadFile = File(...)):
-    is_live = file.filename and 'live-frame' in file.filename
-    return await detect_ingredients(file, is_live=is_live)
-
 @app.post("/detect")
-async def detect_ingredients(file: UploadFile = File(...), is_live: bool = False):
+async def detect(file: UploadFile = File(...)):
     if model_loading:
-        raise HTTPException(status_code=503, detail="Model is still loading. Please wait a moment and try again.")
+        raise HTTPException(503, "Model loading...")
     
-    if model is None:
-        error_msg = model_load_error or "Model not loaded"
-        raise HTTPException(status_code=503, detail=f"Model not available: {error_msg}")
+    if session is None:
+        raise HTTPException(503, f"Model not loaded: {model_load_error}")
     
     try:
         contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
+        image = Image.open(io.BytesIO(contents)).convert('RGB')
+        orig_w, orig_h = image.size
         
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
-        
-        original_width, original_height = image.size
+        is_live = file.filename and 'live-frame' in file.filename
         
         if not is_live:
-            logger.info(f"Original image: {original_width}x{original_height}, mode: {image.mode}")
+            logger.info(f"Image: {orig_w}x{orig_h}")
         
-        if original_width <= 224 or original_height <= 224:
-            resized_image = image
-            resized_width, resized_height = original_width, original_height
-        else:
-            resized_image = resize_image(image, max_size=224)
-            resized_width, resized_height = resized_image.size
-            
-        if not is_live:
-            logger.info(f"Resized image: {resized_width}x{resized_height}")
+        # Preprocess
+        input_data = preprocess(image, input_size=640)
         
-        scale_x = original_width / resized_width
-        scale_y = original_height / resized_height
+        # Run inference
+        input_name = session.get_inputs()[0].name
+        outputs = session.run(None, {input_name: input_data})
         
-        results = model.predict(
-            resized_image, 
-            conf=0.70,
-            iou=0.45, 
-            verbose=False,
-            device=device
-        )
-        
-        detections = []
-        if len(results) > 0 and results[0].boxes is not None:
-            boxes = results[0].boxes
-            for i in range(len(boxes)):
-                box = boxes.xyxy[i].tolist()
-                conf = float(boxes.conf[i])
-                cls = int(boxes.cls[i])
-                
-                pixel_box = [
-                    box[0] * scale_x,
-                    box[1] * scale_y,
-                    box[2] * scale_x,
-                    box[3] * scale_y
-                ]
-                
-                normalized_box = [
-                    pixel_box[0] / original_width,
-                    pixel_box[1] / original_height,
-                    pixel_box[2] / original_width,
-                    pixel_box[3] / original_height
-                ]
-                
-                detections.append({
-                    "bbox": pixel_box,
-                    "bbox_normalized": normalized_box,
-                    "confidence": round(conf, 3),
-                    "class_id": cls,
-                    "class_name": model.names[cls]
-                })
+        # Postprocess
+        detections = postprocess(outputs, orig_size=(orig_w, orig_h))
         
         if not is_live:
             logger.info(f"Detected {len(detections)} ingredients")
         
+        # AI summary
         ai_summary = None
-        if gemini_enabled and not is_live and len(detections) > 0:
+        if gemini_enabled and not is_live and detections:
             ai_summary = await generate_ai_summary(detections)
         
-        response_data = {
+        response = {
             "success": True,
-            "device": str(device),
-            "gpu_active": DIRECTML_AVAILABLE and device != "cpu",
+            "device": device_name,
+            "gpu_active": gpu_active,
             "num_detections": len(detections),
             "detections": detections,
-            "class_names": model.names,
-            "image_dimensions": {
-                "original": {"width": original_width, "height": original_height},
-                "resized": {"width": resized_width, "height": resized_height}
-            }
+            "class_names": class_names
         }
         
         if ai_summary:
-            response_data["ai_summary"] = ai_summary
-            response_data["gemini_enabled"] = True
+            response["ai_summary"] = ai_summary
         
-        return JSONResponse(response_data)
+        return JSONResponse(response)
         
     except Exception as e:
         logger.error(f"Detection error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
-    
+        raise HTTPException(500, f"Detection failed: {str(e)}")
     finally:
         gc.collect()
-        if not is_live:
-            logger.info("Garbage collection completed")
 
 if __name__ == "__main__":
     import uvicorn
