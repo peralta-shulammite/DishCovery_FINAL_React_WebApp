@@ -274,6 +274,7 @@ router.get('/', optionalAuth, async (req, res) => {
       SELECT DISTINCT
         r.recipe_id as id,
         r.recipe_name as title,
+        r.subtitle,
         r.description,
         r.instructions,
         r.prep_time,
@@ -484,6 +485,7 @@ router.get('/', optionalAuth, async (req, res) => {
         return {
           id: recipe.id,
           title: recipe.title || recipe.recipe_name,
+          subtitle: recipe.subtitle || null,
           description: recipe.description,
           instructions: parseInstructions(recipe.instructions),
           images: fallbackImages.length > 0 ? fallbackImages : (recipe.image_url ? [recipe.image_url] : []), // ✅ Use uploaded images, no Unsplash fallback
@@ -542,6 +544,7 @@ router.get('/search', async (req, res) => {
       SELECT 
         r.recipe_id as id,
         r.recipe_name as title,
+        r.subtitle,
         r.description,
         r.instructions,
         r.prep_time,
@@ -668,6 +671,7 @@ router.get('/recommended', async (req, res) => {
       SELECT 
         r.recipe_id as id,
         r.recipe_name as title,
+        r.subtitle,
         r.description,
         r.instructions,
         r.prep_time,
@@ -1246,6 +1250,7 @@ router.get('/favorites', auth, async (req, res) => {
       SELECT 
         r.recipe_id,
         r.recipe_name,
+        r.subtitle,
         r.description,
         r.prep_time,
         r.cook_time,

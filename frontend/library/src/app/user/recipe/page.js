@@ -214,9 +214,18 @@ const RecipePage = () => {
             mealTypes = [recipe.meal_type];
           }
           
+          // Debug: Log subtitle for first few recipes
+          if (recipe.title && (recipe.title.includes('Apple') || recipe.title.includes('Garlic'))) {
+            console.log(`🔍 [RECIPE PAGE] Recipe: ${recipe.title}`);
+            console.log(`   - subtitle:`, recipe.subtitle);
+            console.log(`   - subtitle type:`, typeof recipe.subtitle);
+            console.log(`   - subtitle truthy:`, !!recipe.subtitle);
+          }
+          
           return {
             id: recipe.id || recipe.recipe_id,
             title: recipe.title || recipe.name || recipe.recipe_name,
+            subtitle: recipe.subtitle || null,
             description: recipe.description || '',
             images: Array.isArray(recipe.images) && recipe.images.length > 0 
               ? recipe.images 
@@ -393,6 +402,7 @@ const RecipePage = () => {
         return {
         id: recipe.id || recipe.recipe_id,
         title: recipe.title || recipe.name || recipe.recipe_name,
+        subtitle: recipe.subtitle || null,
         description: recipe.description || '',
         images: Array.isArray(recipe.images) && recipe.images.length > 0 
           ? recipe.images 
@@ -1085,8 +1095,8 @@ const RecipePage = () => {
                     {/* Recipe Content */}
                       <div className="recipe-content">
                       <h3 className="recipe-title">{recipe.title}</h3>
-                      {recipe.subtitle && (
-                        <p className="recipe-subtitle">{recipe.subtitle}</p>
+                      {recipe.subtitle && String(recipe.subtitle).trim() !== '' && (
+                        <p className="recipe-subtitle">({recipe.subtitle})</p>
                       )}
 
                       <p className="recipe-description">{recipe.description}</p>
@@ -1359,7 +1369,7 @@ const RecipePage = () => {
               <div className="modal-header">
                 <h1 className="modal-title">{selectedRecipe.title}</h1>
                 {selectedRecipe.subtitle && (
-                  <p className="modal-recipe-subtitle">{selectedRecipe.subtitle}</p>
+                  <p className="modal-recipe-subtitle">({selectedRecipe.subtitle})</p>
                 )}
                 <p className="modal-subtitle">{selectedRecipe.description}</p>
                 

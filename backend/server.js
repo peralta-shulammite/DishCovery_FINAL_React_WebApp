@@ -189,6 +189,15 @@ import('./migrations/create_user_members_table.js').then(({ default: createUserM
   // Ignore if migration file doesn't exist or can't be loaded
 });
 
+// Rename tagalog_des to subtitle in both recipes and ingredients tables
+import('./migrations/rename_tagalog_des_to_subtitle.js').then(({ default: renameTagalogDesToSubtitle }) => {
+  renameTagalogDesToSubtitle().catch(err => {
+    console.error('⚠️  Auto-rename tagalog_des to subtitle failed:', err.message);
+  });
+}).catch(err => {
+  // Ignore if migration file doesn't exist or can't be loaded
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

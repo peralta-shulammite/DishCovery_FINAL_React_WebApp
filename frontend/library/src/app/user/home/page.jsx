@@ -613,6 +613,7 @@ export default function DishCoveryLanding() {
           allRecipes = recipesData.data.map(recipe => ({
             id: recipe.id,
             name: recipe.title || recipe.recipe_name,
+            subtitle: recipe.subtitle || null,
             mealType: recipe.meal_type || 'Other',
             servings: recipe.servings || 1,
             img: recipe.image_url || recipe.images?.[0] || '/images/food-carousel/default.jpg'
@@ -634,6 +635,7 @@ export default function DishCoveryLanding() {
               const userRecipes = userRecipesData.data.map(recipe => ({
                 id: recipe.id || recipe.recipe_id,
                 name: recipe.title || recipe.recipe_name,
+                subtitle: recipe.subtitle || null,
                 mealType: recipe.meal_type || 'Other',
                 servings: recipe.servings || 1,
                 img: recipe.image_url || recipe.images?.[0] || '/images/food-carousel/default.jpg'
@@ -1589,6 +1591,9 @@ export default function DishCoveryLanding() {
                     />
                     <div className="recipe-info">
                       <span className="recipe-name">{recipe.name}</span>
+                      {recipe.subtitle && (
+                        <span className="recipe-subtitle" style={{ fontSize: '12px', color: 'white', fontStyle: 'italic', display: 'block', marginTop: '4px' }}>({recipe.subtitle})</span>
+                      )}
                       <span className="recipe-details">
                         {recipe.mealType || 'Other'} • {recipe.servings || 1} {recipe.servings === 1 ? 'serving' : 'servings'}
                       </span>
@@ -1618,6 +1623,9 @@ export default function DishCoveryLanding() {
                     />
                     <div className="recipe-info">
                       <span className="recipe-name">{recipe.name}</span>
+                      {recipe.subtitle && (
+                        <span className="recipe-subtitle" style={{ fontSize: '12px', color: 'white', fontStyle: 'italic', display: 'block', marginTop: '4px' }}>({recipe.subtitle})</span>
+                      )}
                       <span className="recipe-details">
                         {recipe.mealType || 'Other'} • {recipe.servings || 1} {recipe.servings === 1 ? 'serving' : 'servings'}
                       </span>

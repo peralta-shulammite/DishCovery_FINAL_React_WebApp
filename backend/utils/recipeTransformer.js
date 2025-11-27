@@ -123,6 +123,7 @@ export const transformRecipeForFrontend = (recipe, images = [], ingredients = []
   const transformedRecipe = {
     id: recipe.recipe_id || recipe.id,
     title: recipe.recipe_name || recipe.title,
+    subtitle: recipe.subtitle || null,
     description: recipe.description || '',
     images: transformedImages,
     mealType: recipe.meal_type || 'Light Meal',

@@ -28,6 +28,7 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
       SELECT 
         ingredient_id as id,
         ingredient_name as name,
+        subtitle,
         NULLIF(TRIM(COALESCE(ingredient_type, '')), '') as ingredient_type,
         NULLIF(TRIM(COALESCE(category, '')), '') as category,
         NULLIF(TRIM(COALESCE(categ_role, '')), '') as categ_role,
@@ -127,6 +128,7 @@ router.get('/ingredients', authenticateToken, async (req, res) => {
       return {
         id: ingredient.id,
         name: ingredient.name,
+        subtitle: ingredient.subtitle || null,
         ingredient_type: type, // ✅ Use ingredient_type (from database)
         category: role || 'Other', // category field maps to role for backward compatibility
         image: nutritionalData.image || `https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=200&fit=crop`

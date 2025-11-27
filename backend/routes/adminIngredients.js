@@ -16,9 +16,10 @@ router.get('/', authenticateToken, async (req, res) => {
     // ingredient_type = type, categ_role = role, category = legacy (not used)
     // Use NULLIF to convert empty strings to NULL for better handling
     const ingredients = await pool.query(`
-      SELECT 
+      SELECT
         ingredient_id as id,
         ingredient_name as name,
+        subtitle,
         NULLIF(TRIM(COALESCE(ingredient_type, '')), '') as type,
         NULLIF(TRIM(COALESCE(category, '')), '') as category,
         NULLIF(TRIM(COALESCE(categ_role, '')), '') as categ_role,
@@ -166,6 +167,7 @@ router.get('/', authenticateToken, async (req, res) => {
       const result = {
         id: ingredient.id,
         name: ingredient.name,
+        subtitle: ingredient.subtitle || null,
         type: type || 'Other', // Always return a type, default to 'Other' if missing
         category: role || 'Other', // category field in response maps to role
         image: nutritionalData.image || null,
@@ -208,8 +210,8 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
-    const { name, type, category, status, image } = req.body;
-    
+    const { name, subtitle, type, category, status, image } = req.body;
+
     // Normalize type to singular
     const normalizedType = normalizeTypeToSingular(type);
 
@@ -252,10 +254,11 @@ router.post('/', authenticateToken, async (req, res) => {
     const role = category || 'Main Ingredient'; // category from frontend is actually the role
     
     const result = await pool.query(`
-      INSERT INTO ingredients (ingredient_name, ingredient_type, category, categ_role, nutritional_data, is_active)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO ingredients (ingredient_name, subtitle, ingredient_type, category, categ_role, nutritional_data, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       name,
+      subtitle || null, // Subtitle (Tagalog name/translation of ingredient)
       normalizedType || null, // ingredient_type stores the type
       null, // category is kept null for backward compatibility (not used anymore)
       role, // categ_role stores the role (Main Ingredient, Additive, etc.)
@@ -267,6 +270,7 @@ router.post('/', authenticateToken, async (req, res) => {
     const newIngredient = {
       id: result.insertId,
       name,
+      subtitle: subtitle || null,
       type: normalizedType || null,
       category: role, // category in response maps to role
       image: image || null,
@@ -291,8 +295,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, type, category, status, image } = req.body;
-    
+    const { name, subtitle, type, category, status, image } = req.body;
+
     // Normalize type to singular
     const normalizedType = normalizeTypeToSingular(type);
 
@@ -335,11 +339,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const role = category || 'Main Ingredient'; // category from frontend is actually the role
     
     await pool.query(`
-      UPDATE ingredients 
-      SET ingredient_name = ?, ingredient_type = ?, category = ?, categ_role = ?, nutritional_data = ?, is_active = ?
+      UPDATE ingredients
+      SET ingredient_name = ?, subtitle = ?, ingredient_type = ?, category = ?, categ_role = ?, nutritional_data = ?, is_active = ?
       WHERE ingredient_id = ?
     `, [
       name,
+      subtitle || null, // Subtitle (Tagalog name/translation of ingredient)
       normalizedType || null, // ingredient_type stores the type
       null, // category is kept null for backward compatibility (not used anymore)
       role, // categ_role stores the role (Main Ingredient, Additive, etc.)
@@ -360,6 +365,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const updatedIngredient = {
       id: parseInt(id),
       name,
+      subtitle: subtitle || null,
       type: normalizedType || null,
       category: role, // category in response maps to role
       image: image || null,

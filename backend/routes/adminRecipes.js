@@ -204,9 +204,10 @@ router.get('/', async (req, res) => {
 
     // ✅ CRITICAL FIX: Added GROUP_CONCAT for images, dietary_tags, and medical conditions
     const mainQuery = `
-      SELECT 
+      SELECT
         r.recipe_id as id,
         r.recipe_name as title,
+        r.subtitle,
         r.description,
         r.prep_time,
         r.cook_time,
@@ -502,15 +503,16 @@ router.post('/', async (req, res) => {
 
     const recipeQuery = `
       INSERT INTO recipes (
-        recipe_name, description, instructions, prep_time, cook_time, 
+        recipe_name, subtitle, description, instructions, prep_time, cook_time,
         total_time, servings, difficulty_level, meal_type, dish_type, is_active,
         verification_status, verifier_name, verifier_credentials,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
-    
+
     const recipeResult = await connection.query(recipeQuery, [
       transformed.recipe.recipe_name,
+      transformed.recipe.subtitle || null,
       transformed.recipe.description,
       transformed.recipe.instructions,
       transformed.recipe.prep_time,
@@ -663,15 +665,16 @@ router.put('/:id', async (req, res) => {
     
     // Update main recipe including verifier_name and verifier_credentials
     await connection.query(
-      `UPDATE recipes SET 
-        recipe_name = ?, description = ?, instructions = ?, prep_time = ?, 
-        cook_time = ?, total_time = ?, servings = ?, difficulty_level = ?, 
+      `UPDATE recipes SET
+        recipe_name = ?, subtitle = ?, description = ?, instructions = ?, prep_time = ?,
+        cook_time = ?, total_time = ?, servings = ?, difficulty_level = ?,
         meal_type = ?, dish_type = ?, is_active = ?,
         verification_status = ?, verifier_name = ?, verifier_credentials = ?,
         updated_at = NOW()
       WHERE recipe_id = ?`,
       [
         transformed.recipe.recipe_name,
+        transformed.recipe.subtitle || null,
         transformed.recipe.description,
         transformed.recipe.instructions,
         transformed.recipe.prep_time,

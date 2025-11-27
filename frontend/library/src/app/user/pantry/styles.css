@@ -759,6 +759,10 @@ body.modal-open {
   text-align: center;
   position: relative;
   overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .ingredient-card:hover {
@@ -773,9 +777,22 @@ body.modal-open {
   animation: pulseGreen 2s ease-in-out infinite;
 }
 
+.ingredient-card:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .ingredient-card:active {
+    transform: scale(0.95);
+    background: rgba(46, 125, 50, 0.1);
+  }
+}
+
 .ingredient-image-container {
   position: relative;
   margin-bottom: 12px;
+  pointer-events: none;
 }
 
 .ingredient-image {
@@ -786,6 +803,7 @@ body.modal-open {
   margin: 0 auto;
   display: block;
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); /* smoother + longer */
+  pointer-events: none;
 }
 
 .ingredient-card:hover .ingredient-image {
@@ -814,6 +832,7 @@ body.modal-open {
 
 .ingredient-info {
   text-align: center;
+  pointer-events: none;
 }
 
 .ingredient-name {
@@ -822,6 +841,7 @@ body.modal-open {
   color: #2E7D32;
   margin-bottom: 4px;
   font-family: 'Poppins', sans-serif;
+  pointer-events: none;
   line-height: 1.2;
 }
 
@@ -836,6 +856,7 @@ body.modal-open {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .ingredient-category {
@@ -1004,6 +1025,10 @@ body.modal-open {
 
   .ingredient-card {
     padding: 12px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .ingredient-image {
@@ -1086,6 +1111,11 @@ body.modal-open {
 
   .ingredient-card {
     padding: 10px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    min-height: 44px; /* Minimum touch target size for mobile */
   }
 
   .ingredient-image {

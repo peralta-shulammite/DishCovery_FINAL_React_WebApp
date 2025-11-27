@@ -469,6 +469,17 @@
   font-family: 'Poppins', sans-serif;
 }
 
+.recipe-subtitle {
+  font-size: 12px;
+  color: white;
+  font-style: italic;
+  display: block;
+  margin-top: 4px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  opacity: 0.95;
+  font-family: 'Roboto', sans-serif;
+}
+
 .recipe-details {
   display: flex;
   align-items: center;

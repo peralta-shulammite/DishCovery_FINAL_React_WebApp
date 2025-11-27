@@ -356,12 +356,19 @@ export default function DishCoveryPantry() {
       }
     });
 
+  // Track if touch was used to prevent double-firing (onClick fires after onTouchEnd on mobile)
+  const lastTouchedId = useRef(null);
+  const touchTimeout = useRef(null);
+
   const dishCoveryToggleIngredient = async (ingredientId) => {
+    console.log('🔄 Toggling ingredient:', ingredientId);
     setDishCoverySelectedIngredients(prev => {
-      const newSelection = prev.includes(ingredientId)
+      const isSelected = prev.includes(ingredientId);
+      const newSelection = isSelected
         ? prev.filter(id => id !== ingredientId)
         : [...prev, ingredientId];
       
+      console.log(`✅ Ingredient ${ingredientId} ${isSelected ? 'deselected' : 'selected'}. Total selected: ${newSelection.length}`);
       return newSelection;
     });
   };
@@ -619,7 +626,48 @@ export default function DishCoveryPantry() {
               <div
                 key={ingredient.id}
                 className={`ingredient-card ${dishCoverySelectedIngredients.includes(ingredient.id) ? 'ingredient-selected' : ''}`}
-                onClick={() => dishCoveryToggleIngredient(ingredient.id)}
+                onClick={(e) => {
+                  console.log('🖱️ onClick fired for ingredient:', ingredient.id);
+                  
+                  // On desktop, always allow click
+                  // On mobile, prevent if this was just touched (mobile browsers fire both onClick and onTouchEnd)
+                  const isMobile = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+                  
+                  // Only skip onClick on mobile if this was just touched
+                  if (isMobile && lastTouchedId.current === ingredient.id) {
+                    console.log('⏭️ Skipping onClick - was just touched on mobile');
+                    // Clear the touch marker immediately
+                    lastTouchedId.current = null;
+                    if (touchTimeout.current) {
+                      clearTimeout(touchTimeout.current);
+                      touchTimeout.current = null;
+                    }
+                    return;
+                  }
+                  
+                  // Desktop or mobile without touch conflict - proceed with toggle
+                  console.log('✅ Proceeding with toggle');
+                  dishCoveryToggleIngredient(ingredient.id);
+                }}
+                onTouchEnd={(e) => {
+                  // Mark this as touched
+                  lastTouchedId.current = ingredient.id;
+                  
+                  // Toggle the ingredient
+                  dishCoveryToggleIngredient(ingredient.id);
+                  
+                  // Clear the touch marker after a short delay to allow click event to be ignored
+                  if (touchTimeout.current) {
+                    clearTimeout(touchTimeout.current);
+                  }
+                  touchTimeout.current = setTimeout(() => {
+                    lastTouchedId.current = null;
+                  }, 300);
+                  
+                  // Prevent default to avoid double-firing
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
               >
                 <div className="ingredient-image-container">
                   <img 
@@ -638,7 +686,7 @@ export default function DishCoveryPantry() {
                 <div className="ingredient-info">
                   <h3 className="ingredient-name">{ingredient.name}</h3>
                   {ingredient.subtitle && (
-                    <p className="ingredient-subtitle">{ingredient.subtitle}</p>
+                    <p className="ingredient-subtitle">({ingredient.subtitle})</p>
                   )}
                   <span className="ingredient-category">{ingredient.ingredient_type || ingredient.category || 'Other'}</span>
                 </div>
