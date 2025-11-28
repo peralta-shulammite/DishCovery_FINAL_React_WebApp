@@ -100,6 +100,8 @@ const updateUserRecipeCache = (action, data) => {
       const index = recipes.findIndex(r => r.id === data.id);
       if (index !== -1) {
         recipes[index] = { ...recipes[index], ...data };
+        // ✅ Log subtitle update for debugging
+        console.log(`✅ Cache updated recipe ${data.id}: subtitle = "${recipes[index].subtitle}"`);
       }
     } else if (action === 'delete') {
       recipes = recipes.filter(r => r.id !== data.id);
@@ -127,6 +129,8 @@ const syncFavoritesWithUpdate = (recipeId, updatedData, action = 'update') => {
       const index = favorites.findIndex(r => r.id === recipeId);
       if (index !== -1 && updatedData) {
         favorites[index] = { ...favorites[index], ...updatedData };
+        // ✅ Log subtitle update for debugging
+        console.log(`✅ Favorites synced recipe ${recipeId}: subtitle = "${favorites[index].subtitle}"`);
       }
     }
     
@@ -162,6 +166,7 @@ const transformRecipeData = (recipeData) => {
 
   return {
     title: recipeData.title || '',
+    subtitle: recipeData.subtitle || null,
     description: recipeData.description || '',
     instructions: Array.isArray(recipeData.instructions)
       ? recipeData.instructions

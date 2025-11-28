@@ -758,11 +758,14 @@ router.put('/:id', async (req, res) => {
 
     await connection.commit();
 
+    // ✅ Return response with subtitle from transformed data (which was saved to DB)
     res.json({ 
       success: true, 
       message: 'Recipe updated successfully',
       data: {
         id: recipeId,
+        title: transformed.recipe.recipe_name,
+        subtitle: transformed.recipe.subtitle || null,
         ...req.body,
         is_active: transformed.recipe.is_active
       },
