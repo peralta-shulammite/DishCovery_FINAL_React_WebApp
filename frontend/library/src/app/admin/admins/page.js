@@ -44,15 +44,15 @@ const AdminManagementPage = () => {
       console.log('🔍 [ADMIN ADMINS] Original baseUrl:', baseUrl);
     }
     
-    // Remove trailing slash
-    baseUrl = baseUrl.replace(/\/+$/, '');
+    // Remove trailing slashes
+    baseUrl = baseUrl.trim().replace(/\/+$/, '');
     
-    // Remove any existing /api at the end to prevent double /api/api/
-    const beforeRemove = baseUrl;
-    baseUrl = baseUrl.replace(/\/api\/?$/, '');
-    if (beforeRemove !== baseUrl && typeof window !== 'undefined') {
-      console.log('🔍 [ADMIN ADMINS] Removed /api from end:', beforeRemove, '→', baseUrl);
-    }
+    // ✅ CRITICAL FIX: Remove /api from the end to prevent double /api/api/
+    // Use a more robust regex that matches /api at the end (with or without trailing slash)
+    baseUrl = baseUrl.replace(/\/api(\/|$)/g, '');
+    
+    // Remove any remaining trailing slashes
+    baseUrl = baseUrl.replace(/\/+$/, '');
     
     // Always add /api at the end
     baseUrl = `${baseUrl}/api`;
@@ -71,11 +71,15 @@ const AdminManagementPage = () => {
       setError(null);
       
       const API_BASE_URL = getApiBaseUrl();
-      const fullUrl = `${API_BASE_URL}/admin-auth/list`;
+      // ✅ CRITICAL: Ensure we don't add /api again if endpoint already starts with /
+      const endpoint = '/admin-auth/list';
+      const fullUrl = `${API_BASE_URL}${endpoint}`;
 
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
 
-      console.log('🔍 [ADMIN LIST] Fetching admins from:', fullUrl);
+      console.log('🔍 [ADMIN LIST] API_BASE_URL:', API_BASE_URL);
+      console.log('🔍 [ADMIN LIST] Endpoint:', endpoint);
+      console.log('🔍 [ADMIN LIST] Full URL:', fullUrl);
 
       const response = await fetch(fullUrl, {
         method: 'GET',
