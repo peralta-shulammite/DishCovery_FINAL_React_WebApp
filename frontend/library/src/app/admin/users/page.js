@@ -4,9 +4,6 @@ import AdminLayout from '../../components/adminlayout';
 import { adminUsersAPI } from './api';
 import './styles.css';
 
-// API Base URL - automatically detects environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-
 const UserManagementContent = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('This Week');
   const [statusFilter, setStatusFilter] = useState('All');

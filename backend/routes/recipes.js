@@ -1362,6 +1362,7 @@ router.post('/filter', optionalAuth, async (req, res) => {
       SELECT DISTINCT
         r.recipe_id as id,
         r.recipe_name as title,
+        r.subtitle,
         r.description,
         r.prep_time,
         r.cook_time,
@@ -1433,6 +1434,7 @@ router.post('/filter', optionalAuth, async (req, res) => {
       GROUP BY 
         r.recipe_id,
         r.recipe_name,
+        r.subtitle,
         r.description,
         r.prep_time,
         r.cook_time,

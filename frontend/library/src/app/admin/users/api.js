@@ -17,13 +17,6 @@ const getApiBaseUrl = () => {
   return baseUrl;
 };
 
-const API_BASE_URL = getApiBaseUrl();
-
-// ✅ Debug log to verify API URL
-if (typeof window !== 'undefined') {
-  console.log('🔧 Admin Users API Base URL:', API_BASE_URL);
-}
-
 const getAuthToken = () => {
   return localStorage.getItem('token');
 };
@@ -32,6 +25,7 @@ export const adminUsersAPI = {
   // Get all users
   getAllUsers: async () => {
     try {
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/admin/users`, {
         method: 'GET',
         headers: {
@@ -56,6 +50,7 @@ export const adminUsersAPI = {
   // Activate user
   activateUser: async (userId) => {
     try {
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/activate`, {
         method: 'PUT',
         headers: {
@@ -80,6 +75,7 @@ export const adminUsersAPI = {
   // Deactivate user
   deactivateUser: async (userId) => {
     try {
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/deactivate`, {
         method: 'PUT',
         headers: {
@@ -108,6 +104,7 @@ export const adminUsersAPI = {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
 
+      const API_BASE_URL = getApiBaseUrl();
       let response;
       try {
         response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
@@ -190,6 +187,7 @@ export const adminUsersAPI = {
   // Bulk actions
   bulkSendMessage: async (userIds, message) => {
     try {
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/admin/users/bulk/message`, {
         method: 'POST',
         headers: {
@@ -214,6 +212,7 @@ export const adminUsersAPI = {
 
   bulkSendReminder: async (userIds) => {
     try {
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/admin/users/bulk/reminder`, {
         method: 'POST',
         headers: {
@@ -238,6 +237,7 @@ export const adminUsersAPI = {
 
   bulkDeactivateUsers: async (userIds) => {
     try {
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/admin/users/bulk/deactivate`, {
         method: 'PUT',
         headers: {
@@ -262,6 +262,7 @@ export const adminUsersAPI = {
 
   bulkDeleteUsers: async (userIds) => {
     try {
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/admin/users/bulk/delete`, {
         method: 'DELETE',
         headers: {
@@ -287,6 +288,7 @@ export const adminUsersAPI = {
   // Save admin notes and send as notification
   saveAdminNotes: async (userId, notes) => {
     try {
+      const API_BASE_URL = getApiBaseUrl();
       const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/notes`, {
         method: 'POST',
         headers: {
