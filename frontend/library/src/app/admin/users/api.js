@@ -16,15 +16,15 @@ const getApiBaseUrl = () => {
     console.log('🔍 [ADMIN USERS API] Original baseUrl:', baseUrl);
   }
   
-  // Remove trailing slash
-  baseUrl = baseUrl.replace(/\/+$/, '');
+  // Remove trailing slashes
+  baseUrl = baseUrl.trim().replace(/\/+$/, '');
   
-  // Remove any existing /api at the end to prevent double /api/api/
-  const beforeRemove = baseUrl;
-  baseUrl = baseUrl.replace(/\/api\/?$/, '');
-  if (beforeRemove !== baseUrl && typeof window !== 'undefined') {
-    console.log('🔍 [ADMIN USERS API] Removed /api from end:', beforeRemove, '→', baseUrl);
-  }
+  // ✅ CRITICAL FIX: Remove /api from the end to prevent double /api/api/
+  // Use a more robust regex that matches /api at the end (with or without trailing slash)
+  baseUrl = baseUrl.replace(/\/api(\/|$)/g, '');
+  
+  // Remove any remaining trailing slashes
+  baseUrl = baseUrl.replace(/\/+$/, '');
   
   // Always add /api at the end
   baseUrl = `${baseUrl}/api`;
@@ -45,7 +45,16 @@ export const adminUsersAPI = {
   getAllUsers: async () => {
     try {
       const API_BASE_URL = getApiBaseUrl();
-      const response = await fetch(`${API_BASE_URL}/admin/users`, {
+      const endpoint = '/admin/users';
+      const fullUrl = `${API_BASE_URL}${endpoint}`;
+      
+      if (typeof window !== 'undefined') {
+        console.log('🔍 [ADMIN USERS] API_BASE_URL:', API_BASE_URL);
+        console.log('🔍 [ADMIN USERS] Endpoint:', endpoint);
+        console.log('🔍 [ADMIN USERS] Full URL:', fullUrl);
+      }
+      
+      const response = await fetch(fullUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${getAuthToken()}`,
