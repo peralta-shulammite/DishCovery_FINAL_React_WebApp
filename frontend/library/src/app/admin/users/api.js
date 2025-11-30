@@ -8,12 +8,31 @@ const getApiBaseUrl = () => {
     }
   }
   // Use environment variable for production/Vercel deployment
-  // ✅ FIX: Ensure we always return a URL with /api at the end
+  // ✅ FIX: Handle both cases - with or without /api, and prevent double /api/api/
   let baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-  baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
-  if (!baseUrl.endsWith('/api')) {
-    baseUrl = `${baseUrl}/api`;
+  
+  // Debug logging
+  if (typeof window !== 'undefined') {
+    console.log('🔍 [ADMIN USERS API] Original baseUrl:', baseUrl);
   }
+  
+  // Remove trailing slash
+  baseUrl = baseUrl.replace(/\/+$/, '');
+  
+  // Remove any existing /api at the end to prevent double /api/api/
+  const beforeRemove = baseUrl;
+  baseUrl = baseUrl.replace(/\/api\/?$/, '');
+  if (beforeRemove !== baseUrl && typeof window !== 'undefined') {
+    console.log('🔍 [ADMIN USERS API] Removed /api from end:', beforeRemove, '→', baseUrl);
+  }
+  
+  // Always add /api at the end
+  baseUrl = `${baseUrl}/api`;
+  
+  if (typeof window !== 'undefined') {
+    console.log('🔍 [ADMIN USERS API] Final API_BASE_URL:', baseUrl);
+  }
+  
   return baseUrl;
 };
 
