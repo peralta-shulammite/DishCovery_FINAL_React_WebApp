@@ -26,28 +26,29 @@ const AdminManagementPage = () => {
     avatar: null
   });
 
+  // ✅ FIX: Use same pattern as other API files - check Vercel first
+  // Extract getApiBaseUrl to component level for reuse
+  const getApiBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      // For localhost testing, always use localhost
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return 'http://localhost:5000/api';
+      }
+    }
+    // Use environment variable for production/Vercel deployment
+    let baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+    baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    if (!baseUrl.endsWith('/api')) {
+      baseUrl = `${baseUrl}/api`;
+    }
+    return baseUrl;
+  };
+
   // Fetch admins from backend
   const fetchAdmins = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      // ✅ FIX: Use same pattern as other API files - check Vercel first
-      const getApiBaseUrl = () => {
-        if (typeof window !== 'undefined') {
-          // For localhost testing, always use localhost
-          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            return 'http://localhost:5000/api';
-          }
-        }
-        // Use environment variable for production/Vercel deployment
-        let baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-        baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
-        if (!baseUrl.endsWith('/api')) {
-          baseUrl = `${baseUrl}/api`;
-        }
-        return baseUrl;
-      };
       
       const API_BASE_URL = getApiBaseUrl();
       const fullUrl = `${API_BASE_URL}/admin-auth/list`;
@@ -107,13 +108,8 @@ const AdminManagementPage = () => {
     }
 
     try {
-      // Get API base URL and ensure it doesn't have double /api/
-      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
-      // Remove trailing slash if present
-      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
-      // If API_BASE_URL already ends with /api, don't add it again
-      const apiPath = API_BASE_URL.endsWith('/api') ? '/admin-auth/create' : '/api/admin-auth/create';
-      const fullUrl = `${API_BASE_URL}${apiPath}`;
+      const API_BASE_URL = getApiBaseUrl();
+      const fullUrl = `${API_BASE_URL}/admin-auth/create`;
       
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
 
@@ -193,11 +189,8 @@ const AdminManagementPage = () => {
     }
 
     try {
-      // Get API base URL and ensure it doesn't have double /api/
-      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
-      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
-      const apiPath = API_BASE_URL.endsWith('/api') ? '/admin-auth/verify' : '/api/admin-auth/verify';
-      const fullUrl = `${API_BASE_URL}${apiPath}`;
+      const API_BASE_URL = getApiBaseUrl();
+      const fullUrl = `${API_BASE_URL}/admin-auth/verify`;
 
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
 
@@ -261,11 +254,8 @@ const AdminManagementPage = () => {
     }
 
     try {
-      // Get API base URL and ensure it doesn't have double /api/
-      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
-      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
-      const apiPath = API_BASE_URL.endsWith('/api') ? `/admin-auth/${editingAdmin.id}` : `/api/admin-auth/${editingAdmin.id}`;
-      const fullUrl = `${API_BASE_URL}${apiPath}`;
+      const API_BASE_URL = getApiBaseUrl();
+      const fullUrl = `${API_BASE_URL}/admin-auth/${editingAdmin.id}`;
 
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
 
@@ -319,11 +309,8 @@ const AdminManagementPage = () => {
     }
 
     try {
-      // Get API base URL and ensure it doesn't have double /api/
-      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
-      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
-      const apiPath = API_BASE_URL.endsWith('/api') ? `/admin-auth/${adminId}` : `/api/admin-auth/${adminId}`;
-      const fullUrl = `${API_BASE_URL}${apiPath}`;
+      const API_BASE_URL = getApiBaseUrl();
+      const fullUrl = `${API_BASE_URL}/admin-auth/${adminId}`;
 
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
 
@@ -366,11 +353,8 @@ const AdminManagementPage = () => {
 
   const handleToggleStatus = async (adminId) => {
     try {
-      // Get API base URL and ensure it doesn't have double /api/
-      let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
-      API_BASE_URL = API_BASE_URL.replace(/\/$/, '');
-      const apiPath = API_BASE_URL.endsWith('/api') ? `/admin-auth/${adminId}/toggle-status` : `/api/admin-auth/${adminId}/toggle-status`;
-      const fullUrl = `${API_BASE_URL}${apiPath}`;
+      const API_BASE_URL = getApiBaseUrl();
+      const fullUrl = `${API_BASE_URL}/admin-auth/${adminId}/toggle-status`;
 
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || 'test-admin-token';
 
