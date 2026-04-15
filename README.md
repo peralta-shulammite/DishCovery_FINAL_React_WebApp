@@ -102,4 +102,4 @@ Installable as a PWA without needing an app store download.
 - Samantha Nicole Boado
 - Shulammite Peralta
 - Askia Islance Pesa
-- Fatimah Sta. Romnana
+- Fatimah Sta. Romana
